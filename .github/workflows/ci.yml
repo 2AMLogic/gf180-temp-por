@@ -1,0 +1,84 @@
+name: CI
+
+# Two jobs, split on whether the check needs the gf180mcu PDK / xschem:
+#
+#   checks       -- headless, no PDK/xschem/ngspice download. Runs on every
+#                   push to main and every PR. Must stay green and fast.
+#   pdk-checks   -- needs xschem + ngspice + a ~5 GB PDK install (via volare).
+#                   Kept off the default PR path per #30: nightly schedule +
+#                   manual dispatch only, so no PR is ever blocked on a PDK
+#                   download.
+#
+# Self-check inventory (verified against the repo at implementation time --
+# see #30):
+#   - sim/tests/*  (unittest, no PDK)        -> checks / sim/selftest.sh step 1
+#   - sim/selftest.sh end-to-end PVT smoke   -> checks (auto-skips without a
+#                                               PDK) AND re-asserted with
+#                                               --require-pdk in pdk-checks
+#   - design/netlist.py --check              -> pdk-checks (needs xschem + PDK)
+#   - "any pytest under sim/"                -> none exists; sim/tests/ is
+#                                               unittest-based, exercised by
+#                                               sim/selftest.sh step 1 above.
+#   - sim/devchar/run_devchar.py row-count
+#     guard (issue #24)                      -> excluded: #24 is still open,
+#                                               so the guard this task would
+#                                               wire in does not exist yet.
+#                                               Revisit once #24 lands.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    # PDK-dependent job only (see the `if:` gate below); nothing here reruns
+    # the headless `checks` job on a schedule.
+    - cron: "17 6 * * *"
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    name: checks (headless -- no PDK/xschem)
+    runs-on: ubuntu-latest
+    if: github.event_name != 'schedule'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: sim/selftest.sh (harness unit tests; PVT smoke auto-skips without a PDK)
+        run: bash sim/selftest.sh
+
+  pdk-checks:
+    name: pdk-checks (netlist export + full PVT smoke)
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install ngspice and xschem
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ngspice xschem
+
+      - name: Install the gf180mcu PDK (volare)
+        run: |
+          pip install volare
+          # Pinned to the commit this repo's committed evidence records were
+          # produced against (sim/devchar/SUMMARY.md, sim/smoke-bias/records/).
+          volare enable --pdk gf180mcu c6d73a35f524070e85faff4a6a9eef49553ebc2b
+
+      - name: design/netlist.py --check (deterministic-netlist staleness guard)
+        run: python3 design/netlist.py --check
+
+      - name: sim/selftest.sh --require-pdk (full end-to-end PVT smoke, no evidence written)
+        run: bash sim/selftest.sh --require-pdk
