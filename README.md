@@ -1,32 +1,58 @@
 # gf180-temp-por
 
-**PRIVATE — 2AM Logic proprietary IP. Canary block (wave 1).**
+A temperature sensor + power-on-reset (POR) pair, targeting the
+[gf180mcu](https://gf180mcu-pdk.readthedocs.io/) open PDK.
 
-Temperature sensor + power-on-reset pair on gf180mcu (open PDK), designed by agents driving
-[klayout-tools](https://github.com/2AMLogic/klayout-tools) and the
-open-source analog flow. Dual purpose, per the canary model: catalog
-inventory (eventually silicon-measured) and tool forcing-function
-(friction issues go to the public klayout-tools tracker).
+## What this is
 
-Selection rationale: Vidatronic-validated categories; tiny area rides along on any shuttle seat (matrix row 7).
+This is one of 2AM Logic's canary blocks: a small, self-contained analog
+IP block used both as a real design deliverable and as a forcing function
+for the open-source analog tooling it's built with. The design work —
+architecture survey, device characterization, schematic entry, testbench
+authoring, simulation, and (eventually) layout — is carried out by AI
+agents driving an open-source flow end to end.
 
-## Target specification (DRAFT — engineering to ratify, see issue #1)
+## Status: early-stage, in progress
 
-| Parameter | Target | Stretch |
-|---|---|---|
-| Temp range | −40…125 °C | — |
-| Temp accuracy (untrimmed) | ±3 °C | ±1.5 °C (1-pt trim) |
-| Temp interface | analog PTAT/CTAT out | digital out via SAR pairing |
-| Temp Iq | < 20 µA | < 5 µA |
-| POR threshold | 2.6 V ±5% | — |
-| POR hysteresis | ≥ 100 mV | — |
-| POR Iq | < 1 µA | < 0.3 µA |
-| POR reset pulse | ≥ 1 ms | programmable |
+Nothing here should be read as a finished or measured result — there is
+no silicon yet, and no completed layout. As of this writing the project
+has:
 
-Maturity ladder: simulation-complete → layout DRC/LVS-clean → shuttle
-seat → measured silicon over temperature.
+- ratified a target specification and architecture direction through a
+  series of recorded decisions (`spec/decision-records/`),
+- characterized the relevant gf180mcu devices (vertical PNP, resistor
+  flavors, MOS options) against a bootstrap simulation harness, and
+- begun recording PVT-corner simulation evidence (`sim/`).
 
-## Layout
+Schematic entry, full testbench sign-off, and layout have not happened
+yet. Every claim this project makes is expected to be backed by a
+testbench and by PVT corner data recorded in `sim/`, not asserted without
+evidence — until a stage is checked off above, treat it as not yet done.
+
+## The agent-native build
+
+This block is designed, simulated, and verified with AI agents as the
+primary workers, driving the flow directly rather than assisting a human
+doing the driving. Decisions are captured as they're made
+(`spec/decision-records/`), and simulation results are recorded
+append-only as evidence (`sim/`) rather than overwritten, so the design
+history stays auditable end to end. That's not a caveat on the work —
+it's the point of the project: proving out what an agent-driven,
+open-tooling analog design flow can actually deliver.
+
+## Toolchain
+
+- **PDK**: [gf180mcu](https://github.com/google/gf180mcu-pdk) (open PDK)
+- **Design / simulation**: [xschem](https://xschem.sourceforge.io/) +
+  [ngspice](https://ngspice.sourceforge.io/)
+- **Layout**: [klayout-tools](https://github.com/2AMLogic/klayout-tools),
+  a companion open-source project built to make KLayout-based DRC/LVS and
+  layout automation workable for an agent-driven flow. Wherever
+  klayout-tools proves awkward or is missing a capability this design
+  needs, that friction gets filed as a public issue there — this project
+  is one of the reasons that tool exists.
+
+## Layout of this repo
 
 ```
 spec/          ratified spec + decision records
@@ -53,3 +79,7 @@ Every run writes an append-only evidence record under
 `sim/<experiment-slug>/records/`. The record format is authoritative in
 [`sim/README.md`](sim/README.md); how to run the harness and write a
 testbench is in [`sim/harness/README.md`](sim/harness/README.md).
+
+## License
+
+Apache License 2.0 — see [LICENSE](LICENSE).
