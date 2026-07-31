@@ -27,8 +27,9 @@ has:
   xschem, with a reproducible ngspice netlist export (`design/`).
 
 The sub-circuits inside that hierarchy are still placeholders, and full
-testbench sign-off and layout have not happened yet. Every claim this project makes is expected to be backed by a
-testbench and by PVT corner data recorded in `sim/`, not asserted without
+testbench sign-off and layout have not happened yet. Every claim this
+project makes is expected to be backed by a testbench and by PVT corner
+data recorded in `sim/`, not asserted without
 evidence — until a stage is checked off above, treat it as not yet done.
 
 ## The agent-native build
