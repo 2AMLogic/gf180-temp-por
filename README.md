@@ -35,3 +35,21 @@ sim/           testbenches + PVT corner results (ngspice)
 layout/        GDS + DRC/LVS reports (klayout-tools driven)
 measurements/  silicon characterization (empty until tape-out)
 ```
+
+## Simulation
+
+PVT corner runs go through the harness in `sim/` (stdlib python3, no venv;
+needs `ngspice` and a gf180mcu PDK install):
+
+```bash
+python3 sim/run_corners.py --check-env     # is ngspice + the PDK present?
+python3 sim/run_corners.py --list          # experiments, corners, corner sets
+python3 sim/run_corners.py <experiment>    # run the full PVT grid, mint a record
+bash sim/selftest.sh                       # prove the harness works end to end
+source sim/env.sh                          # same PDK in an interactive ngspice/xschem
+```
+
+Every run writes an append-only evidence record under
+`sim/<experiment-slug>/records/`. The record format is authoritative in
+[`sim/README.md`](sim/README.md); how to run the harness and write a
+testbench is in [`sim/harness/README.md`](sim/harness/README.md).
