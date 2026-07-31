@@ -20,10 +20,12 @@ name: CI
 #                                               unittest-based, exercised by
 #                                               sim/selftest.sh step 1 above.
 #   - sim/devchar/run_devchar.py row-count
-#     guard (issue #24)                      -> excluded: #24 is still open,
-#                                               so the guard this task would
-#                                               wire in does not exist yet.
-#                                               Revisit once #24 lands.
+#     guard (issue #24)                      -> covered: sim/tests/test_run_devchar.py
+#                                               exercises CsvWriter's append-time
+#                                               row-count verification (no PDK
+#                                               needed), run by the same
+#                                               sim/selftest.sh step 1 as the rest
+#                                               of sim/tests/.
 
 on:
   push:
