@@ -1,0 +1,103 @@
+{
+  "name": "temp-core-designer-check",
+  "description": "Designer-level PVT check of design/temp_core.sch: PTAT/CTAT transfer and output headroom, systematic temperature error, supply sensitivity, Iq, disabled-state draw, pad-load sensitivity and trim-ladder range/LSB.",
+  "claim": "spec/target-spec.md#temp-vt-transfer -- design-intent slope and output range for the PTAT/CTAT pads, the row target-spec.md tags [TBD-#9] and this issue owns. Also substantiates, at the systematic level only: #temp-accuracy-untrimmed (+/-3 C), #temp-supply-sensitivity (<=0.5 C/V, i.e. <=0.33 C over the +/-10 % window), #temp-iq (<20 uA) and #temp-trim-strategy (1-point 25 C gain trim -- range and LSB measured here). Deterministic corners only: design.ngspice sets sw_stat_mismatch=0, so this bounds the SYSTEMATIC error and cannot see the mismatch share the [3sigma] rows require -- that is issue #15's Monte Carlo job, and target-spec.md marks those rows 'conditional #15' for exactly this reason. Published measured values ([TBD-#13]) and full spec-row coverage remain issue #13's.",
+  "netlist": "tb_temp_core.spice",
+  "nominal_supply_v": 3.3,
+  "supply_tolerance": 0.1,
+  "temperatures_c": [-40, -15, 10, 25, 27, 60, 90, 125],
+  "corners": ["full"],
+  "analyses": ["op"],
+  "measure": {
+    "vptat": "v(ptat)",
+    "vctat": "v(ctat)",
+    "ptat_k_mvk": "v(ptat)/v(tk)*1e3",
+    "terr_untrim_c": "v(ptat)/4.308842e-3 - v(tk)",
+    "terr_supply_c": "(v(ptat)-v(ptatn))/4.308842e-3",
+    "vout_margin_v": "min(min(v(ptat)-0.2,v(ctat)-0.2),min(v(vdd)-0.2-v(ptat),v(vdd)-0.2-v(ctat)))",
+    "iq_ua": "-i(vsup)*1e6",
+    "iq_dis_ua": "-i(vsupd)*1e6",
+    "vptat_dis_mv": "v(ptatd)*1e3",
+    "vctat_dis_mv": "v(ctatd)*1e3",
+    "load10m_err_pct": "(v(ptatl)-v(ptat))/v(ptat)*100",
+    "dvbe_mv": "(v(xdut.nb)-v(xdut.nc))*1e3",
+    "aoffs_uv": "(v(xdut.na)-v(xdut.nb))*1e6",
+    "vnd_mv": "v(xdut.nd)*1e3",
+    "mp3_hdr_v": "v(vdd)-v(xdut.m3d)",
+    "rtrim_nom_k": "v(nl32)/2.5u*1e-3",
+    "rtrim_lsb_pct": "(v(nl32)-v(nl33))/v(nl32)*100",
+    "rtrim_range_pct": "(v(nl00)-v(nl63))/v(nl32)*100"
+  },
+  "checks": {
+    "vptat": {
+      "min": 0.9,
+      "max": 2.1,
+      "min_spread_pct": 40.0,
+      "description": "PTAT output over -40..125 C; the spread floor proves .temp actually applied (a flat PTAT output is broken, not perfect)"
+    },
+    "vctat": {
+      "min": 0.40,
+      "max": 0.85,
+      "min_spread_pct": 30.0,
+      "description": "CTAT output = VEB of XQ1; falls ~1.86 mV/C"
+    },
+    "terr_untrim_c": {
+      "min": -3.0,
+      "max": 3.0,
+      "description": "spec/target-spec.md#temp-accuracy-untrimmed. Untrimmed temperature error against the declared nominal transfer constant K0 = 4.308842 mV/K (tt, 25 C). Deterministic corners only -- the +/-3 C row is a [3sigma] figure that also has to absorb mismatch, which this record cannot see."
+    },
+    "terr_supply_c": {
+      "min": -0.33,
+      "max": 0.33,
+      "description": "spec/target-spec.md#temp-supply-sensitivity: <=0.5 C/V, i.e. <=0.33 C across the +/-10 % window. Measured as the difference between the DUT on this point's rail and an identical DUT on vdd_nom, so it is a true per-point number and reads exactly 0 at the nominal rail"
+    },
+    "vout_margin_v": {
+      "min": 0.0,
+      "description": "spec/target-spec.md#temp-vt-transfer headroom bound [P#1]: 0.2 V <= V(out) <= VDD - 0.2 V at every corner, for BOTH pads. This measurement is the worst of the four margins, so a single number >= 0 is the whole bound"
+    },
+    "iq_ua": {
+      "max": 20.0,
+      "description": "spec/target-spec.md#temp-iq (<20 uA). Conservative against the row as written: target-spec.md §5 rule 1 charges shared-bias-core current that must be live before POR to #por-iq, but this number includes the whole 0.5 uA IBIAS reference pushed into the pin"
+    },
+    "iq_dis_ua": {
+      "max": 0.10,
+      "description": "EN low (pre-POR): the cell's own draw from its VDD pin must be negligible"
+    },
+    "vptat_dis_mv": {
+      "max": 1.0,
+      "description": "EN low: PTAT pad held at VSS, not floating"
+    },
+    "vctat_dis_mv": {
+      "max": 1.0,
+      "description": "EN low: CTAT pad held at VSS, not floating"
+    },
+    "aoffs_uv": {
+      "min": -100.0,
+      "max": 100.0,
+      "description": "residual V(NA)-V(NB): the amplifier's SYSTEMATIC input offset. 1 mV here costs 5.58 C untrimmed, so it has to stay in the tens of uV by design; the random share is #15's."
+    },
+    "vnd_mv": {
+      "max": 50.0,
+      "description": "startup-kick node: high only while the core is dead, so a live core must show it collapsed"
+    },
+    "mp3_hdr_v": {
+      "min": 0.25,
+      "description": "VDD - V(M3D): headroom left for the PTAT leg's cascode stack at the worst (hot, low-rail) corner"
+    },
+    "rtrim_lsb_pct": {
+      "min": 0.18,
+      "max": 0.30,
+      "description": "one trim LSB as a fraction of R2 (design 0.25 %, reduced by switch Ron)"
+    },
+    "rtrim_range_pct": {
+      "min": 14.0,
+      "max": 17.0,
+      "description": "full trim range (design 15.75 %, i.e. +/-7.9 % about the nominal code) -- must cover a +/-4 mV amplifier offset"
+    },
+    "load10m_err_pct": {
+      "min": -12.0,
+      "max": 0.0,
+      "description": "gain error from a 10 Mohm pad load. Not a pass/fail on the design -- it is the measured cost of having no output buffer (DR-005's temp_buffer cell), and the reason the pad spec is Rload >= 1 Gohm."
+    }
+  }
+}

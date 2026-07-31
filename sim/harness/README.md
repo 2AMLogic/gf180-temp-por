@@ -254,3 +254,25 @@ harness does not require xschem at all. To simulate a schematic, strip its
 export to a fragment (or netlist a testbench schematic without its
 `.control`/`.end` block) and point a `tb.json` at it — the corner runner is
 agnostic about whether the fragment was typed or generated.
+
+### `sim/build_tb.py` — inlining an exported cell into a fragment
+
+A fragment may not `.include` anything, so simulating a `design/` cell means
+inlining its `.subckt` export into the fragment. Doing that by hand lets the
+evidence trail drift silently away from the schematic, so it is generated
+instead:
+
+```bash
+python3 sim/build_tb.py           # regenerate every experiment's fragment
+python3 sim/build_tb.py --check   # fail if any committed fragment is stale
+```
+
+Each participating experiment keeps a hand-written
+`testbench/stimulus.spice` (sources, loads, probes) and a **generated**
+`testbench/<name>.spice` = stimulus + a verbatim copy of one or more
+`design/netlist/<cell>.spice`, with each source's sha256 in the header. Add an
+experiment by adding a row to `FRAGMENTS` in `sim/build_tb.py`.
+
+`build_tb.py --check` needs neither xschem nor the PDK, so it runs in the
+headless CI job; `design/netlist.py --check` (which does need both) closes the
+other half of the chain by proving the export reproduces from the `.sch`.
