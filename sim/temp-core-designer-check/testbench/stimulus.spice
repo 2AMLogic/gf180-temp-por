@@ -1,0 +1,104 @@
+* temp-core-designer-check -- stimulus half of the testbench fragment.
+*
+* The other half is a verbatim copy of design/netlist/temp_core.spice,
+* appended by build_tb.py to produce tb_temp_core.spice. Edit THIS file (or
+* the schematic), never the generated fragment.
+*
+* Netlist FRAGMENT: no .include / .lib / .temp / .control / .end -- the
+* harness owns those. Parameters it supplies: vdd_val, vdd_nom, temp_c.
+*
+* Five independent branches, each answering one question:
+*
+*   1. xdut  enabled DUT, effectively unloaded pads (1 Tohm)
+*            -> V(PTAT), V(CTAT), the PTAT transfer constant, output
+*               headroom, and Iq.
+*   2. xdis  a second DUT with EN tied low
+*            -> what the cell draws from its own VDD pin before POR releases.
+*   3. xnom  a third DUT hard-wired to vdd_nom
+*            -> supply sensitivity, as a direct difference against branch 1.
+*   4. xld   a fourth DUT with a 10 Mohm pad load
+*            -> how much the missing output buffer costs, measured rather
+*               than argued (the PTAT node's source impedance is R2).
+*   5. xL*   four standalone copies of the trim ladder at codes 0 / 32 / 33 /
+*            63, driven by an ideal 2.5 uA
+*            -> trim range, LSB size and monotonicity across the whole PVT
+*               grid, without needing six schematic variants.
+*
+* Absolute-temperature probe: `temper` is not reachable from a measure
+* expression, so it is published as a node voltage (1 V per kelvin).
+
+Btk tk 0 v='temper + 273.15'
+Rtk tk 0 1G
+
+* ---- 1. enabled DUT ---------------------------------------------------
+* IBIAS is sourced from the same rail the DUT's Iq is measured on, so
+* iq_ua is the conservative number: it includes the 0.5 uA reference that
+* bias_core pushes into the pin (see design/temp_core.md, Iq budget).
+vsup  vdd 0 dc {vdd_val}
+ven   en  0 dc {vdd_val}
+xdut  vdd 0 ibias en ptat ctat temp_core
+ibref vdd ibias dc 500n
+Rlp   ptat 0 1T
+Rlc   ctat 0 1T
+
+* ---- 2. disabled DUT (EN low) -----------------------------------------
+* IBIAS comes from a separate rail here: with EN low the cell shunts the
+* pin to VSS, so that 0.5 uA is bias_core's leg, not temp_core's. What
+* vsupd measures is the cell's own draw from its own supply pin.
+vsupd vddd 0 dc {vdd_val}
+vend  end  0 dc 0
+vbias vbr  0 dc {vdd_val}
+xdis  vddd 0 ibiasd end ptatd ctatd temp_core
+ibrfd vbr ibiasd dc 500n
+Rlpd  ptatd 0 1T
+Rlcd  ctatd 0 1T
+
+* ---- 3. enabled DUT on the NOMINAL rail -------------------------------
+* Same DUT, same temperature, same corner, but hard-wired to vdd_nom instead
+* of this point's vdd_val. The difference between the two PTAT outputs is
+* the whole supply-sensitivity measurement (spec/target-spec.md
+* #temp-supply-sensitivity) with no cross-point arithmetic: at the nominal
+* rail the two copies are identical and the measurement reads zero by
+* construction. EN gets its own vdd_nom-referenced driver so this copy is
+* never driven above its own rail.
+vsupn vddn 0 dc {vdd_nom}
+venn  enn  0 dc {vdd_nom}
+xnom  vddn 0 ibiasn enn ptatn ctatn temp_core
+ibrfn vddn ibiasn dc 500n
+Rlpn  ptatn 0 1T
+Rlcn  ctatn 0 1T
+
+* ---- 4. enabled DUT into a 10 Mohm pad load ---------------------------
+vsupl vddl 0 dc {vdd_val}
+xld   vddl 0 ibiasl en ptatl ctatl temp_core
+ibrfl vddl ibiasl dc 500n
+Rlpl  ptatl 0 10meg
+Rlcl  ctatl 0 10meg
+
+* ---- 5. trim ladder, standalone, four codes ---------------------------
+* Same devices and same r_length values as the ladder inside temp_core.
+.subckt trimlad top vss b5 b4 b3 b2 b1 b0
+XR2F  top t5   vss ppolyf_u r_width=2u r_length=2652.6u m=1
+XR2T5 t5  t4   vss ppolyf_u r_width=2u r_length=229.71u m=1
+XR2T4 t4  t3   vss ppolyf_u r_width=2u r_length=114.69u m=1
+XR2T3 t3  t2   vss ppolyf_u r_width=2u r_length=57.18u  m=1
+XR2T2 t2  t1   vss ppolyf_u r_width=2u r_length=28.42u  m=1
+XR2T1 t1  t0   vss ppolyf_u r_width=2u r_length=14.03u  m=1
+XR2T0 t0  vss  vss ppolyf_u r_width=2u r_length=6.85u   m=1
+XSW5  t5  b5 t4  vss nfet_03v3 W=32u L=0.5u nf=1 m=1
+XSW4  t4  b4 t3  vss nfet_03v3 W=32u L=0.5u nf=1 m=1
+XSW3  t3  b3 t2  vss nfet_03v3 W=32u L=0.5u nf=1 m=1
+XSW2  t2  b2 t1  vss nfet_03v3 W=32u L=0.5u nf=1 m=1
+XSW1  t1  b1 t0  vss nfet_03v3 W=32u L=0.5u nf=1 m=1
+XSW0  t0  b0 vss vss nfet_03v3 W=32u L=0.5u nf=1 m=1
+.ends trimlad
+
+xL00 nl00 0 0   0   0   0   0   0   trimlad
+xL32 nl32 0 vdd 0   0   0   0   0   trimlad
+xL33 nl33 0 vdd 0   0   0   0   vdd trimlad
+xL63 nl63 0 vdd vdd vdd vdd vdd vdd trimlad
+il00 0 nl00 dc 2.5u
+il32 0 nl32 dc 2.5u
+il33 0 nl33 dc 2.5u
+il63 0 nl63 dc 2.5u
+

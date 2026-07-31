@@ -11,6 +11,15 @@ name: CI
 #
 # Self-check inventory (verified against the repo at implementation time --
 # see #30):
+#   - sim/build_tb.py --check                -> checks (pure stdlib python; it
+#                                               compares committed testbench
+#                                               fragments against the committed
+#                                               design/netlist/*.spice exports,
+#                                               so it needs no PDK. The other
+#                                               half of that chain,
+#                                               design/netlist.py --check, does
+#                                               need xschem + PDK and stays in
+#                                               pdk-checks below.)
 #   - sim/tests/*  (unittest, no PDK)        -> checks / sim/selftest.sh step 1
 #   - sim/selftest.sh end-to-end PVT smoke   -> checks (auto-skips without a
 #                                               PDK) AND re-asserted with
@@ -52,6 +61,9 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+
+      - name: sim/build_tb.py --check (testbench fragments match the exported netlists)
+        run: python3 sim/build_tb.py --check
 
       - name: sim/selftest.sh (harness unit tests; PVT smoke auto-skips without a PDK)
         run: bash sim/selftest.sh
