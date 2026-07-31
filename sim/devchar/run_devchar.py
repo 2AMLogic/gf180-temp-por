@@ -149,22 +149,85 @@ def run_deck(env: Env, template: Path, tokens: dict, raw_stem: str, run_dir: Pat
     return proc.stdout
 
 
+class CsvWriteVerificationError(RuntimeError):
+    """Raised when a CsvWriter's post-close() row count does not match what
+    it believes it appended.
+
+    sim/ results are append-only evidence (CLAUDE.md); this runner must
+    never report success on a write that could not be verified. See #24:
+    a run was observed printing a full success count while the persisted
+    row count silently disagreed.
+    """
+
+
+def _count_data_rows(path: Path) -> int:
+    """Number of CSV data rows in path (excluding the header row).
+
+    0 if the file does not exist or is empty. This always re-reads from
+    disk -- it is the "actual file state" half of the verification, not a
+    count any writer/caller believes it produced.
+    """
+    if not path.exists():
+        return 0
+    with open(path, newline="") as fh:
+        rows = list(csv.reader(fh))
+    return max(len(rows) - 1, 0)  # -1 for the header row
+
+
 class CsvWriter:
+    """Append-only CSV writer for sim/ evidence files.
+
+    Every write() call increments an internal counter. close() re-reads the
+    file from disk and raises CsvWriteVerificationError unless the file's
+    row count grew by exactly that many rows -- catching silent
+    under-(or over-)persistence (concurrent-writer races, buffering/FS
+    timing issues, etc.) that a caller's own "N points recorded" tally
+    would not catch, since that tally is derived from the same in-memory
+    belief the writer holds, not from the bytes actually on disk (#24).
+    """
+
     def __init__(self, path: Path, fields: list[str]):
         self.path = path
         self.fields = fields
-        self._new = not path.exists()
         self.path.parent.mkdir(parents=True, exist_ok=True)
+        self._initial_row_count = _count_data_rows(path)
+        self._new = not path.exists()
         self._fh = open(path, "a", newline="")
         self._w = csv.DictWriter(self._fh, fieldnames=fields)
+        self._rows_written = 0
+        self._closed = False
         if self._new:
             self._w.writeheader()
 
     def write(self, row: dict):
         self._w.writerow(row)
+        self._rows_written += 1
+
+    @property
+    def rows_written(self) -> int:
+        """Rows accepted via write() in this CsvWriter's lifetime."""
+        return self._rows_written
 
     def close(self):
+        if self._closed:
+            return
         self._fh.close()
+        self._closed = True
+
+        expected = self._initial_row_count + self._rows_written
+        actual = _count_data_rows(self.path)
+        if actual != expected:
+            raise CsvWriteVerificationError(
+                f"{self.path.name}: appended-row verification failed after "
+                f"close() -- write() was called {self._rows_written} "
+                f"time(s) ({self._initial_row_count} pre-existing row(s), "
+                f"expected {expected} total), but the file on disk now has "
+                f"{actual} data row(s) (delta "
+                f"{actual - self._initial_row_count} vs. expected delta "
+                f"{self._rows_written}). Refusing to report success on an "
+                f"unverified append -- sim/ results are append-only "
+                f"evidence (see CLAUDE.md)."
+            )
 
 
 # ---------------------------------------------------------------------------
@@ -517,26 +580,33 @@ def main():
 
     pnp_records, res_records, mos_records = [], [], []
 
+    # CsvWriter.close() raises CsvWriteVerificationError (and this script
+    # exits non-zero) if the CSV's on-disk row count doesn't match what was
+    # actually written -- the "N points recorded" lines below are only ever
+    # printed once that verification has passed (#24).
     pnp_csv = CsvWriter(RESULTS_DIR / "pnp_vbe.csv", PNP_FIELDS)
     try:
         run_pnp(env, temps, run_id, ts, pnp_csv, pnp_records)
     finally:
         pnp_csv.close()
-    print(f"PNP: {len(pnp_records)} corner/temp points recorded")
+    print(f"PNP: {len(pnp_records)} corner/temp points recorded "
+          f"({pnp_csv.rows_written} row(s) appended, verified)")
 
     res_csv = CsvWriter(RESULTS_DIR / "res_tc.csv", RES_FIELDS)
     try:
         run_res(env, temps, run_id, ts, res_csv, res_records)
     finally:
         res_csv.close()
-    print(f"RES: {len(res_records)} corner/temp points recorded")
+    print(f"RES: {len(res_records)} corner/temp points recorded "
+          f"({res_csv.rows_written} row(s) appended, verified)")
 
     mos_csv = CsvWriter(RESULTS_DIR / "mos_vt_sub.csv", MOS_FIELDS)
     try:
         run_mos(env, temps, run_id, ts, mos_csv, mos_records)
     finally:
         mos_csv.close()
-    print(f"MOS: {len(mos_records)} corner/temp/device points recorded")
+    print(f"MOS: {len(mos_records)} corner/temp/device points recorded "
+          f"({mos_csv.rows_written} row(s) appended, verified)")
 
     report = write_derived_report(
         pnp_records, res_records, mos_records,
