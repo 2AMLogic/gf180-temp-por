@@ -1,0 +1,66 @@
+#### Project-local xschemrc for gf180-temp-por.
+####
+#### Used by `python3 design/netlist.py` (via `xschem --rcfile`) and suitable
+#### for interactive sessions:
+####
+####     source sim/env.sh                 # exports GF180_PDK_PATH, PDK_ROOT, PDK
+####     xschem --rcfile design/xschemrc design/temp_por_top.sch
+####
+#### It deliberately does NOT source the PDK's own xschemrc: that file hardcodes
+#### the gf180mcuD variant and pulls in interactive defaults (start window,
+#### toolbar, tabbed interface) that make batch netlisting less predictable.
+#### Everything netlisting actually needs is set explicitly below, so the export
+#### is reproducible on any machine with the same PDK.
+
+#### Where this file lives -- design/ is the project symbol library.
+set design_dir [file normalize [file dirname [info script]]]
+
+#### The gf180mcu variant directory (the one containing libs.tech/).
+#### sim/harness/pdk.py resolves this; netlist.py passes it through the
+#### environment so there is exactly one PDK-discovery implementation in
+#### the repo.
+if { [info exists env(GF180_PDK_PATH)] && $env(GF180_PDK_PATH) ne {} } {
+  set gf180_pdk_path $env(GF180_PDK_PATH)
+} elseif { [info exists env(PDK_ROOT)] && $env(PDK_ROOT) ne {} } {
+  set gf180_variant {gf180mcuD}
+  if { [info exists env(PDK)] && $env(PDK) ne {} } { set gf180_variant $env(PDK) }
+  set gf180_pdk_path $env(PDK_ROOT)/$gf180_variant
+} else {
+  puts stderr {xschemrc: no GF180_PDK_PATH / PDK_ROOT in the environment.}
+  puts stderr {          Run 'source sim/env.sh' (or python3 sim/run_corners.py --check-env).}
+  set gf180_pdk_path {}
+}
+
+#### Library search path. Order matters: xschem resolves a symbol reference
+#### against these roots in turn, so `symbols/nfet_03v3.sym` finds the PDK
+#### device and `bias_core.sym` finds this project's cell.
+set XSCHEM_LIBRARY_PATH {}
+append XSCHEM_LIBRARY_PATH :${XSCHEM_SHAREDIR}/xschem_library/devices
+append XSCHEM_LIBRARY_PATH :${XSCHEM_SHAREDIR}/xschem_library
+if { $gf180_pdk_path ne {} } {
+  append XSCHEM_LIBRARY_PATH :${gf180_pdk_path}/libs.tech/xschem
+}
+append XSCHEM_LIBRARY_PATH :${design_dir}
+
+#### Allow the sim harness' XSCHEM_USER_LIBRARY_PATH (testbench dirs) to be
+#### picked up too, so a testbench cell can instantiate design/ symbols.
+if { [info exists env(XSCHEM_USER_LIBRARY_PATH)] } {
+  append XSCHEM_LIBRARY_PATH :$env(XSCHEM_USER_LIBRARY_PATH)
+}
+
+#### Netlisting behaviour (the load-bearing part of this file).
+set netlist_type spice
+#### Netlist the cell being netlisted as a .subckt rather than as a flat deck.
+#### Every cell in design/ -- including the top level -- is a reusable block
+#### that testbenches instantiate, never a standalone simulation deck.
+set top_is_subckt 1
+#### Keep hierarchy: sub-circuits stay as .subckt definitions + X instances.
+set flat_netlist 0
+#### Device symbols in the PDK carry spiceprefix=X; honour it.
+set spiceprefix 1
+
+#### Start with no schematic loaded when invoked without a filename.
+set XSCHEM_START_WINDOW {}
+
+#### Do not open the interactive info window during batch runs.
+set show_infowindow 0
