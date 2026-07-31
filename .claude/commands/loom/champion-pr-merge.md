@@ -656,10 +656,22 @@ If ANY safety criterion fails, do NOT merge. How the failure is handled depends 
 
 ### Transient failures — keep `loom:pr`, retry next tick
 
-Add a comment explaining why, and **keep the `loom:pr` label** so the PR is re-evaluated on the next Champion tick once the blocking condition clears:
+Add a comment explaining why, and **keep the `loom:pr` label** so the PR is re-evaluated on the next Champion tick once the blocking condition clears.
+
+**Idempotency guard required.** Some transient-failure conditions do not clear on their own between ticks (most notably: a size-check failure with no `loom:auto-merge-ok` label — the PR will sit at the same size forever until a human/Judge adds the label). Under the 10-minute cron, a bare "keep the label + comment" loop with no guard re-posts a near-identical comment **every tick indefinitely**. Guard every transient-failure comment with a marker + `grep -qF` check, the same idempotency pattern used for the stale-PR case below — the only difference is transient failures keep `loom:pr` (they auto-retry) while the stale-PR case swaps it out (it does not):
 
 ```bash
-gh pr comment <number> --body "**Champion: Cannot Auto-Merge**
+PR_NUMBER=<number>
+CRITERION_SLUG=<short-stable-slug-for-the-failing-criterion>   # e.g. size-limit, critical-file, conflict
+NOTICE_MARKER="<!-- champion:${CRITERION_SLUG}-notice pr${PR_NUMBER} -->"
+
+# Idempotency guard: only comment once per blocking condition. If a prior tick
+# already posted this criterion's notice, do nothing (prevents per-tick spam).
+if gh pr view "$PR_NUMBER" --json comments --jq '.comments[].body' | grep -qF "$NOTICE_MARKER"; then
+  echo "${CRITERION_SLUG} notice already posted for #$PR_NUMBER — skipping"
+else
+  gh pr comment "$PR_NUMBER" --body "$NOTICE_MARKER
+**Champion: Cannot Auto-Merge**
 
 This PR cannot be automatically merged due to the following:
 
@@ -673,9 +685,12 @@ Keeping \`loom:pr\` label. Champion will retry on the next tick once the blockin
 
 ---
 *Automated by Champion role*"
+fi
 ```
 
-**Do NOT remove the `loom:pr` label for transient failures** — the next tick retries automatically.
+**Do NOT remove the `loom:pr` label for transient failures** — the next tick retries automatically once the blocking condition clears (e.g. `loom:auto-merge-ok` is added, CI goes green, the conflict is resolved). The marker only suppresses duplicate comments; it does not change label handling.
+
+**Size-limit failures** specifically use `CRITERION_SLUG=size-limit` (marker: `<!-- champion:size-limit-notice pr<N> -->`) — a PR over the line limit with no `loom:auto-merge-ok` label will never clear on its own and would otherwise be re-commented every tick.
 
 ### Stale PR (recency check failed) — comment once, route to Doctor
 
