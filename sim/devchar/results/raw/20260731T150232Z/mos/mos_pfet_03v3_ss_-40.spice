@@ -1,0 +1,59 @@
+* mos_vt_sub.spice -- MOS Vt / subthreshold characterization deck (issue #4)
+*
+* Template deck. Tokens (substituted by run_devchar.sh, one instantiation
+* per device/corner/temp/polarity combination -- see run_devchar.sh for the
+* per-device/per-polarity token tables, since NMOS/PMOS need mirrored bias
+* networks (source/body tie, gate-sweep direction, signed measure targets)
+* that this template deliberately keeps as plain node/value substitution
+* rather than in-deck conditionals):
+*   /Users/rwalters/.volare      volare PDK root, e.g. ~/.volare
+*   ss        MOS corner section: typical | ss | ff | fs | sf
+*   -40          circuit temperature in degC
+*   pfet_03v3        subckt name, e.g. nfet_03v3 / pfet_03v3 / nfet_06v0_nvt
+*   10u 1u device width/length
+*   s          body-tie node: "0" (NMOS) or "s" (PMOS, tied to source)
+*   3.3            source bias (0 for NMOS, rail value for PMOS)
+*   3.25   low-field drain bias for Vt/subthreshold extraction
+*                     (+50mV over source for NMOS, -50mV for PMOS)
+*   3.3 0 -0.005  gate sweep bounds/direction
+*   1e-06    signed constant-current Vt target, 100nA*(W/L)
+*   1e-08 1e-09  signed subthreshold two-point
+*                     currents (one decade apart) for swing extraction
+*   0 0 3.3  full-rail "Ion" bias point, repeated
+*                     at 2.97V / 3.30V / 3.63V (+-10% of the DR-001-pinned
+*                     3.3V rail) for the supply-dependence criterion
+*   /Users/rwalters/GitHub/gf180-temp-por/.loom/worktrees/issue-4/sim/devchar/results/raw/20260731T150232Z/mos/mos_pfet_03v3_ss_-40.wrdata        unique tag for this run's raw Id-Vg curve file
+*
+* Vt extraction: constant-current method, Id_target = 100nA*(W/L), a
+* standard SPICE-comparable Vt definition independent of gm noise.
+* Subthreshold swing: two-point method between ITARGET_SSLO and
+* ITARGET_SSHI (one decade of drain current apart), SS[mV/dec] =
+* (Vg_at_ISSHI - Vg_at_ISSLO) * 1000 for NMOS (sign flips for PMOS, see
+* run_devchar.sh's post-processing).
+
+.include '/Users/rwalters/.volare/gf180mcuD/libs.tech/ngspice/design.ngspice'
+.lib '/Users/rwalters/.volare/gf180mcuD/libs.tech/ngspice/sm141064.ngspice' ss
+.temp -40
+
+* --- Low-field DUT: Vt / subthreshold Id-Vg sweep ---
+Xdut d g s s pfet_03v3 w=10u l=1u
+Vd d 0 DC 3.25
+Vg g 0 DC 3.3
+Vs s 0 DC 3.3
+
+* --- Full-rail Ion point, repeated across +-10% of the pinned 3.3V rail ---
+Xdut_ion dion gion sion sion pfet_03v3 w=10u l=1u
+Vd_ion dion 0 DC 0
+Vg_ion gion 0 DC 0
+Vs_ion sion 0 DC 3.3
+
+.control
+dc vg 3.3 0 -0.005
+meas dc vth_cc find v(g) when i(Vd)=1e-06
+meas dc vg_sshi find v(g) when i(Vd)=1e-08
+meas dc vg_sslo find v(g) when i(Vd)=1e-09
+op
+echo MOS_ION ion=$&i(vd_ion)
+wrdata /Users/rwalters/GitHub/gf180-temp-por/.loom/worktrees/issue-4/sim/devchar/results/raw/20260731T150232Z/mos/mos_pfet_03v3_ss_-40.wrdata v(g) i(Vd)
+.endc
+.end

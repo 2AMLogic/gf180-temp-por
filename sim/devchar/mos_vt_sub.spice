@@ -1,0 +1,59 @@
+* mos_vt_sub.spice -- MOS Vt / subthreshold characterization deck (issue #4)
+*
+* Template deck. Tokens (substituted by run_devchar.sh, one instantiation
+* per device/corner/temp/polarity combination -- see run_devchar.sh for the
+* per-device/per-polarity token tables, since NMOS/PMOS need mirrored bias
+* networks (source/body tie, gate-sweep direction, signed measure targets)
+* that this template deliberately keeps as plain node/value substitution
+* rather than in-deck conditionals):
+*   @@PDK_ROOT@@      volare PDK root, e.g. ~/.volare
+*   @@CORNER@@        MOS corner section: typical | ss | ff | fs | sf
+*   @@TEMP@@          circuit temperature in degC
+*   @@DEVICE@@        subckt name, e.g. nfet_03v3 / pfet_03v3 / nfet_06v0_nvt
+*   @@WVAL@@ @@LVAL@@ device width/length
+*   @@BODY@@          body-tie node: "0" (NMOS) or "s" (PMOS, tied to source)
+*   @@VS@@            source bias (0 for NMOS, rail value for PMOS)
+*   @@VD_LOWFIELD@@   low-field drain bias for Vt/subthreshold extraction
+*                     (+50mV over source for NMOS, -50mV for PMOS)
+*   @@VG_START@@ @@VG_STOP@@ @@VG_STEP@@  gate sweep bounds/direction
+*   @@ITARGET_VT@@    signed constant-current Vt target, 100nA*(W/L)
+*   @@ITARGET_SSHI@@ @@ITARGET_SSLO@@  signed subthreshold two-point
+*                     currents (one decade apart) for swing extraction
+*   @@VG_ION@@ @@VD_ION@@ @@VS_ION@@  full-rail "Ion" bias point, repeated
+*                     at 2.97V / 3.30V / 3.63V (+-10% of the DR-001-pinned
+*                     3.3V rail) for the supply-dependence criterion
+*   @@RAWTAG@@        unique tag for this run's raw Id-Vg curve file
+*
+* Vt extraction: constant-current method, Id_target = 100nA*(W/L), a
+* standard SPICE-comparable Vt definition independent of gm noise.
+* Subthreshold swing: two-point method between ITARGET_SSLO and
+* ITARGET_SSHI (one decade of drain current apart), SS[mV/dec] =
+* (Vg_at_ISSHI - Vg_at_ISSLO) * 1000 for NMOS (sign flips for PMOS, see
+* run_devchar.sh's post-processing).
+
+.include '@@PDK_ROOT@@/gf180mcuD/libs.tech/ngspice/design.ngspice'
+.lib '@@PDK_ROOT@@/gf180mcuD/libs.tech/ngspice/sm141064.ngspice' @@CORNER@@
+.temp @@TEMP@@
+
+* --- Low-field DUT: Vt / subthreshold Id-Vg sweep ---
+Xdut d g s @@BODY@@ @@DEVICE@@ w=@@WVAL@@ l=@@LVAL@@
+Vd d 0 DC @@VD_LOWFIELD@@
+Vg g 0 DC @@VG_START@@
+Vs s 0 DC @@VS@@
+
+* --- Full-rail Ion point, repeated across +-10% of the pinned 3.3V rail ---
+Xdut_ion dion gion sion @@BODY_ION@@ @@DEVICE@@ w=@@WVAL@@ l=@@LVAL@@
+Vd_ion dion 0 DC @@VD_ION@@
+Vg_ion gion 0 DC @@VG_ION@@
+Vs_ion sion 0 DC @@VS_ION@@
+
+.control
+dc vg @@VG_START@@ @@VG_STOP@@ @@VG_STEP@@
+meas dc vth_cc find v(g) when i(Vd)=@@ITARGET_VT@@
+meas dc vg_sshi find v(g) when i(Vd)=@@ITARGET_SSHI@@
+meas dc vg_sslo find v(g) when i(Vd)=@@ITARGET_SSLO@@
+op
+echo MOS_ION ion=$&i(vd_ion)
+wrdata @@RAWTAG@@ v(g) i(Vd)
+.endc
+.end
