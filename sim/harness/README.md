@@ -140,7 +140,7 @@ distinct claim under test, kebab-case.
 {
   "name": "my-experiment",
   "description": "one line, shows up in --list and in the record",
-  "claim": "spec/temp-por.md#temp-accuracy-untrimmed",
+  "claim": "spec/target-spec.md#temp-accuracy-untrimmed",
   "netlist": "my_tb.spice",
   "nominal_supply_v": 3.3,
   "supply_tolerance": 0.1,

@@ -58,12 +58,17 @@ open-tooling analog design flow can actually deliver.
 ## Layout of this repo
 
 ```
-spec/          ratified spec + decision records
+spec/          target specification + decision records
 design/        schematics / netlists (xschem)
 sim/           testbenches + PVT corner results (ngspice)
 layout/        GDS + DRC/LVS reports (klayout-tools driven)
 measurements/  silicon characterization (empty until tape-out)
 ```
+
+The block's target specification — one row per spec line, with conditions,
+binding corner, and the decision record each value comes from — is
+[`spec/target-spec.md`](spec/target-spec.md); the decisions behind it are in
+[`spec/decision-records/`](spec/decision-records/).
 
 ## Simulation
 

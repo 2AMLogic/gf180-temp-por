@@ -73,9 +73,11 @@ fields:
 
 - **Record ID** — the `<record-id>` for this run (matches the filename and
   the corresponding `netlist-snapshots/` / `corners/` subdirectory).
-- **Claim** — which spec parameter/line this record substantiates (reference
-  the ratified spec, e.g. `spec/<file>.md#<anchor>`, once ratified specs
-  exist — see #1).
+- **Claim** — which spec parameter/line this record substantiates, referenced
+  by its row anchor in the target-spec table:
+  `spec/target-spec.md#<row-id>` (e.g. `spec/target-spec.md#por-vth-rise`).
+  That table is still DRAFT until #1 ratifies it, so a claim against it is a
+  claim against a proposed target until then.
 - **Netlist provenance** — `schematic` (`design/...`) or `extracted`
   (post-layout, `layout/...`). Required so post-layout re-runs are
   distinguishable from the original schematic-level record.
@@ -143,9 +145,9 @@ values exist yet, see #1):
 # Record 20260729-153000-1a7ef75
 
 - **Record ID**: 20260729-153000-1a7ef75
-- **Claim**: `spec/temp-por.md#temp-accuracy-untrimmed` — untrimmed
-  temperature error over −40…125 °C, TBD °C target (placeholder; ratified
-  spec pending #1)
+- **Claim**: `spec/target-spec.md#temp-accuracy-untrimmed` — untrimmed
+  temperature error over −40…125 °C, ±3 °C target (draft target; ratification
+  pending #1)
 - **Netlist provenance**: schematic (`design/temp_sensor.sch`)
 - **Corner matrix run**:
   - Process: tt, ff, ss, fs, sf, res_ff, res_ss, bjt_ff, bjt_ss
