@@ -1,0 +1,64 @@
+* res_tc.spice -- Resistor-flavor temperature-coefficient characterization
+* deck (issue #4)
+*
+* Template deck. Tokens (substituted by run_devchar.sh):
+*   /Users/rwalters/.volare   volare PDK root, e.g. ~/.volare
+*   res_typical     resistor corner section: res_typical | res_ss | res_ff
+*   -40       circuit temperature in degC
+*   /Users/rwalters/GitHub/gf180-temp-por/.loom/worktrees/issue-4/sim/devchar/results/raw/20260731T145914Z/res/res_res_typical_-40.wrdata     unique tag for this run's raw data file
+*
+* Flavors under test (subckt pins: term1 term2 body, params r_length=,
+* r_width=, dtemp=, par=, s=). Each gets its own 1V source and its own top
+* node so currents don't sum together; body/well tap tied to ground, which
+* is the standard grounded-guard-ring characterization setup:
+*   ppolyf_u, ppolyf_u_1k, ppolyf_u_2k, ppolyf_u_3k,
+*   nplus_u, pplus_u, npolyf_u, nwell
+*
+* Geometry: r_length=50u, r_width=2u, par=1, s=1 for every flavor (a fixed
+* geometry is enough to extract R(T) and TC -- the corner .lib sections
+* already carry the sheet-resistance deltas being characterized here, and
+* SUMMARY.md cross-checks the extracted TC against those model rsh/tc1/tc2
+* parameters directly).
+*
+* Voltage-coefficient note: the sm141064 resistor body model exposes
+* r_vc1/r_vc2 voltage-coefficient terms, but every flavor characterized
+* here ships r_vc1=0, r_vc2=0 (checked against sm141064.ngspice), so R is
+* linear in bias voltage by construction -- a single 1V test point is
+* sufficient and a supply-voltage sweep would not add information. This
+* is recorded as the justification for not repeating this deck across
+* the +-10% supply corners (see SUMMARY.md "Supply-dependence" section).
+
+.include '/Users/rwalters/.volare/gf180mcuD/libs.tech/ngspice/design.ngspice'
+.lib '/Users/rwalters/.volare/gf180mcuD/libs.tech/ngspice/sm141064.ngspice' res_typical
+.temp -40
+
+Xppu   hi_ppu  0 0 ppolyf_u    r_length=50u r_width=2u dtemp=0 par=1 s=1
+Vppu   hi_ppu  0 DC 1
+
+Xppu1k hi_ppu1k 0 0 ppolyf_u_1k r_length=50u r_width=2u dtemp=0 par=1 s=1
+Vppu1k hi_ppu1k 0 DC 1
+
+Xppu2k hi_ppu2k 0 0 ppolyf_u_2k r_length=50u r_width=2u dtemp=0 par=1 s=1
+Vppu2k hi_ppu2k 0 DC 1
+
+Xppu3k hi_ppu3k 0 0 ppolyf_u_3k r_length=50u r_width=2u dtemp=0 par=1 s=1
+Vppu3k hi_ppu3k 0 DC 1
+
+Xnpu   hi_npu  0 0 nplus_u     r_length=50u r_width=2u dtemp=0 par=1 s=1
+Vnpu   hi_npu  0 DC 1
+
+Xppl   hi_ppl  0 0 pplus_u     r_length=50u r_width=2u dtemp=0 par=1 s=1
+Vppl   hi_ppl  0 DC 1
+
+Xnpf   hi_npf  0 0 npolyf_u    r_length=50u r_width=2u dtemp=0 par=1 s=1
+Vnpf   hi_npf  0 DC 1
+
+Xnw    hi_nw   0 0 nwell       r_length=50u r_width=2u dtemp=0 par=1 s=1
+Vnw    hi_nw   0 DC 1
+
+.control
+op
+echo RES_RESULT ppu=$&i(vppu) ppu1k=$&i(vppu1k) ppu2k=$&i(vppu2k) ppu3k=$&i(vppu3k) npu=$&i(vnpu) ppl=$&i(vppl) npf=$&i(vnpf) nw=$&i(vnw)
+wrdata /Users/rwalters/GitHub/gf180-temp-por/.loom/worktrees/issue-4/sim/devchar/results/raw/20260731T145914Z/res/res_res_typical_-40.wrdata i(vppu) i(vppu1k) i(vppu2k) i(vppu3k) i(vnpu) i(vppl) i(vnpf) i(vnw)
+.endc
+.end

@@ -1,0 +1,89 @@
+* pnp_vbe.spice -- Vertical PNP VBE / delta-VBE characterization deck (issue #4)
+*
+* Template deck. Tokens (substituted by run_devchar.sh, never hand-edited
+* in place -- keeping deck and runner separate is deliberate, see the
+* migration note in sim/devchar/SUMMARY.md):
+*   /Users/rwalters/.volare   volare PDK root, e.g. ~/.volare
+*   bjt_ss     bjt corner section: bjt_typical | bjt_ss | bjt_ff
+*   27       circuit temperature in degC
+*   /Users/rwalters/GitHub/gf180-temp-por/.loom/worktrees/issue-4/sim/devchar/results/raw/20260731T150232Z/pnp/pnp_bjt_ss_27.wrdata     unique tag for this run's raw data file
+*
+* Devices under test (all four curator-verified vertical-PNP geometries,
+* subckt pins: c b e, params par= (emitter multiplicity) dtemp=):
+*   pnp_10p00x10p00, pnp_05p00x05p00, pnp_10p00x00p42, pnp_05p00x00p42
+*
+* Topology: each PNP is diode-connected (base tied to collector, both
+* grounded -- vertical PNP collector is substrate/ground in this process)
+* and driven by an ideal DC current source into the emitter node, so
+* V(emitter) referenced to ground is directly VEB = VBE (forward voltage
+* magnitude). This lets every device/current/ratio combination coexist in
+* one netlist and be resolved with a single .op per (corner, temp) --
+* no internal sweep needed.
+*
+* Groups:
+*   G1..G4  -- one of each geometry, all biased at 10uA (VBE vs geometry)
+*   I1, I3  -- pnp_10p00x10p00 at 1uA and 100uA (I1 + G1[10uA] + I3 give
+*              3 decade-spaced bias points on one geometry)
+*   R1U/R1N -- pnp_10p00x10p00 x1 vs x8 (8 identical unit devices wired in
+*              parallel) at equal 10uA total bias current (delta-VBE =
+*              Vt*ln(8) area/multiplicity ratio)
+*   R2U/R2N -- pnp_10p00x10p00 x1 vs x4 in parallel at equal 10uA total
+*              bias current (delta-VBE = Vt*ln(4), second ratio point)
+*
+* NOTE (device-model finding, not a klayout-tools issue): the sm141064
+* vertical-PNP subckts' `par=` instance parameter only scales the
+* *mismatch* term (`... / sqrt(par)`) inside the model .param block -- the
+* `q0` BJT element line forwards only `dtemp=`, so `par=` does NOT scale
+* nominal Is/area the way a SPICE `m=`/`AREA=` multiplier would. Emitter-
+* area/multiplicity ratios are therefore built here the physically correct
+* way real layouts do it: N unit-cell subckt instances wired electrically
+* in parallel, not a single instance with `par=N`.
+
+.include '/Users/rwalters/.volare/gf180mcuD/libs.tech/ngspice/design.ngspice'
+.lib '/Users/rwalters/.volare/gf180mcuD/libs.tech/ngspice/sm141064.ngspice' bjt_ss
+.temp 27
+
+* --- Group G: one of each geometry @ 10uA ---
+Xg1 0 0 vg1 pnp_10p00x10p00 par=1 dtemp=0
+Ig1 0 vg1 DC 10u
+Xg2 0 0 vg2 pnp_05p00x05p00 par=1 dtemp=0
+Ig2 0 vg2 DC 10u
+Xg3 0 0 vg3 pnp_10p00x00p42 par=1 dtemp=0
+Ig3 0 vg3 DC 10u
+Xg4 0 0 vg4 pnp_05p00x00p42 par=1 dtemp=0
+Ig4 0 vg4 DC 10u
+
+* --- Group I: pnp_10p00x10p00 @ 1uA and 100uA (decade-spaced with Xg1) ---
+Xi1 0 0 vi1 pnp_10p00x10p00 par=1 dtemp=0
+Ii1 0 vi1 DC 1u
+Xi3 0 0 vi3 pnp_10p00x10p00 par=1 dtemp=0
+Ii3 0 vi3 DC 100u
+
+* --- Group R1: 8:1 area/multiplicity ratio @ equal 10uA total ---
+Xr1u 0 0 vr1u pnp_10p00x10p00 par=1 dtemp=0
+Ir1u 0 vr1u DC 10u
+Xr1n1 0 0 vr1n pnp_10p00x10p00 par=1 dtemp=0
+Xr1n2 0 0 vr1n pnp_10p00x10p00 par=1 dtemp=0
+Xr1n3 0 0 vr1n pnp_10p00x10p00 par=1 dtemp=0
+Xr1n4 0 0 vr1n pnp_10p00x10p00 par=1 dtemp=0
+Xr1n5 0 0 vr1n pnp_10p00x10p00 par=1 dtemp=0
+Xr1n6 0 0 vr1n pnp_10p00x10p00 par=1 dtemp=0
+Xr1n7 0 0 vr1n pnp_10p00x10p00 par=1 dtemp=0
+Xr1n8 0 0 vr1n pnp_10p00x10p00 par=1 dtemp=0
+Ir1n 0 vr1n DC 10u
+
+* --- Group R2: 4:1 area/multiplicity ratio @ equal 10uA total ---
+Xr2u 0 0 vr2u pnp_10p00x10p00 par=1 dtemp=0
+Ir2u 0 vr2u DC 10u
+Xr2n1 0 0 vr2n pnp_10p00x10p00 par=1 dtemp=0
+Xr2n2 0 0 vr2n pnp_10p00x10p00 par=1 dtemp=0
+Xr2n3 0 0 vr2n pnp_10p00x10p00 par=1 dtemp=0
+Xr2n4 0 0 vr2n pnp_10p00x10p00 par=1 dtemp=0
+Ir2n 0 vr2n DC 10u
+
+.control
+op
+echo PNP_RESULT g1=$&vg1 g2=$&vg2 g3=$&vg3 g4=$&vg4 i1=$&vi1 i3=$&vi3 r1u=$&vr1u r1n=$&vr1n r2u=$&vr2u r2n=$&vr2n
+wrdata /Users/rwalters/GitHub/gf180-temp-por/.loom/worktrees/issue-4/sim/devchar/results/raw/20260731T150232Z/pnp/pnp_bjt_ss_27.wrdata v(vg1) v(vg2) v(vg3) v(vg4) v(vi1) v(vi3) v(vr1u) v(vr1n) v(vr2u) v(vr2n)
+.endc
+.end
