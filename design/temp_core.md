@@ -13,7 +13,7 @@ their values**, per that file's §8 Open TBD register:
 
 | Spec row | What #9 owed it | Value |
 | --- | --- | --- |
-| [`temp-vt-transfer`](../spec/target-spec.md#temp-vt-transfer) | nominal slope + output range, design intent | `PTAT` = +4.3088 mV/K through the origin, 1.004–1.717 V; `CTAT` = −1.86 mV/°C, 0.461–0.782 V. Headroom bound holds with +265 mV worst-case margin. |
+| [`temp-vt-transfer`](../spec/target-spec.md#temp-vt-transfer) | nominal slope + output range, design intent | `PTAT` = +4.3088 mV/K through the origin, 1.004–1.717 V; `CTAT` = −1.86 mV/°C, 0.461–0.782 V. Headroom bound holds with +260 mV worst-case margin. |
 | [`temp-trim-strategy`](../spec/target-spec.md#temp-trim-strategy) | trim *mechanism* | 6-bit binary-weighted short-out ladder on `R2`, metal-strapped in wave 1, fuse/OTP-ready. |
 
 Both rows are filled in `spec/target-spec.md` itself as well; the register
@@ -25,8 +25,8 @@ recorded evidence run, not estimated:
 
 | Evidence | What it substantiates |
 | --- | --- |
-| [`sim/temp-core-designer-check/`](../sim/temp-core-designer-check/) | PTAT/CTAT transfer, systematic temperature error, Iq, disabled-state draw, pad-load cost, trim range/LSB — 216-point PVT grid (9 corners × 8 temperatures × 3 supplies) |
-| [`sim/temp-core-startup/`](../sim/temp-core-startup/) | cold start from 0 V with EN gated by POR, pre-POR quiescent draw, brownout restart — 81-point PVT grid (9 corners × 3 temperatures × 3 supplies) |
+| [`sim/temp-core-designer-check/`](../sim/temp-core-designer-check/) — record `20260731-230435-80f0981` | PTAT/CTAT transfer, output headroom, supply sensitivity, systematic temperature error, Iq, disabled-state draw, pad-load cost, trim range/LSB — 216-point PVT grid (9 corners × 8 temperatures × 3 supplies) |
+| [`sim/temp-core-startup/`](../sim/temp-core-startup/) — record `20260731-230914-80f0981` | cold start from 0 V with EN gated by POR, pre-POR quiescent draw, brownout restart — 81-point PVT grid (9 corners × 3 temperatures × 3 supplies) |
 
 Both are **deterministic corner** records: `design.ngspice` sets
 `sw_stat_mismatch=0`, so everything below bounds the **systematic** error
@@ -174,7 +174,7 @@ common-mode floor on a 2.97 V rail.
 8 µm/8 µm, both carrying the same 0.5 µA when balanced), so stage 1's output
 node sits at exactly the diode node's own VGS and the *systematic* input
 offset is structurally near zero rather than being a residual. Measured
-across all 216 PVT points: **|V(NA) − V(NB)| ≤ 5.4 µV**. This matters
+across all 216 PVT points: **|V(NA) − V(NB)| ≤ 5.1 µV**. This matters
 disproportionately — see the error budget: 1 mV of input offset is 5.6 °C.
 
 ### Cascoded PMOS mirror
@@ -278,7 +278,7 @@ across the full grid:
 | Measurement | Result |
 | --- | --- |
 | Cell's own draw from its `VDD` pin, `EN` low | ≤ **0.69 nA** |
-| `PTAT`, `CTAT` pad voltage, `EN` low | ≤ 52 µV (held at `VSS`, not floating) |
+| `PTAT`, `CTAT` pad voltage, `EN` low | ≤ **53 nV** (held at `VSS`, not floating) |
 | Draw seen at the rail including the shunted `IBIAS` reference | 0.500 µA |
 
 That last row is not this cell's current: `bias_core` sources 0.5 µA into the
@@ -388,7 +388,7 @@ Everything that scales `R2/R1` or adds a constant to `ΔVBE`.
 | Term | Systematic, measured | Notes |
 | --- | --- | --- |
 | Resistor-ratio tolerance | `K(25 °C)` spans 4.30624–4.31086 mV/K across all 9 process corners × 3 supplies = **0.107 %** → **±0.16 °C** | same-flavour ratio; `res_ff`/`res_ss` move `R2` by ±21 % and move `K` by 0.03 % |
-| Amplifier systematic offset | \|V(NA) − V(NB)\| ≤ **5.4 µV** → **±0.03 °C** | `XMS2N` as a current-density copy of `XML1` |
+| Amplifier systematic offset | \|V(NA) − V(NB)\| ≤ **5.1 µV** → **±0.03 °C** | `XMS2N` as a current-density copy of `XML1` |
 | Mirror-ratio error | inside the above | `XMP1`/`XMP2` see equal VGS *and* equal VDS |
 | Supply sensitivity | **−0.054 … +0.014 °C** over the whole ±10 % window, worst point of the grid, against the ≤0.33 °C bound of [`temp-supply-sensitivity`](../spec/target-spec.md#temp-supply-sensitivity) → **16 % of that budget** | cascoded mirror; measured per-point against an identical DUT held at `vdd_nom`, not inferred across points |
 | **Random mismatch** | **not visible here** | PNP `Is` mismatch, input-pair and mirror Vt mismatch. **Issue #15.** This is what the trim actually exists for. |
