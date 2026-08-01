@@ -39,8 +39,10 @@ ramp-rate/brownout envelope against a real assembled block is #14's.
    of the 27 corner/temperature combinations on a quasi-static (branch-
    tracking) rising rail.**~~ **Not a defect in this cell.** Root-caused by
    #46 to the reporting testbench's own `gmin = 1 nS` convergence aid, which
-   injected ~0.6 nA of *differential* error into a settle comparator that
-   resolves ~0.55 nA. Re-measured on a quasi-static **transient** ramp at
+   injected **0.563 nA** of *differential* error into a settle comparator
+   whose whole signal is **0.247 nA** (measured by the committed control
+   experiment, `sim/bias-core-startup/control/`). Re-measured on a
+   quasi-static **transient** ramp at
    ngspice's default `gmin`, the cell asserts `BIAS_OK` exactly once, before
    the ratified release threshold, at **all 81 points** — and does the same
    after a full rail collapse. See
@@ -380,20 +382,37 @@ converge by raising `gmin` from ngspice's default `1e-12` to `1e-9`. `GMIN`
 is a conductance the simulator places across **every device junction** to
 keep the Jacobian non-singular. At 1 nS and 3.3 V of rail that is **~2.7 nA
 per junction**. The settle comparator this experiment exists to test runs its
-input pair at **~4.5 nA per side** and resolves an imbalance of **~0.25 nA**
-between them — the whole signal is a fraction of one junction's worth of
+input pair at **4.728 and 4.481 nA**, and the whole signal it resolves is the
+**0.247 nA** difference between them — a fraction of one junction's worth of
 aid. Worse, the aid is not common-mode: the comparator's output node `NOKO`
 carries one junction its reference-side counterpart `NOKL` does not
-(`XMOKC`'s drain, the dead-loop detector's forced-low path), so ~0.6 nA of
-the injected current appears as a pure **differential** error, of the sign
-that opposes assertion. The deck was measuring its own crutch.
+(`XMOKC`'s drain, the dead-loop detector's forced-low path), so **0.563 nA**
+of the injected current appears as a pure **differential** error, of the sign
+that opposes assertion — more than twice the signal. The deck was measuring
+its own crutch.
 
 ### The controlled experiment
 
 One variable, one deck, `tt` / −40 °C / `VDD` = 3.3 V, plain `op` on
 `design/netlist/bias_core.spice` with the same `IBIAS` consumer-diode load
 the testbenches use. The only difference between the two columns is the
-`.options gmin` line:
+`.options gmin` line.
+
+**The experiment is committed and re-runnable** —
+`sim/bias-core-startup/control/`: the stimulus fragment, the script that
+composes and runs both variants in one process, the two exact decks as run,
+both raw ngspice logs, and
+[`control/results.md`](../sim/bias-core-startup/control/results.md), which is
+generated from those logs. Every number in this section is transcribed from
+`results.md` and from nowhere else; re-run it with
+
+```
+python3 sim/bias-core-startup/control/run_gmin_control.py
+```
+
+It is a *diagnosis*, not a recorded result — one PVT point cannot substantiate
+a spec row — so it deliberately does not mint a record; see `sim/README.md`,
+"Control experiments". The corner-grid evidence is the 81-point record below.
 
 | | ngspice default (`gmin = 1e-12`) | the superseded deck (`gmin = 1e-9`) |
 | --- | ---: | ---: |
@@ -410,13 +429,21 @@ the testbenches use. The only difference between the two columns is the
 Read the last four rows as KCL and the artefact is explicit. At the default
 `gmin` the loads carry what the input pair delivers, to three digits
 (4.483 vs 4.481 nA; 4.727 vs 4.728 nA) — the comparator sees only its own
-signal, `I(XMOKA) − I(XMOKB)` = +0.247 nA, and `NOKO` resolves high. At
-`gmin = 1e-9` the loads carry **2.05 nA and 1.49 nA more** than the pair
-delivers; the 0.56 nA difference between those two excesses is exactly
-`XMOKC`'s drain-junction `gmin` current (`V(NOKO)` × 1 nS = 0.605 nA), which
-has no counterpart on the `NOKL` side. That unbalanced 0.6 nA cancels the
-0.55 nA of real signal the pair is producing at that operating point, and the
-comparator lands on the wrong side.
+signal, **`I(XMOKA) − I(XMOKB)` = +0.247 nA**, and `NOKO` resolves high. At
+`gmin = 1e-9` the loads carry **2.048 nA and 1.485 nA more** than the pair
+delivers; the **0.563 nA** difference between those two excesses is the
+unbalanced part, and it is `XMOKC`'s drain junction hanging on `NOKO` with no
+counterpart on `NOKL` (`V(NOKO)` × 1 nS = 0.605 nA of `gmin` current at that
+one junction). That 0.563 nA exceeds even the 0.552 nA the pair delivers *at
+the perturbed operating point*, and it is more than twice the 0.247 nA of
+real signal at the true one, so the comparator lands on the wrong side.
+
+Those last two figures are the number this document previously reported two
+ways, and they are two different quantities: **0.247 nA is the signal** — what
+the pair produces in the circuit as it actually operates — while 0.552 nA is
+what the pair produces in the deck the aid has already displaced, and is not
+a property of the circuit at all. The claim "the aid is larger than the
+signal" holds on either, by 2.3× on the one that matters.
 
 `VREF` moving 1.2 % between the two columns is the same effect on the main
 loop, and it is why the superseded record's "`VREF` settles correctly at
@@ -461,11 +488,39 @@ Record `20260801-144500-ab081eb` (`sim/bias-core-startup/records/`), full
 | `v_bias_ok_v` — rail at which `BIAS_OK` asserts | **1.000…1.581 V** | ≤ 2.45 V ✅ |
 | `release_margin_v` — how far below the ratified 2.47 V minimum it asserts | **0.889…1.470 V** | ≥ 0.02 V ✅ |
 | `relv_qs_v` — rail at which the assembled block would actually release | **2.583…2.629 V** | ≥ 2.47 V ✅ |
+| `vref_at_ok_pct` — `VREF` at the instant the flag asserts, vs. its settled value | **78.6…107.0 %** | ≥ 70 % ✅ |
 | `vref_final_v` | **1.1876…1.2090 V** | 1.14…1.26 V ✅ |
 | `noko_final_v` — the settle comparator's own resolved output level | **1.376…1.817 V** | ≥ 1.0 V ✅ |
 | `nkg_final_v` — startup kick idle at the top of the ramp | **≤ 5.5 mV** | ≤ 0.5 V ✅ |
 | `qs_rate_delta_mv` — assertion rail, 484 V/s minus 121 V/s | **0.001…131.7 mV** | ±250 mV ✅ |
 | `v_core_up_v` — rail at which `VREF` first reaches 1.10 V | **1.145…1.569 V** | ≤ 1.9 V ✅ |
+
+Two of those rows say more than their tick does.
+
+**`relv_qs_v` is stronger than "above the minimum".** At 2.583–2.629 V it
+sits inside the *full* ratified
+[`por-vth-rise`](../spec/target-spec.md#por-vth-rise) window — 2.47 / **2.60**
+/ 2.73 V — and within 30 mV of its **typical**, at every one of the 81 points.
+The check only asks that the assembled block not release below the 2.47 V
+minimum; what the grid actually shows is a release rail landing on the
+ratified target, not merely on the legal side of its edge.
+
+**`vref_at_ok_pct` is bounded as of issue #50**, having been recorded
+unbounded in the #46 revision — so the 78.6…107.0 % row above is the record's
+own measurement, taken before the bound existed, and it clears the new floor
+by 8.6 points. It needs a bound of its own because
+`relv_qs_v` is a *conjunction*: at the 9 hot combinations `BIAS_OK` reads a
+valid high from about 1.0 V of rail, so the `v(bias_okq) > 0.5·v(vddq)` term
+in `Brelq` is satisfied from the bottom of the ramp and `relv_qs_v` is set
+**entirely** by the `VDD ≥ 2.16667·VREF` term. That is harmless — a
+rail-limited `VREF` makes `2.16667·VREF` exceed `VDD` by construction, which
+is the argument [The release guard](#the-release-guard) makes — but at those
+points `relv_qs_v` carries no information about whether the *flag* is early,
+and `vref_at_ok_pct` was then the only evidence on that question: recorded,
+argued, untested. The bound is a floor on "the reference is substantially
+there when the flag goes true", set 8.6 points below the worst measured point
+(78.6 % at `res_ff`/125 °C). It is not spec-derived — no ratified row is
+involved, and `relv_qs_v` remains the pass/fail that carries `por-vth-rise`.
 
 and, on the brownout-restart branch:
 
@@ -480,7 +535,30 @@ That last row is the strongest single statement in the record. Two
 quasi-static approaches to the same rail — one from a cold cell, one from a
 cell that has been up, fully collapsed and restarted — land on the same
 reference to **better than one part per million**. A second reachable
-operating branch cannot survive that.
+operating branch cannot survive that. What it does *not* say is that the
+restart began from a completely discharged cell: `vref_bo_dip_v` measures
+`VREF` still at **0.518 V** two-thirds of the way through the 3 ms dead-rail
+window at `ss`/−40 °C, so the restart is a genuine repeat, not a proof that no
+second branch exists. That stronger statement is
+`sim/bias-core-designer-check/`'s `vref_op_v`, which *seeds* the DC solve in
+the degenerate zero-current state at all 81 points.
+
+#### The one tight number
+
+`v_bias_ok_restart_v` = **2.338 V at `ss`/−40 °C** leaves **112 mV** to its
+2.45 V bound. That is the tightest rail margin in the record — its only peer
+is `relv_qs_v`'s 113 mV above the ratified 2.47 V floor (2.583 V at
+`bjt_ff`/125 °C), and the same flag on the *cold* start clears the *same*
+2.45 V bound by 869 mV. The restart therefore asserts roughly **750 mV
+later** than the cold start at that corner. It passes, and
+the mechanism is understood — `ss`/−40 °C is the slowest corner, and after a
+collapse the cell restarts from a partly-discharged state with the same
+nA-class currents having to re-charge `PG` and the settle comparator's nodes —
+but it is the number to watch. Anything that slows the restart further (a
+larger `XCC`, a weaker startup kick, a colder or slower corner added to the
+grid) spends this margin first, and it is the only measurement in the record
+where a modest regression would cross a bound. It is called out in
+`tb.json`'s own check description for the same reason.
 
 `qs_lag_est_mv` — the residual distance between the primary 121 V/s result
 and the true quasi-static limit, extrapolated from the two measured rates —
@@ -499,6 +577,17 @@ principle have moved. Both were re-run anyway, on a clean tree, because
 | --- | --- | --- | --- |
 | `sim/bias-core-designer-check/` | `20260801-150709-5a013e8` | **FAIL**, unchanged — `por-iq` and the starved-loop window, the two conflicts this document already owns | **Bit-identical to `20260801-053019-732a894`**: every measurement's min, max, mean, spread and the corner each extremum lands on |
 | `sim/bias-core-ibias-sharing/` | `20260801-152327-b72c10c` | **PASS**, 81/81, unchanged | Identical to `20260801-073555-8b7e57f` on six of eight measurements; the two that differ are `por_raw_shared_droop_mv` / `por_raw_control_droop_mv`, whose extremes move by **1 µV** against a 20 mV bound |
+
+That 1 µV is **not unexplained nondeterminism**: the two records' own
+environment blocks say the baseline `20260801-073555-8b7e57f` ran on
+**ngspice-42 / Linux / python 3.12.3** and the re-run
+`20260801-152327-b72c10c` on **ngspice-46 / macOS / python 3.14.6**, against
+the *same* testbench netlist (sha256 `072b8fc4…`) and the same pinned PDK. A
+1 µV difference on a 20 mV bound between two simulator versions on two
+platforms is the floating-point noise floor of the measurement, and it is the
+only place a re-run on the same netlist can move at all. The harness records
+that environment on every run precisely so a reader can settle this question
+from the evidence rather than by assumption.
 
 ### What changed in the testbench's checks, and why
 
@@ -831,16 +920,21 @@ python3 sim/run_corners.py bias-core-designer-check -j 8 --timeout 900
 python3 sim/run_corners.py bias-core-ibias-sharing  -j 8 --timeout 900
 python3 sim/run_corners.py temp-por-top-release     -j 8 --timeout 1800
 python3 sim/run_corners.py bias-core-startup        -j 8 --timeout 900
+python3 sim/bias-core-startup/control/run_gmin_control.py
 ```
 
-The `gmin` control experiment behind
-[Resolved](#resolved-the-bias_ok-quasi-static-failure-was-a-testbench-artefact-issues-43-46)
-is two `op` runs of one twenty-line deck and takes seconds. Point
-`$GF180_MODELS` at the PDK the harness resolves (`source sim/env.sh`),
-`.include` `design/netlist/bias_core.spice` behind a `dc 3.3` supply and the
-same `IBIAS` consumer-diode replica load the testbenches use, then run it
-once as written and once with `.options gmin=1e-9` added. `V(xdut.noko)` and
-`V(bias_ok)` flip between the two.
+The last line is the `gmin` control experiment behind
+[Resolved](#resolved-the-bias_ok-quasi-static-failure-was-a-testbench-artefact-issues-43-46):
+two `op` runs of one deck, seconds rather than minutes. It resolves the PDK
+through the same `sim/harness` the corner runner uses, so it needs no
+`source sim/env.sh` and no hand-assembled deck, and it rewrites
+`sim/bias-core-startup/control/{decks,logs}/` and
+[`control/results.md`](../sim/bias-core-startup/control/results.md) in place —
+which is deliberate and is why a control is not a record: it makes no claim,
+so there is nothing for the append-only rule to protect (`sim/README.md`,
+"Control experiments"). Every number in
+[The controlled experiment](#the-controlled-experiment) is transcribed from
+that `results.md`.
 
 Exit codes, and why each is what it is:
 

@@ -8,6 +8,12 @@ __pycache__/
 # committed, not scratch, so they are exempted from the blanket *.log ignore.
 !sim/*/corners/**/*.log
 
+# Same exemption for the raw ngspice logs of the small committed control
+# experiments under sim/<experiment>/control/ (e.g. the gmin control in
+# sim/bias-core-startup/control/): they are the evidence the surrounding
+# document's numbers are transcribed from, not scratch.
+!sim/*/control/logs/*.log
+
 # Simulation harness scratch: generated ngspice decks. Disposable; the
 # evidence that is meant to survive lives in sim/<experiment-slug>/.
 sim/.work/
