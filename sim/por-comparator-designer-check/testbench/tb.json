@@ -1,0 +1,122 @@
+{
+  "name": "por-comparator-designer-check",
+  "description": "Designer-level PVT check of design/por_comparator.sch: release/assert threshold pair and hysteresis from a slow VDD ramp in both directions, single-transition (no-chatter) proof on both edges, settled Iq with BIAS_OK asserted and deasserted, and the observed below-operating-floor behaviour of POR_RAW.",
+  "claim": "spec/target-spec.md#por-vth-rise, #por-vth-fall, #por-hysteresis, #por-iq -- designer-level (deterministic-corner, not Monte Carlo) evidence that the comparator + hysteresis network lands inside the ratified min/typ/max windows, with both edges of a pair measured at the same corner point. Deterministic corners only: design.ngspice sets sw_stat_mismatch=0, so this bounds the SYSTEMATIC/corner term only -- the [3sigma] mismatch share these rows carry is issue #15's Monte Carlo job, and target-spec.md marks them 'conditional #15' for exactly that reason. IBIAS/VREF are idealised fixed stimuli standing in for bias_core (#11, still a placeholder), so the VREF-referred share of the threshold error is NOT in this record -- see design/por_comparator.md, 'Error budget', for how much of the +/-5 % window this cell spends and how much it hands to #11. Full ramp-rate/brownout/reset-pulse-interaction evidence against a real (non-idealised) startup sequence remains #14's job.",
+  "netlist": "tb_por_comparator.spice",
+  "nominal_supply_v": 3.3,
+  "supply_tolerance": 0.1,
+  "temperatures_c": [-40, 27, 125],
+  "corners": ["full"],
+  "options": ["reltol=1e-6", "abstol=1e-15", "vntol=1e-9"],
+  "analyses": [
+    "tran 5u 10m",
+    "meas tran vpor_rise find v(vddup) when v(por_rawup)=1.5 rise=1",
+    "meas tran vpor_rise_last find v(vddup) when v(por_rawup)=1.5 rise=last",
+    "meas tran vpor_rise_vrefhi find v(vddur) when v(por_rawur)=1.5 rise=1",
+    "meas tran vpor_fall find v(vdddn) when v(por_rawdn)=1.5 fall=1",
+    "meas tran vpor_fall_last find v(vdddn) when v(por_rawdn)=1.5 fall=last",
+    "meas tran por_at_0p5v find v(por_rawup) when v(vddup)=0.5 rise=1",
+    "meas tran por_at_1v find v(por_rawup) when v(vddup)=1.0 rise=1",
+    "meas tran por_at_2v find v(por_rawup) when v(vddup)=2.0 rise=1",
+    "meas tran por_reassert find v(por_rawdn) when v(vdddn)=2.0 fall=1",
+    "meas tran por_top find v(por_rawup) at=9.9m",
+    "meas tran vdd_top find v(vddup) at=9.9m",
+    "meas tran por_bot find v(por_rawdn) at=9.9m",
+    "meas tran sns_top find v(xiq.sns) at=5m",
+    "meas tran iq_run find i(vsupiq) at=5m",
+    "meas tran iq_own find i(vsupown) at=5m",
+    "meas tran iq_dis find i(vsupdis) at=5m"
+  ],
+  "measure": {
+    "vpor_rise_v": "vpor_rise",
+    "vpor_fall_v": "vpor_fall",
+    "v_hys_mv": "(vpor_rise-vpor_fall)*1e3",
+    "vref_gain_frac": "((vpor_rise_vrefhi-vpor_rise)/vpor_rise)/0.05",
+    "rise_chatter_mv": "(vpor_rise_last-vpor_rise)*1e3",
+    "fall_chatter_mv": "(vpor_fall-vpor_fall_last)*1e3",
+    "por_hi_droop_mv": "(vdd_top-por_top)*1e3",
+    "por_reassert_mv": "por_reassert*1e3",
+    "por_tail_mv": "por_bot*1e3",
+    "por_at_0p5v_mv": "por_at_0p5v*1e3",
+    "por_at_1v_mv": "por_at_1v*1e3",
+    "por_at_2v_mv": "por_at_2v*1e3",
+    "sns_released_v": "sns_top",
+    "iq_run_ua": "-iq_run*1e6",
+    "iq_own_ua": "-iq_own*1e6",
+    "iq_dis_ua": "-iq_dis*1e6"
+  },
+  "checks": {
+    "vpor_rise_v": {
+      "min": 2.47,
+      "max": 2.73,
+      "description": "spec/target-spec.md#por-vth-rise (VPOR-uparrow, release threshold). Max binds at SS/-40C, min binds at FF/+125C per the ratified table; this record sweeps the full 81-point grid so both binding corners are measured directly, not inferred. VREF is idealised at 1.2 V here, so this is the DIVIDER+COMPARATOR share of the window only."
+    },
+    "vpor_fall_v": {
+      "min": 2.22,
+      "max": 2.63,
+      "description": "spec/target-spec.md#por-vth-fall (VPOR-downarrow, assert threshold), constructed from VPOR-uparrow and V_hys in the ratified table -- checked here as its own measured row, at the SAME corner point as vpor_rise_v (same deck, same corner libs, same .temp, same rail)."
+    },
+    "v_hys_mv": {
+      "min": 100.0,
+      "max": 250.0,
+      "description": "spec/target-spec.md#por-hysteresis: V_hys = VPOR-uparrow - VPOR-downarrow, both edges measured at the same corner point. Floored at 100 mV, capped at 250 mV so V_hys does not drag VPOR-downarrow below the por-digital-min-vdd self-consistency floor. V_hys = VREF*RTOP*RHYS/(RBOT*(RBOT+RHYS)) -- a same-flavour resistor ratio, so the +/-25 % ppolyf_u_3k sheet corner and its -1545 ppm/C TC cancel rather than multiply through."
+    },
+    "vref_gain_frac": {
+      "min": 0.97,
+      "max": 1.03,
+      "description": "Measured fractional sensitivity of VPOR-uparrow to VREF: a second rising ramp is run with VREF 5 % high, and this reports (dVPOR/VPOR)/(dVREF/VREF). It must be 1.00 by topology (the threshold is VREF times a resistor ratio), and measuring it is what makes the error-budget hand-off to bias_core (#11) evidence instead of algebra: every part-per-thousand of VREF error is a part-per-thousand of threshold error, and this cell's own contribution to the ratified +/-5 % window is only +/-0.15 %, so essentially the whole window belongs to #11's reference."
+    },
+    "rise_chatter_mv": {
+      "min": -0.001,
+      "max": 0.001,
+      "description": "Anti-chatter guard on the RELEASE edge: the difference between the LAST and the FIRST rising crossing of POR_RAW=VDD/2 on the same ramp. A hysteretic comparator whose loop is mis-signed or under-sized re-crosses; a correct one crosses exactly once, so first==last to the picovolt. Without this, 'vpor_rise' alone would happily report the first of several crossings and read as a pass."
+    },
+    "fall_chatter_mv": {
+      "min": -0.001,
+      "max": 0.001,
+      "description": "Same guard on the ASSERT edge (last vs. first falling crossing on the falling ramp)."
+    },
+    "por_hi_droop_mv": {
+      "max": 1.0,
+      "description": "VDD - V(POR_RAW) at the top of the rising ramp: POR_RAW must be a hard rail-to-rail HIGH once released, not a partially-resolved analog level, since #12's deglitch/pulse stage consumes it as a logic signal."
+    },
+    "por_reassert_mv": {
+      "max": 300.0,
+      "description": "V(POR_RAW) on the FALLING ramp once VDD has come back down to 2.0 V -- below VPOR-downarrow at every corner but still above the comparator's own operating floor. This is the real 're-assertion actually happened and stuck' check; it is the falling-ramp mirror of por_at_2v_mv."
+    },
+    "por_tail_mv": {
+      "min": -150.0,
+      "max": 150.0,
+      "description": "Informative, no correctness claim: V(POR_RAW) at the very end of the falling ramp, where VDD is ~1 % of nominal (36 mV at the 3.63 V point). Both output-inverter devices are far below Vt there, so POR_RAW is a high-impedance node dominated by capacitive coupling to the collapsing rail -- it reads slightly NEGATIVE at the cold corners. This is precisely the below-floor regime DR-004 leaves undefined for this cell and assigns to por_output_chain (#12), which owns the pull-down that holds RESETn low from 0 V. Recorded so the behaviour is observed rather than assumed."
+    },
+    "por_at_2v_mv": {
+      "max": 300.0,
+      "description": "Edge case / documentation check (not a ratified spec row): POR_RAW with VDD held at 2.0 V on the rising ramp -- above the comparator's own operating floor but below VPOR-uparrow. Must read a solid not-released."
+    },
+    "por_at_1v_mv": {
+      "max": 500.0,
+      "description": "Edge case / documentation check: POR_RAW at VDD = 1.0 V, i.e. below the comparator's own operating floor, where DR-004/DR-005 leave the output explicitly undefined by construction. No correctness claim is made here -- the bound records that the observed behaviour is not a false release at any corner. Holding RESETn low in this regime is por_output_chain's job (#12), not this cell's."
+    },
+    "por_at_0p5v_mv": {
+      "max": 500.0,
+      "description": "Same edge-case probe at VDD = 0.5 V, deep below the operating floor (below one nfet_03v3 Vt at every corner). The bound is an ABSOLUTE-voltage guard, deliberately not a fraction of the rail: what matters downstream is whether POR_RAW can turn an nfet_03v3 on, and 0.5 V is under Vt at every corner in sim/devchar/SUMMARY.md. Expect a non-trivial reading at the cold/slow corners -- see design/por_comparator.md, 'Below the operating floor'."
+    },
+    "sns_released_v": {
+      "min": 1.4,
+      "max": 1.85,
+      "description": "The SNS divider tap in the settled/released state. Not a spec row -- it is the sanity check that the tap sits in the NMOS input pair's usable common-mode range at every corner and rail (Vgs = SNS - V(TN) must keep MINA in saturation), so a threshold that looks right is not being produced by a degenerate operating point."
+    },
+    "iq_run_ua": {
+      "max": 1.0,
+      "description": "spec/target-spec.md#por-iq (<1 uA), settled/released state at this point's rail. Per DR-007's Iq accounting rule 1 this deliberately INCLUDES the full 500 nA idealised IBIAS reference the testbench pushes into the pin -- rule 1 charges por-iq with whatever share of the shared core must be live for this comparator's decision to be valid. See design/por_comparator.md, 'Iq budget', for the split and for the cross-cell double-count risk DR-007 already assigns to #11."
+    },
+    "iq_own_ua": {
+      "max": 0.5,
+      "description": "The cell's own draw from its own VDD pin, with the idealised IBIAS reference sourced from a SEPARATE rail. This is the number #11 needs in order to know how much of the <1 uA budget por_comparator has already spent; iq_run_ua minus this is, by construction, the reference current."
+    },
+    "iq_dis_ua": {
+      "max": 1.0,
+      "description": "Iq with BIAS_OK held low throughout (pre-bias-core-valid state), at this point's rail. Same <1 uA row. This is also the worst-case DIVIDER state: BIAS_OK low clamps CMPO low, so N1 is high, so MHSW shorts RHYS out -- the divider's low-resistance (higher-current) configuration -- while the rail is at its maximum. The released state (iq_run_ua) has RHYS in circuit and therefore draws less divider current, so the two branches together bound both reachable divider configurations at full rail."
+    }
+  }
+}

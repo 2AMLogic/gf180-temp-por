@@ -35,6 +35,7 @@ NETLIST_DIR = REPO_ROOT / "design" / "netlist"
 FRAGMENTS: dict[str, tuple[str, tuple[str, ...]]] = {
     "temp-core-designer-check": ("tb_temp_core.spice", ("temp_core",)),
     "temp-core-startup": ("tb_temp_core_startup.spice", ("temp_core",)),
+    "por-comparator-designer-check": ("tb_por_comparator.spice", ("por_comparator",)),
 }
 
 
