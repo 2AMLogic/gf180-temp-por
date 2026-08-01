@@ -1,0 +1,80 @@
+* temp-por-top-release -- stimulus half of the testbench fragment.
+*
+* The other half is a verbatim copy of design/netlist/temp_por_top.spice,
+* appended by sim/build_tb.py to produce tb_temp_por_top.spice. That one file
+* already carries every sub-circuit definition the top level instantiates, so
+* this is the WHOLE block: bias_core + temp_core + por_comparator +
+* por_output_chain in the real wiring, with nothing idealised. Edit THIS file
+* (or the schematics), never the generated fragment.
+*
+* Netlist FRAGMENT: no .include / .lib / .temp / .control / .end -- the
+* harness owns those. Parameters it supplies: vdd_val, vdd_nom, temp_c.
+*
+* WHY THIS EXPERIMENT EXISTS
+*
+* It closes the loop DR-010 cut. Before DR-010, temp_core's disabled state
+* clamped the shared IBIAS pin to VSS through an ENB-gated XMDIB. EN is
+* RESETn, so the clamp was engaged from the first millivolt of rail until POR
+* released -- but POR could not release, because por_comparator's tail mirror
+* is biased off that same clamped node. sim/bias-core-ibias-sharing/ measured
+* the node stuck at 1.0-6.6 mV across all 81 PVT points and POR_RAW pinned
+* low. The loop
+*
+*   temp_core disabled -> IBIAS at VSS -> comparator starved -> POR_RAW low
+*   -> RESETn asserted -> temp_core disabled
+*
+* is closed, so the block never starts. DR-010 removes the clamp and rules
+* that a disabled consumer must present HIGH IMPEDANCE to a shared bias node.
+*
+* sim/bias-core-ibias-sharing/ can show the node recovers, but it cannot show
+* the block starts: it deliberately leaves por_output_chain out, so it stops
+* at POR_RAW and never reaches RESETn. The lockup was a property of the FULL
+* four-cell loop, so only the full four-cell loop can witness its absence.
+* That is this record, and it is also the first full-assembly corner record
+* the block has had at all (design/README.md flagged its absence).
+*
+* WHAT IT DOES NOT CLAIM
+*
+* Liveness and startup ordering only. It is NOT the ramp-rate / brownout /
+* reset-pulse-accuracy record (#14), and it does not re-derive the threshold
+* (sim/por-comparator-designer-check/) or the >=1 ms pulse width
+* (sim/por-output-chain-pulse/, which measures it from an unambiguous stepped
+* t0 rather than from a rail ramp). t_release_ms here is bounded loosely and
+* on purpose: the question is "does it release at all, at every corner",
+* not "how long was the pulse".
+*
+* TIMELINE
+*
+*   0     -> 1 ms    VDD ramps 0 -> vdd_val (~3 kV/s, well inside the ratified
+*                    por-ramp-rate envelope; #14 owns the envelope itself).
+*   1.5 -> 1.9 ms    rail settled, RESETn still asserted, sensor still
+*                    disabled. This is exactly the state target-spec.md
+*                    #por-iq is defined in (section 5, rule 1), so the supply
+*                    current is averaged over this window, and the shared
+*                    IBIAS node and the PTAT pad are sampled at 1.9 ms.
+*   ...              POR_RAW goes high once the rail is past threshold, the
+*                    deglitch dwell passes, the one-shot runs, and RESETn
+*                    releases. t_release_ms records when.
+*   28 ms            settled released state: RESETn driven high, and PTAT /
+*                    CTAT alive -- which is the end-to-end proof that
+*                    releasing RESETn really did enable temp_core, i.e. that
+*                    the arrow the lockup used to close is now traversed.
+*
+* The 30 ms span is sized off sim/por-output-chain-pulse/, which measured the
+* one-shot at up to 7.75 ms on an ideal 0.5 uA IBIAS. bias_core's real IBIAS
+* is as low as 297 nA at ss/-40 C (sim/bias-core-designer-check/), and the
+* starved ramp scales as 1/IBIAS, so the slow corners need well over 10 ms.
+
+vsup vdd 0 PWL(0 0 1m {vdd_val} 30m {vdd_val})
+
+* Pads. PTAT/CTAT get 1 pF of pad/probe capacitance and are otherwise
+* unloaded -- temp_core has no output buffer and specifies Rload >= 1 Gohm
+* (design/temp_core.md). RESETn gets the 5 pF load spec/target-spec.md
+* #por-drive is quoted into.
+Cpp ptat 0 1p
+Cpc ctat 0 1p
+Rlp ptat 0 1T
+Rlc ctat 0 1T
+Crn resetn 0 5p
+
+xdut vdd 0 ptat ctat resetn temp_por_top

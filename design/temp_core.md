@@ -25,8 +25,17 @@ recorded evidence run, not estimated:
 
 | Evidence | What it substantiates |
 | --- | --- |
-| [`sim/temp-core-designer-check/`](../sim/temp-core-designer-check/) — record `20260731-230435-80f0981` | PTAT/CTAT transfer, output headroom, supply sensitivity, systematic temperature error, Iq, disabled-state draw, pad-load cost, trim range/LSB — 216-point PVT grid (9 corners × 8 temperatures × 3 supplies) |
-| [`sim/temp-core-startup/`](../sim/temp-core-startup/) — record `20260731-230914-80f0981` | cold start from 0 V with EN gated by POR, pre-POR quiescent draw, brownout restart — 81-point PVT grid (9 corners × 3 temperatures × 3 supplies) |
+| [`sim/temp-core-designer-check/`](../sim/temp-core-designer-check/) — record `20260801-073732-8b7e57f` | PTAT/CTAT transfer, output headroom, supply sensitivity, systematic temperature error, Iq, disabled-state draw and the DR-010 high-impedance invariant, pad-load cost, trim range/LSB — 216-point PVT grid (9 corners × 8 temperatures × 3 supplies) |
+| [`sim/temp-core-startup/`](../sim/temp-core-startup/) — record `20260801-073944-8b7e57f` | cold start from 0 V with EN gated by POR, pre-POR quiescent draw and the same invariant through the cold start, brownout restart — 81-point PVT grid (9 corners × 3 temperatures × 3 supplies) |
+| [`sim/temp-por-top-release/`](../sim/temp-por-top-release/) — record `20260801-074334-8b7e57f` | this cell inside the **full four-cell assembly**: that `RESETn` releases and thereby enables it, and that its disabled state no longer prevents that — 81-point PVT grid |
+
+Both `temp_core` records were **re-run under
+[DR-010](../spec/decision-records/DR-010-shared-ibias-disabled-consumer-contract.md)**
+and supersede the `20260731-*` pair, which was taken before the `IBIAS`
+disabled-state clamp was deleted (`sim/` is append-only, so those records are
+still on disk and still describe the netlist they were run against). Every
+enabled-state number below is unchanged; what moved is confined to the
+disabled branch and to startup timing, and is called out where it appears.
 
 Both are **deterministic corner** records: `design.ngspice` sets
 `sw_stat_mismatch=0`, so everything below bounds the **systematic** error
@@ -262,11 +271,31 @@ The PTAT current is `ΔVBE/R1` and is independent of it.
 
 ### Disabled state (`EN` low, pre-POR)
 
-`ENB` (the local inverse of `EN`) clamps every high-impedance node so the
-cell is genuinely off rather than merely unbiased: `NBG` (`XMDNB`), the
-`IBIAS` pin (`XMDIB`), the startup node `ND` (`XMDND`), the amplifier tail
-`NT` (`XMDNT`), stage 1's output `N2` (`XMDN2`), and both output pads
-(`XMENPT`, `XMENCT`). `XMENPG` pulls the mirror gate `PG` to `VDD`.
+`ENB` (the local inverse of `EN`) clamps every high-impedance **internal**
+node so the cell is genuinely off rather than merely unbiased: `NBG`
+(`XMDNB`), the startup node `ND` (`XMDND`), the amplifier tail `NT`
+(`XMDNT`), stage 1's output `N2` (`XMDN2`), and both output pads (`XMENPT`,
+`XMENCT`). `XMENPG` pulls the mirror gate `PG` to `VDD`.
+
+**The `IBIAS` pin is deliberately *not* among them
+([DR-010](../spec/decision-records/DR-010-shared-ibias-disabled-consumer-contract.md)).**
+It used to be: an `ENB`-gated `XMDIB` (1 µm/1 µm) shorted the pin to `VSS`.
+But `IBIAS` is a net shared with `por_comparator` and `por_output_chain`, and
+`EN` **is** `RESETn` — so that clamp held the shared node at `VSS` for the
+entire pre-POR window, starved `por_comparator`'s tail mirror, and made
+`RESETn` unreleasable, which in turn kept this cell disabled and the clamp
+engaged. A closed bias-vs-POR lockup, measured at all 81 PVT points by
+`sim/bias-core-ibias-sharing/`. DR-010 deletes the clamp and rules that a
+**disabled consumer of a shared bias node presents high impedance to it**.
+`XMPASS` (off) and `XMDNB` (`NBG` → `VSS`) already turn the local mirror off,
+so no additional device is needed: the pin is high-Z, and the node's operating
+point is set by `por_output_chain`'s always-on diode-connected `XMBD`.
+
+`XMDIB` existed to give a *forced* current somewhere to go when a single-cell
+testbench drives the pin from an ideal source with `EN` low — a testbench
+condition, never a system one. Since DR-010 those testbenches terminate the
+forced reference themselves (`xmshd` / `xmsh`, a diode-connected `nfet_03v3`
+4 µm/4 µm standing in for the rest of the shared net).
 
 `XMDNT`/`XMDN2` were **added because the startup record caught their
 absence**. Without them, `NT` and `N2` float when the tail is off; at the
@@ -279,14 +308,28 @@ across the full grid:
 | --- | --- |
 | Cell's own draw from its `VDD` pin, `EN` low | ≤ **0.69 nA** |
 | `PTAT`, `CTAT` pad voltage, `EN` low | ≤ **53 nV** (held at `VSS`, not floating) |
-| Draw seen at the rail including the shunted `IBIAS` reference | 0.500 µA |
+| Current the disabled cell takes **out of the shared `IBIAS` node** | ≤ **0.152 nA** (`ibias_dis_na`) |
+| Shared `IBIAS` node with this cell disabled on it | **0.499–0.873 V** (`vibias_dis_v`) — a diode drop, not `VSS` |
+| Draw seen at the rail including the `IBIAS` reference | 0.500 µA |
 
-That last row is not this cell's current: `bias_core` sources 0.5 µA into the
-`IBIAS` pin whether or not `temp_core` is enabled, and a disabled `temp_core`
-clamps the pin to `VSS`, so the reference lands in the supply reading. It is
-recorded here so #11/#14 budget it against the block Iq rather than
-rediscovering it. If pre-POR block current matters, the fix belongs in
-`bias_core` (gate its own output), not here.
+The last three rows are the DR-010 contract as numbers. The first two are the
+high-impedance invariant: the disabled cell takes 0.03 % of the 0.5 µA `IBIAS`
+convention and does not drag the node down, so the whole reference stays
+available to `por_comparator` and `por_output_chain` in exactly the state POR
+has to work in. Both are checked at every corner
+(`sim/temp-core-designer-check/`, bound 25 nA / 0.3 V), so a future edit that
+re-introduces a clamp fails a corner run rather than passing review.
+
+The last row is not this cell's current: `bias_core` sources 0.5 µA into the
+`IBIAS` net whether or not `temp_core` is enabled, and the single-cell
+testbenches meter it on the same rail, so the reference lands in the supply
+reading. It is recorded here so #11/#14 budget it against the block Iq rather
+than rediscovering it. **Note the change of destination since DR-010**: that
+current is no longer thrown into a clamp here — in the assembled block it
+reaches the POR consumers that need it. It is still spent (it is `por-iq`'s
+single largest line item, `design/bias_core.md` "Iq apportionment"), but it is
+now spent *on the POR decision* rather than wasted. Gating it off at the source
+is not the remedy: see DR-010's "Alternatives considered".
 
 ## Startup
 
@@ -329,13 +372,24 @@ full rail collapse and restart:
 
 | Measurement | Result |
 | --- | --- |
-| Time from `EN` release to `PTAT` crossing 0.5 V | 2.24 – 4.81 µs |
-| `PTAT` after brownout restart vs. after cold start | **0 ppm** at every point |
+| Time from `EN` release to `PTAT` crossing 0.5 V | 2.91 – 7.06 µs |
+| `PTAT` after brownout restart vs. after cold start | **−0.58 … 0 ppm** (bound ±100 ppm) |
 | `CTAT` after brownout restart vs. after cold start | **0 ppm** at every point |
 
-Bit-identical restart at every corner is the strong form of the claim: if the
-loop could latch into its degenerate state, a rail collapse is where it would
-do it.
+Restart agreement to well under 1 ppm at every corner is the strong form of the
+claim: if the loop could latch into its degenerate state, a rail collapse is
+where it would do it.
+
+> **These two rows moved under DR-010** (they read 2.24–4.81 µs and 0 ppm
+> before). Not a design change — a **modelling** change, and a more honest one.
+> Deleting the `IBIAS` clamp means this cell no longer defines the shared node,
+> so the testbench now terminates the forced reference in `xmsh`, a stand-in
+> for the rest of the shared net. The reference is therefore *shared* with that
+> stand-in instead of being handed to the DUT whole, which is what the
+> assembled block actually does — `por_comparator` and `por_output_chain` are
+> real consumers of the same 0.5 µA. Less bias current into this cell's local
+> mirror means a slower kick, hence the longer start times. The old numbers
+> flattered the cell by giving it a reference no system would give it.
 
 ## V(T) transfer and output range
 
@@ -512,7 +566,13 @@ python3 design/netlist.py --check        # netlists match the schematics
 python3 sim/build_tb.py --check          # testbench fragments match the netlists
 python3 sim/run_corners.py temp-core-designer-check -j 8
 python3 sim/run_corners.py temp-core-startup -j 8
+python3 sim/run_corners.py temp-por-top-release -j 8   # this cell in the assembly
 ```
+
+The last run exits non-zero **by design**: the assembled block misses
+[`por-iq`](../spec/target-spec.md#por-iq), an overrun `design/bias_core.md`
+owns and DR-010 does not address. Every liveness and ordering check in it
+passes.
 
 The first two commands are the chain that ties an evidence record back to
 `design/temp_core.sch`: `netlist.py --check` proves the exported netlist

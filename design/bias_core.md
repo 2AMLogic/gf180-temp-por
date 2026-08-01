@@ -17,6 +17,7 @@ evidence run, not from an estimate:
 | --- | --- |
 | [`sim/bias-core-designer-check/`](../sim/bias-core-designer-check/) | settled `VREF`, `IBIAS`, always-on Iq against [`por-iq`](../spec/target-spec.md#por-iq), absence of a degenerate DC solution, reference settling and dropout, the rail at which the assembled block would release, and the starved-loop window on a fast ramp and after a brownout — 81-point PVT grid (9 corners × 3 temperatures × 3 supplies) |
 | [`sim/bias-core-ibias-sharing/`](../sim/bias-core-ibias-sharing/) | the shared `IBIAS` net in the reset-asserted state, with a disabled `temp_core` and `por_comparator` wired exactly as `design/netlist/temp_por_top.spice` wires them, against a control without `temp_core` — same 81-point grid |
+| [`sim/temp-por-top-release/`](../sim/temp-por-top-release/) | this cell inside the **full four-cell assembly**: whether the shared node survives the reset-asserted state, whether `RESETn` releases and enables the sensor, and the assembled block's `por-iq` — same 81-point grid. Added by #41 / DR-010 |
 
 Both are **deterministic corner** records: `design.ngspice` sets
 `sw_stat_mismatch=0`, so everything below bounds the **systematic + corner**
@@ -34,11 +35,21 @@ this issue was chartered to surface rather than absorb:
    brownout, during which `BIAS_OK` can read a false valid — see
    [The starved-loop window](#the-starved-loop-window).
 
-Plus one integration defect that no single-cell testbench can see:
+Plus one integration defect that no single-cell testbench could see, which
+this issue surfaced and **#41 has since fixed**:
 
-3. The **shared `IBIAS` net is clamped to `VSS` in the reset-asserted
-   state**, which is a closed bias-vs-POR lockup at the top level — see
-   [The shared IBIAS net](#the-shared-ibias-net).
+3. ~~The **shared `IBIAS` net is clamped to `VSS` in the reset-asserted
+   state**, which is a closed bias-vs-POR lockup at the top level.~~
+   **Resolved** by
+   [DR-010](../spec/decision-records/DR-010-shared-ibias-disabled-consumer-contract.md):
+   a disabled consumer of the shared node must present high impedance to it,
+   so `temp_core`'s `XMDIB` clamp is gone. The shared node now sits at
+   0.568–0.861 V in the reset-asserted state (was 1.0–6.6 mV) and the
+   assembled block releases `RESETn` at every one of the 81 points — see
+   [The shared IBIAS net](#the-shared-ibias-net-–-resolved-by-dr-010). The
+   two checks in `sim/bias-core-ibias-sharing/` that were written as the
+   requirement and had been failing now pass on their own, exactly as that
+   testbench's `tb.json` predicted they would.
 
 ## What this cell is and is not
 
@@ -405,8 +416,14 @@ options are:
    [Iq apportionment](#iq-apportionment) — the row is already missed by 2.3×
    for unrelated reasons).
 2. **Re-cost `por-ramp-rate`**'s fast limit down to the measured 0.36 V/µs.
-3. **Change the architecture** — e.g. a `RESETn`-gated `IBIAS` (see below),
-   which frees ~1 µA of budget that could be spent on amplifier drive.
+3. **Change the architecture.** ~~E.g. a `RESETn`-gated `IBIAS` (see below),
+   which frees ~1 µA of budget that could be spent on amplifier drive.~~
+   **That particular architecture change is now ruled out**: DR-010 rejects a
+   `RESETn`-gated `IBIAS` because `por_comparator` and `por_output_chain`
+   consume `IBIAS` precisely while `RESETn` is asserted, so gating it there
+   would starve the POR decision itself. The ~1 µA it appeared to free is the
+   current that biases them. Some other architecture change may still do it;
+   this one does not.
 
 Nothing here relaxes either row to make the result pass.
 
@@ -448,14 +465,23 @@ non-double-counted number.
 
 - **The 0.5 µA `IBIAS` convention is the single largest line item.** At the
   binding corner it is 1119 nA — **more than the entire `por-iq` budget on
-  its own**, before any other branch conducts. And in the reset-asserted
-  state it is *entirely wasted*: `por_comparator` divides it 20:1 down to a
+  its own**, before any other branch conducts. In the reset-asserted state
+  most of it is still *unused*: `por_comparator` divides it 20:1 down to a
   25 nA tail, and `temp_core` — the consumer that actually wants 0.5 µA — is
-  disabled and throws it into a clamp (see below).
-- **`bias_core` cannot fix that on its own.** The cell has **no input pins
-  at all**: it cannot know whether POR has released, so it cannot source
-  100 nA before release and 500 nA after. Adding an `EN`/`RESETn` input is
-  an interface change and therefore a decision record, not a #11 edit.
+  disabled. Since DR-010 it is at least no longer *thrown away*: `temp_core`'s
+  clamp is gone, so what the POR path does not use now sits on the shared
+  node rather than being shorted to `VSS` (see
+  [The shared IBIAS net](#the-shared-ibias-net-–-resolved-by-dr-010)). The
+  supply current is the same either way — this is a wasted-headroom argument,
+  not a saving.
+- **`bias_core` cannot fix that on its own, and must not try.** The cell has
+  **no input pins at all**: it cannot know whether POR has released, so it
+  cannot source 100 nA before release and 500 nA after. That was an interface
+  change and therefore a decision record rather than a #11 edit — and the
+  record went the other way: **DR-010 rejects it outright**, because
+  `por_comparator` and `por_output_chain` need `IBIAS` in exactly the
+  `RESETn`-asserted window such a gate would switch it off in. Treat the
+  ~1 µA as unrecoverable by this route.
 - **Even a free `IBIAS` would not close the gap**: 929 nA of core + 292 nA
   of comparator + 31.6 nA of `por_output_chain` = 1252.6 nA, still over.
 - **The core is already 10–50× below DR-005's own 1–5 µA/branch estimate.**
@@ -472,49 +498,83 @@ amendment's own words the target is not relaxed here to make the arithmetic
 work; the check in `sim/bias-core-designer-check/testbench/tb.json` is left
 at the ratified 1.0 µA and fails at 38 of 81 points.
 
-## The shared `IBIAS` net
+## The shared `IBIAS` net — resolved by DR-010
 
 `design/netlist/temp_por_top.spice` wires `IBIAS` as a **single net** shared
 by `bias_core`, `temp_core`, `por_comparator` and `por_output_chain`. DR-005
 startup ordering step 6 holds `temp_core` disabled until POR releases, and
-`temp_core`'s disabled state clamps the `IBIAS` **pin** to `VSS` through its
-`XMDIB` device — deliberately, and documented in `design/temp_core.md`
-("Disabled state"), which also anticipates that "if pre-POR block current
-matters, the fix belongs in `bias_core` (gate its own output), not here".
+`temp_core`'s disabled state used to clamp the `IBIAS` **pin** to `VSS`
+through an `ENB`-gated `XMDIB`.
 
-It is worse than a current-budget problem. `sim/bias-core-ibias-sharing/`
+That was worse than a current-budget problem. `sim/bias-core-ibias-sharing/`
 instantiates the real cells in the real top-level wiring and compares them
-against a control without `temp_core`:
+against a control without `temp_core`, and in record
+`20260801-054722-6cf5898` (the netlist as of #11):
 
-- **Control** (no `temp_core`): the shared node sits at a diode drop,
-  `por_comparator`'s tail mirror is biased, and `POR_RAW` releases at a rail
+- **Control** (no `temp_core`): the shared node sat at a diode drop,
+  `por_comparator`'s tail mirror was biased, and `POR_RAW` released at a rail
   well above every corner's threshold — which is also the first evidence
   that `bias_core`'s real `IBIAS`/`VREF`/`BIAS_OK` reproduce what
   `sim/por-comparator-designer-check` obtained from idealised stimuli.
-- **Real wiring** (disabled `temp_core` present): the clamp holds the shared
-  node near `VSS` whatever `bias_core` sources into it, `por_comparator`'s
-  tail is starved, `POR_RAW` cannot go high, `RESETn` is never released, and
-  `temp_core` is therefore never enabled. **That is a closed bias-vs-POR
-  lockup loop** — precisely the failure this issue is chartered to prove
-  absent.
+- **Real wiring** (disabled `temp_core` present): the clamp held the shared
+  node at **1.0–6.6 mV** whatever `bias_core` sourced into it,
+  `por_comparator`'s tail was starved, `POR_RAW` could not go high, `RESETn`
+  was never released, and `temp_core` was therefore never enabled. **A closed
+  bias-vs-POR lockup loop** — precisely the failure #11 was chartered to
+  prove absent.
 
-`VREF` is unaffected in both branches (the reference loop is self-biased and
-does not depend on the `IBIAS` leg's compliance), which is what identifies
+`VREF` was unaffected in both branches (the reference loop is self-biased and
+does not depend on the `IBIAS` leg's compliance), which is what identified
 this as an interface defect on one net rather than a failure of the core.
 
-The fix necessarily touches a cell this issue may not modify — `temp_core`'s
-`XMDIB` gating, or the `IBIAS` interface contract itself — so it is recorded
-here with a failing check that will go green by itself once the interface is
-corrected. The natural candidates:
+### What was decided
 
-1. Gate `temp_core`'s `XMDIB` on something other than the always-asserted
-   pre-POR `EN` (it exists to stop a forced current having nowhere to go,
-   which is a testbench condition, not a system one).
-2. Give `bias_core` a `RESETn`/`EN` input and let it gate its own `IBIAS`
-   output — which also recovers ~1 µA of `por-iq` budget (see above).
-3. Split `IBIAS` into two nets, POR-side and sensor-side.
+The fix touched a cell #11 could not modify — `temp_core`'s `XMDIB` gating and
+the `IBIAS` interface contract itself — so it went to a decision record, which
+is [DR-010](../spec/decision-records/DR-010-shared-ibias-disabled-consumer-contract.md)
+(issue #41). **A consumer of the shared `IBIAS` net presents high impedance to
+it whenever it is disabled**: it may gate its own internal fan-out off the
+node, never clamp it. `temp_core`'s `XMDIB` is deleted; the node's operating
+point is defined by `por_output_chain`'s always-on diode-connected `XMBD`.
 
-All three are interface changes and belong in a decision record.
+Of the three candidates this section originally listed, DR-010 records why the
+other two were rejected — briefly, because **gating `bias_core`'s own `IBIAS`
+output on `RESETn`** (the one credited above with recovering ~1 µA of `por-iq`)
+would starve `por_comparator` and `por_output_chain` in exactly the window
+they exist to work in, turning a lockup a clamp happened to cause into one the
+interface would guarantee; and **splitting `IBIAS` into two nets** would add a
+second permanently-conducting output leg to a block already 2.37× over
+`por-iq`. Read DR-010 before revisiting either.
+
+### Measured after the fix
+
+Same testbench, same 81-point grid, record `20260801-073555-8b7e57f`
+(**PASS**, all six checks, including the two that were written as the
+requirement and had been failing):
+
+| | Before (`…-6cf5898`) | After (`…-8b7e57f`) |
+| --- | --- | --- |
+| `vibias_shared_v` (disabled `temp_core` present) | 1.0–6.6 mV | **0.568–0.861 V** |
+| `vibias_control_v` (no `temp_core`) | 0.568–0.861 V | 0.568–0.861 V |
+| shared vs. control agreement | ~0.6 V apart | **≤ 3 µV apart** |
+| `por_raw_shared_droop_mv` | pinned low | **≤ 0.005 mV** from the rail |
+
+And on the **full four-cell assembly** — `sim/temp-por-top-release/`, record
+`20260801-074334-8b7e57f`, which is also the first corner record taken on
+`temp_por_top` as a whole:
+
+| | Result, 81 points |
+| --- | --- |
+| `RESETn` releases | **at every point**, 5.61–16.95 ms |
+| `PTAT` after release | **1.003–1.716 V** — the sensor really is enabled |
+| shared `IBIAS`, reset asserted | 0.507–0.821 V |
+| `iq_por_ua` vs. [`por-iq`](../spec/target-spec.md#por-iq) < 1 µA | **0.657–2.385 µA — FAILS at 54 of 81 points** |
+
+That last row is the *other* conflict this document already owns (see
+[Iq apportionment](#iq-apportionment)), now measured on the real assembly
+instead of summed across per-cell records. DR-010 fixed a **liveness** defect
+and does not touch it; the check is left at the ratified 1.0 µA and allowed to
+fail rather than relaxed.
 
 ## Area — flagged for #17
 
@@ -542,11 +602,19 @@ python3 design/netlist.py --check            # schematic <-> committed netlist
 python3 sim/build_tb.py --check              # netlist <-> testbench fragment
 python3 sim/run_corners.py bias-core-designer-check -j 8 --timeout 900
 python3 sim/run_corners.py bias-core-ibias-sharing  -j 8 --timeout 900
+python3 sim/run_corners.py temp-por-top-release     -j 8 --timeout 1800
 ```
 
-Both runs exit non-zero by design — see the two failing checks above. `sim/`
-is append-only, so a re-run mints a new record id and does not overwrite the
-committed ones.
+Exit codes, and why each is what it is:
+
+| Run | Exit | Why |
+| --- | --- | --- |
+| `bias-core-designer-check` | **non-zero** | `por-iq` and the starved-loop window, the two conflicts above. Unchanged. |
+| `bias-core-ibias-sharing` | **zero** | was non-zero before DR-010; its two requirement-shaped checks went green by themselves when the interface was corrected, exactly as its `tb.json` said they would |
+| `temp-por-top-release` | **non-zero** | `por-iq` again, now measured on the assembled block. Every liveness and startup-ordering check in it passes. |
+
+`sim/` is append-only, so a re-run mints a new record id and does not
+overwrite the committed ones.
 
 ## Out of scope here, on purpose
 
@@ -555,5 +623,6 @@ committed ones.
 | Mismatch / Monte Carlo on the 8:1 ratio, `R2/R1` and the amplifier offset | #15 |
 | Ramp-rate envelope, brownout re-assertion and reset-pulse interaction on the assembled block | #14 |
 | Deglitch, the ≥1 ms one-shot, push-pull drive, the below-floor `RESETn` pull-down | `por_output_chain`, #12 |
-| Re-costing `por-iq` or `por-ramp-rate`, and the `IBIAS` interface change | a new decision record through #1 |
+| Re-costing `por-iq` or `por-ramp-rate` | a new decision record through #1 — still open |
+| The `IBIAS` interface change | **done**: [DR-010](../spec/decision-records/DR-010-shared-ibias-disabled-consumer-contract.md), issue #41 |
 | Layout, matching strategy, measured area | #17 |

@@ -13,6 +13,8 @@
     "meas tran vpre find v(ptat) at=1.4m",
     "meas tran ipre find i(vsup) at=1.4m",
     "meas tran ibpre find i(vib) at=1.4m",
+    "meas tran ibdpre find i(vibd) at=1.4m",
+    "meas tran vibpre find v(ibias) at=1.4m",
     "meas tran vrun1 find v(ptat) at=2.4m",
     "meas tran irun1 find i(vsup) at=2.4m",
     "meas tran vcrun1 find v(ctat) at=2.4m",
@@ -26,6 +28,8 @@
     "vptat_pre_mv": "vpre*1e3",
     "iq_pre_own_ua": "(-ipre-ibpre)*1e6",
     "iq_pre_pin_ua": "-ipre*1e6",
+    "ibias_pre_dis_na": "ibdpre*1e9",
+    "vibias_pre_v": "vibpre",
     "iq_run_ua": "-irun1*1e6",
     "restart_err_ppm": "(vrun2-vrun1)/vrun1*1e6",
     "ctat_restart_err_ppm": "(vcrun2-vcrun1)/vcrun1*1e6",
@@ -64,7 +68,15 @@
     },
     "iq_pre_pin_ua": {
       "max": 0.75,
-      "description": "pre-POR draw seen at the rail, including bias_core's 0.5 uA reference that temp_core clamps to VSS while disabled. Not a fault of this cell -- it is the cost of the shared-IBIAS interface (DR-005), recorded here so #11/#14 budget it against the block Iq rather than rediscovering it"
+      "description": "pre-POR draw seen at the rail, including bias_core's 0.5 uA reference. Since DR-010 that reference is no longer thrown into a clamp inside this cell: it lands in xmsh, the stand-in for the rest of the shared net, and in the assembled block it reaches por_comparator and por_output_chain instead -- i.e. it is spent on the POR decision rather than wasted. Still not this cell's current; recorded here so #11/#14 budget the shared-IBIAS interface (DR-005) against the block Iq rather than rediscovering it"
+    },
+    "ibias_pre_dis_na": {
+      "max": 25.0,
+      "description": "THE DR-010 INVARIANT, through the cold start. Current the DISABLED cell takes out of the shared IBIAS node in the pre-POR window, metered by vibd. It used to be the whole reference, shorted to VSS through an ENB-gated XMDIB, which starved por_comparator's tail mirror and made RESETn unreleasable. Bounded at 25 nA = 5 % of the 0.5 uA IBIAS convention. Requirement, not observation"
+    },
+    "vibias_pre_v": {
+      "min": 0.3,
+      "description": "the shared node in the same window: still at a diode drop with a disabled temp_core hanging on it, because xmsh (por_output_chain's always-on XMBD) defines it and this cell no longer drags it to VSS"
     },
     "iq_run_ua": {
       "max": 20.0,

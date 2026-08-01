@@ -5,7 +5,7 @@ V {}
 S {}
 E {}
 T {temp_core -- PTAT / CTAT temperature-sensing core (issue #9)} -900 -1500 0 0 0.6 0.6 {}
-T {Topology per DR-005: DVBE/VBE bandgap-style core, deliberately left\nuncompensated -- the PTAT term is published raw. 8:1 emitter-area PNP\npair (XQ1 : XQ8A..XQ8H) sets DVBE = (kT/q)*ln(8); the error amplifier\nforces V(NA) = V(NB) so the branch current is I = DVBE/R1 (PTAT), and\nthe matched mirror leg XMP3/XMPC3 drops that same current on R2 =\nR2FIX + trim ladder, giving V(PTAT) = (R2/R1)*(kT/q)*ln(8) -- PTAT by\nconstruction and free of R's absolute value and tempco, which cancel in\nthe same-flavour ppolyf_u ratio.\n\nSizing and the full error budget: design/temp_core.md.\nEvidence: sim/temp-core-designer-check/records/.\n\nInterface contract (unchanged from the #8 stub):\n  VDD/VSS  3.3 V core-flavour supply pair (DR-001)\n  IBIAS    shared bias-mirror node from bias_core (DR-005). Convention:\n           bias_core SOURCES 0.5 uA into this pin; XMBD is the local\n           mirror diode. Nothing here depends on its absolute accuracy --\n           it sets only amplifier tail / cascode bias, never the PTAT\n           current, which is DVBE/R1.\n  EN       enable, active high. Driven from RESETn at the top level, so\n           the sensor is enabled only after POR releases (DR-005 startup\n           ordering step 6). EN low: mirror gate PG pulled to VDD, local\n           bias node NBG pulled to VSS, PTAT and CTAT pulled to VSS.\n  PTAT     analog PTAT output (DR-002). Rout = R2 ~ 516 kohm: this cell\n           has NO output buffer (DR-005 puts that in a separate\n           temp_buffer cell). Specify Rload >= 1 Gohm.\n  CTAT     analog CTAT output (DR-002) = VEB of XQ1, the same single\n           diode-connected vertical PNP that forms the 1x leg of the\n           ratio pair, tapped through XRISO so pad capacitance never\n           sees the loop node. Rout ~ 30 kohm.} -900 -1440 0 0 0.3 0.3 {}
+T {Topology per DR-005: DVBE/VBE bandgap-style core, deliberately left\nuncompensated -- the PTAT term is published raw. 8:1 emitter-area PNP\npair (XQ1 : XQ8A..XQ8H) sets DVBE = (kT/q)*ln(8); the error amplifier\nforces V(NA) = V(NB) so the branch current is I = DVBE/R1 (PTAT), and\nthe matched mirror leg XMP3/XMPC3 drops that same current on R2 =\nR2FIX + trim ladder, giving V(PTAT) = (R2/R1)*(kT/q)*ln(8) -- PTAT by\nconstruction and free of R's absolute value and tempco, which cancel in\nthe same-flavour ppolyf_u ratio.\n\nSizing and the full error budget: design/temp_core.md.\nEvidence: sim/temp-core-designer-check/records/.\n\nInterface contract (unchanged from the #8 stub):\n  VDD/VSS  3.3 V core-flavour supply pair (DR-001)\n  IBIAS    shared bias-mirror node from bias_core (DR-005). Convention:\n           bias_core SOURCES 0.5 uA into this pin; XMBD is the local\n           mirror diode. Nothing here depends on its absolute accuracy --\n           it sets only amplifier tail / cascode bias, never the PTAT\n           current, which is DVBE/R1. DR-010: this pin is HIGH-Z when the\n           cell is disabled and NEVER clamped -- the net is shared with\n           por_comparator and por_output_chain, which need it in exactly\n           the state EN is low.\n  EN       enable, active high. Driven from RESETn at the top level, so\n           the sensor is enabled only after POR releases (DR-005 startup\n           ordering step 6). EN low: mirror gate PG pulled to VDD, local\n           bias node NBG pulled to VSS, PTAT and CTAT pulled to VSS, and\n           the IBIAS pin left high-Z (DR-010).\n  PTAT     analog PTAT output (DR-002). Rout = R2 ~ 516 kohm: this cell\n           has NO output buffer (DR-005 puts that in a separate\n           temp_buffer cell). Specify Rload >= 1 Gohm.\n  CTAT     analog CTAT output (DR-002) = VEB of XQ1, the same single\n           diode-connected vertical PNP that forms the 1x leg of the\n           ratio pair, tapped through XRISO so pad capacitance never\n           sees the loop node. Rout ~ 30 kohm.} -900 -1440 0 0 0.3 0.3 {}
 N -1100 -1000 -1040 -1000 {}
 C {devices/iopin.sym} -1100 -1000 0 0 {name=p_vdd lab=VDD}
 N -1100 -940 -1040 -940 {}
@@ -64,21 +64,7 @@ nf=1
 m=1
 model=nfet_03v3
 spiceprefix=X}
-N 1180 -30 1180 -70 {}
-C {devices/lab_pin.sym} 1180 -70 0 0 {name=l13 lab=IBIAS}
-N 1140 0 1080 0 {}
-C {devices/lab_pin.sym} 1080 0 0 0 {name=l14 lab=ENB}
-N 1180 30 1180 70 {}
-C {devices/lab_pin.sym} 1180 70 0 0 {name=l15 lab=VSS}
-N 1180 0 1230 0 {}
-C {devices/lab_pin.sym} 1230 0 0 0 {name=l16 lab=VSS}
-C {symbols/nfet_03v3.sym} 1160 0 0 0 {name=MDIB
-L=1u
-W=1u
-nf=1
-m=1
-model=nfet_03v3
-spiceprefix=X}
+T {NO disabled-state clamp on the IBIAS pin -- DR-010.\nAn ENB-gated MDIB (1u/1u nfet, IBIAS -> VSS) used to sit here. IBIAS is a SHARED net\n(bias_core sources it; temp_core, por_comparator and por_output_chain all consume it) and\nEN is RESETn, so that clamp shorted the shared node to VSS for the entire pre-POR window:\npor_comparator's tail mirror starved, POR_RAW could not go high, RESETn never released,\nand this cell was therefore never enabled to lift its own clamp -- a closed bias-vs-POR\nlockup, measured across all 81 PVT points by sim/bias-core-ibias-sharing/.\nDR-010 rules that a DISABLED consumer must present HIGH IMPEDANCE to the shared node.\nMPASS (off) and MDNB (NBG -> VSS) already turn the local mirror off, so the pin is\nhigh-Z with EN low and nothing else is needed. A single-cell testbench that forces an\nideal current into this pin must now terminate it itself -- see design/temp_core.md,\n"Disabled state".} 1060 -180 0 0 0.4 0.4 {}
 N -260 -30 -260 -70 {}
 C {devices/lab_pin.sym} -260 -70 0 0 {name=l17 lab=PB}
 N -300 0 -360 0 {}
