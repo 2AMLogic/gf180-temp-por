@@ -1,0 +1,90 @@
+* por-glitch -- stimulus half of the testbench fragment.
+*
+* The other half is a verbatim copy of design/netlist/temp_por_top.spice,
+* appended by sim/build_tb.py to produce tb_por_glitch.spice. Edit THIS
+* file (or the schematics), never the generated fragment.
+*
+* Netlist FRAGMENT: no .include / .lib / .temp / .control / .end -- the
+* harness owns those. Parameters it supplies: vdd_val, vdd_nom, temp_c.
+*
+* WHAT THIS EXPERIMENT SUBSTANTIATES
+*
+* por-brownout's complement, per issue #14's own acceptance criteria: a
+* worst-corner supply glitch that must NOT toggle RESETn, bracketing
+* sim/por-output-chain-deglitch/'s deglitch dwell boundary
+* (1.86-8.88 us at the cell level, idealised bias) on the full four-cell
+* assembly with bias_core's real, possibly-lower IBIAS in the loop (as low
+* as 297 nA at ss/-40C per sim/bias-core-designer-check/, below the 500 nA
+* nominal / 250 nA half-IBIAS the cell-level record swept) -- so this is the
+* first time the deglitch dwell margin is checked against a real, not
+* idealised, IBIAS. Not a separately-named spec row; verified against
+* target-spec.md#por-brownout's deliberate deglitch-rejection carve-out
+* ("dips shallower than VPOR-downarrow,max or shorter than the deglitch
+* dwell are explicitly not guaranteed to assert reset").
+*
+* GLITCH CHOICE: 300 ns, full depth (down to 0.2 V) -- roughly 6-30x SHORTER
+* than the shortest dwell sim/por-output-chain-deglitch/ measured at any
+* IBIAS split (1.86 us nominal, 8.88 us at half), so this is deliberately
+* deep in the "must reject" region rather than probing the boundary itself
+* (a boundary sweep is a #12-owned refinement, not this record's job).
+*
+* WHAT "IMMUNITY" IS MEASURED AS, AND WHY NOT SIMPLY "RESETn NEVER DROOPS".
+* RESETn is a push-pull CMOS output powered from the same rail that is being
+* glitched (DR-004), so while VDD is at 0.2 V the released-high output
+* CANNOT hold 3.3 V -- it follows its own supply. A check that demanded
+* v(resetn) stay above a fixed logic-high threshold THROUGH the glitch would
+* therefore be testing the laws of the rail, not the POR's decision, and
+* would fail at every corner for a reason that has nothing to do with
+* deglitching. What "the glitch was rejected" actually means is that the POR
+* never DECIDED to reset:
+*
+*   - v(resetn) is a solid released high again once the rail is back
+*     (sampled from 100 us after the glitch onward), and
+*   - it stays there. A genuine assert regenerates the full
+*     spec/target-spec.md#por-reset-pulse, which
+*     sim/por-output-chain-pulse/ measures at 4.22-7.75 ms at the cell level
+*     and sim/temp-por-top-release/ at 5.6-17.0 ms end to end on the
+*     assembly -- 1.5 to 2 orders of magnitude longer than the 100 us
+*     settling exclusion, so a real assert cannot hide inside it.
+*
+* The droop RESETn does take during the 300 ns rail excursion is recorded as
+* an informative measurement (resetn_droop_during_glitch_v) rather than
+* checked, so the evidence trail carries the number without pretending it is
+* a pass/fail criterion.
+*
+* ONE DUT, ONE TRAN, staged as a timeline:
+*
+*   0    ->  1 ms   cold start: VDD ramps 0 -> vdd_val in 1 ms (2970-3630
+*                    V/s, inside the ratified por-ramp-rate envelope and the
+*                    exact cold start sim/temp-por-top-release/ validates
+*                    releases correctly at all 81 points).
+*    1   -> 20 ms   held at vdd_val -- rail settled, RESETn released.
+*                    sim/temp-por-top-release/ measures release complete by
+*                    16.95 ms at the slowest corner (ss/-40C/3.63V) off this
+*                    same 1 ms ramp, so 20 ms leaves 3 ms of margin.
+*   20   -> 20.0003 ms  VDD glitches from vdd_val to 0.2 V and back over
+*                    300 ns total (100 ns down, 100 ns held, 100 ns up) --
+*                    well under every measured deglitch dwell.
+*   20.0003 -> 26 ms  held at vdd_val -- RESETn must never have left its
+*                    released state. 6 ms of observation is ample: any
+*                    genuine assert holds RESETn low for the full >=1 ms
+*                    (measured 4.22-17.0 ms) reset pulse, so it would be
+*                    plainly visible in this window; a deglitch REJECTION
+*                    has no recovery transient to wait out, unlike
+*                    sim/por-brownout/'s qualifying-dip case.
+
+vsup vdd 0 PWL(
++ 0          0
++ 1m         {vdd_val}
++ 20m        {vdd_val}
++ 20.0001m   0.2
++ 20.0002m   0.2
++ 20.0003m   {vdd_val}
++ 26m        {vdd_val}
++ )
+
+Cpp ptat 0 1p
+Cpc ctat 0 1p
+Crn resetn 0 5p
+
+xdut vdd 0 ptat ctat resetn temp_por_top

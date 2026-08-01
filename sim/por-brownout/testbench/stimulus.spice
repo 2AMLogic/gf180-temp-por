@@ -1,0 +1,87 @@
+* por-brownout -- stimulus half of the testbench fragment.
+*
+* The other half is a verbatim copy of design/netlist/temp_por_top.spice,
+* appended by sim/build_tb.py to produce tb_por_brownout.spice. Edit THIS
+* file (or the schematics), never the generated fragment.
+*
+* Netlist FRAGMENT: no .include / .lib / .temp / .control / .end -- the
+* harness owns those. Parameters it supplies: vdd_val, vdd_nom, temp_c.
+*
+* WHAT THIS EXPERIMENT SUBSTANTIATES
+*
+* spec/target-spec.md#por-brownout: a dip that (a) takes VDD below
+* VPOR-downarrow,min = 2.22 V and (b) stays below VPOR-downarrow for
+* >= T_dip,min = 10 us must re-assert RESETn and regenerate the FULL
+* [por-reset-pulse] (>=1 ms), on the full four-cell assembly with bias_core's
+* real (starved, corner-dependent) recovery dynamics in the loop -- not the
+* idealised-bias por_output_chain-only deglitch check
+* sim/por-output-chain-deglitch/ already ran.
+*
+* It also carries the full-assembly confirmation of
+* spec/target-spec.md#por-reset-pulse that #14 owes: the >=1 ms minimum was
+* measured at the single-cell level by #12 (sim/por-output-chain-pulse/, min
+* 4.21535 ms at ff/-40C/2.97V), and t_pulse_regen_ms below is the same
+* quantity measured end to end on the assembled block, in the brownout
+* context, at every corner -- including the observed MAXIMUM, which the
+* ratified row explicitly asks #14 to record ("#14 records the observed max
+* so a maximum can be added later on evidence").
+*
+* WHY A DEEP DIP: design/bias_core.md's "starved-loop window" documents that
+* a FULL rail collapse leaves BIAS_OK reading a false valid for
+* 326-1567 us while the reference loop crawls back (measured on bias_core
+* alone, idealised load). This deck's dip goes to 1.0 V -- below every
+* corner's comparator/reference operating floor (sim/por-comparator-
+* designer-check/'s below-floor probes) -- so it exercises the SAME
+* recovery path a full collapse does, but from a bounded starting point
+* rather than 0 V, matching "brownout" rather than "power-cycle". If the
+* starved-loop window shows up here as a longer-than-#12's-idealised-record
+* reassert or release delay, that is the ALREADY-OWNED, ALREADY-TRACKED
+* finding design/bias_core.md assigns to #1/#14 -- record it, do not
+* root-cause it fresh (see design/bias_core.md, "The starved-loop window").
+*
+* ONE DUT, ONE TRAN, staged as a timeline (the multi-stage idiom
+* sim/bias-core-startup/'s `xbo` branch already uses):
+*
+*   0    ->  1 ms   cold start: VDD ramps 0 -> vdd_val in 1 ms (2970-3630
+*                    V/s, inside the ratified por-ramp-rate envelope and the
+*                    exact cold start sim/temp-por-top-release/ validates
+*                    releases correctly at all 81 points).
+*    1   -> 20 ms   held at vdd_val -- rail settled, RESETn released.
+*                    sim/temp-por-top-release/ measures release complete by
+*                    16.95 ms at the slowest corner (ss/-40C/3.63V) off this
+*                    same 1 ms ramp, so 20 ms leaves 3 ms of margin.
+*   20   -> 20.001 ms   VDD dips from vdd_val to 1.0 V over 1 us.
+*   20.001 -> 20.051 ms  held at 1.0 V for 50 us -- 5x T_dip,min = 10 us, and
+*                    well above the 1.86-8.88 us deglitch dwell
+*                    sim/por-output-chain-deglitch/ measured at the cell
+*                    level (idealised bias), so this is unambiguously a
+*                    QUALIFYING dip, not a glitch (that is sim/por-glitch/'s
+*                    job).
+*   20.051 -> 20.052 ms  VDD recovers from 1.0 V to vdd_val over 1 us.
+*   20.052 -> 55 ms  held at vdd_val -- RESETn must have re-asserted during
+*                    the dip and must now regenerate a full
+*                    [por-reset-pulse] (>=1 ms) before releasing again. The
+*                    35 ms of recovery observation is sized off the
+*                    end-to-end release time sim/temp-por-top-release/
+*                    measures on this same assembly (5.6-17.0 ms) plus the
+*                    starved-loop window design/bias_core.md measures after
+*                    a collapse (up to 1.57 ms) -- i.e. roughly 2x the
+*                    slowest expected recovery, so a corner that takes
+*                    longer than expected still lands inside the run and is
+*                    measured rather than silently reported as "no data".
+
+vsup vdd 0 PWL(
++ 0        0
++ 1m       {vdd_val}
++ 20m      {vdd_val}
++ 20.001m  1.0
++ 20.051m  1.0
++ 20.052m  {vdd_val}
++ 55m      {vdd_val}
++ )
+
+Cpp ptat 0 1p
+Cpc ctat 0 1p
+Crn resetn 0 5p
+
+xdut vdd 0 ptat ctat resetn temp_por_top

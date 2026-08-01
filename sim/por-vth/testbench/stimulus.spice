@@ -1,0 +1,91 @@
+* por-vth -- stimulus half of the testbench fragment.
+*
+* The other half is a verbatim copy of design/netlist/temp_por_top.spice,
+* appended by sim/build_tb.py to produce tb_por_vth.spice. That one file
+* already carries every sub-circuit definition the top level instantiates, so
+* this DUT is the WHOLE assembled block (bias_core + temp_core +
+* por_comparator + por_output_chain), with nothing idealised. Edit THIS file
+* (or the schematics), never the generated fragment.
+*
+* Netlist FRAGMENT: no .include / .lib / .temp / .control / .end -- the
+* harness owns those. Parameters it supplies: vdd_val, vdd_nom, temp_c.
+*
+* WHAT THIS EXPERIMENT SUBSTANTIATES
+*
+* spec/target-spec.md#por-vth-rise, #por-vth-fall, #por-hysteresis --
+* corner-worst-case (deterministic, not Monte Carlo) extraction of the
+* release/assert threshold pair and the hysteresis, on the FULL ASSEMBLY
+* rather than the idealised-VREF/IBIAS cell-level check
+* sim/por-comparator-designer-check/ already ran. That record's own text
+* names this exact gap: "IBIAS/VREF are idealised fixed stimuli standing in
+* for bias_core ... Full ramp-rate/brownout/reset-pulse-interaction evidence
+* against a real (non-idealised) startup sequence remains #14's job." This
+* deck answers the threshold/hysteresis half of that with bias_core's real
+* (corner-dependent, ~1.19-1.21 V per sim/temp-por-top-release/) VREF in the
+* loop instead of an idealised 1.2 V source.
+*
+* Measured on the internal POR_RAW node (v(xdut.por_raw)), not RESETn: RESETn
+* only deasserts after por_output_chain's deglitch dwell and >=1 ms one-shot
+* have both elapsed (sim/por-output-chain-pulse/, sim/temp-por-top-release/
+* measures 5.6-17.0 ms end to end on the assembly), so measuring the
+* threshold off RESETn would fold that unrelated timing into a voltage claim.
+* POR_RAW is the comparator's own decision, which is what "release/assert
+* threshold" means in spec/target-spec.md section 4.1.
+*
+* Corner-worst-case only: design.ngspice sets sw_stat_mismatch=0, so this is
+* the SYSTEMATIC/corner term. The [3sigma] mismatch share stays #15's job,
+* exactly as sim/por-comparator-designer-check/ already states -- this record
+* does not change that row's `conditional #15` status, only its full-assembly
+* evidence.
+*
+* RAMP RATE CHOICE: 8 ms up / 7 ms down, i.e. 371-454 V/s on the up-ramp and
+* 210-304 V/s on the down-ramp across the 2.97-3.63 V supply axis. That is
+* the same order as the 121 V/s primary and 484 V/s 4x replica branches
+* sim/bias-core-startup/ runs and validates as rate-independent, and 3
+* decades below the 0.36 V/us boundary design/bias_core.md measures the
+* starved loop to start lagging at. This is deliberately NOT the fast end of
+* por-ramp-rate: a threshold extraction wants the bias core settled at every
+* instant, not fighting the starved-loop window that sim/por-ramp-rate/ and
+* sim/por-brownout/ exist to characterise.
+*
+* DOWN-RAMP FLOOR IS 1.5 V, NOT 0 V. VPOR-downarrow,min is 2.22 V, so a
+* down-ramp that stops at 1.5 V clears the ratified assert threshold by
+* >=0.72 V at every corner and captures the falling crossing with margin.
+* Continuing to 0 V would add nothing to this claim -- the below-floor
+* behaviour of POR_RAW is sim/por-comparator-designer-check/'s
+* `por_at_0p5v`/`por_at_1v` probes, and the below-floor RESETn valid-low
+* claim is sim/por-output-chain-floor/'s -- while making the deck several
+* times more expensive to solve (the assembled block in deep collapse is
+* where ngspice spends nearly all of its time on this netlist). Cheap
+* evidence that is in scope beats expensive evidence that duplicates two
+* existing records.
+*
+* ONE DUT, ONE TRIANGLE WAVE -- half the circuit size of the two-DUT idiom
+* sim/por-comparator-designer-check/ and sim/bias-core-startup/ use
+* elsewhere in this repo, chosen here because the full four-cell assembly is
+* far more expensive per point than a single sub-circuit: a single DUT
+* cold-starts, ramps up (VPOR-uparrow), settles, then ramps back down
+* (VPOR-downarrow) at the SAME corner point, on the SAME instance, so
+* "same corner point" is exact by construction, not merely by using
+* identical corner libs across two instances.
+*
+*   0    ->  8 ms   cold start: VDD ramps 0 -> vdd_val -- VPOR-uparrow,
+*                    measured off v(xdut.por_raw).
+*    8   -> 14 ms   held at vdd_val -- rail settled, reference settled.
+*                    POR_RAW is the comparator's own decision and has already
+*                    resolved on the up-ramp; this hold exists so both VREF
+*                    samples below are taken on a settled reference and so
+*                    the down-ramp starts from a genuinely static state.
+*   14   -> 21 ms   VDD ramps vdd_val -> 1.5 V -- VPOR-downarrow, measured
+*                    off the SAME v(xdut.por_raw), at the SAME corner point
+*                    as the rise above.
+*   21   -> 23 ms   held at 1.5 V -- tail observation margin, below every
+*                    corner's assert threshold.
+*
+* V_hys = VPOR-uparrow - VPOR-downarrow follows directly from the two edges.
+
+vsup vdd 0 PWL(0 0 8m {vdd_val} 14m {vdd_val} 21m 1.5 23m 1.5)
+Cpp ptat 0 1p
+Cpc ctat 0 1p
+Crn resetn 0 5p
+xdut vdd 0 ptat ctat resetn temp_por_top

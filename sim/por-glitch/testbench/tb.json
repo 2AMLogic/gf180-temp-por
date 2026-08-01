@@ -1,0 +1,50 @@
+{
+  "name": "por-glitch",
+  "description": "Full-assembly glitch-immunity check of design/netlist/temp_por_top.spice: a 300 ns full-depth supply glitch, well under the deglitch dwell, must not make the POR assert -- RESETn is back to a solid released high 100 us after the glitch and stays there for 6 ms, far longer than the >=1 ms reset pulse a genuine assert would regenerate.",
+  "claim": "spec/target-spec.md#por-brownout's deliberate deglitch-rejection carve-out (\"dips shallower than VPOR-downarrow,max or shorter than the deglitch dwell are explicitly not guaranteed to assert reset\"), verified against sim/por-output-chain-deglitch/'s dwell (1.86-8.88 us, cell level, idealised bias) on the full four-cell assembly with bias_core's real, possibly-lower IBIAS in the loop. Not a separately-named spec row. Deterministic corners only (design.ngspice sets sw_stat_mismatch=0); mismatch is #15's job.",
+  "netlist": "tb_por_glitch.spice",
+  "nominal_supply_v": 3.3,
+  "supply_tolerance": 0.1,
+  "temperatures_c": [-40, 27, 125],
+  "corners": ["full"],
+  "options": ["reltol=1e-5", "abstol=1e-15", "vntol=1e-9"],
+  "analyses": [
+    "tran 5u 26m",
+    "meas tran vrst_pre find v(resetn) at=19.9m",
+    "meas tran vdd_glitch find v(vdd) at=20.00015m",
+    "meas tran vrst_droop min v(resetn) from=20m to=20.0005m",
+    "meas tran vrst_min min v(resetn) from=20.1m to=26m",
+    "meas tran vrst_post find v(resetn) at=25.5m",
+    "meas tran vpor_min min v(xdut.por_raw) from=20.1m to=26m"
+  ],
+  "measure": {
+    "resetn_pre_glitch_v": "vrst_pre",
+    "vdd_glitch_v": "vdd_glitch",
+    "resetn_droop_during_glitch_v": "vrst_droop",
+    "resetn_min_after_glitch_v": "vrst_min",
+    "resetn_post_glitch_v": "vrst_post",
+    "por_raw_min_after_glitch_v": "vpor_min"
+  },
+  "checks": {
+    "resetn_pre_glitch_v": {
+      "min": 2.8,
+      "description": "sanity: RESETn is released before the glitch -- confirms the deck reaches the state the immunity claim is defined against."
+    },
+    "vdd_glitch_v": {
+      "max": 1.0,
+      "description": "sanity: the glitch actually reached its programmed depth (0.2 V) -- testbench-integrity check, not the spec claim itself."
+    },
+    "resetn_min_after_glitch_v": {
+      "min": 2.5,
+      "description": "THE GLITCH-IMMUNITY CHECK: from 100 us after the glitch to the end of the run, RESETn must never leave its released-high state. A genuine assert would regenerate the full spec/target-spec.md#por-reset-pulse (4.22-7.75 ms at the cell level, 5.6-17.0 ms end to end on the assembly), which is 1.5-2 decades longer than the 100 us settling exclusion, so no real assert can hide in the excluded window. The excursion RESETn takes DURING the 300 ns rail collapse is recorded separately and unchecked -- a push-pull output cannot hold a logic high while its own supply is at 0.2 V, and demanding that would test the rail rather than the deglitch."
+    },
+    "resetn_post_glitch_v": {
+      "min": 2.8,
+      "description": "confirms RESETn is still released 5.5 ms after the glitch, i.e. it never asserted and had to release again -- a second, independent read of the same non-event at a single settled instant."
+    }
+  },
+  "unchecked_measurement_notes": {
+    "resetn_droop_during_glitch_v": "Recorded, deliberately NOT checked. RESETn is a push-pull output on the rail being glitched (DR-004), so it follows its own supply down for the 300 ns excursion; that is physics, not a deglitch failure. The number is carried so the evidence trail shows how far the output actually moved.",
+    "por_raw_min_after_glitch_v": "Recorded, deliberately NOT checked. It separates two mechanisms that are BOTH passes for the block -- 'the comparator never re-asserted at all' (POR_RAW stays high) versus 'the comparator re-asserted briefly and por_output_chain's deglitch dwell swallowed it' (POR_RAW dips, RESETn does not). Checking it would fail the block for taking the second, equally correct path."
+  }
+}
