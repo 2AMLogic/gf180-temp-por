@@ -1,0 +1,89 @@
+{
+  "name": "temp-accuracy-vt",
+  "description": "Issue #13's published-measured temp-sensor suite on the REAL assembled path (design/netlist/temp_por_top.spice, all four cells, bias_core-driven IBIAS, RESETn-gated enable): V(T) transfer and output headroom, untrimmed temperature error, supply sensitivity against a nominal-rail reference DUT carried in the same run, and the INCREMENTAL sensor Iq above the reset-asserted state. Supersedes sim/temp-core-designer-check/'s idealised-500nA-source numbers as the published [TBD-#13] evidence; temp-accuracy-trimmed is derived from this grid by sim/temp-accuracy-vt/analyze_derived.py.",
+  "claim": "spec/target-spec.md#temp-vt-transfer -- the published MEASURED V(T) curve and output-headroom bound at the PTAT/CTAT pads, the [TBD-#13] slot #9 filled only with design intent. Also substantiates #temp-accuracy-untrimmed (+/-3 C, systematic/corner share only), #temp-supply-sensitivity (<=0.5 C/V, i.e. <=0.33 C over the +/-10 % window, measured per point against an identical temp_por_top held at vdd_nom in the same run) and #temp-iq (<20 uA, stretch <5 uA), measured as the INCREMENTAL current above the reset-asserted/sensor-disabled state per target-spec.md section 5 rule 2. #temp-accuracy-trimmed is DERIVED from this record's own raw per-point logs by sim/temp-accuracy-vt/analyze_derived.py (records/<record-id>-derived.md): .temp is a single global value per ngspice run so no one point can see both its own temperature and its own 25 C trim reference, and the wave-1 trim code 100000b is a metal strap already baked into design/netlist/temp_core.spice (design/temp_core.md, 'Trim'), so there is no second netlist state to instantiate -- that derivation is the same renormalisation design/temp_core.md's error budget performs. #iq-total is NOT closed here: iq_total_ua is reported unchecked and this record supplies only the temp-iq half; #14 owns por-iq. Deterministic corners only (design.ngspice sets sw_stat_mismatch=0), so no distribution claim is made -- both accuracy rows are [3 sigma] and 'conditional #15' in target-spec.md for exactly that reason.",
+  "netlist": "tb_temp_accuracy_vt.spice",
+  "nominal_supply_v": 3.3,
+  "supply_tolerance": 0.1,
+  "temperatures_c": [-40, 25, 27, 125],
+  "corners": ["full"],
+  "options": ["reltol=1e-5", "abstol=1e-15", "vntol=1e-9"],
+  "analyses": [
+    "tran 10u 32m",
+    "meas tran iq_pre avg i(vsup) from=1.5m to=1.9m",
+    "meas tran iq_post avg i(vsup) from=28m to=30m",
+    "meas tran trel when v(resetn)=1.0 rise=1",
+    "meas tran vrst_post find v(resetn) at=30m",
+    "meas tran vdd_post find v(vdd) at=30m",
+    "meas tran vptat_post find v(ptat) at=30m",
+    "meas tran vctat_post find v(ctat) at=30m",
+    "meas tran vtk_post find v(tk) at=30m",
+    "meas tran vrstr_post find v(resetnr) at=30m",
+    "meas tran vptatr_post find v(ptatr) at=30m",
+    "meas tran vctatr_post find v(ctatr) at=30m"
+  ],
+  "measure": {
+    "vptat_v": "vptat_post",
+    "vctat_v": "vctat_post",
+    "ptat_k_mvk": "vptat_post/vtk_post*1e3",
+    "terr_untrim_c": "vptat_post/4.308842e-3 - vtk_post",
+    "terr_supply_c": "(vptat_post-vptatr_post)/4.308842e-3",
+    "vctat_supply_mv": "(vctat_post-vctatr_post)*1e3",
+    "vout_margin_v": "min(min(vptat_post-0.2,vctat_post-0.2),min(vdd_post-0.2-vptat_post,vdd_post-0.2-vctat_post))",
+    "resetn_released_v": "vrst_post",
+    "resetn_ref_released_v": "vrstr_post",
+    "t_release_ms": "trel*1e3",
+    "iq_por_ua": "-iq_pre*1e6",
+    "iq_total_ua": "-iq_post*1e6",
+    "temp_iq_ua": "(iq_pre-iq_post)*1e6"
+  },
+  "checks": {
+    "vptat_v": {
+      "min": 0.9,
+      "max": 2.1,
+      "min_spread_pct": 40.0,
+      "description": "spec/target-spec.md#temp-vt-transfer -- the published measured PTAT curve over -40..125 C on the real assembled path (25 C carried on top of the three ratified anchors as the trim-derivation reference). Bounds are the same ones sim/temp-core-designer-check/ and sim/temp-por-top-release/ use, so the assembled number is directly comparable with the idealised-source one. The spread floor is a harness-integrity check: a PTAT output that does not move with temperature means .temp or a .lib section failed to apply, which would look like a suspiciously perfect result rather than a broken one."
+    },
+    "vctat_v": {
+      "min": 0.40,
+      "max": 0.85,
+      "min_spread_pct": 30.0,
+      "description": "spec/target-spec.md#temp-vt-transfer, CTAT pad (VEB of temp_core's 1x PNP, ~-1.86 mV/C), assembled path."
+    },
+    "vout_margin_v": {
+      "min": 0.0,
+      "description": "spec/target-spec.md#temp-vt-transfer headroom bound [P#1]: 0.2 V <= V(out) <= VDD - 0.2 V at every corner, for BOTH pads. This measurement is the worst of those four margins, so a single number >= 0 is the whole bound. #9 measured +260 mV of worst-case margin on the idealised path; this is the assembled-path value that supersedes it."
+    },
+    "terr_untrim_c": {
+      "min": -3.0,
+      "max": 3.0,
+      "description": "spec/target-spec.md#temp-accuracy-untrimmed (+/-3 C [3 sigma], conditional #15). Untrimmed error against the declared nominal transfer constant K0 = 4.308842 mV/K (tt, 25 C, design/temp_core.md), read at the PTAT pin and converted through the published characteristic exactly as DR-002 requires. Deterministic corners only: this bounds the SYSTEMATIC/corner share of a [3 sigma] budget that must also absorb mismatch -- #15's Monte Carlo job. Sanity reference: #9 measured -0.230..+0.422 C (14 % of budget) against an idealised 500 nA IBIAS; a large divergence here would mean the real bias current is doing something the idealised source hid."
+    },
+    "terr_supply_c": {
+      "min": -0.33,
+      "max": 0.33,
+      "description": "spec/target-spec.md#temp-supply-sensitivity (<=0.5 C/V, i.e. <=0.33 C across the +/-10 % window). Measured as the difference between this point's DUT and an identical temp_por_top held at vdd_nom in the SAME run, so it is a true per-point number and reads exactly 0 at the 3.30 V points (which doubles as a check that the two instances really are identical). analyze_derived.py additionally reports the strict full-window peak-to-peak per (corner, temperature) group."
+    },
+    "resetn_released_v": {
+      "min": 2.8,
+      "description": "sanity: this point really did release before the accuracy read (spec/target-spec.md#por-drive, DR-004 push-pull to the rail). An accuracy sample taken pre-release would be meaningless -- temp_core would still be disabled and both pads clamped to VSS."
+    },
+    "resetn_ref_released_v": {
+      "min": 2.8,
+      "description": "same, on the nominal-rail reference DUT: terr_supply_c is only a supply-sensitivity number if BOTH instances are enabled and settled at the sample time."
+    },
+    "t_release_ms": {
+      "min": 1.0,
+      "max": 25.0,
+      "description": "liveness sanity carried over from sim/temp-por-top-release/, which validated release across the same grid at 5.61-16.95 ms. Bounded at 25 ms so a point that releases too late to be settled by the 28-30 ms sample windows fails loudly instead of silently reporting a mid-transient value. The accurate >=1 ms pulse-width claim is sim/por-output-chain-pulse/'s, not this record's."
+    },
+    "temp_iq_ua": {
+      "max": 20.0,
+      "description": "spec/target-spec.md#temp-iq (<20 uA target, <5 uA stretch). INCREMENTAL current above por-iq per target-spec.md section 5 rule 2: (released, sensor-enabled settled draw) minus (reset-asserted, sensor-disabled draw), both windows taken from the SAME run so the baseline is this point's own pre-release state rather than a cross-record subtraction. The stretch is reported against, not checked -- DR-005's own bottom-up estimate is 5-15 uA and target-spec.md says the stretch needs low-power amplifier work DR-005 deferred."
+    },
+    "iq_por_ua": {
+      "max": 1.0,
+      "description": "spec/target-spec.md#por-iq (<1 uA) -- NOT this issue's row (#14 owns it), carried here only because temp-iq is defined as an increment above it and the subtrahend must be visible. EXPECTED TO FAIL: this is the already-owned overrun design/bias_core.md's 'Iq apportionment' records at 2.37x and sim/temp-por-top-release/ measured on the assembled block at 0.657-2.385 uA. Left at the RATIFIED 1.0 uA and allowed to fail -- per CLAUDE.md and target-spec.md section 5 a target is not relaxed to make a result pass. It does not invalidate temp_iq_ua, which is a difference and so is independent of where the baseline sits."
+    }
+  }
+}

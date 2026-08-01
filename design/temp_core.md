@@ -28,6 +28,7 @@ recorded evidence run, not estimated:
 | [`sim/temp-core-designer-check/`](../sim/temp-core-designer-check/) — record `20260801-073732-8b7e57f` | PTAT/CTAT transfer, output headroom, supply sensitivity, systematic temperature error, Iq, disabled-state draw and the DR-010 high-impedance invariant, pad-load cost, trim range/LSB — 216-point PVT grid (9 corners × 8 temperatures × 3 supplies) |
 | [`sim/temp-core-startup/`](../sim/temp-core-startup/) — record `20260801-073944-8b7e57f` | cold start from 0 V with EN gated by POR, pre-POR quiescent draw and the same invariant through the cold start, brownout restart — 81-point PVT grid (9 corners × 3 temperatures × 3 supplies) |
 | [`sim/temp-por-top-release/`](../sim/temp-por-top-release/) — record `20260801-074334-8b7e57f` | this cell inside the **full four-cell assembly**: that `RESETn` releases and thereby enables it, and that its disabled state no longer prevents that — 81-point PVT grid |
+| [`sim/temp-accuracy-vt/`](../sim/temp-accuracy-vt/) — record `20260801-121458-660d016` (issue #13) | the **published, measured** numbers for `spec/target-spec.md`'s `temp-vt-transfer`, `temp-accuracy-untrimmed`, `temp-accuracy-trimmed` (derived), `temp-supply-sensitivity` and `temp-iq` rows, taken on the real four-cell assembly (`bias_core`-driven `IBIAS`, `RESETn`-gated enable) now that #41/DR-010 makes that path live — supersedes this cell's own idealised-500 nA-source numbers below as the ratified evidence, though those numbers land in the same neighbourhood (see each section) — 108-point PVT grid (9 corners × 4 temperatures incl. a 25 °C trim reference × 3 supplies) |
 
 Both `temp_core` records were **re-run under
 [DR-010](../spec/decision-records/DR-010-shared-ibias-disabled-consumer-contract.md)**
@@ -415,6 +416,14 @@ checked **per point** in the record as a single worst-of-four margin. Worst
 case over the grid: **+260 mV** (`vout_margin_v`), at the hot end where
 `V(PTAT)` is highest against a 2.97 V rail.
 
+**Confirmed on the real assembled path (#13, `sim/temp-accuracy-vt/`,
+`bias_core`-driven `IBIAS` rather than this idealised 500 nA source):** K₂₅ =
+4.304–4.30756 mV/K, CTAT slope −1.88424…−1.82384 mV/°C, output range
+1.00329–1.71599 V / 0.460507–0.782332 V, worst headroom margin **+260.507 mV**
+at the *same* binding corner (`bjt_ff_125c_2.97v`). The idealised-source
+numbers above are not an approximation the real block departs from — they
+hold to within measurement precision.
+
 ## Error budget
 
 The sensitivity that governs everything below: with
@@ -471,6 +480,13 @@ Both rows are `[3σ]` and `conditional #15` in `spec/target-spec.md` — they ar
 mismatch-inclusive by definition, and nothing here is. What this record does
 is fix the systematic term so #15's Monte Carlo has a known amount of budget
 to fit into, rather than an unknown one.
+
+**#13's assembled-path numbers (`sim/temp-accuracy-vt/`, `bias_core`-driven
+`IBIAS`) land in the same neighbourhood**: untrimmed **−0.335…+0.099 °C**
+(11 % of budget), trimmed curvature+quantisation **−0.346…+0.847 °C** (56 %).
+These are the *published* numbers `spec/target-spec.md` cites; the two-cell
+idealised-source figures above remain useful as the designer-level sanity
+check that motivated this cell's sizing.
 
 **The honest reading**: the systematic budget is comfortable at both targets
 — DR-005's worry that curvature alone might eat the ±1.5 °C stretch does not
@@ -543,6 +559,12 @@ Where it goes at tt/27 °C/3.3 V:
   `temp-iq` would be **15.77 µA** at the binding corner. This record does not
   claim the smaller number, because how much of the shared core is live
   pre-POR is #11's to establish, not this cell's.
+  **#13 confirms the estimate on the real assembled path**: incremental
+  `temp-iq`, measured the way §5 actually defines it (post-release minus the
+  reset-asserted draw, `sim/temp-accuracy-vt/`), is **15.90 µA** at
+  `ff_125c_3.63v` — 1 % from this bottom-up estimate — and **5.80…15.90 µA**
+  over the full grid. That is the *published* number `spec/target-spec.md`
+  now cites for `temp-iq`.
 - **`<5 µA` stretch: not met, and not reachable by tuning this design.** The
   floor is structural: three mirror legs at 2.5 µA is 7.5 µA before the
   amplifier draws anything. Reaching 5 µA total needs branch currents near
@@ -567,12 +589,15 @@ python3 sim/build_tb.py --check          # testbench fragments match the netlist
 python3 sim/run_corners.py temp-core-designer-check -j 8
 python3 sim/run_corners.py temp-core-startup -j 8
 python3 sim/run_corners.py temp-por-top-release -j 8   # this cell in the assembly
+python3 sim/run_corners.py temp-accuracy-vt -j 8       # #13's published measured evidence
+python3 sim/temp-accuracy-vt/analyze_derived.py <record-id> --write   # temp-accuracy-trimmed
 ```
 
-The last run exits non-zero **by design**: the assembled block misses
-[`por-iq`](../spec/target-spec.md#por-iq), an overrun `design/bias_core.md`
-owns and DR-010 does not address. Every liveness and ordering check in it
-passes.
+Both the `temp-por-top-release` and `temp-accuracy-vt` runs exit non-zero **by
+design**: the assembled block carries [`por-iq`](../spec/target-spec.md#por-iq)
+(needed as the incremental `temp-iq` subtrahend) and that row misses its own
+target, an overrun `design/bias_core.md` owns and DR-010 does not address.
+Every check this cell's own rows own passes.
 
 The first two commands are the chain that ties an evidence record back to
 `design/temp_core.sch`: `netlist.py --check` proves the exported netlist
@@ -585,9 +610,10 @@ hand-inlined copy that has since drifted.
 - **Mismatch / Monte Carlo** — issue #15. Everything above is deterministic
   corners; the budget is written to hand #15 a specific target
   (`Vos(3σ) < ~0.5 mV`).
-- **Full spec-row coverage** — issue #13. These two experiments are the
-  designer-level check that the sizing closes, not the ratified-spec
-  testbench suite.
+- **Full spec-row coverage** — issue #13, **delivered**
+  (`sim/temp-accuracy-vt/`). The two experiments above remain the
+  designer-level, idealised-source check that the sizing closes; they are not
+  the ratified-spec testbench suite, which runs on the real assembled path.
 - **Chopping** — DR-005 rejected it for wave 1 (Iq, clock, ripple). Not an
   oversight; see the error budget for the specific evidence that would
   reopen it.

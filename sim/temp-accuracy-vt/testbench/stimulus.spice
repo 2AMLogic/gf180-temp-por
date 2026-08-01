@@ -1,0 +1,137 @@
+* temp-accuracy-vt -- stimulus half of the testbench fragment.
+*
+* The other half is a verbatim copy of design/netlist/temp_por_top.spice,
+* appended by sim/build_tb.py to produce tb_temp_accuracy_vt.spice. That one
+* file already carries every sub-circuit definition the top level
+* instantiates (bias_core + temp_core + por_comparator + por_output_chain),
+* so this is the WHOLE assembled block, nothing idealised. Edit THIS file
+* (or the schematics), never the generated fragment.
+*
+* Netlist FRAGMENT: no .include / .lib / .temp / .control / .end -- the
+* harness owns those. Parameters it supplies: vdd_val, vdd_nom, temp_c.
+*
+* WHY THIS EXPERIMENT EXISTS
+*
+* Issue #13: the *published, measured* numbers for spec/target-spec.md's
+* temp-vt-transfer, temp-accuracy-untrimmed, temp-supply-sensitivity and
+* temp-iq rows, taken on the real assembled path (temp_por_top, real
+* bias_core-driven IBIAS, RESETn-gated enable) now that #41/DR-010 makes
+* that path live.
+*
+* sim/temp-core-designer-check/ (from #9) computed the same quantities
+* against an IDEALISED 500 nA IBIAS current source (`ibref vdd ibias dc
+* 500n`) with EN forced by a voltage source, and its own tb.json says
+* outright that "published measured values ([TBD-#13]) and full spec-row
+* coverage remain issue #13's". Those numbers are the sanity-check
+* reference for this record, not its substitute: the real IBIAS this block
+* runs on is bias_core's, which sim/bias-core-designer-check/ measured at
+* 297 nA (ss/-40 C) to well over 500 nA hot, and the real EN is RESETn.
+*
+* sim/temp-por-top-release/ (from #41) established the assembled-path
+* wiring and proved every one of the 81 grid points releases RESETn and
+* enables temp_core. It is a liveness/ordering check and stops at one
+* settled sample per corner. This experiment extends it three ways:
+*
+*   1. Temperature is swept as a stimulus for the V(T) transfer, with 25 C
+*      added on top of the three ratified anchors (-40/27/125 C) so every
+*      (corner, supply) group carries its own 25 C trim-reference point --
+*      the point sim/temp-accuracy-vt/analyze_derived.py renormalises
+*      against for temp-accuracy-trimmed, exactly as design/temp_core.md's
+*      error budget does.
+*   2. A SECOND, IDENTICAL temp_por_top instance is carried in the same run
+*      on a rail pinned to vdd_nom (see below), so temp-supply-sensitivity
+*      is a true per-point difference the harness can pass/fail, not an
+*      inference across two separate ngspice invocations.
+*   3. The supply current is averaged in TWO windows of the SAME run --
+*      reset-asserted/sensor-disabled, and released/sensor-enabled -- so
+*      temp-iq comes out as the INCREMENTAL current target-spec.md section 5
+*      rule 2 defines, never the block's absolute draw.
+*
+* THE SECOND (REFERENCE) DUT
+*
+* spec/target-spec.md#temp-supply-sensitivity asks for the shift in the
+* reported temperature between this point's rail and the nominal rail, at
+* fixed process corner and fixed temperature. One ngspice run is one
+* temperature but it can hold two supplies, so the reference is instantiated
+* here rather than inferred: xdutr is the same temp_por_top on a rail hard
+* PWL'd to vdd_nom. Both DUTs see the identical .temp, the identical .lib
+* sections and the identical timestep sequence, so their difference is the
+* supply term and nothing else. At the 3.30 V points of the grid the two
+* rails coincide and terr_supply_c reads exactly 0 by construction -- which
+* is itself a check that the two instances are genuinely identical.
+*
+* This is the same construction sim/temp-core-designer-check/ used for its
+* terr_supply_c (a second DUT held at vdd_nom in the same run); carrying it
+* onto the assembled path keeps the two records comparable.
+*
+* WHAT IT DOES NOT CLAIM
+*
+* - temp-accuracy-trimmed is DERIVED, not measured here. `.temp` is a single
+*   global value per ngspice run, so no single point can see both its own
+*   temperature and its own 25 C reference; and the wave-1 trim is one
+*   metal-strapped code (100000b) already baked into
+*   design/netlist/temp_core.spice, so there is no second "trimmed" netlist
+*   state to instantiate either (design/temp_core.md, "Trim: single 25 C
+*   gain trim"). sim/temp-accuracy-vt/analyze_derived.py performs the
+*   renormalisation across two temperature points of the SAME corner from
+*   this record's own raw logs -- the identical computation
+*   design/temp_core.md's error budget describes -- and writes it up as
+*   records/<record-id>-derived.md.
+* - iq-total (<21 uA) is NOT closed here. This record supplies the temp-iq
+*   half; por-iq is #14's row. iq_total_ua is reported unchecked so the two
+*   halves can be added once #14 lands.
+* - Deterministic corners only (design.ngspice sets sw_stat_mismatch=0), so
+*   no distribution claim is made. Both accuracy rows are [3 sigma] and
+*   "conditional #15" in target-spec.md for exactly that reason: what this
+*   record fixes is the systematic/corner share of the budget.
+*
+* TIMELINE (the window sim/temp-por-top-release/ already validated across
+* the full 81-point grid, extended 30 -> 32 ms so the settled sample keeps
+* margin over the 16.95 ms worst-case release at ss/-40 C/3.63 V)
+*
+*   0     -> 1 ms    VDD ramps 0 -> vdd_val (~3 kV/s, inside the ratified
+*                    por-ramp-rate envelope; #14 owns the envelope itself).
+*   1.5 -> 1.9 ms    rail settled, RESETn still asserted, sensor still
+*                    disabled -- target-spec.md #por-iq's defined state
+*                    (section 5 rule 1). Supply current averaged here.
+*   ...              POR_RAW goes high, the deglitch dwell passes, the
+*                    one-shot runs, RESETn releases; trel records when.
+*   28 -> 30 ms      settled released state: supply current averaged here
+*                    for the incremental temp-iq figure.
+*   30 ms            PTAT / CTAT / rail sampled -- the accuracy read.
+
+* ---- DUT: this PVT point's rail --------------------------------------
+vsup vdd 0 PWL(0 0 1m {vdd_val} 32m {vdd_val})
+
+* Pads. PTAT/CTAT get 1 pF of pad/probe capacitance and are otherwise
+* unloaded -- temp_core has no output buffer and specifies Rload >= 1 Gohm
+* (design/temp_core.md). RESETn gets the 5 pF load spec/target-spec.md
+* #por-drive is quoted into.
+Cpp ptat 0 1p
+Cpc ctat 0 1p
+Rlp ptat 0 1T
+Rlc ctat 0 1T
+Crn resetn 0 5p
+
+xdut vdd 0 ptat ctat resetn temp_por_top
+
+* ---- REFERENCE DUT: pinned to the NOMINAL rail -----------------------
+* Identical instance, identical loading, same .temp and same .lib sections;
+* only the rail differs. v(ptatr) is therefore this corner and temperature's
+* nominal-supply reading, and (v(ptat) - v(ptatr))/K0 is the supply-induced
+* shift in reported temperature -- spec/target-spec.md#temp-supply-sensitivity.
+vsupr vddr 0 PWL(0 0 1m {vdd_nom} 32m {vdd_nom})
+
+Cppr ptatr 0 1p
+Cpcr ctatr 0 1p
+Rlpr ptatr 0 1T
+Rlcr ctatr 0 1T
+Crnr resetnr 0 5p
+
+xdutr vddr 0 ptatr ctatr resetnr temp_por_top
+
+* Absolute-temperature probe: `temper` is not reachable from a measure
+* expression, so it is published as a node voltage (1 V per kelvin), exactly
+* as sim/temp-core-designer-check/ does.
+Btk tk 0 v='temper + 273.15'
+Rtk tk 0 1G
