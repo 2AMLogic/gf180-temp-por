@@ -14,92 +14,143 @@
 * Netlist FRAGMENT: no .include / .lib / .temp / .control / .end -- the
 * harness owns those. Parameters it supplies: vdd_val, vdd_nom, temp_c.
 *
-* A QUASI-STATIC RAIL SWEEP, not a transient. The analysis is a DC sweep of
-* the DUT's own supply from 0 V to 3.63 V in 20 mV steps, and ngspice seeds
-* each step's Newton solve with the previous step's solution -- so the sweep
-* tracks the branch a real, arbitrarily slow ramp would sit on, and it will
-* stay on a wrong branch if one exists. That is exactly the property issue
-* #43 needs, and it is why the sweep is the primary evidence for "which
-* branch does a rising rail leave the core on", rather than one transient at
-* one arbitrary ramp rate:
+* ---------------------------------------------------------------------------
+* METHOD CHANGE, issue #46: this experiment was a `.dc` continuation sweep and
+* is now a QUASI-STATIC TRANSIENT RAMP. Records taken before 2026-08-01 used
+* the old method; the two are NOT comparable point-for-point, and the reason
+* is that the old method was measuring its own convergence aid.
 *
-* STEP SIZE, stated plainly because it differs from #44's methodology: #44's
-* now-superseded testbench (git show 17b4448:sim/bias-core-startup/testbench/
-* stimulus.spice) used 2 mV steps (1815 points/corner). This port uses 20 mV
-* (182 points/corner) instead -- a shared-infrastructure compute-budget
-* concession made during this issue's evidence-gathering session (single
-* 2 mV-step corner points measured 30+ minutes of wall time under heavy
-* concurrent load from other agents' simulations sharing the same host, which
-* does not fit inside one interactive session at 81 points). This does not
-* weaken what the sweep can catch: every reported instance of this defect
-* class -- the ss/-40C, ff/-40C and bjt_ss/+125C failures #44's own sweep
-* found against its 45-device DUT, and the even-earlier native-pull-up
-* revision that tracked a bad branch from 1.4 V to 3.3 V of rail -- is a
-* branch that persists over hundreds of millivolts to volts once reached, not
-* a needle-in-a-haystack excursion a coarser step could step over. A second
-* stable branch is, by definition, stable over a finite rail range; 20 mV
-* resolution cannot miss one that is real and does not vanish between two
-* adjacent solved points.
+* What the old deck did, and why it had to go. It swept `vdd` with `.dc` from
+* 0 to 3.63 V, letting ngspice's continuation seed each step from the previous
+* step's solution, and it could only be made to converge at all by raising
+* `gmin` from ngspice's default 1e-12 to 1e-9 (see the CONVERGENCE note in the
+* superseded revision, `git show e47a8e0:sim/bias-core-startup/testbench/
+* stimulus.spice`). GMIN is a conductance ngspice places across every device
+* junction to keep the Jacobian non-singular. At 1 nS and 3.3 V of rail that
+* is ~2.7 nA per junction -- and the settle comparator this experiment exists
+* to test resolves a ~0.55 nA imbalance between two ~7 nA branches. The
+* comparator's own output node `NOKO` carries one junction (`XMOKC`'s drain)
+* that its reference-side counterpart `NOKL` does not, so the aid injected a
+* ~0.6 nA DIFFERENTIAL error -- larger than the signal. That, and not the
+* circuit, is what the 27-of-27 `BIAS_OK` failure in record
+* `20260801-111049-bc599be` measured. The controlled experiment is in this
+* revision's record; the one-line version is that at tt/-40 C, VDD = 3.3 V, a
+* plain `op` gives V(NOKO) = 0.605 V and BIAS_OK = 1.5 uV at gmin = 1e-9, and
+* V(NOKO) = 1.761 V and BIAS_OK = 3.2999994 V at ngspice's default gmin, with
+* nothing else changed.
 *
-*   - A transient always starts from 0 V with every node at 0, so it visits
-*     one trajectory. A branch-tracking DC sweep visits the whole rail range
-*     and reports where the circuit actually sits at each rail.
-*   - The result is RAMP-RATE INDEPENDENT. spec/target-spec.md#por-ramp-rate
-*     ratifies a 1 V/s ... 1 V/us envelope and assigns sweeping it (both
-*     endpoints plus a decade inside each) to #14. Picking one rate here
-*     would produce a number #14 has to redo; the quasi-static limit is the
-*     one statement that is true for every rate in the envelope.
-*   - The DEAD-state half of the startup claim -- that the degenerate
-*     zero-current solution is not stable anywhere on the grid -- is covered
-*     separately, and more strongly, by sim/bias-core-designer-check/'s
-*     `vref_op_v`, which seeds the DC solve IN that state at all 81 points.
+* The `.dc` sweep cannot simply be re-run at the default gmin: it does not
+* converge there at any of the 27 corner/temperature combinations (all 27 hit
+* the harness's 300 s per-point timeout). A DC continuation is the wrong tool
+* for a circuit whose operating point below ~1 V of rail has every branch near
+* cutoff at once. A transient does not need the crutch: it integrates through
+* that region instead of solving it standing still, and it converges at every
+* one of the 81 points here at ngspice's default gmin.
 *
-* THIS TESTBENCH TARGETS design/bias_core.sch AS LANDED BY #42 (the 50-device,
-* three-leg PNP-clamped-input topology) -- NOT the 45-device schematic PR #44
-* built its own same-named `bias-core-startup` testbench against. #44 never
-* merged (superseded by #42; see issue #43). This testbench is a fresh port of
-* #44's *methodology* -- a 2 mV-step branch-tracking DC sweep, ngspice's own
-* continuation seeding used as the "quasi-static" mechanism -- onto the DUT
-* that actually landed. Node names below (`NKG`, the kick node; `NA`/`NB`, the
-* amplifier's PNP-clamped inputs) follow design/bias_core.md's topology
-* diagram, not #44's.
+* WHY A SLOW RAMP AND NOT A DC SWEEP -- the same argument
+* sim/por-output-chain-floor/ already makes in this repo for the same reason.
+* A transient ramp is the stronger evidence anyway: it is a trajectory a real
+* rail can actually take, rather than a sequence of independent DC solutions
+* stitched together by a solver heuristic.
+*
+* ---------------------------------------------------------------------------
+* WHAT "QUASI-STATIC" MEANS HERE, AND HOW THIS DECK PROVES IT
+*
+* The claim the experiment needs is the RAMP-RATE-INDEPENDENT one: where does
+* a continuously rising rail leave this cell, in the limit where the rail is
+* slow compared with the loop. design/bias_core.md measures the loop's
+* settling at 10.9-33.4 us, so at this deck's 121 V/s the loop is never more
+* than ~1.3-4.0 mV of rail behind -- 0.1 % of the rail. That is an argument,
+* not evidence, so the deck also MEASURES rate-independence: `xqf` is a third
+* DUT on a 4x faster ramp (484 V/s), and `qs_rate_delta_mv` is the difference
+* in the rail at which BIAS_OK asserts between the two. Two rates a factor of
+* four apart agreeing to within tens of millivolts is the statement that both
+* are in the quasi-static limit; a rate-dependent result would show up there
+* first. Both rates sit 3-4 decades below the 0.36 V/us boundary at which
+* design/bias_core.md measures the loop starting to lag, and inside the
+* ratified spec/target-spec.md#por-ramp-rate envelope (1 V/s ... 1 V/us) --
+* whose full sweep remains #14's chartered row, deliberately not pre-empted
+* here.
+*
+* THREE DUTS, one `tran`, the multi-DUT idiom this repo already uses in
+* sim/bias-core-designer-check/ and sim/por-output-chain-floor/:
+*
+*   xqs  0 -> 3.63 V over 30 ms, then flat      the primary quasi-static cold
+*        (121 V/s)                              start. Every branch-tracking,
+*                                               ordering and release-rail
+*                                               measurement is taken here.
+*   xqf  0 -> 3.63 V over 7.5 ms, then flat     the same experiment 4x faster,
+*        (484 V/s)                              used ONLY to demonstrate that
+*                                               the primary result is in the
+*                                               quasi-static limit.
+*   xbo  the xqs ramp, then a FULL collapse to  the brownout-restart branch:
+*        0 V and 3 ms of dead rail, then the    whether the cell restarts onto
+*        same quasi-static ramp again           the same branch, and whether
+*                                               BIAS_OK reads a stale valid
+*                                               while the rail is down.
+*
+* The brownout branch is the second half of the cross-check issue #43's
+* acceptance criteria asked for ("a transient cold-start + brownout-restart
+* experiment") and #46 inherited. sim/bias-core-designer-check/ already covers
+* collapse-and-restart on a FAST rail (its `t_bo_recover_us` / `bo_deep_ppm`);
+* what is new here is that the restart is quasi-static, which is the case
+* where a wrong branch has all the time it needs to establish itself.
 *
 * The supply axis of the PVT grid is deliberately degenerate for this
-* experiment: a rail sweep passes through 2.97, 3.30 and 3.63 V on its way up,
-* so the three supply points of the mandated grid produce identical curves by
-* construction -- `vdd_val` is not referenced below at all. The grid is still
-* run in full (9 process corners x 3 temperatures x 3 supplies = 81 ngspice
-* invocations) because sim/README.md requires the full mandated PVT matrix on
-* every recorded result and a redundant supply axis is not grounds for a
-* --subset-reason; the record groups results by the 27 distinct (process,
-* temperature) combinations, each backed by three bit-identical supply
-* replicates, mirroring how the original defect report (issue #43) itself
-* counted "3 of 27" failing corner/temperature combinations, each failing "at
-* all three supplies" of that combination.
+* experiment, exactly as it was for the superseded `.dc` revision: the ramp
+* passes through 2.97, 3.30 and 3.63 V on its way up, so the three supply
+* points of the mandated grid produce identical curves by construction and
+* `vdd_val` is not referenced below. The grid is still run in full (9 process
+* corners x 3 temperatures x 3 supplies = 81 ngspice invocations) because
+* sim/README.md requires the full mandated PVT matrix on every recorded result
+* and a redundant supply axis is not grounds for a --subset-reason; the record
+* groups results by the 27 distinct (process, temperature) combinations, each
+* backed by three bit-identical supply replicates.
 *
 * IBIAS carries the same consumer-diode replica load the other two bias_core
 * experiments use (temp_core's XMBD 4u/2u and por_comparator's XMBD 2u/2u,
-* verbatim from the exported netlists), so the sweep sees the loading the
+* verbatim from the exported netlists), so the ramp sees the loading the
 * shared node actually carries.
 *
-* CONVERGENCE: the harness's tb.json adds gmin=1e-9 / gminsteps=200 /
-* itl1=500 (default gmin is 1e-12). Below roughly 0.7-1.0 V of rail this
-* circuit's DC operating point is genuinely hard to find -- the startup kick
-* and the three main legs are all near cutoff simultaneously, and every
-* fallback ngspice tries (dynamic/true gmin stepping, source stepping,
-* pseudo-transient op) can iterate indefinitely at the default gmin rather
-* than converging. The raised gmin (1 nS) unsticks it; cross-checked against
-* the default-gmin result at every point it changed (agrees to 6+ significant
-* figures once the default-gmin deck manages to converge at all), and against
-* nkg_final_v staying textbook-small (tens of nV, i.e. the added 1 nS shunt
-* is negligible once the loop is alive and drawing its real ~100 nA/leg), so
-* this is a convergence aid, not a different circuit.
+* The DEAD-state half of the startup claim -- that the degenerate zero-current
+* solution is not stable anywhere on the grid -- is covered separately, and
+* more strongly, by sim/bias-core-designer-check/'s `vref_op_v`, which seeds
+* the DC solve IN that state at all 81 points.
 
-vramp vdd 0 dc 0
-xdut vdd 0 ibsrc vref bias_ok bias_core
-vib ibsrc ibias dc 0
-xldt ibias ibias 0 0 nfet_03v3 L=2u W=4u nf=1 m=1
-xldc ibias ibias 0 0 nfet_03v3 L=2u W=2u nf=1 m=1
+* ---- xqs: primary quasi-static cold start, 121 V/s -------------------------
+vqs vddq 0 PWL(0 0 30m 3.63 70m 3.63)
+vibq nibq ibiasq dc 0
+xqs vddq 0 nibq vrefq bias_okq bias_core
+xldtq ibiasq ibiasq 0 0 nfet_03v3 L=2u W=4u nf=1 m=1
+xldcq ibiasq ibiasq 0 0 nfet_03v3 L=2u W=2u nf=1 m=1
+
+* The release guard, verbatim in form from sim/bias-core-designer-check/: the
+* rail at which the ASSEMBLED block would actually release, i.e. where
+* (BIAS_OK is a valid high) and (VDD >= 2.16667*VREF, por_comparator's ratified
+* divider ratio) first hold together. -1 while BIAS_OK is not valid, so a
+* rising zero-crossing is the release event. This is the measurement that
+* carries spec/target-spec.md#por-vth-rise, and it is reference-referred rather
+* than rail-referred: a BIAS_OK that went valid early against a still-rising
+* reference shows up here as a release rail below 2.47 V.
+Brelq relq 0 v = (v(bias_okq) > 0.5*v(vddq)) ? (v(vddq) - 2.16667*v(vrefq)) : -1
+
+* ---- xqf: the same cold start 4x faster, 484 V/s ---------------------------
+* Present only to measure rate-independence (`qs_rate_delta_mv`).
+vqf vddf 0 PWL(0 0 7.5m 3.63 70m 3.63)
+vibf nibf ibiasf dc 0
+xqf vddf 0 nibf vreff bias_okf bias_core
+xldtf ibiasf ibiasf 0 0 nfet_03v3 L=2u W=4u nf=1 m=1
+xldcf ibiasf ibiasf 0 0 nfet_03v3 L=2u W=2u nf=1 m=1
+
+* ---- xbo: quasi-static cold start, full collapse, quasi-static restart -----
+* 3 ms of dead rail at 0 V is ~4 time constants of the cell's own largest
+* internal node (XCC, 0.8 pF, discharged by nA-class currents), so the restart
+* starts from a genuinely cold cell rather than from residual charge.
+vbo vddb 0 PWL(0 0 30m 3.63 32m 3.63 33m 0 36m 0 66m 3.63 70m 3.63)
+vibb nibb ibiasb dc 0
+xbo vddb 0 nibb vrefb bias_okb bias_core
+xldtb ibiasb ibiasb 0 0 nfet_03v3 L=2u W=4u nf=1 m=1
+xldcb ibiasb ibiasb 0 0 nfet_03v3 L=2u W=2u nf=1 m=1
 
 * bias_core -- generated by design/netlist.py from design/bias_core.sch
 * Do not edit: edit the schematic and re-run the export.
