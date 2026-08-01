@@ -1,0 +1,66 @@
+* bias-core-startup / gmin control -- stimulus half of the control deck.
+*
+* The other half is design/netlist/bias_core.spice, included by
+* run_gmin_control.py to produce the two composed decks under decks/. Edit
+* THIS file (or the schematic), never a composed deck.
+*
+* Netlist FRAGMENT: no .include / .lib / .temp / .options / .control / .end --
+* run_gmin_control.py owns those, and the ONE difference between the two decks
+* it composes is a single `.options gmin=1e-9` line. Parameter it supplies:
+* vdd_val.
+*
+* ---------------------------------------------------------------------------
+* WHAT THIS DECK IS FOR
+*
+* This is the one-variable control experiment behind the claim in
+* design/bias_core.md ("Resolved: the BIAS_OK quasi-static failure was a
+* testbench artefact") and in ../testbench/stimulus.spice: that record
+* `20260801-111049-bc599be`'s 27-of-27 BIAS_OK failure was produced by the
+* superseded `.dc` deck's own convergence aid (`gmin` raised from ngspice's
+* default 1e-12 to 1e-9), not by design/bias_core.sch.
+*
+* It is deliberately the SMALLEST experiment that can carry that claim: a
+* plain `op` at one PVT point (tt / -40 C / VDD = 3.3 V, the point the
+* superseded record's own worst-case reading was taken at), on the same
+* exported netlist and the same IBIAS consumer-diode load the three recorded
+* bias_core testbenches use, with the same reltol/abstol/vntol as
+* ../testbench/tb.json. Everything except `gmin` is held fixed by
+* construction: both decks are composed from THIS file by the same script in
+* the same run.
+*
+* It is NOT a recorded PVT result and does not live under records/: a
+* 2-point control on one corner is not evidence about the corner grid, and
+* sim/README.md's mandated full-matrix rule applies to recorded results. The
+* corner-grid evidence for this experiment is the 81-point transient record
+* in ../records/; this deck exists so the *diagnosis* of the superseded
+* record is reproducible rather than transcribed. Re-run it with:
+*
+*   python3 sim/bias-core-startup/control/run_gmin_control.py
+*
+* ---------------------------------------------------------------------------
+* WHAT THE PROBES MEAN (bias_core's settle comparator, see design/bias_core.md)
+*
+*   NOKO   the settle comparator's output node: XMOKA (gate NA) drives it,
+*          XMOL2 (a mirror of the XMOKB/XMOL1 diode load) sinks it, and XMOKC
+*          -- the dead-loop detector's forced-low path -- hangs one extra
+*          drain junction on it that the NOKL side does not have. That extra
+*          junction is what turns a common-mode gmin aid into a DIFFERENTIAL
+*          error at exactly the node whose level is the comparator's margin.
+*   NOKL   the reference-side node (XMOKB into the XMOL1 diode).
+*   NOKX   the threshold stage's output; BIAS_OK is its inverted, buffered form.
+*
+* The four branch currents are read as KCL at NOKO/NOKL: at ngspice's default
+* gmin the diode loads carry what the input pair delivers (to three digits) and
+* the difference IS the signal; at gmin = 1e-9 they carry a nA-class excess
+* that the pair never produced.
+
+* ---- DUT: one bias_core with the standard IBIAS consumer-diode load --------
+* vib is a 0 V ammeter in series with the IBIAS pin, same idiom as
+* ../testbench/stimulus.spice. The two diode-connected loads are temp_core's
+* XMBD (4u/2u) and por_comparator's XMBD (2u/2u), verbatim from the exported
+* netlists, so the shared node sees the loading it actually carries.
+vdd vdd 0 dc 'vdd_val'
+vib nib ibias dc 0
+xdut vdd 0 nib vref bias_ok bias_core
+xldt ibias ibias 0 0 nfet_03v3 L=2u W=4u nf=1 m=1
+xldc ibias ibias 0 0 nfet_03v3 L=2u W=2u nf=1 m=1

@@ -110,6 +110,49 @@ corrects or replaces a prior result, it references that prior record via
 the append-only guarantee is what makes `sim/` usable as an evidence trail;
 "fixing" an existing record in place would defeat that.
 
+## Control experiments (`sim/<experiment-slug>/control/`)
+
+Occasionally what an experiment needs is not another result but a
+**diagnosis**: a small one-variable experiment explaining *why* an earlier
+record measured what it did. Those live in an optional `control/`
+sub-directory of the experiment they belong to:
+
+```
+sim/
+  <experiment-slug>/
+    control/
+      <name>.spice             # stimulus fragment, hand-written
+      run_<name>.py            # composes and runs every variant, one process
+      decks/<variant>.spice    # the exact deck as run, generated
+      logs/<variant>.log       # raw ngspice output, verbatim
+      results.md               # the comparison table, generated from the logs
+```
+
+Rules, so this never becomes a back door around the record convention:
+
+- **A control is not a record and never substantiates a spec row.** It does
+  not go under `records/`, it carries no Claim, and it is not evidence about
+  the corner grid — by construction it runs at one or two points. The
+  corner-grid evidence for the surrounding experiment is still its records,
+  and the closing rule of this document ("anything that substantiates a spec
+  row uses this convention and the corner runner") is untouched.
+- **Its numbers are generated, never transcribed twice.** `results.md` is
+  written by the script from the raw logs of the same run. Prose that quotes
+  a control — a design document, a testbench comment — transcribes from
+  `results.md` and cites it, so each number has exactly one source.
+- **Everything except the one variable is fixed by construction**: the
+  variants are composed from the same fragment in the same process, and the
+  script reads corner sections and solver options from the harness and from
+  the experiment's own `testbench/tb.json` rather than restating them.
+- **Re-running a control overwrites its outputs.** That is the opposite of
+  the append-only rule and is precisely why a control is not a record: it
+  makes no claim, so there is nothing to preserve, and it is cheap enough to
+  reproduce on demand. `records/`, `netlist-snapshots/` and `corners/` — the
+  things the append-only rule protects — are never touched by a control.
+
+First instance: [`sim/bias-core-startup/control/`](bias-core-startup/control/),
+the `gmin` control that diagnoses record `20260801-111049-bc599be`.
+
 ## Worked example
 
 Directory layout for an untrimmed temperature-accuracy claim, followed by a

@@ -21,16 +21,22 @@
 * stimulus.spice`). GMIN is a conductance ngspice places across every device
 * junction to keep the Jacobian non-singular. At 1 nS and 3.3 V of rail that
 * is ~2.7 nA per junction -- and the settle comparator this experiment exists
-* to test resolves a ~0.55 nA imbalance between two ~7 nA branches. The
+* to test resolves a 0.247 nA imbalance between two ~4.5 nA branches. The
 * comparator's own output node `NOKO` carries one junction (`XMOKC`'s drain)
 * that its reference-side counterpart `NOKL` does not, so the aid injected a
-* ~0.6 nA DIFFERENTIAL error -- larger than the signal. That, and not the
+* 0.563 nA DIFFERENTIAL error -- larger than the signal. That, and not the
 * circuit, is what the 27-of-27 `BIAS_OK` failure in record
-* `20260801-111049-bc599be` measured. The controlled experiment is in this
-* revision's record; the one-line version is that at tt/-40 C, VDD = 3.3 V, a
-* plain `op` gives V(NOKO) = 0.605 V and BIAS_OK = 1.5 uV at gmin = 1e-9, and
-* V(NOKO) = 1.761 V and BIAS_OK = 3.2999994 V at ngspice's default gmin, with
-* nothing else changed.
+* `20260801-111049-bc599be` measured.
+*
+* The controlled experiment is COMMITTED, in `../control/`: one deck, one
+* variable (`.options gmin`), both raw ngspice logs, and the generated
+* `../control/results.md` that every number in this comment block is
+* transcribed from. Re-run it with
+* `python3 sim/bias-core-startup/control/run_gmin_control.py`. The one-line
+* version is that at tt/-40 C, VDD = 3.3 V, a plain `op` gives
+* V(NOKO) = 0.605 V and BIAS_OK = 1.54 uV at gmin = 1e-9, and
+* V(NOKO) = 1.643 V and BIAS_OK = 3.29999985 V at ngspice's default gmin,
+* with nothing else changed.
 *
 * The `.dc` sweep cannot simply be re-run at the default gmin: it does not
 * converge there at any of the 27 corner/temperature combinations (all 27 hit
@@ -136,9 +142,22 @@ xldtf ibiasf ibiasf 0 0 nfet_03v3 L=2u W=4u nf=1 m=1
 xldcf ibiasf ibiasf 0 0 nfet_03v3 L=2u W=2u nf=1 m=1
 
 * ---- xbo: quasi-static cold start, full collapse, quasi-static restart -----
-* 3 ms of dead rail at 0 V is ~4 time constants of the cell's own largest
-* internal node (XCC, 0.8 pF, discharged by nA-class currents), so the restart
-* starts from a genuinely cold cell rather than from residual charge.
+* 3 ms of dead rail at 0 V, with the rail source itself holding 0 V, so every
+* internal node discharges into it. How cold the cell actually gets is
+* MEASURED rather than asserted: `vref_bo_dip_v` samples VREF two-thirds of
+* the way through the window (35 ms, i.e. 2 ms into the 3 ms), and the record
+* reports 0.016...0.518 V there -- so at the slowest corner (`ss`/-40 C) the
+* cell is substantially, not completely, discharged when the restart begins.
+* An earlier revision of this comment claimed the window was "~4 time
+* constants ... so the restart starts from a genuinely cold cell"; the
+* measurement does not support that at every corner, and the claim is not
+* needed here. State the limit instead: a partly-discharged cell is biased
+* toward the branch it was already on, so `vref_bo_end_delta_ppm` agreeing to
+* better than 1 ppm says the restart is REPEATABLE, not that no second branch
+* is reachable. The stronger statement -- that the degenerate zero-current
+* solution is not stable anywhere on the grid -- is made where it belongs, by
+* sim/bias-core-designer-check/'s `vref_op_v`, which SEEDS the DC solve in
+* that state at all 81 points (see the note at the end of this header).
 vbo vddb 0 PWL(0 0 30m 3.63 32m 3.63 33m 0 36m 0 66m 3.63 70m 3.63)
 vibb nibb ibiasb dc 0
 xbo vddb 0 nibb vrefb bias_okb bias_core
