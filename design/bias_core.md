@@ -488,6 +488,18 @@ is **≤ 43.9 mV of rail**, against release margins of about a volt. The
 method's own error is three orders of magnitude smaller than the margin it is
 measuring.
 
+### No regression in the sibling records
+
+`design/bias_core.sch` is untouched, so `design/netlist/bias_core.spice` is
+byte-identical (sha256 `87b6f943…`) and the two sibling experiments cannot in
+principle have moved. Both were re-run anyway, on a clean tree, because
+"cannot in principle" is not evidence:
+
+| Experiment | Re-run record | Result | Against its pre-#46 record |
+| --- | --- | --- | --- |
+| `sim/bias-core-designer-check/` | `20260801-150709-5a013e8` | **FAIL**, unchanged — `por-iq` and the starved-loop window, the two conflicts this document already owns | **Bit-identical to `20260801-053019-732a894`**: every measurement's min, max, mean, spread and the corner each extremum lands on |
+| `sim/bias-core-ibias-sharing/` | `20260801-152327-b72c10c` | **PASS**, 81/81, unchanged | Identical to `20260801-073555-8b7e57f` on six of eight measurements; the two that differ are `por_raw_shared_droop_mv` / `por_raw_control_droop_mv`, whose extremes move by **1 µV** against a 20 mV bound |
+
 ### What changed in the testbench's checks, and why
 
 The method change forced a re-derivation of the check bounds, and three of
