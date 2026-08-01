@@ -506,7 +506,9 @@ minimum; what the grid actually shows is a release rail landing on the
 ratified target, not merely on the legal side of its edge.
 
 **`vref_at_ok_pct` is bounded as of issue #50**, having been recorded
-unbounded in the #46 revision. It needs a bound of its own because
+unbounded in the #46 revision — so the 78.6…107.0 % row above is the record's
+own measurement, taken before the bound existed, and it clears the new floor
+by 8.6 points. It needs a bound of its own because
 `relv_qs_v` is a *conjunction*: at the 9 hot combinations `BIAS_OK` reads a
 valid high from about 1.0 V of rail, so the `v(bias_okq) > 0.5·v(vddq)` term
 in `Brelq` is satisfied from the bottom of the ramp and `relv_qs_v` is set
