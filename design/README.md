@@ -22,16 +22,20 @@ both consume the netlists exported from here.
 > document's opening section first: it landed with three measured, owned
 > conflicts (`por-iq` missed by 2.3×, a starved-loop window inside the
 > ratified `por-ramp-rate` envelope, and a bias-vs-POR lockup on the shared
-> `IBIAS` net) plus a fourth found later by issue #43's branch-tracking sweep
-> (`BIAS_OK` fails to assert, or asserts non-monotonically, on a quasi-static
-> rising rail, at all 27 corner/temperature combinations — the main
-> `VREF`/`IBIAS` loop itself is not implicated). **The `IBIAS` lockup is
-> fixed** —
+> `IBIAS` net) plus a fourth reported later by issue #43's branch-tracking
+> sweep (`BIAS_OK` failing to assert, or asserting non-monotonically, on a
+> quasi-static rising rail at all 27 corner/temperature combinations).
+> **The `IBIAS` lockup is fixed** —
 > [DR-010](../spec/decision-records/DR-010-shared-ibias-disabled-consumer-contract.md)
-> via #41, evidenced by `sim/temp-por-top-release/`; `por-iq` and the
-> starved-loop window are open pending their own re-cost record through #1;
-> the `BIAS_OK` defect is open, tracked as issue #46. All four sub-circuits
-> are designed; nothing in this hierarchy is a placeholder. See
+> via #41, evidenced by `sim/temp-por-top-release/`. **The `BIAS_OK` report
+> was not a defect in the cell** — issue #46 root-caused it to the reporting
+> testbench's own `gmin = 1 nS` convergence aid, which injected ~0.6 nA of
+> differential error into a settle comparator that resolves ~0.55 nA;
+> re-founded on a quasi-static *transient* ramp at ngspice's default `gmin`,
+> `sim/bias-core-startup/` passes at all 81 points and no schematic change
+> was needed. `por-iq` and the starved-loop window remain open pending their
+> own re-cost record through #1. All four sub-circuits are designed; nothing
+> in this hierarchy is a placeholder. See
 > [Placeholder status](#placeholder-status).
 
 ## Top-level pinout (ratified)
