@@ -50,7 +50,7 @@ positive here because `id` is taken at the drain terminal into the device.
 - PDK: gf180mcuD @ open_pdks `c6d73a35f524070e85faff4a6a9eef49553ebc2b` (/home/ubuntu/.volare/gf180mcuD, found via search_root:~/.volare)
 - ngspice: ngspice-46 : Circuit level simulation program
 - Harness: sim/harness 0.1.0 (corner sections and solver options only), python 3.12.3
-- git: `2922ccbe9155a24dcf7cb4c1d6d0416df03cb685 (dirty)`
+- git: `f23590fdd4a8052b6703e2732bdba826ec3ff00f (clean apart from this experiment's own outputs)`
 - Corner sections: typical res_typical bjt_typical diode_typical moscap_typical mimcap_typical
 - Solver options (from `../testbench/tb.json`): reltol=1e-5 abstol=1e-15 vntol=1e-9
 - `gmin_control.spice` sha256: `9d46a06ba5cca0229dd67ab2d05127a7aebeca76885b0134bfa9b39b6f5901cd`
