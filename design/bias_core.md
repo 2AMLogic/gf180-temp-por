@@ -479,8 +479,16 @@ sweep remains #14's chartered row and is deliberately not pre-empted here.
 
 ### The result: 81 of 81 points pass
 
-Record `20260801-144500-ab081eb` (`sim/bias-core-startup/records/`), full
-81-point grid, **status PASS, every check green at every point**:
+Record `20260801-230642-c320628` (`sim/bias-core-startup/records/`), full
+81-point grid, **status PASS, every check green at every point**. This
+record **supersedes** the original 27/27-FAIL record
+`20260801-111049-bc599be` via `--supersedes`, closing issue #50's evidence-
+hygiene gap: the record that first reported this 81/81 PASS result,
+`20260801-144500-ab081eb`, carried `Supersedes: (none)`, so a reader landing
+on `bc599be` had no pointer in `sim/` to the record that corrects it. Every
+measurement in the table below is bit-identical between `ab081eb` and
+`c320628` — the re-run changes only the record's evidence-chain metadata, not
+the circuit result:
 
 | | Measured over the 81-point grid | Bound |
 | --- | --- | --- |
@@ -506,9 +514,10 @@ minimum; what the grid actually shows is a release rail landing on the
 ratified target, not merely on the legal side of its edge.
 
 **`vref_at_ok_pct` is bounded as of issue #50**, having been recorded
-unbounded in the #46 revision — so the 78.6…107.0 % row above is the record's
-own measurement, taken before the bound existed, and it clears the new floor
-by 8.6 points. It needs a bound of its own because
+unbounded in the #46 revision (`ab081eb`) and checked against the bound for
+the first time in the `--supersedes` re-run cited above (`c320628`) — the
+78.6…107.0 % row clears the new floor by 8.6 points. It needs a bound of its
+own because
 `relv_qs_v` is a *conjunction*: at the 9 hot combinations `BIAS_OK` reads a
 valid high from about 1.0 V of rail, so the `v(bias_okq) > 0.5·v(vddq)` term
 in `Brelq` is satisfied from the bottom of the ramp and `relv_qs_v` is set
