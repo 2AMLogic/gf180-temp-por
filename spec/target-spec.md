@@ -1,7 +1,9 @@
 # Target specification — gf180-temp-por (wave 1)
 
-- **Status**: DRAFT — **not ratified**. Issue #1 is the ratification gate and
-  ratification is the operator's call; no agent ratifies this table.
+- **Status**: RATIFIED (see [DR-008](decision-records/DR-008-target-spec-ratification.md)).
+  Ratified by the operator on issue #1, conditional on the amendments in
+  DR-007 exactly as tabled; per-row `conditional #15` / `TBD-#n` tags below
+  remain in force and are not upgraded by this ratification.
 - **Date**: 2026-07-31
 - **Assembled by**: Loom Builder agent, issue #32 (amendments A1–A8 of the
   spec review posted on #1)
