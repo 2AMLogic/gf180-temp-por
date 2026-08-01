@@ -367,11 +367,11 @@ is not defective; the deck was. No change was made to
 `design/bias_core.sch`.**
 
 This section replaces the "Open defect" write-up PR #47 put here. The
-superseded finding is not deleted — its record,
-its raw per-corner logs and its netlist snapshot all remain under
-`sim/bias-core-startup/`, because `sim/` is append-only. What changed is the
-*interpretation*, and the interpretation is now backed by a controlled
-experiment rather than by inference.
+superseded finding is not deleted — its record, its raw per-corner logs and
+its netlist snapshot all remain under `sim/bias-core-startup/`, because
+`sim/` is append-only. What changed is the *interpretation*, and the
+interpretation is now backed by a controlled experiment rather than by
+inference.
 
 ### The root cause, in one paragraph
 
@@ -452,8 +452,8 @@ sweep remains #14's chartered row and is deliberately not pre-empted here.
 
 ### The result: 81 of 81 points pass
 
-Record `20260801-144500-ab081eb` (`sim/bias-core-startup/records/`), full 81-point
-grid, **status PASS, every check green at every point**:
+Record `20260801-144500-ab081eb` (`sim/bias-core-startup/records/`), full
+81-point grid, **status PASS, every check green at every point**:
 
 | | Measured over the 81-point grid | Bound |
 | --- | --- | --- |
