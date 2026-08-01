@@ -1,0 +1,74 @@
+{
+  "name": "por-output-chain-pulse",
+  "description": "Reset-pulse width and reset-asserted-state Iq of design/por_output_chain.sch, at nominal and 3x IBIAS, over the full 81-point PVT grid.",
+  "claim": "spec/target-spec.md#por-reset-pulse -- RESETn holds asserted >=1 ms after the release condition, measured on the deassertion edge into the provisional 5 pF / no-DC-load measurement load, with the minimum binding at the fastest-timer corner. Also records this cell's share of the shared spec/target-spec.md#por-iq <1 uA budget in the RESETn-asserted / sensor-disabled state. Deterministic corners only -- mismatch is #15's job and the ramp/brownout sweep is #14's.",
+  "netlist": "tb_por_pulse.spice",
+  "nominal_supply_v": 3.3,
+  "supply_tolerance": 0.1,
+  "temperatures_c": [
+    -40,
+    27,
+    125
+  ],
+  "corners": [
+    "full"
+  ],
+  "options": [
+    "reltol=1e-5",
+    "abstol=1e-15",
+    "vntol=1e-8",
+    "method=gear"
+  ],
+  "analyses": [
+    "tran 10u 20m",
+    "meas tran iasrt1 avg i(vd1) from=0.5m to=0.95m",
+    "meas tran iasrt2 avg i(vd2) from=0.5m to=0.95m",
+    "meas tran vasrt1 find v(resetn1) at=0.9m",
+    "meas tran trel1 when v(resetn1)=1.0 rise=1 td=1.002m",
+    "meas tran trel2 when v(resetn2)=1.0 rise=1 td=1.002m",
+    "meas tran irel1 avg i(vd1) from=18m to=19.8m",
+    "meas tran vrel1 find v(resetn1) at=19.5m",
+    "meas tran vrel2 find v(resetn2) at=19.5m"
+  ],
+  "measure": {
+    "tpulse_1x_ms": "(trel1-1.001e-3)*1e3",
+    "tpulse_3x_ms": "(trel2-1.001e-3)*1e3",
+    "iq_asserted_1x_na": "iasrt1*1e9",
+    "iq_asserted_3x_na": "iasrt2*1e9",
+    "iq_released_1x_na": "irel1*1e9",
+    "v_asserted_1x_mv": "vasrt1*1e3",
+    "v_released_1x": "vrel1",
+    "v_released_3x": "vrel2"
+  },
+  "checks": {
+    "tpulse_3x_ms": {
+      "min": 1.0,
+      "description": "THE load-bearing check: por-reset-pulse >=1 ms with IBIAS 3x over nominal, i.e. the fastest timer this cell can be handed. Applied at all 81 points precisely so the claim does not depend on guessing the binding corner: the spec row's parenthetical names ff/125c/3.63v (right for a generic starved one-shot with a FIXED trip voltage), but this timer's trip is VDD-Vsg, so the measured minimum is at ff/-40c/2.97v -- low rail shortens the ramp, cold raises Vsg and shortens it further. See design/por_output_chain.md, 'The one-shot is a current-starved ramp'."
+    },
+    "tpulse_1x_ms": {
+      "min": 1.0,
+      "min_spread_pct": 15.0,
+      "description": "same claim at the DR-005 nominal 0.5 uA IBIAS. The spread floor is a harness-integrity check: a current-starved ramp that does not move across 81 PVT points would mean .temp or a .lib section silently failed to apply"
+    },
+    "iq_asserted_1x_na": {
+      "max": 400.0,
+      "description": "this cell's share of the shared <1 uA por-iq budget, in the state that row is defined in (RESETn asserted, rail settled, sensor disabled). 400 nA is a self-imposed ceiling leaving room for #10 and #11, not a spec row"
+    },
+    "iq_released_1x_na": {
+      "max": 400.0,
+      "description": "released-state draw; lands in iq-total (<21 uA) rather than por-iq, but a released state that costs more than the asserted one would signal a stuck crowbar in the trip detector"
+    },
+    "v_asserted_1x_mv": {
+      "max": 300.0,
+      "description": "no early release: RESETn is still a valid logic low 0.9 ms into the run, before POR_RAW has even gone high"
+    },
+    "v_released_1x": {
+      "min": 2.8,
+      "description": "push-pull, not open-drain (por-drive): the deasserted state is actively driven to the rail into the 5 pF load"
+    },
+    "v_released_3x": {
+      "min": 2.8,
+      "description": "as above, 3x IBIAS DUT"
+    }
+  }
+}

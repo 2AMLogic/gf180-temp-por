@@ -36,6 +36,9 @@ FRAGMENTS: dict[str, tuple[str, tuple[str, ...]]] = {
     "temp-core-designer-check": ("tb_temp_core.spice", ("temp_core",)),
     "temp-core-startup": ("tb_temp_core_startup.spice", ("temp_core",)),
     "por-comparator-designer-check": ("tb_por_comparator.spice", ("por_comparator",)),
+    "por-output-chain-pulse": ("tb_por_pulse.spice", ("por_output_chain",)),
+    "por-output-chain-deglitch": ("tb_por_deglitch.spice", ("por_output_chain",)),
+    "por-output-chain-floor": ("tb_por_floor.spice", ("por_output_chain",)),
 }
 
 
