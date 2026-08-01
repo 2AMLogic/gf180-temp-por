@@ -1,6 +1,6 @@
 # DR-009: Correct two POR rows' binding-corner parentheticals to the measured full-grid minima
 
-- **Status**: ratified
+- **Status**: proposed
 - **Date**: 2026-08-01
 - **Decided by**: Loom Builder agent, issue #39 (filed during review of #38,
   closes #12)
@@ -96,6 +96,14 @@ spec relaxation because it does not change the row's required value.
   the two cited `sim/` records already measured the full grid; this record
   only corrects the spec table's prose to match evidence that already
   exists and already passes.
+- **This record is `proposed`, not self-ratified.** Ratification is the
+  operator's call (DR-008's precedent: the target-spec table was ratified by
+  Robb, not by the authoring agent), so this record stays `proposed` until
+  the operator rules on it. Nothing here relaxes or re-costs a ratified
+  value — it corrects two binding-corner parentheticals to match evidence
+  that already exists and already passes — so design and testbench work may
+  proceed against the corrected corners in the meantime, exactly as it does
+  against any other `proposed` record.
 - **General note added to the table's how-to-read section**: future rows'
   binding-corner text should be read as a prediction, upgraded to measured
   fact only once a `sim/` record exists for that row and a full-grid sweep
