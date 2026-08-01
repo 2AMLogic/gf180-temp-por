@@ -73,7 +73,6 @@ Internal nets:
 | `IBIAS`   | `bias_core`      | `temp_core`, `por_comparator`, `por_output_chain` | one shared bias core, amortizing Iq and area (DR-005). **Known defect, measured by `sim/bias-core-ibias-sharing/`**: a disabled `temp_core` clamps this net to `VSS`, which starves `por_comparator` in exactly the reset-asserted state POR has to work in — see [`bias_core.md`](bias_core.md), "The shared `IBIAS` net". |
 | `VREF`    | `bias_core`      | `por_comparator`                 | absolute reference; the threshold is a voltage, not a rail fraction |
 | `BIAS_OK` | `bias_core`      | `por_comparator`                 | gates the authoritative release decision (DR-005 startup ordering, step 5) |
-
 | `POR_RAW` | `por_comparator` | `por_output_chain`               | hysteresis is the comparator's job; deglitch/pulse/drive are the output chain's (DR-005 ownership split) |
 | `RESETn`  | `por_output_chain` | top-level pad, `temp_core.EN`  | the sensor is enabled only after POR releases (DR-005 step 6), which keeps it out of the startup chicken-and-egg problem |
 
