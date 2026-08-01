@@ -29,9 +29,11 @@ both consume the netlists exported from here.
 > [DR-010](../spec/decision-records/DR-010-shared-ibias-disabled-consumer-contract.md)
 > via #41, evidenced by `sim/temp-por-top-release/`. **The `BIAS_OK` report
 > was not a defect in the cell** — issue #46 root-caused it to the reporting
-> testbench's own `gmin = 1 nS` convergence aid, which injected ~0.6 nA of
-> differential error into a settle comparator that resolves ~0.55 nA;
-> re-founded on a quasi-static *transient* ramp at ngspice's default `gmin`,
+> testbench's own `gmin = 1 nS` convergence aid, which injected **0.563 nA**
+> of differential error into a settle comparator whose whole signal is
+> **0.247 nA** (the one-variable control that measures both is committed and
+> re-runnable at `sim/bias-core-startup/control/`); re-founded on a
+> quasi-static *transient* ramp at ngspice's default `gmin`,
 > `sim/bias-core-startup/` passes at all 81 points and no schematic change
 > was needed. `por-iq` and the starved-loop window remain open pending their
 > own re-cost record through #1. All four sub-circuits are designed; nothing

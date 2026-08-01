@@ -142,7 +142,7 @@
     },
     "v_bias_ok_restart_v": {
       "max": 2.45,
-      "description": "NEW IN THE #46 REVISION (brownout branch). The rail at which BIAS_OK re-asserts on the quasi-static restart ramp after a full collapse. Same bound and same reasoning as v_bias_ok_v: the flag must be true before the earliest rail at which a release is legal. A restart that lands on a different branch than the cold start shows up here as a late (or missing) re-assertion. This is the TIGHTEST measurement in the record -- 2.338 V at ss/-40 C, 112 mV of margin, about 8x tighter than anything else here and roughly 750 mV later than the same corner's cold start -- so it is the number to watch on any future re-run; see design/bias_core.md, 'The one tight number'."
+      "description": "NEW IN THE #46 REVISION (brownout branch). The rail at which BIAS_OK re-asserts on the quasi-static restart ramp after a full collapse. Same bound and same reasoning as v_bias_ok_v: the flag must be true before the earliest rail at which a release is legal. A restart that lands on a different branch than the cold start shows up here as a late (or missing) re-assertion. This is the tightest rail margin in the record -- 2.338 V at ss/-40 C, 112 mV to the bound, matched only by relv_qs_v's 113 mV above its 2.47 V floor, while the same flag on the COLD start clears the same 2.45 V bound by 869 mV -- i.e. the restart asserts about 750 mV later than the cold start at that corner. It is therefore the number to watch on any future re-run; see design/bias_core.md, 'The one tight number'."
     },
     "ok_bo_end_droop_mv": {
       "max": 1.0,
