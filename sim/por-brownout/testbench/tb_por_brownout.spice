@@ -55,6 +55,20 @@
 * the two long static holds, where the full four-cell assembly would
 * otherwise spend most of its ~12 ms-per-step solve cost resolving nothing.
 *
+* PAD LOAD: 1 pF plus a 1 Tohm DC leak on each of PTAT and CTAT, matching
+* sim/temp-por-top-release/ and sim/temp-accuracy-vt/ exactly. The resistors
+* are not a model of anything physical -- they are the DC reference the two
+* analogue pads need in the state this deck spends most of its time in.
+* While RESETn is asserted temp_core is disabled and its outputs are high
+* impedance (DR-010's disabled-consumer contract), so without them PTAT and
+* CTAT are capacitively coupled floating nodes, and ngspice's local
+* truncation error control collapses the timestep trying to track them: an
+* early revision of these decks, identical but for these four lines, ran
+* >450 s of CPU per PVT point without completing, against ~36 s for the
+* comparable 30 ms transient in sim/temp-por-top-release/. 1 Tohm at a
+* ~1.3 V pad is 1.3 pA, four to five orders of magnitude below the block's
+* own nanoamp-scale currents, so it references the node without loading it.
+*
 * ONE DUT, ONE TRAN, staged as a timeline (the multi-stage idiom
 * sim/bias-core-startup/'s `xbo` branch already uses):
 *
@@ -98,6 +112,8 @@ vsup vdd 0 PWL(
 
 Cpp ptat 0 1p
 Cpc ctat 0 1p
+Rlp ptat 0 1T
+Rlc ctat 0 1T
 Crn resetn 0 5p
 
 xdut vdd 0 ptat ctat resetn temp_por_top
