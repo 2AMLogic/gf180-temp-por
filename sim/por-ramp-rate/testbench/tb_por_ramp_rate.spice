@@ -46,26 +46,45 @@
 * real time these three DUTs spend idle costs little beyond xr1's own need
 * for it.
 *
-* WHAT EACH DUT MEASURES: the release edge (v(vdd) at the instant RESETn
-* crosses high, and whether that crossing happens exactly once -- rise=1
-* vs. rise=last). "No early release" is checked as a floor on the
-* release-time rail voltage; "no glitch, no double pulse" is the chatter
-* check. RESETn must never leave its asserted-low state before that one
-* release, which sim/por-vth/'s and sim/por-comparator-designer-check/'s
-* precedent already establishes is what a hysteretic single-transition
-* comparator does correctly, and what this deck confirms holds across the
-* WHOLE ramp-rate envelope, not just the quasi-static rate those threshold
-* extractions deliberately use.
+* WHAT EACH DUT MEASURES, mapped onto the ratified row's own three clauses:
+*
+*   "RESETn low from 0 V throughout the ramp" -- v(resetnrN) sampled at a
+*      1 V and a 2 V rail, both well below VPOR-uparrow,min = 2.47 V. Each
+*      DUT's rail is rate*t by construction (a single two-point PWL from
+*      the origin), so a FIXED sample time picks a FIXED rail voltage
+*      independently of vdd_val: t = 1/rate is exactly 1 V and t = 2/rate
+*      is exactly 2 V. Hence at=1.0/2.0 s for xr1, 0.1/0.2 s for xr2,
+*      10/20 us for xr3 and 1/2 us for xr4. Slow-ramp early release is the
+*      classic POR field failure, and this is the probe that would catch it.
+*
+*   "released once and only once ... after VDD crosses VPOR-uparrow" --
+*      v(vddrN) at the instant RESETn crosses high, floored at
+*      VPOR-uparrow,min = 2.47 V. At the two fast rates the ramp finishes
+*      in tens of microseconds while the reset pulse runs for milliseconds,
+*      so release lands at the settled rail and the floor is far from
+*      binding; at 1 V/s it lands within millivolts of the threshold and
+*      the floor is the real check.
+*
+*   "no glitch, no double pulse" -- first versus last rising crossing
+*      (rise=1 vs. rise=last), bounded at 1 ns for EVERY rate including the
+*      fast limit. A genuine double pulse is separated by at least one
+*      reset-pulse width (>=1 ms ratified, 4.2-17.0 ms measured), so any
+*      loosening of this bound into the millisecond range would pass
+*      exactly the failure the row forbids.
 *
 * THE STARVED-LOOP WINDOW: at xr4's 1 V/us rate, design/bias_core.md's own
-* full-cell-level record already measures BIAS_OK reading a false valid for
-* up to ~2 ms while bias_core's reference loop cannot slew fast enough
-* (see that document, "The starved-loop window") -- an ALREADY-OWNED,
-* ALREADY-TRACKED architecture-level tension between por-iq and
-* por-ramp-rate's fast limit, assigned to a #1/#14 re-cost decision, not a
-* fresh defect for this record to root-cause. If xr4 shows an early/false
-* release or an anomalous chatter reading, check it against that window
-* before treating it as new.
+* full-cell-level record already measures BIAS_OK reading a false valid
+* while bias_core's reference loop cannot slew fast enough (see that
+* document, "The starved-loop window") -- an ALREADY-OWNED, ALREADY-TRACKED
+* architecture-level tension between por-iq and por-ramp-rate's fast limit,
+* assigned to a #1/#14 re-cost decision, not a fresh defect for this record
+* to root-cause. None of the bounds above are relaxed to accommodate it:
+* CLAUDE.md forbids relaxing a ratified target to make a result pass, so if
+* the window costs the fast endpoint, this record says the endpoint is not
+* met and hands the number to #1. v(xr4.vref) and v(xr4.bias_ok) at the
+* release instant are recorded unchecked so the record can distinguish
+* "released on a settled reference" from "released inside the false-valid
+* window" without either reading being a pass/fail criterion of its own.
 
 vr1 vddr1 0 PWL(0 0 {vdd_val} {vdd_val})
 Cppr1 ptatr1 0 1p

@@ -1,23 +1,33 @@
 {
   "name": "por-vth",
-  "description": "Full-assembly (real bias_core VREF, not idealised) release/assert threshold pair and hysteresis extraction of design/netlist/temp_por_top.spice: one DUT, one quasi-static 0->VDD->1.5 V triangle-wave ramp, measured on the internal POR_RAW node.",
+  "description": "Full-assembly (real bias_core VREF, not idealised) release/assert threshold pair and hysteresis extraction of design/netlist/temp_por_top.spice: one DUT, one 0->2 V fast / 2 V->VDD->2 V quasi-static triangle-wave ramp, measured on the internal POR_RAW node.",
   "claim": "spec/target-spec.md#por-vth-rise, #por-vth-fall, #por-hysteresis -- corner-worst-case (deterministic, not Monte Carlo) full-assembly extraction, complementing sim/por-comparator-designer-check/'s idealised-VREF/IBIAS cell-level record with bias_core's real corner-dependent VREF in the loop. Deterministic corners only: design.ngspice sets sw_stat_mismatch=0, so the [3sigma] mismatch share stays #15's job and these rows remain conditional #15.",
   "netlist": "tb_por_vth.spice",
   "nominal_supply_v": 3.3,
   "supply_tolerance": 0.1,
-  "temperatures_c": [-40, 27, 125],
-  "corners": ["full"],
-  "options": ["reltol=1e-5", "abstol=1e-15", "vntol=1e-9"],
+  "temperatures_c": [
+    -40,
+    27,
+    125
+  ],
+  "corners": [
+    "full"
+  ],
+  "options": [
+    "reltol=1e-5",
+    "abstol=1e-15",
+    "vntol=1e-9"
+  ],
   "analyses": [
-    "tran 10u 23m",
+    "tran 5u 17m",
     "meas tran vpor_rise find v(vdd) when v(xdut.por_raw)=1.5 rise=1",
     "meas tran vpor_rise_last find v(vdd) when v(xdut.por_raw)=1.5 rise=last",
     "meas tran vpor_fall find v(vdd) when v(xdut.por_raw)=1.5 fall=1",
     "meas tran vpor_fall_last find v(vdd) when v(xdut.por_raw)=1.5 fall=last",
-    "meas tran vref_settle_early find v(xdut.vref) at=8.5m",
-    "meas tran vref_settle_late find v(xdut.vref) at=13.9m",
-    "meas tran por_raw_top find v(xdut.por_raw) at=13.9m",
-    "meas tran vdd_top find v(vdd) at=13.9m"
+    "meas tran vref_settle_early find v(xdut.vref) at=5.5m",
+    "meas tran vref_settle_late find v(xdut.vref) at=10.9m",
+    "meas tran por_raw_top find v(xdut.por_raw) at=10.9m",
+    "meas tran vdd_top find v(vdd) at=10.9m"
   ],
   "measure": {
     "vpor_rise_v": "vpor_rise",
