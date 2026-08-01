@@ -17,14 +17,20 @@ both consume the netlists exported from here.
 > characterized** (#12) — see [`por_output_chain.md`](por_output_chain.md) and
 > `sim/por-output-chain-pulse/` + `sim/por-output-chain-deglitch/` +
 > `sim/por-output-chain-floor/`. `bias_core` is **designed and characterized**
-> (#11) — see [`bias_core.md`](bias_core.md), `sim/bias-core-designer-check/`
-> and `sim/bias-core-ibias-sharing/`, and read that document's opening section
-> first: it landed with three measured, owned conflicts (`por-iq` missed by
-> 2.3×, a starved-loop window inside the ratified `por-ramp-rate` envelope,
-> and a bias-vs-POR lockup on the shared `IBIAS` net). **The third is fixed**
-> — [DR-010](../spec/decision-records/DR-010-shared-ibias-disabled-consumer-contract.md)
-> via #41, evidenced by `sim/temp-por-top-release/`; the first two are still
-> open, pending their own re-cost record through #1. All four sub-circuits
+> (#11) — see [`bias_core.md`](bias_core.md), `sim/bias-core-designer-check/`,
+> `sim/bias-core-ibias-sharing/` and `sim/bias-core-startup/`, and read that
+> document's opening section first: it landed with three measured, owned
+> conflicts (`por-iq` missed by 2.3×, a starved-loop window inside the
+> ratified `por-ramp-rate` envelope, and a bias-vs-POR lockup on the shared
+> `IBIAS` net) plus a fourth found later by issue #43's branch-tracking sweep
+> (`BIAS_OK` fails to assert, or asserts non-monotonically, on a quasi-static
+> rising rail, at all 27 corner/temperature combinations — the main
+> `VREF`/`IBIAS` loop itself is not implicated). **The `IBIAS` lockup is
+> fixed** —
+> [DR-010](../spec/decision-records/DR-010-shared-ibias-disabled-consumer-contract.md)
+> via #41, evidenced by `sim/temp-por-top-release/`; `por-iq` and the
+> starved-loop window are open pending their own re-cost record through #1;
+> the `BIAS_OK` defect is open, tracked as issue #46. All four sub-circuits
 > are designed; nothing in this hierarchy is a placeholder. See
 > [Placeholder status](#placeholder-status).
 

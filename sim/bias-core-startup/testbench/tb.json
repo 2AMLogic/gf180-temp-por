@@ -1,0 +1,96 @@
+{
+  "name": "bias-core-startup",
+  "description": "Quasi-static rail sweep of design/bias_core.sch (the #42 three-leg PNP-clamped-input topology) from 0 V to 3.63 V in 20 mV steps, branch-tracking: the rail at which the core actually comes up, the rail at which BIAS_OK asserts, the ordering and margin between the two, and the reference error at the earliest rail where por_comparator is allowed to release. Built for issue #43 -- a per-point DC-solve grid (sim/bias-core-designer-check/) cannot see a branch-selection defect that only a continuation sweep or a transient can catch.",
+  "claim": "issue #43: whether design/bias_core.sch as landed by #42 has a second, high-current stable branch a rising rail can leave the core on. Also DR-005 startup-ordering steps 3 and 4 for the shared bias/reference core: that the core's own startup kick brings it up once VDD crosses its minimum operating voltage, and that BIAS_OK does not go true before the reference is valid. Supplies the settle margin DR-005 explicitly defers to '#11/#14 sim', expressed in the ramp-rate-independent form (rail margin) rather than as a time at one arbitrary ramp rate -- the 1 V/s ... 1 V/us envelope of spec/target-spec.md#por-ramp-rate is #14's chartered row and this record deliberately does not pre-empt it. Freedom from a latched dead state is claimed in sim/bias-core-designer-check/ (vref_op_v), not here. Deterministic corners only (design.ngspice sets sw_stat_mismatch=0).",
+  "netlist": "tb_bias_core_startup.spice",
+  "nominal_supply_v": 3.3,
+  "supply_tolerance": 0.1,
+  "temperatures_c": [-40, 27, 125],
+  "corners": ["full"],
+  "options": ["reltol=1e-5", "abstol=1e-15", "vntol=1e-9", "gmin=1e-9", "gminsteps=200", "itl1=500"],
+  "analyses": [
+    "dc vramp 0 3.63 0.02",
+    "meas dc vstart when v(vref)=1.10 rise=1",
+    "meas dc vok when v(bias_ok)=1.0 rise=1",
+    "meas dc voklast when v(bias_ok)=1.0 rise=last",
+    "meas dc vref140 find v(vref) when v(vdd)=1.40",
+    "meas dc vref200 find v(vref) when v(vdd)=2.00",
+    "meas dc vref247 find v(vref) when v(vdd)=2.47",
+    "meas dc vref297 find v(vref) when v(vdd)=2.97",
+    "meas dc vref363 find v(vref) when v(vdd)=3.62",
+    "meas dc ok140 find v(bias_ok) when v(vdd)=1.40",
+    "meas dc ok200 find v(bias_ok) when v(vdd)=2.00",
+    "meas dc ok247 find v(bias_ok) when v(vdd)=2.47",
+    "meas dc nkg363 find v(xdut.nkg) when v(vdd)=3.62"
+  ],
+  "measure": {
+    "v_core_up_v": "vstart",
+    "v_bias_ok_v": "vok",
+    "ok_chatter_mv": "(voklast-vok)*1e3",
+    "startup_margin_v": "vok-vstart",
+    "release_margin_v": "2.47-vok",
+    "vref_final_v": "vref363",
+    "vref_err_247_pct": "(vref247-vref363)/vref363*100",
+    "vref_err_297_pct": "(vref297-vref363)/vref363*100",
+    "vref_err_200_pct": "(vref200-vref363)/vref363*100",
+    "vref_at_140_v": "vref140",
+    "ok_at_140_mv": "ok140*1e3",
+    "ok_at_200_v": "ok200",
+    "ok_at_247_v": "ok247",
+    "nkg_final_v": "nkg363"
+  },
+  "checks": {
+    "v_core_up_v": {
+      "max": 1.9,
+      "description": "The rail at which VREF first reaches 1.10 V on the way up -- the core's effective dropout, measured rather than derived from a headroom stack-up. It must sit well below the ratified minimum release threshold (spec/target-spec.md#por-vth-rise, 2.47 V) or the reference would still be arriving when por_comparator is already entitled to release. Bound carried over from design/bias_core.md's independently-measured vdd_ref90_v (1.127-1.788 V, a different rail-crossing definition on the same DUT), with headroom for the two definitions' offset."
+    },
+    "v_bias_ok_v": {
+      "min": 1.5,
+      "max": 2.45,
+      "description": "The rail at which BIAS_OK asserts. Bounded on BOTH sides, and both bounds are load-bearing. The lower bound says the flag cannot precede the core being up (a false-early BIAS_OK lets por_comparator's threshold go authoritative against a reference that is still rising, and since the threshold is VREF times a resistor ratio, POR would release at a rail proportionally too low). The upper bound says the flag must be true before the earliest rail at which a release is legal, or BIAS_OK would gate out a release the comparator is entitled to make (DR-005 startup steps 4/5). THIS IS THE DIRECT TEST of issue #43's failure mode: a sweep that leaves the core on the wrong branch either never crosses 1.0 V (BIAS_OK never asserts, so this measurement is simply missing and the point reports 'failed') or crosses far too late, above this window."
+    },
+    "startup_margin_v": {
+      "min": 0.1,
+      "description": "v_bias_ok_v minus v_core_up_v: how much rail passes between the reference arriving and the flag vouching for it. This is the ramp-rate-independent form of the settle margin DR-005 defers to '#11/#14 sim'. #14 converts it to a time by dividing by the ramp rate under test; expressing it as a voltage is what makes it valid across the whole 1 V/s ... 1 V/us envelope instead of at one rate."
+    },
+    "release_margin_v": {
+      "min": 0.02,
+      "description": "How far below the ratified MINIMUM release threshold (2.47 V) BIAS_OK asserts. Redundant with the upper bound on v_bias_ok_v and stated separately because it is the quantity a reader of spec/target-spec.md section 4.1 will want: the flag is ready before the comparator can act, at every corner. This is the exact measurement issue #43's ff/-40C failure violated against the #44 DUT (BIAS_OK asserted only at 2.735 V, above the 2.47 V minimum) -- a negative value here on the current DUT would reproduce that failure mode."
+    },
+    "ok_chatter_mv": {
+      "max": 1.0,
+      "description": "Anti-chatter guard: the rail difference between the LAST and the FIRST upward crossing of BIAS_OK = 1.0 V on the sweep. A flag that toggles as the core settles would make #12's pulse timer see a spurious restart; a clean single assertion gives 0. Same guard construction as sim/por-comparator-designer-check/#rise_chatter_mv."
+    },
+    "vref_final_v": {
+      "min": 1.14,
+      "max": 1.26,
+      "description": "VREF at the top of the sweep. Cross-check against sim/bias-core-designer-check/#vref_v (settled value at 81 independent per-point DC solves, 1.1888-1.2107 V): the branch-tracking sweep must land on the same value the independent per-point solve finds. A disagreement would mean the sweep is sitting on a second branch even at the very top of the rail -- the strongest form of issue #43's failure."
+    },
+    "vref_err_247_pct": {
+      "min": -1.0,
+      "max": 80.0,
+      "description": "VREF at 2.47 V of rail -- the earliest rail at which por_comparator may release -- against its own settled value at 3.62 V, at the same corner. On a correctly-tracking branch this should be small (a few percent, from the ramp-rate feedthrough design/bias_core.md documents). The upper bound is left wide deliberately: this measurement is diagnostic evidence for whether issue #43 reproduces (the #44 DUT read 76.5% high at this rail at ff/-40C when it failed), not a tightened acceptance gate -- v_bias_ok_v and release_margin_v above are the actual pass/fail gates for the branch-selection defect, because a rail-limited VREF this early is not itself a violation (design/bias_core.md, 'The release guard')."
+    },
+    "vref_err_297_pct": {
+      "min": -1.0,
+      "max": 5.0,
+      "description": "The same comparison at 2.97 V, the bottom of the ratified steady-state supply window (spec/target-spec.md#supply-voltage). By 2.97 V of a quasi-static sweep the reference should be essentially settled on a correctly-tracking branch."
+    },
+    "ok_at_140_mv": {
+      "max": 300.0,
+      "description": "BIAS_OK at 1.40 V of rail, below the core's dropout at every corner. A solid not-valid. Note the floor of this claim: below roughly 1 V of rail neither device of the output inverter has a gate-source voltage above its threshold, so BIAS_OK is high-impedance rather than driven -- design/bias_core.md, 'The kick itself is a current-referenced dead-loop detector', describes the same floor. Holding RESETn low there is por_output_chain's job (DR-004, #12), not this cell's."
+    },
+    "ok_at_247_v": {
+      "min": 2.2,
+      "description": "BIAS_OK at 2.47 V of rail: asserted, and asserted as a hard rail-referenced HIGH rather than a partially-resolved level, since por_comparator consumes it as a logic enable. A branch-selection failure that delays BIAS_OK past 2.47 V (issue #43's ff/-40C symptom against the #44 DUT) fails this directly."
+    },
+    "vref_at_140_v": {
+      "max": 1.35,
+      "description": "VREF at 1.40 V of rail: still below or near dropout, so the reference should not have overshot its settled window by much yet. A wide diagnostic bound, not a tight gate."
+    },
+    "nkg_final_v": {
+      "max": 0.5,
+      "description": "The startup detector's gate node (NKG) at the top of the sweep. design/bias_core.md, 'Startup': 'Loop alive: KPD beats the stack, NKG ~ 0, KICK idle.' NKG staying low at the top of the sweep is the statement that the startup kick contributes nothing to the settled operating point -- the complementary check to nkg_final_v's counterpart in sim/bias-core-designer-check/ (t_bo_recover_us), phrased for a swept rail instead of a transient."
+    }
+  }
+}
