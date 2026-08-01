@@ -49,6 +49,17 @@ FRAGMENTS: dict[str, tuple[str, tuple[str, ...]]] = {
     # level instantiates, so one cell here is the whole four-cell assembly.
     "temp-por-top-release": ("tb_temp_por_top.spice", ("temp_por_top",)),
     "temp-accuracy-vt": ("tb_temp_accuracy_vt.spice", ("temp_por_top",)),
+    # #14's full-assembly POR testbench suite -- all against the same
+    # four-cell assembly, nothing idealised.
+    "por-vth": ("tb_por_vth.spice", ("temp_por_top",)),
+    "por-ramp-rate": ("tb_por_ramp_rate.spice", ("temp_por_top",)),
+    "por-brownout": ("tb_por_brownout.spice", ("temp_por_top",)),
+    "por-glitch": ("tb_por_glitch.spice", ("temp_por_top",)),
+    # NOTE: sim/por-iq/ is deliberately absent here -- it has no netlist
+    # fragment of its own. It PUBLISHES spec/target-spec.md#por-iq/#iq-total
+    # as a derivation from sim/temp-accuracy-vt/'s already-run raw logs (see
+    # sim/por-iq/analyze_por_iq.py), the same "derivation, not a fresh
+    # simulation" idiom sim/temp-accuracy-vt/analyze_derived.py established.
 }
 
 

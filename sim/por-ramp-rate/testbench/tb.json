@@ -1,0 +1,128 @@
+{
+  "name": "por-ramp-rate",
+  "description": "Full-assembly supply ramp-rate envelope check of design/netlist/temp_por_top.spice: four monotonic 0->VDD ramps (1 V/s, 10 V/s, 0.1 V/us, 1 V/us -- both ratified endpoints plus one decade inside each) run together in one transient, each checked for RESETn held low from 0 V through the ramp and then released once and only once, at or above VPOR-uparrow,min.",
+  "claim": "spec/target-spec.md#por-ramp-rate -- \"correct\" = RESETn low from 0 V throughout the ramp, released once and only once, no early release, no glitch, no double pulse, at both ratified endpoints (1 V/s, 1 V/us) plus one decade inside each (10 V/s, 0.1 V/us), over the full PVT grid, on the real four-cell assembly (bias_core-driven IBIAS, nothing idealised). Deterministic corners only (design.ngspice sets sw_stat_mismatch=0); mismatch is #15's job. The 1 V/us branch is expected to intersect design/bias_core.md's already-owned starved-loop window (BIAS_OK false-valid while VREF is still parked, measured up to ~1.6 ms at the bias_core cell level) -- see that document and this testbench's stimulus header before treating a miss there as a new defect.",
+  "netlist": "tb_por_ramp_rate.spice",
+  "nominal_supply_v": 3.3,
+  "supply_tolerance": 0.1,
+  "temperatures_c": [-40, 27, 125],
+  "corners": ["full"],
+  "options": ["reltol=1e-4", "abstol=1e-13", "vntol=1e-8", "method=gear"],
+  "analyses": [
+    "tran 2m 3.7",
+    "meas tran trel1 when v(resetnr1)=1.0 rise=1",
+    "meas tran trel1_last when v(resetnr1)=1.0 rise=last",
+    "meas tran vddrel1 find v(vddr1) when v(resetnr1)=1.0 rise=1",
+    "meas tran rst1_at1v find v(resetnr1) at=1.0",
+    "meas tran rst1_at2v find v(resetnr1) at=2.0",
+    "meas tran trel2 when v(resetnr2)=1.0 rise=1",
+    "meas tran trel2_last when v(resetnr2)=1.0 rise=last",
+    "meas tran vddrel2 find v(vddr2) when v(resetnr2)=1.0 rise=1",
+    "meas tran rst2_at1v find v(resetnr2) at=0.1",
+    "meas tran rst2_at2v find v(resetnr2) at=0.2",
+    "meas tran trel3 when v(resetnr3)=1.0 rise=1",
+    "meas tran trel3_last when v(resetnr3)=1.0 rise=last",
+    "meas tran vddrel3 find v(vddr3) when v(resetnr3)=1.0 rise=1",
+    "meas tran rst3_at1v find v(resetnr3) at=10u",
+    "meas tran rst3_at2v find v(resetnr3) at=20u",
+    "meas tran trel4 when v(resetnr4)=1.0 rise=1",
+    "meas tran trel4_last when v(resetnr4)=1.0 rise=last",
+    "meas tran vddrel4 find v(vddr4) when v(resetnr4)=1.0 rise=1",
+    "meas tran rst4_at1v find v(resetnr4) at=1u",
+    "meas tran rst4_at2v find v(resetnr4) at=2u",
+    "meas tran vref_rel4 find v(xr4.vref) when v(resetnr4)=1.0 rise=1",
+    "meas tran biasok_rel4 find v(xr4.bias_ok) when v(resetnr4)=1.0 rise=1"
+  ],
+  "measure": {
+    "vddrel_1vs_v": "vddrel1",
+    "vddrel_10vs_v": "vddrel2",
+    "vddrel_100kvs_v": "vddrel3",
+    "vddrel_1mvs_v": "vddrel4",
+    "chatter_1vs_us": "(trel1_last-trel1)*1e6",
+    "chatter_10vs_us": "(trel2_last-trel2)*1e6",
+    "chatter_100kvs_us": "(trel3_last-trel3)*1e6",
+    "chatter_1mvs_us": "(trel4_last-trel4)*1e6",
+    "resetn_at_1v_1vs_mv": "rst1_at1v*1e3",
+    "resetn_at_2v_1vs_mv": "rst1_at2v*1e3",
+    "resetn_at_1v_10vs_mv": "rst2_at1v*1e3",
+    "resetn_at_2v_10vs_mv": "rst2_at2v*1e3",
+    "resetn_at_1v_100kvs_mv": "rst3_at1v*1e3",
+    "resetn_at_2v_100kvs_mv": "rst3_at2v*1e3",
+    "resetn_at_1v_1mvs_mv": "rst4_at1v*1e3",
+    "resetn_at_2v_1mvs_mv": "rst4_at2v*1e3",
+    "t_release_1vs_ms": "trel1*1e3",
+    "t_release_10vs_ms": "trel2*1e3",
+    "t_release_100kvs_ms": "trel3*1e3",
+    "t_release_1mvs_ms": "trel4*1e3",
+    "vref_at_rel_1mvs_v": "vref_rel4",
+    "biasok_at_rel_1mvs_v": "biasok_rel4"
+  },
+  "checks": {
+    "vddrel_1vs_v": {
+      "min": 2.47,
+      "max": 3.7,
+      "description": "spec/target-spec.md#por-ramp-rate slow limit (1 V/s), 'no early release': the rail voltage at the instant RESETn releases must be at or above VPOR-uparrow,min = 2.47 V, the ratified minimum release threshold. Releasing below that is an early release by the ratified spec regardless of what caused it. Ceiling is the rail itself (3.63 V + slack)."
+    },
+    "vddrel_10vs_v": {
+      "min": 2.47,
+      "max": 3.7,
+      "description": "one decade inside the slow limit (10 V/s), same no-early-release floor."
+    },
+    "vddrel_100kvs_v": {
+      "min": 2.47,
+      "max": 3.7,
+      "description": "one decade inside the fast limit (0.1 V/us), same no-early-release floor. At this rate the ramp finishes in 30-36 us while the reset pulse runs for milliseconds, so release lands at the settled rail rather than near the threshold -- the floor is still the correct criterion, it is simply far from binding."
+    },
+    "vddrel_1mvs_v": {
+      "min": 2.47,
+      "max": 3.7,
+      "description": "spec/target-spec.md#por-ramp-rate fast limit (1 V/us), same no-early-release floor as every other rate. Deliberately NOT relaxed for design/bias_core.md's already-owned starved-loop window: if that window makes this branch release below VPOR-uparrow,min, the ratified row is not met at its fast endpoint and this record must say so (CLAUDE.md: agents do not relax the ratified spec to make results pass). The record's own text, and design/bias_core.md, then carry it to #1 as a re-cost."
+    },
+    "chatter_1vs_us": {
+      "min": -0.001,
+      "max": 0.001,
+      "description": "no double pulse at 1 V/s: first and last rising crossing of RESETn must coincide."
+    },
+    "chatter_10vs_us": {
+      "min": -0.001,
+      "max": 0.001,
+      "description": "no double pulse at 10 V/s."
+    },
+    "chatter_100kvs_us": {
+      "min": -0.001,
+      "max": 0.001,
+      "description": "no double pulse at 0.1 V/us."
+    },
+    "chatter_1mvs_us": {
+      "min": -0.001,
+      "max": 0.001,
+      "description": "no double pulse at 1 V/us, held to the SAME 1 ns bound as the slower rates. An earlier draft of this manifest widened it to +/-5 ms to accommodate the starved-loop window; that was wrong -- a genuine double pulse is separated by at least one reset-pulse width (>=1 ms ratified, 4.2-17.0 ms measured), so a +/-5 ms band would have passed exactly the failure the row forbids."
+    },
+    "resetn_at_1v_1vs_mv": {
+      "max": 300.0,
+      "description": "spec/target-spec.md#por-ramp-rate's 'RESETn low from 0 V throughout the ramp', probed at a 1 V rail. Each DUT's rail is rate*t by construction, so t = 1/rate samples exactly 1 V: 1 s at 1 V/s, 0.1 s at 10 V/s, 10 us at 0.1 V/us, 1 us at 1 V/us. Slow-ramp early release is the classic POR field failure this row exists to forbid."
+    },
+    "resetn_at_2v_1vs_mv": {
+      "max": 300.0,
+      "description": "same, at a 2 V rail -- still 0.47 V below VPOR-uparrow,min, so RESETn must still be low."
+    },
+    "resetn_at_1v_10vs_mv": { "max": 300.0, "description": "same probe at 10 V/s (t = 0.1 s)." },
+    "resetn_at_2v_10vs_mv": { "max": 300.0, "description": "same probe at 10 V/s (t = 0.2 s)." },
+    "resetn_at_1v_100kvs_mv": { "max": 300.0, "description": "same probe at 0.1 V/us (t = 10 us)." },
+    "resetn_at_2v_100kvs_mv": { "max": 300.0, "description": "same probe at 0.1 V/us (t = 20 us)." },
+    "resetn_at_1v_1mvs_mv": { "max": 300.0, "description": "same probe at 1 V/us (t = 1 us)." },
+    "resetn_at_2v_1mvs_mv": { "max": 300.0, "description": "same probe at 1 V/us (t = 2 us)." },
+    "t_release_1vs_ms": {
+      "min": 1.0,
+      "max": 3600.0,
+      "description": "liveness: RESETn must actually release inside the run at the slow limit. At 1 V/s the rail needs 2.47-2.73 s just to reach the threshold, so this bound is a 'the DUT is alive and the run is long enough' guard, not a timing claim -- the pulse-width claim is sim/por-brownout/'s t_pulse_regen_ms and sim/por-output-chain-pulse/'s."
+    },
+    "t_release_10vs_ms": { "min": 1.0, "max": 3600.0, "description": "same liveness guard at 10 V/s." },
+    "t_release_100kvs_ms": { "min": 1.0, "max": 3600.0, "description": "same liveness guard at 0.1 V/us." },
+    "t_release_1mvs_ms": { "min": 1.0, "max": 3600.0, "description": "same liveness guard at 1 V/us." }
+  },
+  "unchecked_measurement_notes": {
+    "vref_at_rel_1mvs_v": "Recorded, deliberately NOT checked. bias_core's reference at the instant the fast-limit branch releases -- the direct read of whether design/bias_core.md's starved-loop window is still open at that moment. It is diagnostic context for whatever vddrel_1mvs_v/chatter_1mvs_us report, not a bound of its own.",
+    "biasok_at_rel_1mvs_v": "Recorded, deliberately NOT checked, same reason: BIAS_OK's state at the fast-limit release instant distinguishes 'released on a settled reference' from 'released inside the false-valid window'."
+  }
+}

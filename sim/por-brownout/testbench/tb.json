@@ -1,0 +1,73 @@
+{
+  "name": "por-brownout",
+  "description": "Full-assembly qualifying-brownout re-assertion check of design/netlist/temp_por_top.spice: cold start to a settled released state, a 1.0 V / 50 us dip (5x T_dip,min, well above the deglitch dwell), rail recovery, and confirmation that RESETn re-asserts during the dip and regenerates a full >=1 ms reset pulse before releasing again. Also carries the full-assembly confirmation of #12's single-cell por-reset-pulse minimum and por-reset-valid-floor results.",
+  "claim": "spec/target-spec.md#por-brownout -- a dip below VPOR-downarrow,min (2.22 V) lasting >= T_dip,min (10 us) must re-assert RESETn and regenerate the full spec/target-spec.md#por-reset-pulse, on the full four-cell assembly with bias_core's real (starved, corner-dependent) recovery dynamics in the loop. Also substantiates spec/target-spec.md#por-reset-pulse (the >=1 ms minimum, and the observed maximum the ratified row asks #14 to record) and spec/target-spec.md#por-reset-valid-floor (valid-low RESETn at a 1.0 V rail) at full-assembly level, both of which #12 previously measured only at the single-cell level. Deterministic corners only (design.ngspice sets sw_stat_mismatch=0); mismatch is #15's job.",
+  "netlist": "tb_por_brownout.spice",
+  "nominal_supply_v": 3.3,
+  "supply_tolerance": 0.1,
+  "temperatures_c": [
+    -40,
+    27,
+    125
+  ],
+  "corners": [
+    "full"
+  ],
+  "options": [
+    "reltol=1e-4",
+    "abstol=1e-13",
+    "vntol=1e-8",
+    "method=gear"
+  ],
+  "analyses": [
+    "tran 20u 55m",
+    "meas tran vrst_pre find v(resetn) at=19.9m",
+    "meas tran vdd_dip find v(vdd) at=20.03m",
+    "meas tran vrst_dip find v(resetn) at=20.03m",
+    "meas tran treassert when v(resetn)=0.3 fall=1 td=20m",
+    "meas tran trel2 when v(resetn)=1.0 rise=1 td=20.052m",
+    "meas tran trel2_last when v(resetn)=1.0 rise=last td=20.052m",
+    "meas tran vrst_final find v(resetn) at=54.5m"
+  ],
+  "measure": {
+    "resetn_pre_dip_v": "vrst_pre",
+    "vdd_dip_v": "vdd_dip",
+    "resetn_floor_in_dip_mv": "vrst_dip*1e3",
+    "t_reassert_us": "(treassert-20m)*1e6",
+    "t_pulse_regen_ms": "(trel2-treassert)*1e3",
+    "release_chatter_us": "(trel2_last-trel2)*1e6",
+    "resetn_final_v": "vrst_final"
+  },
+  "checks": {
+    "resetn_pre_dip_v": {
+      "min": 2.8,
+      "description": "sanity: RESETn is released (driven high) before the dip starts -- confirms the deck reaches the state the brownout claim is defined against."
+    },
+    "vdd_dip_v": {
+      "max": 1.05,
+      "description": "sanity: the dip actually reached its programmed depth (1.0 V, below VPOR-downarrow,min = 2.22 V at every corner) -- testbench-integrity check, not the spec claim itself."
+    },
+    "t_reassert_us": {
+      "min": 0.0,
+      "max": 50.0,
+      "description": "THE QUALIFYING-DIP CHECK: RESETn must re-assert (fall below 0.3 V) during or immediately after the 50 us qualifying dip, at every corner. A dip this deep and this long (5x T_dip,min, well above sim/por-output-chain-deglitch/'s 1.86-8.88 us cell-level dwell) must not be filtered out."
+    },
+    "t_pulse_regen_ms": {
+      "min": 1.0,
+      "description": "spec/target-spec.md#por-reset-pulse's >=1 ms minimum, regenerated in the brownout-recovery context and measured on the FULL ASSEMBLY (#12 measured it on por_output_chain alone, 4.21535-7.75209 ms with idealised bias): from the instant RESETn re-asserts (during the dip) to the instant it releases again (after recovery) must be >=1 ms at every corner. This is both the 'full reset pulse is regenerated' half of the por-brownout claim and the observed-maximum recording the por-reset-pulse row asks #14 for -- the run's own max column IS that number, which is why no maximum bound is imposed here (wave 1 ratifies none)."
+    },
+    "resetn_floor_in_dip_mv": {
+      "max": 100.0,
+      "description": "spec/target-spec.md#por-reset-valid-floor at full-assembly level: valid-low := V(RESETn) <= min(0.1*VDD, 0.3 V), which at the dip's 1.0 V rail is 100 mV. #12 measured this on por_output_chain alone against a slow rail ramp (1.699 mV absolute worst at ss/-40C, 0.548 % ratio worst at sf/+125C); this is the same claim re-read on the assembled block, in the state a real brownout puts it in."
+    },
+    "release_chatter_us": {
+      "min": -0.01,
+      "max": 0.01,
+      "description": "no double pulse on the recovery release edge (first vs. last rising crossing)."
+    },
+    "resetn_final_v": {
+      "min": 2.8,
+      "description": "RESETn is back to a solid released high by the end of the run, into the 5 pF load -- confirms recovery completed cleanly rather than leaving the block stuck asserted."
+    }
+  }
+}

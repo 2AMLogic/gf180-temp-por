@@ -1,0 +1,104 @@
+* por-ramp-rate -- stimulus half of the testbench fragment.
+*
+* The other half is a verbatim copy of design/netlist/temp_por_top.spice,
+* appended by sim/build_tb.py to produce tb_por_ramp_rate.spice. Edit THIS
+* file (or the schematics), never the generated fragment.
+*
+* Netlist FRAGMENT: no .include / .lib / .temp / .control / .end -- the
+* harness owns those. Parameters it supplies: vdd_val, vdd_nom, temp_c.
+*
+* WHAT THIS EXPERIMENT SUBSTANTIATES
+*
+* spec/target-spec.md#por-ramp-rate: "Correct reset generation guaranteed for
+* monotonic 0 -> VDD ramps with average rate between 1 V/s (slow limit) and
+* 1 V/us (fast limit) ... #14 asserts at both endpoints plus one decade
+* inside each, over the full grid." Four rates, each a full four-cell
+* assembly DUT on its own monotonic 0 -> vdd_val ramp:
+*
+*   xr1   1 V/s      (slow limit)
+*   xr2   10 V/s      (one decade inside the slow limit)
+*   xr3   0.1 V/us = 1e5 V/s   (one decade inside the fast limit)
+*   xr4   1 V/us   = 1e6 V/s   (fast limit)
+*
+* all FOUR run in the SAME transient, sharing one time axis, rather than as
+* four separate experiment runs -- the harness has no per-manifest rate
+* sweep, and running four full-assembly 81-point grids back to back would
+* be four times the simulator cost of one combined run for no additional
+* evidence (the four DUTs are electrically independent; sw_stat_mismatch=0
+* makes cross-talk between them impossible by construction).
+*
+* Each DUT's ramp is a single two-point PWL, `PWL(0 0 {vdd_val/rate}
+* {vdd_val})`: ngspice holds the final breakpoint's value for the rest of
+* the run, so no explicit "then hold flat" segment is needed. The total
+* run span (3.7 s) is sized by xr1 alone -- at 1 V/s a 3.63 V rail takes
+* 3.63 s to ramp, and release typically happens mid-ramp (the release
+* threshold is well under vdd_val), so 3.7 s covers the slowest corner with
+* margin. xr2/xr3/xr4 finish their ramps and release in the first tens of
+* milliseconds and then simply hold flat for the remainder -- ngspice's
+* adaptive timestep grows once each DUT settles, so the extra 3.6+ s of
+* real time these three DUTs spend idle costs little beyond xr1's own need
+* for it.
+*
+* WHAT EACH DUT MEASURES, mapped onto the ratified row's own three clauses:
+*
+*   "RESETn low from 0 V throughout the ramp" -- v(resetnrN) sampled at a
+*      1 V and a 2 V rail, both well below VPOR-uparrow,min = 2.47 V. Each
+*      DUT's rail is rate*t by construction (a single two-point PWL from
+*      the origin), so a FIXED sample time picks a FIXED rail voltage
+*      independently of vdd_val: t = 1/rate is exactly 1 V and t = 2/rate
+*      is exactly 2 V. Hence at=1.0/2.0 s for xr1, 0.1/0.2 s for xr2,
+*      10/20 us for xr3 and 1/2 us for xr4. Slow-ramp early release is the
+*      classic POR field failure, and this is the probe that would catch it.
+*
+*   "released once and only once ... after VDD crosses VPOR-uparrow" --
+*      v(vddrN) at the instant RESETn crosses high, floored at
+*      VPOR-uparrow,min = 2.47 V. At the two fast rates the ramp finishes
+*      in tens of microseconds while the reset pulse runs for milliseconds,
+*      so release lands at the settled rail and the floor is far from
+*      binding; at 1 V/s it lands within millivolts of the threshold and
+*      the floor is the real check.
+*
+*   "no glitch, no double pulse" -- first versus last rising crossing
+*      (rise=1 vs. rise=last), bounded at 1 ns for EVERY rate including the
+*      fast limit. A genuine double pulse is separated by at least one
+*      reset-pulse width (>=1 ms ratified, 4.2-17.0 ms measured), so any
+*      loosening of this bound into the millisecond range would pass
+*      exactly the failure the row forbids.
+*
+* THE STARVED-LOOP WINDOW: at xr4's 1 V/us rate, design/bias_core.md's own
+* full-cell-level record already measures BIAS_OK reading a false valid
+* while bias_core's reference loop cannot slew fast enough (see that
+* document, "The starved-loop window") -- an ALREADY-OWNED, ALREADY-TRACKED
+* architecture-level tension between por-iq and por-ramp-rate's fast limit,
+* assigned to a #1/#14 re-cost decision, not a fresh defect for this record
+* to root-cause. None of the bounds above are relaxed to accommodate it:
+* CLAUDE.md forbids relaxing a ratified target to make a result pass, so if
+* the window costs the fast endpoint, this record says the endpoint is not
+* met and hands the number to #1. v(xr4.vref) and v(xr4.bias_ok) at the
+* release instant are recorded unchecked so the record can distinguish
+* "released on a settled reference" from "released inside the false-valid
+* window" without either reading being a pass/fail criterion of its own.
+
+vr1 vddr1 0 PWL(0 0 {vdd_val} {vdd_val})
+Cppr1 ptatr1 0 1p
+Cpcr1 ctatr1 0 1p
+Crnr1 resetnr1 0 5p
+xr1 vddr1 0 ptatr1 ctatr1 resetnr1 temp_por_top
+
+vr2 vddr2 0 PWL(0 0 {vdd_val/10} {vdd_val})
+Cppr2 ptatr2 0 1p
+Cpcr2 ctatr2 0 1p
+Crnr2 resetnr2 0 5p
+xr2 vddr2 0 ptatr2 ctatr2 resetnr2 temp_por_top
+
+vr3 vddr3 0 PWL(0 0 {vdd_val/1e5} {vdd_val})
+Cppr3 ptatr3 0 1p
+Cpcr3 ctatr3 0 1p
+Crnr3 resetnr3 0 5p
+xr3 vddr3 0 ptatr3 ctatr3 resetnr3 temp_por_top
+
+vr4 vddr4 0 PWL(0 0 {vdd_val/1e6} {vdd_val})
+Cppr4 ptatr4 0 1p
+Cpcr4 ctatr4 0 1p
+Crnr4 resetnr4 0 5p
+xr4 vddr4 0 ptatr4 ctatr4 resetnr4 temp_por_top
