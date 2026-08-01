@@ -5,7 +5,7 @@ against the gf180mcu PDK. This directory is the **source of truth for the
 block's electrical interface**: `sim/` testbenches and (later) `layout/` LVS
 both consume the netlists exported from here.
 
-> **Status: hierarchy and pinout are real; three of four sub-circuits are designed.**
+> **Status: hierarchy and pinout are real; all four sub-circuits are designed.**
 > The top level, the four sub-circuit cells, their symbols, and the netlist
 > export pipeline are complete and verified. `temp_core` is **designed and
 > characterized** (#9) — see [`temp_core.md`](temp_core.md) for its sizing

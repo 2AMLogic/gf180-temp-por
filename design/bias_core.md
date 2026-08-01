@@ -435,8 +435,8 @@ the `por-iq` row names:
 | `bias_core`'s `IBIAS` output leg | 1119 nA | measured `ibias_na` |
 | **`bias_core` total** | **2047 nA** | measured `iq_por_ua` |
 | `por_comparator` own draw | 292 nA | `design/por_comparator.md`, measured `iq_own_ua` |
-| `por_output_chain` own draw | **[TBD-#12]** | not designed yet |
-| **Total against `por-iq` (<1 µA)** | **≥ 2339 nA** | **2.34× over budget, before #12 adds anything** |
+| `por_output_chain` own draw, `RESETn` asserted | 31.6 nA | `design/por_output_chain.md` (#12, closed), measured `iq_asserted_1x_na` |
+| **Total against `por-iq` (<1 µA)** | **2371 nA** | **2.37× over budget**, all three contributors now designed and measured |
 
 `por_comparator`'s record quotes 792 nA against this row, of which 500 nA was
 an *idealised* `IBIAS` source standing in for this cell. Summing the two
@@ -457,7 +457,7 @@ non-double-counted number.
   100 nA before release and 500 nA after. Adding an `EN`/`RESETn` input is
   an interface change and therefore a decision record, not a #11 edit.
 - **Even a free `IBIAS` would not close the gap**: 929 nA of core + 292 nA
-  of comparator = 1221 nA, still over, before #12.
+  of comparator + 31.6 nA of `por_output_chain` = 1252.6 nA, still over.
 - **The core is already 10–50× below DR-005's own 1–5 µA/branch estimate.**
   Halving it again costs resistor area quadratically (`R2` would grow to
   12.6 MΩ, ~16 400 µm² of poly on its own) and slows the loop further, which
