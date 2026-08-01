@@ -22,7 +22,7 @@ recorded evidence run, not an estimate:
 | --- | --- |
 | [`sim/bias-core-designer-check/`](../sim/bias-core-designer-check/) | settled `VREF` over the 81-point grid, current sourced into `IBIAS`, amplifier systematic offset, startup-kick idle state, the **no-latched-dead-state DC proof**, and three fixed-rail snapshots placing `BIAS_OK`/`VREF` validity against the ratified release threshold |
 | [`sim/bias-core-iq/`](../sim/bias-core-iq/) | the `por-iq` apportionment: total, core share and `IBIAS` distribution share, over the 81-point grid. **This record is a recorded FAIL against `por-iq`** — deliberately, see below |
-| [`sim/bias-core-startup/`](../sim/bias-core-startup/) | quasi-static rail sweep 0 → 3.63 V: the rail at which the core comes up, the rail at which `BIAS_OK` asserts, the margin between them, and the reference error at the earliest legal release rail |
+| [`sim/bias-core-startup/`](../sim/bias-core-startup/) | quasi-static **branch-tracking** rail sweep 0 → 3.63 V: the rail at which the core comes up, the rail at which `BIAS_OK` asserts, the margin between them, and the reference error at the earliest legal release rail. **This record is a recorded FAIL at 3 of the 27 corner/temperature combinations** — see [Startup](#startup) |
 
 All three are **deterministic corner** records: `design.ngspice` sets
 `sw_stat_mismatch=0`, so everything below bounds the **systematic** error
@@ -51,7 +51,7 @@ a port change and therefore a decision record.
 | `VDD`/`VSS` | supply | 3.3 V core flavour, 2.97–3.63 V steady state (DR-001) |
 | `IBIAS` | out | **sources** current into the pin; consumers put a diode-connected nfet on it. 478 nA at tt/27 °C/3.30 V, 266–966 nA over the grid |
 | `VREF` | out | 1.1888–1.2107 V over the grid (**±0.91 %** about 1.1995 V). Gate-only load — no DC current may be drawn |
-| `BIAS_OK` | out | high only when the core is up *and* the rail has headroom over `VREF`; asserts at 1.54–2.32 V of rail, always after `VREF` has arrived and always before the 2.47 V minimum release threshold |
+| `BIAS_OK` | out | high only when the core is up *and* the rail has headroom over `VREF`; asserts at **1.743–2.123 V** of rail across the 24 of 27 corner/temperature combinations where the rail sweep is clean — always after `VREF` has arrived and always before the 2.47 V minimum release threshold |
 
 ## Topology
 
@@ -92,10 +92,14 @@ V(VREF) = VBE(QR) + (R3/R1)·(kT/q)·ln(8)
 load-bearing:
 
 - **`VREF` depends on `R3/R1`, not on `R`.** `ppolyf_u_3k`'s −1545 ppm/°C
-  tempco and its ±25 % sheet corner cancel in the ratio. The record
-  confirms it: the `res_ff`/`res_ss` corners move both resistors by ±25 %
-  and move `VREF` by **−0.5 %/+0.05 %** (1.19354 V at `res_ss_-40c_2.97v`,
-  1.20751 V at `res_ff_125c_3.63v`).
+  tempco and its ±25 % sheet corner cancel in the ratio. The record confirms
+  it, and shows exactly what the residual is: at 27 °C / 3.30 V the
+  `res_ff`/`res_ss` corners move both resistors by ±25 % and move `VREF` by
+  only **+0.62 % / −0.48 %** (1.20705 V / 1.19391 V against `tt`'s
+  1.19965 V). That residual is not a ratio error — it is `VBE(QR)`'s
+  *logarithmic* dependence on the branch current the resistor sets: ±25 % in
+  `R` is ∓25 % in `I`, and `(kT/q)·ln(1.25) = 5.8 mV` on a 1.2 V reference is
+  0.48 %. The gain ratio itself contributes far less than that.
 - **The branch current is deliberately *not* ratio-stable.** `I = ΔVBE/R1`
   is PTAT over `R`'s negative tempco, so it nearly doubles from `ss`/−40 °C
   to `ff`/+125 °C. That is the single largest term in the Iq problem below,
@@ -123,7 +127,7 @@ current that defines the reference.
 reason is the Iq budget and nothing else — see below. The property the 8:1
 recommendation rests on still holds there: `VREF`'s measured 81-point spread
 is ±0.91 %, and the `bjt_ff`/`bjt_ss` corners (which move `Is` directly)
-move it by only −0.9 %/+0.9 %.
+move it by only −0.52 %/+0.75 % at 27 °C.
 
 ### Resistors — `ppolyf_u_3k`, W = 1 µm
 
@@ -149,8 +153,8 @@ is a length ratio.
 
 `R3/R1 = 11.97` was tuned by simulation, not derived: with `VBE` at 60 nA the
 first-order zero-TC ratio is not the textbook `≈ 10.2` computed from a 10 µA
-`VBE` tempco. The measured residual over −40…125 °C at `tt` is **2.4 mV
-(0.20 %)**.
+`VBE` tempco. The measured residual over −40…125 °C at `tt`/3.30 V is
+**1.63 mV (0.14 %)**.
 
 ### Cascode-free PMOS mirror — `L = 8 µm`
 
@@ -171,8 +175,10 @@ away from legs 1 and 2. Here:
   roughly 0.6 %.
 - A wide-swing cascode stack would cost ~0.4 V of extra dropout, and this
   cell has to be *valid* well below the 2.47 V minimum release threshold
-  (DR-005 startup step 3). The measured dropout is **1.15–1.86 V**; with a
-  cascode it would not have cleared 2.47 V at the slow/cold corner.
+  (DR-005 startup step 3). The measured dropout — the rail at which `VREF`
+  first reaches 1.10 V on a quasi-static ramp — is **1.115–1.233 V**; a
+  cascode stack would have pushed it toward the release threshold at the
+  slow/cold corner.
 
 That is the trade: ~0.6 % of `VREF` accuracy bought 0.4 V of dropout margin.
 Given that `VREF`'s measured total spread is 1.82 % against a ratified ±5 %
@@ -293,15 +299,67 @@ plus a decade inside each) is [`por-ramp-rate`](../spec/target-spec.md#por-ramp-
 which the spec assigns to **#14** — this record deliberately does not
 pre-empt it with one arbitrary rate.
 
-### Measured startup ordering
+### Measured startup ordering — and where it does **not** hold
 
-| Quantity | Measured over 81 points | Meaning |
+Over the **24 of 27 corner/temperature combinations** where the branch-tracking
+sweep is clean (72 of 81 grid points):
+
+| Quantity | Measured | Meaning |
 | --- | --- | --- |
-| `v_core_up_v` | see `sim/bias-core-startup/` | rail at which `VREF` first reaches 1.10 V — the core's effective dropout, the number DR-005 left qualitative |
-| `v_bias_ok_v` | see record | rail at which `BIAS_OK` asserts |
-| `startup_margin_v` | `v_bias_ok_v − v_core_up_v` | the settle margin DR-005 defers to "#11/#14 sim", in ramp-rate-independent form: **#14 divides it by the ramp rate under test to get a time**, which is why it is quoted as a voltage |
-| `release_margin_v` | `2.47 V − v_bias_ok_v` | how far below the earliest *legal* release the flag is already true |
-| `vref_err_247_pct` | ±0.03 % (`sim/bias-core-designer-check/`, fixed-rail probe) | the reference is right, not merely flagged, by the earliest rail a release may happen at |
+| `v_core_up_v` | **1.115 – 1.233 V** | rail at which `VREF` first reaches 1.10 V — the core's effective dropout, the number DR-005 left qualitative |
+| `v_bias_ok_v` | **1.743 – 2.123 V** | rail at which `BIAS_OK` asserts |
+| `startup_margin_v` | **0.510 – 1.006 V** | the settle margin DR-005 defers to "#11/#14 sim", in ramp-rate-independent form: **#14 divides it by the ramp rate under test to get a time**, which is why it is quoted as a voltage |
+| `release_margin_v` | **0.347 – 0.727 V** | how far below the earliest *legal* release (2.47 V) the flag is already true |
+| `vref_err_247_pct` | **−0.013 … +0.029 %** | the reference is right, not merely flagged, by the earliest rail a release may happen at |
+| `ok_chatter_mv` | **0 mV at every point** | one clean assertion, no toggling as the core settles |
+| `ok_at_140_mv` | **≤ 65 nV** (all 81 points) | driven not-valid below the dropout |
+
+### Open defect — a second high-current branch at three corner/temperature combinations
+
+**This is the one acceptance criterion of issue #11 that this cell does not
+meet, and it is recorded rather than papered over.**
+
+At **`ss`/+27 °C**, **`ff`/−40 °C** and **`bjt_ss`/+125 °C** (9 of the 81 grid
+points — all three supplies at each) the branch-tracking sweep leaves the core
+on a **second, high-current branch** on the way up, and does not always come
+off it:
+
+| Combination | What the sweep reports |
+| --- | --- |
+| `ss_27c_*` | `VREF` reaches **3.42 V** at the top of the sweep and `BIAS_OK` **never asserts** (the `vok` measurement finds no crossing at all) |
+| `ff_-40c_*` | `VREF` = 1.314 V at the top; `BIAS_OK` asserts only at **2.735 V** of rail, i.e. *after* the 2.47 V minimum release threshold, and `VREF` is **76.5 %** high when the rail crosses 2.47 V |
+| `bjt_ss_125c_*` | `VREF` recovers by the top of the sweep, but is **29.5 %** high as the rail crosses 2.47 V |
+
+What is and is not proven, stated precisely:
+
+- **Proven, at all 81 points**: the *degenerate zero-current* state is not a
+  stable DC solution. `sim/bias-core-designer-check/`'s `vref_dead_v` — a DC
+  solve **seeded in** that state — lands on the live value, bit-identical to
+  the unseeded solve, everywhere. The cell cannot latch dead.
+- **Proven, at all 81 points**: the *settled* operating point is correct.
+  Independent per-point DC solves give `VREF` = 1.1888–1.2107 V with
+  `BIAS_OK` asserted, at every corner, temperature and rail.
+- **Not proven, and false at 3 of 27 combinations**: that a **slow rising
+  rail** always leaves the core on the correct branch. It does not, and at
+  `ff`/−40 °C the consequence reaches the POR decision: `BIAS_OK` asserting
+  above 2.47 V with `VREF` 76 % high is exactly the false-threshold failure
+  the flag exists to prevent.
+
+The failure is a *high*-current branch, not a dead one, so the startup kick is
+not the direct cause — `NK` is high (kick off) in these states. The mechanism
+is most likely the amplifier reaching a second self-consistent point while the
+mirror legs are still in or near triode during the rise; the fixed-rail probes
+in `sim/bias-core-designer-check/` (1.40 / 2.00 / 2.47 V) do **not** see it,
+because each is an independent solve that starts from the solver's own guess
+and lands on the good solution. That asymmetry is itself the useful finding:
+**a per-point operating-point grid, however dense, cannot detect this class of
+defect** — only a branch-tracking sweep or a transient can.
+
+An earlier revision of this cell failed the same test far more broadly (a
+second branch with `VREF` pinned near `VDD − 0.2 V` from 1.4 V of rail to
+3.3 V at `ss`/−40 °C, and a native-pull-up variant that never started at all
+at that corner). Both were found by this sweep and fixed; this residual is
+what is left, and it needs a follow-up.
 
 ## `BIAS_OK`
 
@@ -505,10 +563,10 @@ cell's reference.
 | Term | Systematic, measured over 81 points | Notes |
 | --- | --- | --- |
 | Total `VREF` spread | **1.1888 – 1.2107 V**, i.e. **±0.91 %** about 1.1995 V | 18 % of the ±5 % window |
-| — resistor corners (`res_ff`/`res_ss`) | −0.50 % / +0.05 % | ±25 % sheet moves the ratio by well under 1 % |
-| — BJT corners (`bjt_ff`/`bjt_ss`) | −0.90 % / +0.92 % | the dominant systematic term: `VBE(QR)` moves directly |
-| — temperature, `tt`, −40…125 °C | 2.4 mV (**0.20 %**) | first-order curvature after the `R3/R1` tune |
-| — supply, over the whole ±10 % window | ≤ 0.05 % | `L = 8 µm` mirror, no cascode |
+| — resistor corners (`res_ff`/`res_ss`), at 27 °C | **+0.62 % / −0.48 %** | not a ratio error: `VBE(QR)` moves logarithmically with the current `R1` sets |
+| — BJT corners (`bjt_ff`/`bjt_ss`), at 27 °C | **−0.52 % / +0.75 %** | `VBE(QR)`'s own `Is` corner, moving the reference directly |
+| — temperature, `tt`/3.30 V, −40…125 °C | 1.63 mV (**0.14 %**) | first-order curvature after the `R3/R1` tune |
+| — supply, over the whole ±10 % window | **0.012 %** (`tt`/27 °C: 1.19962 / 1.19965 / 1.19951 V) | `L = 8 µm` mirror, no cascode |
 | Amplifier systematic offset | **−5.96 … +9.48 µV** → **< 0.02 %** of `VREF` | `XMS2N` as a current-density copy of `XML1` |
 | **Random mismatch** | **not visible here** | PNP `Is` mismatch, input-pair and mirror `Vt` mismatch. **Issue #15** |
 
@@ -526,7 +584,7 @@ Approximate drawn area of the passives, which dominate:
 | Item | Area |
 | --- | ---: |
 | `XR3` (10.7 MΩ) | ~3600 µm² |
-| `XRNR`-class degeneration + nulling resistors | ~2300 µm² |
+| `XRDEG` (4.8 MΩ) + `XRZ` (573 kΩ) | ~2300 µm² |
 | `XCC` (4 pF MIM) | ~2025 µm² |
 | Ten `pnp_10p00x10p00` unit cells | ~1000 µm² + spacing |
 | Sixteen native unit devices | ~640 µm² |
@@ -555,7 +613,10 @@ python3 sim/run_corners.py bias-core-startup -j 6 --timeout 1500
 ```
 
 `sim/run_corners.py bias-core-iq` **exits 1 by design** — its `por-iq` check
-is the recorded spec conflict, not a regression.
+is the recorded spec conflict, not a regression. `bias-core-startup` exits 2
+(three grid points cannot complete their `vok` measurement because `BIAS_OK`
+never crosses on the wrong branch) — that is the open defect above, also
+recorded rather than suppressed.
 
 > **Toolchain note.** `design/netlist.py` needs **xschem ≥ 3.4.7**. xschem
 > 3.4.4 (the current Debian package) ignores `top_is_subckt` and emits every
@@ -578,3 +639,7 @@ is the recorded spec conflict, not a regression.
   `VREF`, which is why the ±0.91 % systematic spread above has to stand on
   its own.
 - **Layout matching** — issue #17.
+- **The residual startup branch defect** — recorded above, not fixed here. It
+  needs its own iteration and its own evidence run; folding a speculative fix
+  into this change would ship an unverified circuit, which is the one thing
+  `sim/` evidence exists to prevent.

@@ -14,12 +14,14 @@ both consume the netlists exported from here.
 > is **designed and characterized** (#10) — see
 > [`por_comparator.md`](por_comparator.md) and
 > `sim/por-comparator-designer-check/`. `bias_core` is **designed and
-> characterized** (#11) — see [`bias_core.md`](bias_core.md),
-> `sim/bias-core-designer-check/`, `sim/bias-core-iq/` and
-> `sim/bias-core-startup/`; note that its `sim/bias-core-iq/` record is a
-> deliberate **recorded FAIL** against
-> [`por-iq`](../spec/target-spec.md#por-iq), which is the spec conflict
-> `spec/target-spec.md` §5 assigned to #11. The remaining sub-circuit is still
+> characterized, with two recorded failures** (#11) — see
+> [`bias_core.md`](bias_core.md), `sim/bias-core-designer-check/`,
+> `sim/bias-core-iq/` and `sim/bias-core-startup/`. Both failures are
+> deliberate evidence, not oversights: `sim/bias-core-iq/` is a **recorded
+> FAIL** against [`por-iq`](../spec/target-spec.md#por-iq) — the spec conflict
+> `spec/target-spec.md` §5 assigned to #11 — and `sim/bias-core-startup/`
+> records an **open startup defect**, a second high-current branch reachable
+> on a slow rising rail at 3 of the 27 corner/temperature combinations. The remaining sub-circuit is still
 > a **placeholder** — correct ports, no devices — because its design issue
 > (#12) has not landed. Nothing in a placeholder cell may be cited as
 > simulation evidence. See [Placeholder status](#placeholder-status).
@@ -189,7 +191,7 @@ they are **not** design content.
 
 | Cell               | Internals land with | Status | Also owns, per the decision records |
 | ------------------ | ------------------- | ------ | ----------------------------------- |
-| `bias_core`        | #11                 | **designed** — [`bias_core.md`](bias_core.md) | the shared core's own startup kick (DR-005 step 3) |
+| `bias_core`        | #11                 | **designed**, 2 recorded failures — [`bias_core.md`](bias_core.md) | the shared core's own startup kick (DR-005 step 3) |
 | `temp_core`        | #9                  | **designed** — [`temp_core.md`](temp_core.md) | the 1-point PTAT gain trim node (DR-005) |
 | `por_comparator`   | #10                 | **designed** — [`por_comparator.md`](por_comparator.md) | hysteresis 100–250 mV; must state its own operating floor (DR-004) |
 | `por_output_chain` | #12                 | placeholder | deglitch filter, fixed ≥ 1 ms one-shot (DR-003), push-pull driver, and the below-floor pull-down that holds `RESETn` low from 0 V (DR-004) |
