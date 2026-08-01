@@ -18,7 +18,7 @@ evidence run, not from an estimate:
 | [`sim/bias-core-designer-check/`](../sim/bias-core-designer-check/) | settled `VREF`, `IBIAS`, always-on Iq against [`por-iq`](../spec/target-spec.md#por-iq), absence of a degenerate DC solution, reference settling and dropout, the rail at which the assembled block would release, and the starved-loop window on a fast ramp and after a brownout — 81-point PVT grid (9 corners × 3 temperatures × 3 supplies) |
 | [`sim/bias-core-ibias-sharing/`](../sim/bias-core-ibias-sharing/) | the shared `IBIAS` net in the reset-asserted state, with a disabled `temp_core` and `por_comparator` wired exactly as `design/netlist/temp_por_top.spice` wires them, against a control without `temp_core` — same 81-point grid |
 | [`sim/temp-por-top-release/`](../sim/temp-por-top-release/) | this cell inside the **full four-cell assembly**: whether the shared node survives the reset-asserted state, whether `RESETn` releases and enables the sensor, and the assembled block's `por-iq` — same 81-point grid. Added by #41 / DR-010 |
-| [`sim/bias-core-startup/`](../sim/bias-core-startup/) | branch-tracking, **quasi-static** DC sweep of the rail (not a per-point solve): whether a continuously rising rail leaves this cell on the correct branch, per issue #43 — 81-point grid (27 distinct corner/temperature combinations, each at three bit-identical supply replicates by construction). **Currently an open, unresolved defect** — see [Open defect](#open-defect-bias_ok-branchmonotonicity-failure-on-a-quasi-static-rising-rail-issue-43) |
+| [`sim/bias-core-startup/`](../sim/bias-core-startup/) | branch-tracking, **quasi-static transient** rail ramp (not a per-point solve): whether a continuously rising rail leaves this cell on the correct branch and asserts `BIAS_OK` exactly once, whether the answer is ramp-rate independent, and whether all of it repeats after a full rail collapse — 81-point grid (27 distinct corner/temperature combinations, each at three bit-identical supply replicates by construction). Opened as a defect report by #43; **re-founded on a transient and closed by #46** — see [Resolved](#resolved-the-bias_ok-quasi-static-failure-was-a-testbench-artefact-issues-43-46) |
 
 All are **deterministic corner** records: `design.ngspice` sets
 `sw_stat_mismatch=0`, so everything below bounds the **systematic + corner**
@@ -26,8 +26,8 @@ term only. Local mismatch on the 8:1 PNP ratio, the `R2/R1` ratio and the
 amplifier's input pair is issue #15's Monte Carlo job. Full
 ramp-rate/brownout envelope against a real assembled block is #14's.
 
-**Two of the recorded checks fail on purpose, and a third — found later, by
-issue #43 — is an open, unresolved defect:**
+**Two of the recorded checks fail on purpose, and a third — reported by issue
+#43 — turned out not to be a circuit defect at all:**
 
 1. [`por-iq`](../spec/target-spec.md#por-iq) **< 1 µA is not met** — see
    [Iq apportionment](#iq-apportionment).
@@ -35,12 +35,17 @@ issue #43 — is an open, unresolved defect:**
    [`por-ramp-rate`](../spec/target-spec.md#por-ramp-rate) and after a
    brownout, during which `BIAS_OK` can read a false valid — see
    [The starved-loop window](#the-starved-loop-window).
-3. **`BIAS_OK` fails to assert, or asserts non-monotonically, at every one
+3. ~~**`BIAS_OK` fails to assert, or asserts non-monotonically, at every one
    of the 27 corner/temperature combinations on a quasi-static (branch-
-   tracking) rising rail — an open defect, not yet root-caused or fixed.**
-   The main `VREF`/`IBIAS` reference loop is not implicated (it settles
-   correctly at every point that could be measured). See
-   [Open defect](#open-defect-bias_ok-branchmonotonicity-failure-on-a-quasi-static-rising-rail-issue-43).
+   tracking) rising rail.**~~ **Not a defect in this cell.** Root-caused by
+   #46 to the reporting testbench's own `gmin = 1 nS` convergence aid, which
+   injected ~0.6 nA of *differential* error into a settle comparator that
+   resolves ~0.55 nA. Re-measured on a quasi-static **transient** ramp at
+   ngspice's default `gmin`, the cell asserts `BIAS_OK` exactly once, before
+   the ratified release threshold, at **all 81 points** — and does the same
+   after a full rail collapse. See
+   [Resolved](#resolved-the-bias_ok-quasi-static-failure-was-a-testbench-artefact-issues-43-46).
+   **No schematic change was made, and none is warranted on this evidence.**
 
 Plus one integration defect that no single-cell testbench could see, which
 this issue surfaced and **#41 has since fixed**:
@@ -352,87 +357,208 @@ The dropout number is the important one for block self-consistency: at
 a falling rail the assert edge is set by `por_comparator`'s divider, not by
 the reference collapsing underneath it.
 
-## Open defect: `BIAS_OK` branch/monotonicity failure on a quasi-static rising rail (issue #43)
+## Resolved: the `BIAS_OK` quasi-static failure was a testbench artefact (issues #43, #46)
 
-**This is a measured defect, found by a branch-tracking quasi-static DC
-sweep — `sim/bias-core-startup/` — that #11's per-point `op` grid above
-structurally cannot see** (every one of `bias-core-designer-check`'s 81
-independent per-point DC solves lands on the correct branch; the sweep is
-what tracks whether a *continuously rising* rail stays there).
+**Issue #43 reported, and record `20260801-111049-bc599be` measured, that
+`BIAS_OK` fails to assert or asserts non-monotonically at every one of the 27
+corner/temperature combinations on a quasi-static rising rail. Issue #46
+root-caused that result to the reporting deck's own convergence aid. The cell
+is not defective; the deck was. No change was made to
+`design/bias_core.sch`.**
 
-Issue #43 reported this defect against **a different, now-superseded
-45-device schematic** (PR #44, which never merged; see #43's evidence for
-that record's methodology). This section is the first branch-tracking
-evidence taken against **the schematic actually on `main`** — the 50-device,
-three-leg PNP-clamped-input cell described above. The methodology is ported
-from #44 (`.dc` sweep of `VDD` from 0 to 3.63 V, ngspice's own continuation
-seeding each step from the previous step's solution so a wrong branch, once
-reached, is not silently corrected), adapted to this cell's node names, and
-run at **20 mV steps (182 points/sweep) rather than #44's 2 mV** — a
-compute-budget concession recorded in `sim/bias-core-startup/testbench/stimulus.spice`;
-every reported instance of this defect class involves a branch that persists
-over hundreds of millivolts to volts, not an excursion narrow enough for the
-coarser step to step over.
+This section replaces the "Open defect" write-up PR #47 put here. The
+superseded finding is not deleted — its record,
+its raw per-corner logs and its netlist snapshot all remain under
+`sim/bias-core-startup/`, because `sim/` is append-only. What changed is the
+*interpretation*, and the interpretation is now backed by a controlled
+experiment rather than by inference.
 
-**Finding: the defect reproduces, and on this schematic it is substantially
-more widespread than the 3-of-27 corner/temperature combinations #43
-originally reported.** Record `20260801-111049-bc599be`
-(`sim/bias-core-startup/records/`), full 81-point grid (27 distinct
-corner/temperature combinations, each replicated at three bit-identical
-supply points since the sweep itself covers 0–3.63 V — see the stimulus
-file for why the supply axis is degenerate here):
+### The root cause, in one paragraph
 
-| Symptom | Combinations (of 27) | Detail |
+The superseded deck swept the rail with `.dc` and could only be made to
+converge by raising `gmin` from ngspice's default `1e-12` to `1e-9`. `GMIN`
+is a conductance the simulator places across **every device junction** to
+keep the Jacobian non-singular. At 1 nS and 3.3 V of rail that is **~2.7 nA
+per junction**. The settle comparator this experiment exists to test runs its
+input pair at **~4.5 nA per side** and resolves an imbalance of **~0.25 nA**
+between them — the whole signal is a fraction of one junction's worth of
+aid. Worse, the aid is not common-mode: the comparator's output node `NOKO`
+carries one junction its reference-side counterpart `NOKL` does not
+(`XMOKC`'s drain, the dead-loop detector's forced-low path), so ~0.6 nA of
+the injected current appears as a pure **differential** error, of the sign
+that opposes assertion. The deck was measuring its own crutch.
+
+### The controlled experiment
+
+One variable, one deck, `tt` / −40 °C / `VDD` = 3.3 V, plain `op` on
+`design/netlist/bias_core.spice` with the same `IBIAS` consumer-diode load
+the testbenches use. The only difference between the two columns is the
+`.options gmin` line:
+
+| | ngspice default (`gmin = 1e-12`) | the superseded deck (`gmin = 1e-9`) |
+| --- | ---: | ---: |
+| `V(NOKO)` — settle comparator output | **1.643 V** (resolved high) | **0.605 V** (unresolved) |
+| `V(NOKL)` — its diode-load reference | 0.602 V | 0.626 V |
+| `V(NOKX)` — threshold-stage output | 94 µV | 3.256 V |
+| **`BIAS_OK`** | **3.29999985 V — asserted** | **1.54 µV — not asserted** |
+| `VREF` | 1.1978 V | 1.2121 V (+1.2 %) |
+| `I(XMOKA)` (gate `NA`) | 4.728 nA | 7.799 nA |
+| `I(XMOKB)` (gate `NBTOP`) | 4.481 nA | 7.247 nA |
+| `I(XMOL1)` (diode load, mirrors `XMOKB`) | 4.483 nA | 9.295 nA |
+| `I(XMOL2)` (mirror output, loads `XMOKA`) | 4.727 nA | 9.284 nA |
+
+Read the last four rows as KCL and the artefact is explicit. At the default
+`gmin` the loads carry what the input pair delivers, to three digits
+(4.483 vs 4.481 nA; 4.727 vs 4.728 nA) — the comparator sees only its own
+signal, `I(XMOKA) − I(XMOKB)` = +0.247 nA, and `NOKO` resolves high. At
+`gmin = 1e-9` the loads carry **2.05 nA and 1.49 nA more** than the pair
+delivers; the 0.56 nA difference between those two excesses is exactly
+`XMOKC`'s drain-junction `gmin` current (`V(NOKO)` × 1 nS = 0.605 nA), which
+has no counterpart on the `NOKL` side. That unbalanced 0.6 nA cancels the
+0.55 nA of real signal the pair is producing at that operating point, and the
+comparator lands on the wrong side.
+
+`VREF` moving 1.2 % between the two columns is the same effect on the main
+loop, and it is why the superseded record's "`VREF` settles correctly at
+every point that could be measured" was true only approximately.
+
+### Why the `.dc` sweep could not simply be re-run without the aid
+
+It does not converge. At `gmin = 1e-12` the `.dc` continuation hits the
+harness's 300 s per-point timeout at **all 27** corner/temperature
+combinations. A DC continuation is the wrong tool for a circuit whose
+operating point below ~1 V of rail has the startup stack and all three main
+legs near cutoff simultaneously. The experiment therefore had to change
+method, not just options.
+
+### What replaces it
+
+`sim/bias-core-startup/` is now a **quasi-static transient rail ramp** at
+ngspice's default `gmin` — the same "slow ramp, not a DC sweep" argument
+`sim/por-output-chain-floor/` already makes in this repo — with three DUTs in
+one `tran`:
+
+| DUT | Rail | Purpose |
 | --- | --- | --- |
-| `BIAS_OK` **never** crosses its 1.0 V logic threshold anywhere in the 0–3.63 V sweep | **10 / 27** | Eight of the nine process corners at −40 °C (`tt`, `ss`, `fs`, `sf`, `res_ff`, `res_ss`, `bjt_ff`, `bjt_ss` — `ff` is the one exception, next row), plus `ss`/+27 °C and `res_ss`/+27 °C |
-| `BIAS_OK` crosses 1.0 V correctly (with chatter, in `ff`'s case), but the `.dc` sweep itself does not converge all the way to the top of the rail (3.62 V), so `vref_final_v` cannot be measured at all | **2 / 27** | `ff`/−40 °C, `bjt_ss`/+27 °C |
-| Sweep completes; `BIAS_OK` crosses 1.0 V **more than once** (`ok_chatter_mv` up to **1948 mV** — i.e. it de-asserts and re-asserts after its first crossing) | **12 / 27** | Every +27 °C/+125 °C combination not listed above, except the three below |
-| Sweep completes, `BIAS_OK` crosses cleanly exactly once, but the release-margin or absolute-voltage-floor checks still fail | **3 / 27** | `tt`/+27 °C, `sf`/+27 °C, `res_ss`/+125 °C |
+| `xqs` | 0 → 3.63 V over 30 ms (**121 V/s**) | the primary quasi-static cold start; every branch-tracking, ordering and release-rail measurement |
+| `xqf` | the same, 4× faster (**484 V/s**) | measures ramp-rate independence, i.e. proves the primary result really is in the quasi-static limit |
+| `xbo` | the `xqs` ramp, then a **full collapse to 0 V**, 3 ms of dead rail, then the same quasi-static ramp again | the brownout-restart branch #43's acceptance criteria asked for and #46 inherited |
 
-**What is *not* broken.** `vref_final_v` — `VREF` at the top of the sweep —
-lands in **1.190–1.213 V** at every one of the 45 points where the sweep
-completed far enough to measure it, squarely inside
-`bias-core-designer-check`'s independently-established 1.14–1.26 V window,
-with only **1.9 %** spread across the whole grid. The three-leg,
-PNP-clamped-input main reference loop this cell's Topology section argues
-cannot rail is, on this evidence, telling the truth: **the branch-selection
-failure is not in the main `ΔV_EB` loop.** It is downstream, in the
-`BIAS_OK` generation path — the settle comparator (`NBTOP`/`NA`/`RT`-tap,
-`XMOKA`/`XMOKB`/`XMOL1`/`XMOL2`) and/or its push-pull output stage
-(`XMO1P`/`XMO1N`) — which is a smaller, more tractable place to look than a
-main-loop redesign, but is not yet root-caused.
+Both rates sit 3–4 decades below the **0.36 V/µs** boundary at which this
+document's own [starved-loop window](#the-starved-loop-window) measures the
+loop starting to lag, and inside the ratified
+[`por-ramp-rate`](../spec/target-spec.md#por-ramp-rate) envelope — whose full
+sweep remains #14's chartered row and is deliberately not pre-empted here.
 
-**Why −40 °C is the clean discriminator.** All nine process corners fail
-at −40 °C (eight as a flat "never asserts", `ff` as a sweep that cannot
-converge past whatever it hits between `BIAS_OK`'s own correct assertion and
-the top of the rail) and none do in either form at +27 °C/+125 °C, except
-two slow-skewed corners (`ss`, `res_ss`) that add a +27 °C "never asserts"
-instance too. That corner-independent, temperature-locked pattern is a
-strong argument this is a real circuit effect tied to cold-temperature
-device behaviour (threshold shift, sub-threshold slope, or similar — the
-Suspected mechanism candidates the original issue named are all still live
-candidates) rather than sampling noise: a numerical artefact would not be
-expected to hit eight or nine of nine process skews at exactly the same
-temperature and nowhere else.
+### The result: 81 of 81 points pass
 
-**What remains unverified, stated plainly.** The 20 mV step and this deck's
-`gmin = 1 nS` convergence aid (ngspice's default `1e-12` cannot solve this
-circuit's own DC operating point below roughly 0.7–1.0 V of rail without it
-— see the stimulus file) are both concessions made to finish this sweep on
-shared infrastructure inside one evidence-gathering session, and the sheer
-breadth of the result (every one of the 27 combinations shows *some*
-anomaly, with zero clean passes) is wide enough that it deserves a
-**transient cross-check** before being treated as fully closed evidence —
-exactly the follow-on experiment the original issue's acceptance criteria
-already anticipated ("Add a transient cold-start + brownout-restart
-experiment... once the branch issue is closed"). That transient check, and
-the circuit-level root-cause/fix work the `BIAS_OK` chain now needs, are
-**not done in this issue** — the fix could easily make one of the 12
-"chatter" points pass while making one of the 12 "never asserts / sweep
-incomplete" points worse, and #43's own complexity note warns against
-exactly that class of mistake. Tracked as **issue #46** — the transient
-cross-check and the `BIAS_OK` chain's root-cause/fix both belong there, not
-here.
+Record `20260801-144500-ab081eb` (`sim/bias-core-startup/records/`), full 81-point
+grid, **status PASS, every check green at every point**:
+
+| | Measured over the 81-point grid | Bound |
+| --- | --- | --- |
+| `ok_chatter_mv` — rail between the first and last upward crossing of `BIAS_OK` | **0 at all 81 points** | ≤ 1.0 mV ✅ |
+| `v_bias_ok_v` — rail at which `BIAS_OK` asserts | **1.000…1.581 V** | ≤ 2.45 V ✅ |
+| `release_margin_v` — how far below the ratified 2.47 V minimum it asserts | **0.889…1.470 V** | ≥ 0.02 V ✅ |
+| `relv_qs_v` — rail at which the assembled block would actually release | **2.583…2.629 V** | ≥ 2.47 V ✅ |
+| `vref_final_v` | **1.1876…1.2090 V** | 1.14…1.26 V ✅ |
+| `noko_final_v` — the settle comparator's own resolved output level | **1.376…1.817 V** | ≥ 1.0 V ✅ |
+| `nkg_final_v` — startup kick idle at the top of the ramp | **≤ 5.5 mV** | ≤ 0.5 V ✅ |
+| `qs_rate_delta_mv` — assertion rail, 484 V/s minus 121 V/s | **0.001…131.7 mV** | ±250 mV ✅ |
+| `v_core_up_v` — rail at which `VREF` first reaches 1.10 V | **1.145…1.569 V** | ≤ 1.9 V ✅ |
+
+and, on the brownout-restart branch:
+
+| | Measured over the 81-point grid | Bound |
+| --- | --- | --- |
+| `ok_bo_dip_mv` — `BIAS_OK` with the rail collapsed to 0 V | **−61.2…+33.6 mV** | ±300 mV ✅ |
+| `v_bias_ok_restart_v` — rail at which it re-asserts on the restart ramp | **1.000…2.338 V** | ≤ 2.45 V ✅ |
+| `ok_bo_end_droop_mv` — `VDD` − `BIAS_OK` after the restart | **≤ 0.015 mV** | ≤ 1.0 mV ✅ |
+| `vref_bo_end_delta_ppm` — `VREF` after the restart vs. after the cold start | **−0.83…+0.83 ppm** | ±1000 ppm ✅ |
+
+That last row is the strongest single statement in the record. Two
+quasi-static approaches to the same rail — one from a cold cell, one from a
+cell that has been up, fully collapsed and restarted — land on the same
+reference to **better than one part per million**. A second reachable
+operating branch cannot survive that.
+
+`qs_lag_est_mv` — the residual distance between the primary 121 V/s result
+and the true quasi-static limit, extrapolated from the two measured rates —
+is **≤ 43.9 mV of rail**, against release margins of about a volt. The
+method's own error is three orders of magnitude smaller than the margin it is
+measuring.
+
+### What changed in the testbench's checks, and why
+
+The method change forced a re-derivation of the check bounds, and three of
+them moved. All three are stated here rather than left in the diff, because
+"a bound moved and the result now passes" is exactly the thing a reader
+should be suspicious of. Every bound that carries a **ratified spec row** is
+unchanged.
+
+| Check | Was | Now | Why |
+| --- | --- | --- | --- |
+| `v_bias_ok_v` | min 1.5 V, max 2.45 V | **max 2.45 V only** | The max is spec-facing and unchanged. The min assumed the core's dropout is above 1.5 V. It is not — this document's own `vdd_ref90_v` measures **1.127–1.788 V**, and quasi-statically the loop is up and merely rail-limited from ~0.95 V at hot corners, so a *correct* flag legitimately asserts near 1.0 V there. Replaced by `relv_qs_v`. |
+| `startup_margin_v` | min 0.1 V | **recorded, unbounded** | In the quasi-static limit this is not a margin. `v_core_up_v` and `v_bias_ok_v` are two points on the *same* steep transition, so demanding 100 mV of rail between them demands that the flag be **late**. The old bound encodes a 500 µs-ramp intuition — the very lag this experiment exists to remove. Measured: **−0.181…+0.045 V**. |
+| `ok_at_140_mv` | max 300 mV | **removed; `ok_at_100_mv` recorded, unbounded** | Its stated premise, "1.40 V of rail is below the core's dropout at every corner", is contradicted by `vdd_ref90_v` above. There is no fixed rail at which "the core is definitely not up" holds across all 27 combinations *and* the output stage is still driven, so no honest fixed-rail bound exists. Replaced by `relv_qs_v`. |
+
+All three removals are covered by **one** new check that is strictly stronger
+because it is *reference-referred* instead of rail-referred:
+
+> **`relv_qs_v ≥ 2.47 V`** — the rail at which (`BIAS_OK` is a valid high)
+> **and** (`VDD ≥ 2.16667·VREF`) first hold together, i.e. the rail at which
+> the assembled block would actually release. It fails if and only if
+> `BIAS_OK` vouches for a reference low enough to pull `por_comparator`'s
+> threshold below the ratified
+> [`por-vth-rise`](../spec/target-spec.md#por-vth-rise) minimum. A `BIAS_OK`
+> that goes valid while `VREF` is still merely **rail-limited** cannot trip
+> it — correctly, because a rail-limited `VREF` makes `2.16667·VREF` larger
+> than `VDD` by construction, which is the argument
+> [The release guard](#the-release-guard) already makes. Same B-source
+> construction as `sim/bias-core-designer-check/`'s `relv_slow_v`, evaluated
+> in the quasi-static limit instead of on a 500 µs ramp.
+
+Five further checks are **added**, not relaxed: `qs_rate_delta_mv`
+(ramp-rate independence), `noko_final_v` (below), and the three
+brownout-restart checks `ok_bo_dip_mv`, `v_bias_ok_restart_v` and
+`vref_bo_end_delta_ppm`.
+
+### The permanent guard against this recurring
+
+`noko_final_v` is new and deliberately chosen. `NOKO` is the settle
+comparator's own output — the node the `RT` tap's 2.1–3.6 mV differential is
+amplified to before `XMOK2` turns it into a logic level. Because that first
+stage is a **linear OTA, not a regenerative comparator**, `NOKO`'s settled
+level *is* the margin: it has to sit well above the ~0.6 V at which `XMOK2`
+starts to conduct, or the assertion is a coin flip. It is also the single
+number that separates the artefact from the circuit at `tt`/−40 °C —
+**0.605 V** with the aid, **1.643 V** without — so any future re-introduction
+of a nA-scale numerical crutch, or any erosion of the comparator's drive,
+fails this check first instead of surfacing as an unexplained `BIAS_OK`
+failure. Measured: **1.376…1.817 V** across the grid.
+
+### What this does *not* claim
+
+- It does **not** claim the settle comparator has generous margin. It has
+  0.78–1.22 V of `NOKO` headroom over `XMOK2`'s threshold, from a
+  2.1–3.6 mV input differential amplified by a single stage. That is enough
+  in a deterministic corner and it is now measured on every run, but **local
+  mismatch on the comparator's input pair and load mirror is #15's Monte
+  Carlo job**, not this record's, and a few millivolts of random offset is
+  the same size as the signal. #15 should treat this pair as a priority
+  instance.
+- It does **not** retract [the starved-loop window](#the-starved-loop-window).
+  That is a separate, still-open, *fast*-ramp finding measured by
+  `sim/bias-core-designer-check/` at the default `gmin`, and it is untouched
+  by any of this.
+- It does **not** claim the superseded record was worthless. It is the
+  evidence that produced the question, and its raw logs are what made the
+  root cause findable. The lesson it carries forward is narrower and more
+  useful than "the cell is broken": **a convergence aid whose injected
+  current is comparable with the signal under test is not a convergence aid,
+  it is a different circuit** — and at this block's nA-class bias currents,
+  ngspice's default `gmin` is already 2.7 pA/junction at 2.7 V, so the
+  headroom to abuse is smaller here than in almost any other analog block.
 
 ## The starved-loop window
 
@@ -692,8 +818,17 @@ python3 sim/build_tb.py --check              # netlist <-> testbench fragment
 python3 sim/run_corners.py bias-core-designer-check -j 8 --timeout 900
 python3 sim/run_corners.py bias-core-ibias-sharing  -j 8 --timeout 900
 python3 sim/run_corners.py temp-por-top-release     -j 8 --timeout 1800
-python3 sim/run_corners.py bias-core-startup        -j 6 --timeout 900
+python3 sim/run_corners.py bias-core-startup        -j 8 --timeout 900
 ```
+
+The `gmin` control experiment behind
+[Resolved](#resolved-the-bias_ok-quasi-static-failure-was-a-testbench-artefact-issues-43-46)
+is two `op` runs of one twenty-line deck and takes seconds. Point
+`$GF180_MODELS` at the PDK the harness resolves (`source sim/env.sh`),
+`.include` `design/netlist/bias_core.spice` behind a `dc 3.3` supply and the
+same `IBIAS` consumer-diode replica load the testbenches use, then run it
+once as written and once with `.options gmin=1e-9` added. `V(xdut.noko)` and
+`V(bias_ok)` flip between the two.
 
 Exit codes, and why each is what it is:
 
@@ -702,7 +837,7 @@ Exit codes, and why each is what it is:
 | `bias-core-designer-check` | **non-zero** | `por-iq` and the starved-loop window, the two conflicts above. Unchanged. |
 | `bias-core-ibias-sharing` | **zero** | was non-zero before DR-010; its two requirement-shaped checks went green by themselves when the interface was corrected, exactly as its `tb.json` said they would |
 | `temp-por-top-release` | **non-zero** | `por-iq` again, now measured on the assembled block. Every liveness and startup-ordering check in it passes. |
-| `bias-core-startup` | **non-zero (`error`)** | the open `BIAS_OK` defect above (#43): 36 of 81 points cannot even complete their `vok`/`vref363` measurement, so the run's own status is `error` rather than `fail`. Expected, and the deliverable of this record. |
+| `bias-core-startup` | **zero** | was non-zero (`error`) while the experiment was a `gmin`-aided `.dc` sweep. Re-founded on a quasi-static transient by #46 and now **PASS at all 81 points** — see [Resolved](#resolved-the-bias_ok-quasi-static-failure-was-a-testbench-artefact-issues-43-46). |
 
 `sim/` is append-only, so a re-run mints a new record id and does not
 overwrite the committed ones.
@@ -711,10 +846,10 @@ overwrite the committed ones.
 
 | Not here | Where |
 | --- | --- |
-| Mismatch / Monte Carlo on the 8:1 ratio, `R2/R1` and the amplifier offset | #15 |
+| Mismatch / Monte Carlo on the 8:1 ratio, `R2/R1` and the amplifier offset — **plus the settle comparator's input pair and load mirror, whose 2.1–3.6 mV signal makes it the block's most offset-sensitive stage** | #15 |
 | Ramp-rate envelope, brownout re-assertion and reset-pulse interaction on the assembled block | #14 |
 | Deglitch, the ≥1 ms one-shot, push-pull drive, the below-floor `RESETn` pull-down | `por_output_chain`, #12 |
 | Re-costing `por-iq` or `por-ramp-rate` | a new decision record through #1 — still open |
 | The `IBIAS` interface change | **done**: [DR-010](../spec/decision-records/DR-010-shared-ibias-disabled-consumer-contract.md), issue #41 |
 | Layout, matching strategy, measured area | #17 |
-| `BIAS_OK` transient cross-check, root-cause and fix (the Open defect above) | #46 |
+| ~~`BIAS_OK` transient cross-check, root-cause and fix~~ | **done**: #46 — root-caused to the testbench's `gmin` aid, re-founded on a quasi-static transient, 81/81 PASS, no schematic change. See [Resolved](#resolved-the-bias_ok-quasi-static-failure-was-a-testbench-artefact-issues-43-46). |
