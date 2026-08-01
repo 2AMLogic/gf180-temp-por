@@ -18,15 +18,16 @@ evidence run, not from an estimate:
 | [`sim/bias-core-designer-check/`](../sim/bias-core-designer-check/) | settled `VREF`, `IBIAS`, always-on Iq against [`por-iq`](../spec/target-spec.md#por-iq), absence of a degenerate DC solution, reference settling and dropout, the rail at which the assembled block would release, and the starved-loop window on a fast ramp and after a brownout — 81-point PVT grid (9 corners × 3 temperatures × 3 supplies) |
 | [`sim/bias-core-ibias-sharing/`](../sim/bias-core-ibias-sharing/) | the shared `IBIAS` net in the reset-asserted state, with a disabled `temp_core` and `por_comparator` wired exactly as `design/netlist/temp_por_top.spice` wires them, against a control without `temp_core` — same 81-point grid |
 | [`sim/temp-por-top-release/`](../sim/temp-por-top-release/) | this cell inside the **full four-cell assembly**: whether the shared node survives the reset-asserted state, whether `RESETn` releases and enables the sensor, and the assembled block's `por-iq` — same 81-point grid. Added by #41 / DR-010 |
+| [`sim/bias-core-startup/`](../sim/bias-core-startup/) | branch-tracking, **quasi-static** DC sweep of the rail (not a per-point solve): whether a continuously rising rail leaves this cell on the correct branch, per issue #43 — 81-point grid (27 distinct corner/temperature combinations, each at three bit-identical supply replicates by construction). **Currently an open, unresolved defect** — see [Open defect](#open-defect-bias_ok-branchmonotonicity-failure-on-a-quasi-static-rising-rail-issue-43) |
 
-Both are **deterministic corner** records: `design.ngspice` sets
+All are **deterministic corner** records: `design.ngspice` sets
 `sw_stat_mismatch=0`, so everything below bounds the **systematic + corner**
 term only. Local mismatch on the 8:1 PNP ratio, the `R2/R1` ratio and the
 amplifier's input pair is issue #15's Monte Carlo job. Full
 ramp-rate/brownout envelope against a real assembled block is #14's.
 
-**Two of the recorded checks fail on purpose.** They are the two conflicts
-this issue was chartered to surface rather than absorb:
+**Two of the recorded checks fail on purpose, and a third — found later, by
+issue #43 — is an open, unresolved defect:**
 
 1. [`por-iq`](../spec/target-spec.md#por-iq) **< 1 µA is not met** — see
    [Iq apportionment](#iq-apportionment).
@@ -34,11 +35,17 @@ this issue was chartered to surface rather than absorb:
    [`por-ramp-rate`](../spec/target-spec.md#por-ramp-rate) and after a
    brownout, during which `BIAS_OK` can read a false valid — see
    [The starved-loop window](#the-starved-loop-window).
+3. **`BIAS_OK` fails to assert, or asserts non-monotonically, at every one
+   of the 27 corner/temperature combinations on a quasi-static (branch-
+   tracking) rising rail — an open defect, not yet root-caused or fixed.**
+   The main `VREF`/`IBIAS` reference loop is not implicated (it settles
+   correctly at every point that could be measured). See
+   [Open defect](#open-defect-bias_ok-branchmonotonicity-failure-on-a-quasi-static-rising-rail-issue-43).
 
 Plus one integration defect that no single-cell testbench could see, which
 this issue surfaced and **#41 has since fixed**:
 
-3. ~~The **shared `IBIAS` net is clamped to `VSS` in the reset-asserted
+4. ~~The **shared `IBIAS` net is clamped to `VSS` in the reset-asserted
    state**, which is a closed bias-vs-POR lockup at the top level.~~
    **Resolved** by
    [DR-010](../spec/decision-records/DR-010-shared-ibias-disabled-consumer-contract.md):
@@ -345,6 +352,88 @@ The dropout number is the important one for block self-consistency: at
 a falling rail the assert edge is set by `por_comparator`'s divider, not by
 the reference collapsing underneath it.
 
+## Open defect: `BIAS_OK` branch/monotonicity failure on a quasi-static rising rail (issue #43)
+
+**This is a measured defect, found by a branch-tracking quasi-static DC
+sweep — `sim/bias-core-startup/` — that #11's per-point `op` grid above
+structurally cannot see** (every one of `bias-core-designer-check`'s 81
+independent per-point DC solves lands on the correct branch; the sweep is
+what tracks whether a *continuously rising* rail stays there).
+
+Issue #43 reported this defect against **a different, now-superseded
+45-device schematic** (PR #44, which never merged; see #43's evidence for
+that record's methodology). This section is the first branch-tracking
+evidence taken against **the schematic actually on `main`** — the 50-device,
+three-leg PNP-clamped-input cell described above. The methodology is ported
+from #44 (`.dc` sweep of `VDD` from 0 to 3.63 V, ngspice's own continuation
+seeding each step from the previous step's solution so a wrong branch, once
+reached, is not silently corrected), adapted to this cell's node names, and
+run at **20 mV steps (182 points/sweep) rather than #44's 2 mV** — a
+compute-budget concession recorded in `sim/bias-core-startup/testbench/stimulus.spice`;
+every reported instance of this defect class involves a branch that persists
+over hundreds of millivolts to volts, not an excursion narrow enough for the
+coarser step to step over.
+
+**Finding: the defect reproduces, and on this schematic it is substantially
+more widespread than the 3-of-27 corner/temperature combinations #43
+originally reported.** Record `20260801-111049-bc599be`
+(`sim/bias-core-startup/records/`), full 81-point grid (27 distinct
+corner/temperature combinations, each replicated at three bit-identical
+supply points since the sweep itself covers 0–3.63 V — see the stimulus
+file for why the supply axis is degenerate here):
+
+| Symptom | Combinations (of 27) | Detail |
+| --- | --- | --- |
+| `BIAS_OK` **never** crosses its 1.0 V logic threshold anywhere in the 0–3.63 V sweep | **10 / 27** | Eight of the nine process corners at −40 °C (`tt`, `ss`, `fs`, `sf`, `res_ff`, `res_ss`, `bjt_ff`, `bjt_ss` — `ff` is the one exception, next row), plus `ss`/+27 °C and `res_ss`/+27 °C |
+| `BIAS_OK` crosses 1.0 V correctly (with chatter, in `ff`'s case), but the `.dc` sweep itself does not converge all the way to the top of the rail (3.62 V), so `vref_final_v` cannot be measured at all | **2 / 27** | `ff`/−40 °C, `bjt_ss`/+27 °C |
+| Sweep completes; `BIAS_OK` crosses 1.0 V **more than once** (`ok_chatter_mv` up to **1948 mV** — i.e. it de-asserts and re-asserts after its first crossing) | **12 / 27** | Every +27 °C/+125 °C combination not listed above, except the three below |
+| Sweep completes, `BIAS_OK` crosses cleanly exactly once, but the release-margin or absolute-voltage-floor checks still fail | **3 / 27** | `tt`/+27 °C, `sf`/+27 °C, `res_ss`/+125 °C |
+
+**What is *not* broken.** `vref_final_v` — `VREF` at the top of the sweep —
+lands in **1.190–1.213 V** at every one of the 45 points where the sweep
+completed far enough to measure it, squarely inside
+`bias-core-designer-check`'s independently-established 1.14–1.26 V window,
+with only **1.9 %** spread across the whole grid. The three-leg,
+PNP-clamped-input main reference loop this cell's Topology section argues
+cannot rail is, on this evidence, telling the truth: **the branch-selection
+failure is not in the main `ΔV_EB` loop.** It is downstream, in the
+`BIAS_OK` generation path — the settle comparator (`NBTOP`/`NA`/`RT`-tap,
+`XMOKA`/`XMOKB`/`XMOL1`/`XMOL2`) and/or its push-pull output stage
+(`XMO1P`/`XMO1N`) — which is a smaller, more tractable place to look than a
+main-loop redesign, but is not yet root-caused.
+
+**Why −40 °C is the clean discriminator.** All nine process corners fail
+at −40 °C (eight as a flat "never asserts", `ff` as a sweep that cannot
+converge past whatever it hits between `BIAS_OK`'s own correct assertion and
+the top of the rail) and none do in either form at +27 °C/+125 °C, except
+two slow-skewed corners (`ss`, `res_ss`) that add a +27 °C "never asserts"
+instance too. That corner-independent, temperature-locked pattern is a
+strong argument this is a real circuit effect tied to cold-temperature
+device behaviour (threshold shift, sub-threshold slope, or similar — the
+Suspected mechanism candidates the original issue named are all still live
+candidates) rather than sampling noise: a numerical artefact would not be
+expected to hit eight or nine of nine process skews at exactly the same
+temperature and nowhere else.
+
+**What remains unverified, stated plainly.** The 20 mV step and this deck's
+`gmin = 1 nS` convergence aid (ngspice's default `1e-12` cannot solve this
+circuit's own DC operating point below roughly 0.7–1.0 V of rail without it
+— see the stimulus file) are both concessions made to finish this sweep on
+shared infrastructure inside one evidence-gathering session, and the sheer
+breadth of the result (every one of the 27 combinations shows *some*
+anomaly, with zero clean passes) is wide enough that it deserves a
+**transient cross-check** before being treated as fully closed evidence —
+exactly the follow-on experiment the original issue's acceptance criteria
+already anticipated ("Add a transient cold-start + brownout-restart
+experiment... once the branch issue is closed"). That transient check, and
+the circuit-level root-cause/fix work the `BIAS_OK` chain now needs, are
+**not done in this issue** — the fix could easily make one of the 12
+"chatter" points pass while making one of the 12 "never asserts / sweep
+incomplete" points worse, and #43's own complexity note warns against
+exactly that class of mistake. Tracked as **issue #46** — the transient
+cross-check and the `BIAS_OK` chain's root-cause/fix both belong there, not
+here.
+
 ## The starved-loop window
 
 **This is a measured defect, not a modelling artefact, and it is the second
@@ -603,6 +692,7 @@ python3 sim/build_tb.py --check              # netlist <-> testbench fragment
 python3 sim/run_corners.py bias-core-designer-check -j 8 --timeout 900
 python3 sim/run_corners.py bias-core-ibias-sharing  -j 8 --timeout 900
 python3 sim/run_corners.py temp-por-top-release     -j 8 --timeout 1800
+python3 sim/run_corners.py bias-core-startup        -j 6 --timeout 900
 ```
 
 Exit codes, and why each is what it is:
@@ -612,6 +702,7 @@ Exit codes, and why each is what it is:
 | `bias-core-designer-check` | **non-zero** | `por-iq` and the starved-loop window, the two conflicts above. Unchanged. |
 | `bias-core-ibias-sharing` | **zero** | was non-zero before DR-010; its two requirement-shaped checks went green by themselves when the interface was corrected, exactly as its `tb.json` said they would |
 | `temp-por-top-release` | **non-zero** | `por-iq` again, now measured on the assembled block. Every liveness and startup-ordering check in it passes. |
+| `bias-core-startup` | **non-zero (`error`)** | the open `BIAS_OK` defect above (#43): 36 of 81 points cannot even complete their `vok`/`vref363` measurement, so the run's own status is `error` rather than `fail`. Expected, and the deliverable of this record. |
 
 `sim/` is append-only, so a re-run mints a new record id and does not
 overwrite the committed ones.
@@ -626,3 +717,4 @@ overwrite the committed ones.
 | Re-costing `por-iq` or `por-ramp-rate` | a new decision record through #1 — still open |
 | The `IBIAS` interface change | **done**: [DR-010](../spec/decision-records/DR-010-shared-ibias-disabled-consumer-contract.md), issue #41 |
 | Layout, matching strategy, measured area | #17 |
+| `BIAS_OK` transient cross-check, root-cause and fix (the Open defect above) | #46 |

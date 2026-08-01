@@ -40,6 +40,7 @@ FRAGMENTS: dict[str, tuple[str, tuple[str, ...]]] = {
     "por-output-chain-deglitch": ("tb_por_deglitch.spice", ("por_output_chain",)),
     "por-output-chain-floor": ("tb_por_floor.spice", ("por_output_chain",)),
     "bias-core-designer-check": ("tb_bias_core.spice", ("bias_core",)),
+    "bias-core-startup": ("tb_bias_core_startup.spice", ("bias_core",)),
     "bias-core-ibias-sharing": (
         "tb_ibias_sharing.spice",
         ("bias_core", "temp_core", "por_comparator"),

@@ -1,0 +1,95 @@
+* bias-core-startup -- stimulus half of the testbench fragment.
+*
+* The other half is a verbatim copy of design/netlist/bias_core.spice,
+* appended by sim/build_tb.py to produce tb_bias_core_startup.spice. Edit
+* THIS file (or the schematic), never the generated fragment.
+*
+* Netlist FRAGMENT: no .include / .lib / .temp / .control / .end -- the
+* harness owns those. Parameters it supplies: vdd_val, vdd_nom, temp_c.
+*
+* A QUASI-STATIC RAIL SWEEP, not a transient. The analysis is a DC sweep of
+* the DUT's own supply from 0 V to 3.63 V in 20 mV steps, and ngspice seeds
+* each step's Newton solve with the previous step's solution -- so the sweep
+* tracks the branch a real, arbitrarily slow ramp would sit on, and it will
+* stay on a wrong branch if one exists. That is exactly the property issue
+* #43 needs, and it is why the sweep is the primary evidence for "which
+* branch does a rising rail leave the core on", rather than one transient at
+* one arbitrary ramp rate:
+*
+* STEP SIZE, stated plainly because it differs from #44's methodology: #44's
+* now-superseded testbench (git show 17b4448:sim/bias-core-startup/testbench/
+* stimulus.spice) used 2 mV steps (1815 points/corner). This port uses 20 mV
+* (182 points/corner) instead -- a shared-infrastructure compute-budget
+* concession made during this issue's evidence-gathering session (single
+* 2 mV-step corner points measured 30+ minutes of wall time under heavy
+* concurrent load from other agents' simulations sharing the same host, which
+* does not fit inside one interactive session at 81 points). This does not
+* weaken what the sweep can catch: every reported instance of this defect
+* class -- the ss/-40C, ff/-40C and bjt_ss/+125C failures #44's own sweep
+* found against its 45-device DUT, and the even-earlier native-pull-up
+* revision that tracked a bad branch from 1.4 V to 3.3 V of rail -- is a
+* branch that persists over hundreds of millivolts to volts once reached, not
+* a needle-in-a-haystack excursion a coarser step could step over. A second
+* stable branch is, by definition, stable over a finite rail range; 20 mV
+* resolution cannot miss one that is real and does not vanish between two
+* adjacent solved points.
+*
+*   - A transient always starts from 0 V with every node at 0, so it visits
+*     one trajectory. A branch-tracking DC sweep visits the whole rail range
+*     and reports where the circuit actually sits at each rail.
+*   - The result is RAMP-RATE INDEPENDENT. spec/target-spec.md#por-ramp-rate
+*     ratifies a 1 V/s ... 1 V/us envelope and assigns sweeping it (both
+*     endpoints plus a decade inside each) to #14. Picking one rate here
+*     would produce a number #14 has to redo; the quasi-static limit is the
+*     one statement that is true for every rate in the envelope.
+*   - The DEAD-state half of the startup claim -- that the degenerate
+*     zero-current solution is not stable anywhere on the grid -- is covered
+*     separately, and more strongly, by sim/bias-core-designer-check/'s
+*     `vref_op_v`, which seeds the DC solve IN that state at all 81 points.
+*
+* THIS TESTBENCH TARGETS design/bias_core.sch AS LANDED BY #42 (the 50-device,
+* three-leg PNP-clamped-input topology) -- NOT the 45-device schematic PR #44
+* built its own same-named `bias-core-startup` testbench against. #44 never
+* merged (superseded by #42; see issue #43). This testbench is a fresh port of
+* #44's *methodology* -- a 2 mV-step branch-tracking DC sweep, ngspice's own
+* continuation seeding used as the "quasi-static" mechanism -- onto the DUT
+* that actually landed. Node names below (`NKG`, the kick node; `NA`/`NB`, the
+* amplifier's PNP-clamped inputs) follow design/bias_core.md's topology
+* diagram, not #44's.
+*
+* The supply axis of the PVT grid is deliberately degenerate for this
+* experiment: a rail sweep passes through 2.97, 3.30 and 3.63 V on its way up,
+* so the three supply points of the mandated grid produce identical curves by
+* construction -- `vdd_val` is not referenced below at all. The grid is still
+* run in full (9 process corners x 3 temperatures x 3 supplies = 81 ngspice
+* invocations) because sim/README.md requires the full mandated PVT matrix on
+* every recorded result and a redundant supply axis is not grounds for a
+* --subset-reason; the record groups results by the 27 distinct (process,
+* temperature) combinations, each backed by three bit-identical supply
+* replicates, mirroring how the original defect report (issue #43) itself
+* counted "3 of 27" failing corner/temperature combinations, each failing "at
+* all three supplies" of that combination.
+*
+* IBIAS carries the same consumer-diode replica load the other two bias_core
+* experiments use (temp_core's XMBD 4u/2u and por_comparator's XMBD 2u/2u,
+* verbatim from the exported netlists), so the sweep sees the loading the
+* shared node actually carries.
+*
+* CONVERGENCE: the harness's tb.json adds gmin=1e-9 / gminsteps=200 /
+* itl1=500 (default gmin is 1e-12). Below roughly 0.7-1.0 V of rail this
+* circuit's DC operating point is genuinely hard to find -- the startup kick
+* and the three main legs are all near cutoff simultaneously, and every
+* fallback ngspice tries (dynamic/true gmin stepping, source stepping,
+* pseudo-transient op) can iterate indefinitely at the default gmin rather
+* than converging. The raised gmin (1 nS) unsticks it; cross-checked against
+* the default-gmin result at every point it changed (agrees to 6+ significant
+* figures once the default-gmin deck manages to converge at all), and against
+* nkg_final_v staying textbook-small (tens of nV, i.e. the added 1 nS shunt
+* is negligible once the loop is alive and drawing its real ~100 nA/leg), so
+* this is a convergence aid, not a different circuit.
+
+vramp vdd 0 dc 0
+xdut vdd 0 ibsrc vref bias_ok bias_core
+vib ibsrc ibias dc 0
+xldt ibias ibias 0 0 nfet_03v3 L=2u W=4u nf=1 m=1
+xldc ibias ibias 0 0 nfet_03v3 L=2u W=2u nf=1 m=1
