@@ -360,7 +360,7 @@ than 100 mV below settled):
 | --- | --- | --- |
 | 500 µs ramp (≤ 7.3 V/ms) | **0…45.7 µs** (45.7 µs at `ff`/125 °C only; 0 at 78 of 81 points) | ≤ 5 µs ❌ at 3 points |
 | 1.0 V/µs ramp | **11…1989 µs** | ≤ 5 µs ❌ at all 81 points |
-| brownout branch (0.5 V dip, then full collapse) | see record | ≤ 5 µs ❌ at the cold slow-PMOS corners |
+| brownout branch (0.5 V dip, then full collapse) | **326…1567 µs** | ≤ 5 µs ❌ at all 81 points |
 
 **Measured boundary.** Correct at ramps of **0.36 V/µs and slower** (10 µs
 to full rail) at every corner, including −40 °C; false-valid at 1.0 V/µs.
