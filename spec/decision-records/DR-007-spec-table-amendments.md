@@ -1,7 +1,6 @@
 # DR-007: Spec table reconstructed as an artifact, with the review's amendments
 
-- **Status**: proposed (ratification is issue #1's call; this record does not
-  ratify anything)
+- **Status**: ratified (see [DR-008](DR-008-target-spec-ratification.md))
 - **Date**: 2026-07-31
 - **Decided by**: Loom Builder agent, issue #32
 
