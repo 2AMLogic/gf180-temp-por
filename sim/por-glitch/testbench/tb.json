@@ -5,11 +5,21 @@
   "netlist": "tb_por_glitch.spice",
   "nominal_supply_v": 3.3,
   "supply_tolerance": 0.1,
-  "temperatures_c": [-40, 27, 125],
-  "corners": ["full"],
-  "options": ["reltol=1e-5", "abstol=1e-15", "vntol=1e-9"],
+  "temperatures_c": [
+    -40,
+    27,
+    125
+  ],
+  "corners": [
+    "full"
+  ],
+  "options": [
+    "reltol=1e-5",
+    "abstol=1e-15",
+    "vntol=1e-9"
+  ],
   "analyses": [
-    "tran 5u 26m",
+    "tran 20u 26m",
     "meas tran vrst_pre find v(resetn) at=19.9m",
     "meas tran vdd_glitch find v(vdd) at=20.00015m",
     "meas tran vrst_droop min v(resetn) from=20m to=20.0005m",

@@ -39,6 +39,15 @@
 * finding design/bias_core.md assigns to #1/#14 -- record it, do not
 * root-cause it fresh (see design/bias_core.md, "The starved-loop window").
 *
+* TIMESTEP: the manifest asks for `tran 20u 55m`, i.e. a 20 us ceiling on the
+* step in QUIET regions only. Both dip edges are PWL breakpoints ngspice
+* lands on exactly, and the rail slews 2.0-2.6 V in 1 us across each of
+* them, so local truncation error drives the step orders of magnitude below
+* the ceiling through the whole disturbance -- which is where
+* `t_reassert_us` (bounded at 50 us) is resolved. The ceiling only governs
+* the two long static holds, where the full four-cell assembly would
+* otherwise spend most of its ~12 ms-per-step solve cost resolving nothing.
+*
 * ONE DUT, ONE TRAN, staged as a timeline (the multi-stage idiom
 * sim/bias-core-startup/'s `xbo` branch already uses):
 *

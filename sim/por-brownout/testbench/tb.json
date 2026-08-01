@@ -5,11 +5,22 @@
   "netlist": "tb_por_brownout.spice",
   "nominal_supply_v": 3.3,
   "supply_tolerance": 0.1,
-  "temperatures_c": [-40, 27, 125],
-  "corners": ["full"],
-  "options": ["reltol=1e-4", "abstol=1e-13", "vntol=1e-8", "method=gear"],
+  "temperatures_c": [
+    -40,
+    27,
+    125
+  ],
+  "corners": [
+    "full"
+  ],
+  "options": [
+    "reltol=1e-4",
+    "abstol=1e-13",
+    "vntol=1e-8",
+    "method=gear"
+  ],
   "analyses": [
-    "tran 10u 55m",
+    "tran 20u 55m",
     "meas tran vrst_pre find v(resetn) at=19.9m",
     "meas tran vdd_dip find v(vdd) at=20.03m",
     "meas tran vrst_dip find v(resetn) at=20.03m",

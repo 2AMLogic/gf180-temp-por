@@ -19,7 +19,7 @@
     "vntol=1e-9"
   ],
   "analyses": [
-    "tran 5u 17m",
+    "tran 10u 17m",
     "meas tran vpor_rise find v(vdd) when v(xdut.por_raw)=1.5 rise=1",
     "meas tran vpor_rise_last find v(vdd) when v(xdut.por_raw)=1.5 rise=last",
     "meas tran vpor_fall find v(vdd) when v(xdut.por_raw)=1.5 fall=1",

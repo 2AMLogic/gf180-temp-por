@@ -52,6 +52,19 @@
 * checked, so the evidence trail carries the number without pretending it is
 * a pass/fail criterion.
 *
+* TIMESTEP: the manifest asks for `tran 20u 26m`, i.e. a 20 us ceiling on the
+* step in QUIET regions only. The 300 ns glitch is a set of PWL breakpoints,
+* which ngspice always lands on exactly, and the rail slews 3.4 V in 100 ns
+* there, so local truncation error drives the step into the sub-nanosecond
+* range across the disturbance whatever the ceiling says. The ceiling only
+* governs the two long static holds, where nothing is moving and a finer
+* step buys nothing but solve time -- and the full four-cell assembly costs
+* roughly 12 ms of solve per step, so the ceiling is the difference between
+* a grid that runs and one that does not. The event this deck must not miss
+* -- a genuine reset assertion -- lasts at least one reset-pulse width
+* (>=1 ms ratified, 4.2-17.0 ms measured), i.e. 50 to 850 samples even at
+* the ceiling.
+*
 * ONE DUT, ONE TRAN, staged as a timeline:
 *
 *   0    ->  1 ms   cold start: VDD ramps 0 -> vdd_val in 1 ms (2970-3630

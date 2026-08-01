@@ -78,6 +78,15 @@
 * this netlist). Cheap evidence that is in scope beats expensive evidence
 * that duplicates three existing records.
 *
+* TIMESTEP: the manifest asks for `tran 10u 17m`. On the quasi-static
+* segments the rail moves 2.4-4.1 mV per 10 us step, and the quantity
+* extracted is not the step grid but the rail voltage at the instant
+* POR_RAW crosses 1.5 V -- a hysteretic comparator edge that resolves in
+* microseconds, so local truncation error refines the step by orders of
+* magnitude across the crossing itself and `meas ... when` interpolates
+* between the refined points. The ceiling therefore bounds solve cost on
+* the flat hold, not the resolution of either threshold.
+*
 * ONE DUT, ONE TRIANGLE WAVE -- half the circuit size of the two-DUT idiom
 * sim/por-comparator-designer-check/ and sim/bias-core-startup/ use
 * elsewhere in this repo, chosen here because the full four-cell assembly is
