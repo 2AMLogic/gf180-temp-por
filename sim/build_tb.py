@@ -47,6 +47,7 @@ FRAGMENTS: dict[str, tuple[str, tuple[str, ...]]] = {
     # temp_por_top.spice already carries every sub-circuit definition the top
     # level instantiates, so one cell here is the whole four-cell assembly.
     "temp-por-top-release": ("tb_temp_por_top.spice", ("temp_por_top",)),
+    "temp-accuracy-vt": ("tb_temp_accuracy_vt.spice", ("temp_por_top",)),
 }
 
 
