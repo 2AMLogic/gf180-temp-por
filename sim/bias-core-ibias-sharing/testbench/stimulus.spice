@@ -1,0 +1,64 @@
+* bias-core-ibias-sharing -- stimulus half of the testbench fragment.
+*
+* The other half is a verbatim copy of design/netlist/bias_core.spice,
+* design/netlist/temp_core.spice and design/netlist/por_comparator.spice,
+* appended by sim/build_tb.py to produce tb_ibias_sharing.spice. Edit THIS
+* file (or the schematics), never the generated fragment.
+*
+* Netlist FRAGMENT: no .include / .lib / .temp / .control / .end -- the
+* harness owns those. Parameters it supplies: vdd_val, vdd_nom, temp_c.
+*
+* WHY THIS EXPERIMENT EXISTS
+*
+* Issue #11 is chartered to "prove no bias-vs-POR chicken-and-egg lockup
+* state exists across corners". bias_core on its own cannot answer that,
+* because the lockup candidate does not live inside any one cell: IBIAS is a
+* SINGLE shared net at the top level
+*
+*   xbias VDD VSS IBIAS VREF BIAS_OK       bias_core
+*   xtemp VDD VSS IBIAS RESETn PTAT CTAT   temp_core
+*   xcmp  VDD VSS IBIAS VREF BIAS_OK POR_RAW  por_comparator
+*   xpor  VDD VSS IBIAS POR_RAW RESETn     por_output_chain
+*
+* (design/netlist/temp_por_top.spice), and DR-005 startup ordering step 6
+* holds temp_core DISABLED until POR releases. temp_core's disabled state
+* clamps the IBIAS *pin* to VSS through its XMDIB device -- deliberately, and
+* documented in design/temp_core.md ("Disabled state"), which also says that
+* if the resulting pre-POR draw matters "the fix belongs in bias_core (gate
+* its own output), not here".
+*
+* Two branches, identical except for whether the disabled temp_core is
+* present on the shared net:
+*
+*   A. the real top-level wiring in the reset-asserted state: bias_core +
+*      a DISABLED temp_core + por_comparator, EN = 0 (RESETn asserted).
+*   B. the control: the same rail, the same bias_core and por_comparator,
+*      with temp_core absent -- i.e. what design/por-comparator-designer-
+*      check assumed when it drove IBIAS from an ideal 500 nA source.
+*
+* Both are held at this point's vdd_val, which is above every corner's
+* release threshold, so branch B must release (POR_RAW high). Whether branch
+* A does too is the whole question.
+*
+* por_output_chain is NOT instantiated: it is still #12's placeholder (its
+* IBIAS pin terminates in a 1 Tohm resistor), so it can neither load nor
+* clamp the shared net and adding it would only slow the deck down.
+*
+* The rail is ramped rather than DC-stepped so both branches start from a
+* real cold start; the measurements are taken well after settling.
+
+* ---- A. top-level wiring, reset asserted ----------------------------
+vsupa vdda 0 PWL(0 0 100u {vdd_val} 1 {vdd_val})
+vena  ena  0 dc 0
+viba  niba ibiasa dc 0
+xbiasa vdda 0 niba vrefa oka bias_core
+xtempa vdda 0 ibiasa ena ptata ctata temp_core
+xcmpa  vdda 0 ibiasa vrefa oka por_rawa por_comparator
+Rpta ptata 0 1T
+Rcta ctata 0 1T
+
+* ---- B. control: no temp_core on the shared net ---------------------
+vsupb vddb 0 PWL(0 0 100u {vdd_val} 1 {vdd_val})
+vibb  nibb ibiasb dc 0
+xbiasb vddb 0 nibb vrefb okb bias_core
+xcmpb  vddb 0 ibiasb vrefb okb por_rawb por_comparator

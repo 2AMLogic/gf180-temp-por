@@ -16,10 +16,14 @@ both consume the netlists exported from here.
 > `sim/por-comparator-designer-check/`. `por_output_chain` is **designed and
 > characterized** (#12) — see [`por_output_chain.md`](por_output_chain.md) and
 > `sim/por-output-chain-pulse/` + `sim/por-output-chain-deglitch/` +
-> `sim/por-output-chain-floor/`. The remaining sub-circuit is still a
-> **placeholder** — correct ports, no devices — because its design issue
-> (#11) has not landed. Nothing in a placeholder cell may be cited as
-> simulation evidence. See [Placeholder status](#placeholder-status).
+> `sim/por-output-chain-floor/`. `bias_core` is **designed and characterized**
+> (#11) — see [`bias_core.md`](bias_core.md), `sim/bias-core-designer-check/`
+> and `sim/bias-core-ibias-sharing/`, and read that document's opening section
+> first: it lands with three measured, owned conflicts (`por-iq` missed by
+> 2.3×, a starved-loop window inside the ratified `por-ramp-rate` envelope,
+> and a bias-vs-POR lockup on the shared `IBIAS` net). All four sub-circuits
+> are now designed; nothing in this hierarchy is a placeholder. See
+> [Placeholder status](#placeholder-status).
 
 ## Top-level pinout (ratified)
 
@@ -66,9 +70,10 @@ Internal nets:
 
 | Net       | Driver           | Consumers                        | Why |
 | --------- | ---------------- | -------------------------------- | --- |
-| `IBIAS`   | `bias_core`      | `temp_core`, `por_comparator`, `por_output_chain` | one shared bias core, amortizing Iq and area (DR-005) |
+| `IBIAS`   | `bias_core`      | `temp_core`, `por_comparator`, `por_output_chain` | one shared bias core, amortizing Iq and area (DR-005). **Known defect, measured by `sim/bias-core-ibias-sharing/`**: a disabled `temp_core` clamps this net to `VSS`, which starves `por_comparator` in exactly the reset-asserted state POR has to work in — see [`bias_core.md`](bias_core.md), "The shared `IBIAS` net". |
 | `VREF`    | `bias_core`      | `por_comparator`                 | absolute reference; the threshold is a voltage, not a rail fraction |
 | `BIAS_OK` | `bias_core`      | `por_comparator`                 | gates the authoritative release decision (DR-005 startup ordering, step 5) |
+
 | `POR_RAW` | `por_comparator` | `por_output_chain`               | hysteresis is the comparator's job; deglitch/pulse/drive are the output chain's (DR-005 ownership split) |
 | `RESETn`  | `por_output_chain` | top-level pad, `temp_core.EN`  | the sensor is enabled only after POR releases (DR-005 step 6), which keeps it out of the startup chicken-and-egg problem |
 
@@ -182,13 +187,17 @@ they are **not** design content.
 
 | Cell               | Internals land with | Status | Also owns, per the decision records |
 | ------------------ | ------------------- | ------ | ----------------------------------- |
-| `bias_core`        | #11                 | placeholder | the shared core's own startup kick (DR-005 step 3) |
+| `bias_core`        | #11                 | **designed** — [`bias_core.md`](bias_core.md) | the shared core's own startup kick (DR-005 step 3) |
 | `temp_core`        | #9                  | **designed** — [`temp_core.md`](temp_core.md) | the 1-point PTAT gain trim node (DR-005) |
 | `por_comparator`   | #10                 | **designed** — [`por_comparator.md`](por_comparator.md) | hysteresis 100–250 mV; must state its own operating floor (DR-004) |
 | `por_output_chain` | #12                 | **designed** — [`por_output_chain.md`](por_output_chain.md) | deglitch filter (4.58 µs worst-case dwell), fixed ≥ 1 ms one-shot (DR-003), push-pull driver, and the below-floor pull-down that holds `RESETn` low from 0 V (DR-004) |
 
-> Simulating `temp_por_top` still exercises one placeholder cell, so a
-> top-level result is not citable evidence yet. Each designed cell's evidence
+> All four sub-circuits are now designed, but `temp_por_top` has not yet had
+> its own full-assembly corner record — the shared-`IBIAS` lockup
+> `bias_core.md` documents was only caught by a two-cell integration
+> testbench, not a single-cell one, and a full four-cell assembly record is
+> still open work (see `bias_core.md`, "The shared `IBIAS` net"). Each
+> designed cell's evidence
 > is recorded against its own `design/netlist/<cell>.spice` — the
 > single-`.subckt` export — which is exactly why that per-cell export exists.
 
