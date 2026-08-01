@@ -918,16 +918,21 @@ python3 sim/run_corners.py bias-core-designer-check -j 8 --timeout 900
 python3 sim/run_corners.py bias-core-ibias-sharing  -j 8 --timeout 900
 python3 sim/run_corners.py temp-por-top-release     -j 8 --timeout 1800
 python3 sim/run_corners.py bias-core-startup        -j 8 --timeout 900
+python3 sim/bias-core-startup/control/run_gmin_control.py
 ```
 
-The `gmin` control experiment behind
-[Resolved](#resolved-the-bias_ok-quasi-static-failure-was-a-testbench-artefact-issues-43-46)
-is two `op` runs of one twenty-line deck and takes seconds. Point
-`$GF180_MODELS` at the PDK the harness resolves (`source sim/env.sh`),
-`.include` `design/netlist/bias_core.spice` behind a `dc 3.3` supply and the
-same `IBIAS` consumer-diode replica load the testbenches use, then run it
-once as written and once with `.options gmin=1e-9` added. `V(xdut.noko)` and
-`V(bias_ok)` flip between the two.
+The last line is the `gmin` control experiment behind
+[Resolved](#resolved-the-bias_ok-quasi-static-failure-was-a-testbench-artefact-issues-43-46):
+two `op` runs of one deck, seconds rather than minutes. It resolves the PDK
+through the same `sim/harness` the corner runner uses, so it needs no
+`source sim/env.sh` and no hand-assembled deck, and it rewrites
+`sim/bias-core-startup/control/{decks,logs}/` and
+[`control/results.md`](../sim/bias-core-startup/control/results.md) in place —
+which is deliberate and is why a control is not a record: it makes no claim,
+so there is nothing for the append-only rule to protect (`sim/README.md`,
+"Control experiments"). Every number in
+[The controlled experiment](#the-controlled-experiment) is transcribed from
+that `results.md`.
 
 Exit codes, and why each is what it is:
 

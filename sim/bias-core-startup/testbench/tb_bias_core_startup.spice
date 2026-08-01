@@ -28,7 +28,8 @@
 * stimulus.spice`). GMIN is a conductance ngspice places across every device
 * junction to keep the Jacobian non-singular. At 1 nS and 3.3 V of rail that
 * is ~2.7 nA per junction -- and the settle comparator this experiment exists
-* to test resolves a 0.247 nA imbalance between two ~4.5 nA branches. The
+* to test resolves a 0.247 nA imbalance between a 4.728 nA and a 4.481 nA
+* branch (`../control/results.md`, the same source as the figures below). The
 * comparator's own output node `NOKO` carries one junction (`XMOKC`'s drain)
 * that its reference-side counterpart `NOKL` does not, so the aid injected a
 * 0.563 nA DIFFERENTIAL error -- larger than the signal. That, and not the
