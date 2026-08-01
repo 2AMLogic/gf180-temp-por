@@ -1,0 +1,61 @@
+{
+  "name": "por-output-chain-floor",
+  "description": "Below-floor reset-valid check of design/por_output_chain.sch: RESETn against a slow 0 V -> VDD rail ramp, with POR_RAW held low and (second DUT) driven high, over the full 81-point PVT grid.",
+  "claim": "spec/target-spec.md#por-reset-valid-floor -- V(RESETn) <= min(0.1*VDD, 0.3 V) into the 5 pF / no-DC-load reset-pulse load for all VDD >= 0 V, i.e. DR-004's below-floor requirement, demonstrated with a mechanism that is not gated by POR_RAW. Also substantiates spec/target-spec.md#por-polarity (degrades to asserted near 0 V) and spec/target-spec.md#por-drive (both states driven from within the block). Deterministic corners only; the full ramp-rate envelope is #14's job.",
+  "netlist": "tb_por_floor.spice",
+  "nominal_supply_v": 3.3,
+  "supply_tolerance": 0.1,
+  "temperatures_c": [
+    -40,
+    27,
+    125
+  ],
+  "corners": [
+    "full"
+  ],
+  "options": [
+    "reltol=1e-5",
+    "abstol=1e-16",
+    "vntol=1e-9",
+    "method=gear"
+  ],
+  "analyses": [
+    "tran 2u 7m",
+    "meas tran itop avg i(vd1) from=6.5m to=6.95m"
+  ],
+  "measure": {
+    "floor_ratio_porlow": "maximum(v(resetn1)*(v(vdd) gt 1e-3)/(v(vdd)+1e-9))",
+    "floor_mv_porlow": "maximum(v(resetn1))*1e3",
+    "floor_ratio_porhigh": "maximum(v(resetn2)*(v(vdd) gt 1e-3)*(v(vdd) lt 1.5)/(v(vdd)+1e-9))",
+    "floor_mv_porhigh": "maximum(v(resetn2)*(v(vdd) lt 1.5))*1e3",
+    "floor_ratio_sub100mv": "maximum(v(resetn1)*(v(vdd) gt 1e-3)*(v(vdd) lt 0.1)/(v(vdd)+1e-9))",
+    "iq_ramp_top_na": "itop*1e9",
+    "vdd_top": "maximum(v(vdd))"
+  },
+  "checks": {
+    "floor_ratio_porlow": {
+      "max": 0.1,
+      "description": "THE por-reset-valid-floor check: V(RESETn)/VDD stays under the row's 0.1*VDD limit at every point of a 0 V -> VDD ramp, with POR_RAW low. The row expects ff/125c (maximum off-state leakage in the output pull-up) with an ss/-40c cross-check (weakest pull-down); measured, the ratio binds at sf/125c -- fast-P is what maximises the leakage the pull-down has to overpower -- while the ABSOLUTE floor (floor_mv_porlow) binds at ss/-40c as expected. Both are in the grid, so neither is assumed"
+    },
+    "floor_mv_porlow": {
+      "max": 300.0,
+      "description": "the absolute half of the same limit, min(0.1*VDD, 0.3 V). Above ~3 V the ratio limit is no longer the binding one"
+    },
+    "floor_ratio_sub100mv": {
+      "max": 0.1,
+      "description": "the same limit restricted to VDD < 100 mV, where a MOSFET's on/off ratio has essentially vanished and only the 20:1 XMON/XMOP geometry is holding the output down. Reported separately because a whole-ramp maximum can hide a failure that only exists in the bottom decade"
+    },
+    "floor_ratio_porhigh": {
+      "max": 0.1,
+      "description": "DR-004's actual requirement: the assist must not be gated by POR_RAW. Same limit with POR_RAW driven to the rail below the comparator's floor (VDD < 1.5 V)"
+    },
+    "floor_mv_porhigh": {
+      "max": 300.0,
+      "description": "absolute limit for the POR_RAW-driven-high case below the comparator floor"
+    },
+    "iq_ramp_top_na": {
+      "max": 400.0,
+      "description": "reset-asserted draw at the top of the ramp; a cross-check of the same number sim/por-output-chain-pulse/ measures, from a different stimulus"
+    }
+  }
+}

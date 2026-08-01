@@ -5,7 +5,7 @@ against the gf180mcu PDK. This directory is the **source of truth for the
 block's electrical interface**: `sim/` testbenches and (later) `layout/` LVS
 both consume the netlists exported from here.
 
-> **Status: hierarchy and pinout are real; two of four sub-circuits are designed.**
+> **Status: hierarchy and pinout are real; three of four sub-circuits are designed.**
 > The top level, the four sub-circuit cells, their symbols, and the netlist
 > export pipeline are complete and verified. `temp_core` is **designed and
 > characterized** (#9) — see [`temp_core.md`](temp_core.md) for its sizing
@@ -13,9 +13,12 @@ both consume the netlists exported from here.
 > + `sim/temp-core-startup/` for the PVT evidence behind them. `por_comparator`
 > is **designed and characterized** (#10) — see
 > [`por_comparator.md`](por_comparator.md) and
-> `sim/por-comparator-designer-check/`. The other two sub-circuits are still
-> **placeholders** — correct ports, no devices — because their design issues
-> (#11, #12) have not landed. Nothing in a placeholder cell may be cited as
+> `sim/por-comparator-designer-check/`. `por_output_chain` is **designed and
+> characterized** (#12) — see [`por_output_chain.md`](por_output_chain.md) and
+> `sim/por-output-chain-pulse/` + `sim/por-output-chain-deglitch/` +
+> `sim/por-output-chain-floor/`. The remaining sub-circuit is still a
+> **placeholder** — correct ports, no devices — because its design issue
+> (#11) has not landed. Nothing in a placeholder cell may be cited as
 > simulation evidence. See [Placeholder status](#placeholder-status).
 
 ## Top-level pinout (ratified)
@@ -182,9 +185,9 @@ they are **not** design content.
 | `bias_core`        | #11                 | placeholder | the shared core's own startup kick (DR-005 step 3) |
 | `temp_core`        | #9                  | **designed** — [`temp_core.md`](temp_core.md) | the 1-point PTAT gain trim node (DR-005) |
 | `por_comparator`   | #10                 | **designed** — [`por_comparator.md`](por_comparator.md) | hysteresis 100–250 mV; must state its own operating floor (DR-004) |
-| `por_output_chain` | #12                 | placeholder | deglitch filter, fixed ≥ 1 ms one-shot (DR-003), push-pull driver, and the below-floor pull-down that holds `RESETn` low from 0 V (DR-004) |
+| `por_output_chain` | #12                 | **designed** — [`por_output_chain.md`](por_output_chain.md) | deglitch filter (4.58 µs worst-case dwell), fixed ≥ 1 ms one-shot (DR-003), push-pull driver, and the below-floor pull-down that holds `RESETn` low from 0 V (DR-004) |
 
-> Simulating `temp_por_top` still exercises two placeholder cells, so a
+> Simulating `temp_por_top` still exercises one placeholder cell, so a
 > top-level result is not citable evidence yet. Each designed cell's evidence
 > is recorded against its own `design/netlist/<cell>.spice` — the
 > single-`.subckt` export — which is exactly why that per-cell export exists.
