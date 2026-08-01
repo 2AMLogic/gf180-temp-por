@@ -50,6 +50,19 @@ own. Every row is nonetheless swept over the full 81-point grid
 ([§1](#1-global-operating-conditions)); the binding corner says where the
 number is *set*, not where it is the only one measured.
 
+Binding-corner text is a **prediction until a `sim/` record measures it** —
+before a full-grid sweep exists, the named corner is reasoned from the
+topology's *generic* behaviour (e.g. "highest bias current, lowest
+capacitance" for a current-starved timer), which can be wrong for a
+topology-specific reason a full grid catches and a single-corner check does
+not. [DR-009](decision-records/DR-009-por-reset-pulse-binding-corner.md) is a
+concrete instance: two POR rows' predicted binding corners did not match the
+measured 81-point grid. A binding-corner parenthetical is not itself a
+target — it does not change what value the row requires — so a corrected
+parenthetical is not a spec relaxation. Once a `sim/` record exists for a
+row, its full-grid minimum/maximum supersedes the prediction; a reviewer
+should not treat an unmeasured parenthetical as evidence.
+
 **Row IDs** are stable anchors. A `sim/` evidence record's **Claim** field
 references a row as `spec/target-spec.md#<row-id>` (see `sim/README.md` §
 *Summary record format*), and per that document every ratified row must map to
@@ -154,7 +167,7 @@ toward the downstream digital domain's floor.
 |---|---|---|---|---|---|
 | <a id="por-ramp-rate"></a>`por-ramp-rate` | Supply ramp-rate envelope | Correct reset generation guaranteed for **monotonic 0 → VDD ramps with average rate between 1 V/s (slow limit) and 1 V/µs (fast limit) [P]** | "Correct" = `RESETn` low from 0 V throughout the ramp, released once and only once, after VDD crosses VPOR↑ and the [`por-reset-pulse`](#por-reset-pulse) has elapsed — no early release, no glitch, no double pulse. **Both limits bind at SS / −40 °C** (weakest startup-assist leg — devchar measures the native device's Vt turning slightly *positive* at `ss` — and slowest bias-core settling). #14 asserts at both endpoints plus one decade inside each, over the full grid. Outside the envelope behaviour is unspecified, not guaranteed-wrong. | **[CWC]** · `pending #14` | this amendment · #14 |
 | <a id="por-brownout"></a>`por-brownout` | Brownout re-assertion | **No dedicated brownout detector in wave 1 [P]** — re-assertion is whatever the POR comparator itself provides. Guaranteed for a dip that (a) takes VDD **below VPOR↓,min = 2.22 V** and (b) **stays below VPOR↓ for ≥ T_dip,min = 10 µs [P]** | Dips shallower than VPOR↓,max or shorter than the deglitch dwell are **explicitly not guaranteed** to assert reset — that rejection is DR-005's deliberate deglitch function, owned by #12. T_dip,min must exceed #12's deglitch dwell time (**[TBD-#12]**, required ≤10 µs for this row to hold). On re-assertion the full [`por-reset-pulse`](#por-reset-pulse) is regenerated. **Binds at SS / −40 °C** (slowest comparator response). | **[CWC]** · `pending #12, #14` | this amendment, **[DR-005]** · #12, #14 |
-| <a id="por-reset-pulse"></a>`por-reset-pulse` | Reset pulse width | **≥1 ms**, fixed; **no maximum specified in wave 1 [P]** | Measured on the `RESETn` **deassertion** edge (DR-004), starting when both release conditions of DR-005's startup ordering are satisfied. Programmability is stretch and explicitly de-scoped (DR-003). Measurement load **[TBD-#8/#12]** (provisional: 5 pF, no DC load **[P]**). **The ≥1 ms minimum binds at the fastest-timer corner: FF / +125 °C / 3.63 V** (highest bias current, lowest capacitance). "No maximum" is a decision, not an omission: an RC/current-starved one-shot spreads several× across corners; #14 records the observed max so a maximum can be added later on evidence. | **[CWC]** · `pending #14` | **[DR-003]**, this amendment · #14 |
+| <a id="por-reset-pulse"></a>`por-reset-pulse` | Reset pulse width | **≥1 ms**, fixed; **no maximum specified in wave 1 [P]** | Measured on the `RESETn` **deassertion** edge (DR-004), starting when both release conditions of DR-005's startup ordering are satisfied. Programmability is stretch and explicitly de-scoped (DR-003). Measurement load **[TBD-#8/#12]** (provisional: 5 pF, no DC load **[P]**). **The ≥1 ms minimum binds at FF / −40 °C / 2.97 V**, measured (`tpulse_1x_ms` min 4.21535 ms, `sim/por-output-chain-pulse/records/20260801-031819-fce635f.md`) — **not** the fixed-trip fastest-timer corner (FF / +125 °C / 3.63 V) a generic current-starved one-shot would predict. This one-shot's trip is rail-referenced (`TIM = VDD − V_sg(2.5 nA)`, not a fixed voltage), so a cold, low rail shortens the ramp more than a hot, high-bias rail does; see [DR-009](decision-records/DR-009-por-reset-pulse-binding-corner.md). "No maximum" is a decision, not an omission: an RC/current-starved one-shot spreads several× across corners; #14 records the observed max so a maximum can be added later on evidence. | **[CWC]** · `pending #14` | **[DR-003]**, this amendment, binding corner corrected by **[DR-009]** · #14 |
 
 ### 4.3 Output interface (from DR-004)
 
@@ -162,7 +175,7 @@ toward the downstream digital domain's floor.
 |---|---|---|---|---|---|
 | <a id="por-polarity"></a>`por-polarity` | Reset polarity | **`RESETn`, active low** | Degrades to *asserted* under loss of drive near 0 V — the property active-high cannot provide on a single-rail block. | — · `ratifiable` | **[DR-004]** · #12 |
 | <a id="por-drive"></a>`por-drive` | Reset drive style | **Push-pull** (not open-drain) | Both states driven from within the block; no external pull-up in the specified interface. | — · `ratifiable` | **[DR-004]** · #12 |
-| <a id="por-reset-valid-floor"></a>`por-reset-valid-floor` | Reset-valid floor, V_RSTVALID | **Target 0 V** — `RESETn` guaranteed valid-low for **all** VDD ≥ 0 V. Valid-low := V(`RESETn`) ≤ min(0.1 × VDD, 0.3 V) into the [`por-reset-pulse`](#por-reset-pulse) load. Acceptance fallback: **≤0.4 V [P]** if #12 demonstrates 0 V is unreachable, with the achieved floor stated. | This is the numeric row DR-004 requires #12 to fill ("`RESETn` guaranteed valid-low for VDD ≥ X"). **Binds at FF / +125 °C** (maximum off-state leakage through the output pull-up, which the below-floor pull-down must overpower), with an **SS / −40 °C** cross-check (weakest pull-down drive). | **[CWC]** · `pending #10, #12, #14` | **[DR-004]**, this amendment · #10, #12, #14 |
+| <a id="por-reset-valid-floor"></a>`por-reset-valid-floor` | Reset-valid floor, V_RSTVALID | **Target 0 V** — `RESETn` guaranteed valid-low for **all** VDD ≥ 0 V. Valid-low := V(`RESETn`) ≤ min(0.1 × VDD, 0.3 V) into the [`por-reset-pulse`](#por-reset-pulse) load. Acceptance fallback: **≤0.4 V [P]** if #12 demonstrates 0 V is unreachable, with the achieved floor stated. | This is the numeric row DR-004 requires #12 to fill ("`RESETn` guaranteed valid-low for VDD ≥ X"). The ratio and the absolute floor **bind at different corners, measured** (`sim/por-output-chain-floor/records/20260801-032940-d59d7c4.md`): **the ratio binds at SF / +125 °C** (`floor_ratio_porlow` max 0.548 % at `sf_125c_2.97v` — maximum off-state leakage through the output pull-up relative to VDD, which the below-floor pull-down must overpower), while **the absolute floor binds at SS / −40 °C** (`floor_mv_porlow` max 1.699 mV at `ss_-40c_2.97v` — weakest pull-down drive). See [DR-009](decision-records/DR-009-por-reset-pulse-binding-corner.md). | **[CWC]** · `pending #10, #12, #14` | **[DR-004]**, this amendment, binding corner corrected by **[DR-009]** · #10, #12, #14 |
 
 ---
 
@@ -271,6 +284,7 @@ Each is a *new* line, not a change to an existing one.
 | Topology, Iq estimates, trim stance, deglitch/hysteresis split | DR-005 (architecture survey) |
 | Corner grid | DR-006 (sim-harness port) |
 | Everything tagged **[P]**, plus the row structure, binding corners and statistical basis | DR-007 (this amendment) |
+| `por-reset-pulse` and `por-reset-valid-floor` binding-corner correction (measured, not predicted) | DR-009 (binding-corner correction) |
 
 The eight rows of the deleted README draft table are all present here:
 temp range → [`temp-range`](#temp-range); temp accuracy →
