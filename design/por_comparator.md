@@ -47,7 +47,7 @@ replaced the internals only, so `design/por_comparator.sym` is untouched.
 | Pin | Dir | Meaning |
 | --- | --- | --- |
 | `VDD`, `VSS` | inout | 3.3 V core-flavor supply pair (DR-001) |
-| `IBIAS` | in | shared bias-mirror node from `bias_core` (#11). Same convention as `temp_core`: `bias_core` **sources** 0.5 µA into this pin. |
+| `IBIAS` | in | shared bias-mirror node from `bias_core` (#11). Same convention as `temp_core`: `bias_core` **sources** 0.5 µA into this pin. This cell's `XMDIB` clamp on the pin is **kept** under [DR-010](../spec/decision-records/DR-010-shared-ibias-disabled-consumer-contract.md), unlike `temp_core`'s: it is gated on `BIAS_OKB`, and `BIAS_OK` is generated inside `bias_core` with no dependence on `IBIAS` compliance, so it is self-releasing and is not a member of the bias-vs-POR lockup loop DR-010 cut. It holds the node down only until the bias core is up, which is correct — nothing downstream should be deciding before then. |
 | `VREF` | in | absolute reference from `bias_core`. Assumed bandgap-scale, **1.2 V**, in this cell's sizing — see [Error budget](#error-budget) for what happens if #11 lands on a different number. |
 | `BIAS_OK` | in | shared-core-valid flag. Gates this cell's bias and clamps its output, so `POR_RAW` reads a safe not-released before the shared core is valid (DR-005 startup step 4). |
 | `POR_RAW` | out | raw threshold decision, **active high**: 1 means VDD is above the hysteretic release threshold. |

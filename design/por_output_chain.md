@@ -52,7 +52,7 @@ replaced the internals only, so `design/por_output_chain.sym` is untouched.
 | Pin | Dir | Meaning |
 | --- | --- | --- |
 | `VDD`, `VSS` | inout | 3.3 V core-flavor supply pair (DR-001) |
-| `IBIAS` | in | shared bias-mirror node from `bias_core` (#11). Same convention as `temp_core`/`por_comparator`: `bias_core` **sources** 0.5 µA into this pin; `XMBD` is the local mirror diode. |
+| `IBIAS` | in | shared bias-mirror node from `bias_core` (#11). Same convention as `temp_core`/`por_comparator`: `bias_core` **sources** 0.5 µA into this pin; `XMBD` is the local mirror diode. **`XMBD` is load-bearing beyond this cell under [DR-010](../spec/decision-records/DR-010-shared-ibias-disabled-consumer-contract.md)**: it is ungated and always on, which makes it the element that *defines* the shared node's operating point now that no consumer is permitted to clamp that node. Do not gate it without re-reading DR-010 — the contract requires at least one always-on diode-connected input to remain on the net. |
 | `POR_RAW` | in | raw hysteretic threshold decision from `por_comparator` (#10), **active high** = "rail is above VPOR↑ and the comparator's decision is authoritative". Low — including *undriven*-low below the comparator floor — is the fail-safe sense. |
 | `RESETn` | out | reset pad, **active low**, **push-pull** (DR-004). |
 

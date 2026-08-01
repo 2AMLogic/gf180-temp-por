@@ -44,6 +44,9 @@ FRAGMENTS: dict[str, tuple[str, tuple[str, ...]]] = {
         "tb_ibias_sharing.spice",
         ("bias_core", "temp_core", "por_comparator"),
     ),
+    # temp_por_top.spice already carries every sub-circuit definition the top
+    # level instantiates, so one cell here is the whole four-cell assembly.
+    "temp-por-top-release": ("tb_temp_por_top.spice", ("temp_por_top",)),
 }
 
 

@@ -42,14 +42,30 @@ Rlp   ptat 0 1T
 Rlc   ctat 0 1T
 
 * ---- 2. disabled DUT (EN low) -----------------------------------------
-* IBIAS comes from a separate rail here: with EN low the cell shunts the
-* pin to VSS, so that 0.5 uA is bias_core's leg, not temp_core's. What
-* vsupd measures is the cell's own draw from its own supply pin.
+* IBIAS comes from a separate rail here so that the 0.5 uA is bias_core's
+* leg, not temp_core's. What vsupd measures is the cell's own draw from its
+* own supply pin.
+*
+* xmshd is load-bearing since DR-010. temp_core no longer clamps its IBIAS
+* pin when disabled -- the pin is HIGH-Z, because IBIAS is a shared net and
+* clamping it locked POR up (see spec/decision-records/DR-010-*.md). So the
+* forced reference has to be terminated HERE, by the testbench, exactly as
+* the assembled block terminates it: xmshd is a diode-connected nfet_03v3
+* 4u/4u, a copy of por_output_chain's always-on XMBD, which is the element
+* that actually defines the shared node's operating point in
+* design/netlist/temp_por_top.spice. Without it this branch would be an
+* ideal current source driving an open circuit -- a stimulus artefact, and
+* the artefact the deleted clamp existed to paper over.
 vsupd vddd 0 dc {vdd_val}
 vend  end  0 dc 0
 vbias vbr  0 dc {vdd_val}
-xdis  vddd 0 ibiasd end ptatd ctatd temp_core
+* vibd is a 0 V ammeter in series with the disabled pin, so i(vibd) is the
+* current the disabled cell actually takes OUT of the shared node. That is
+* the DR-010 high-impedance invariant as a number rather than as a claim.
+xdis  vddd 0 nibd end ptatd ctatd temp_core
+vibd  ibiasd nibd dc 0
 ibrfd vbr ibiasd dc 500n
+xmshd ibiasd ibiasd 0 0 nfet_03v3 L=4u W=4u nf=1 m=1
 Rlpd  ptatd 0 1T
 Rlcd  ctatd 0 1T
 

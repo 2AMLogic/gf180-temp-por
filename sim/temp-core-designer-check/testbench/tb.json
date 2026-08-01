@@ -17,6 +17,8 @@
     "vout_margin_v": "min(min(v(ptat)-0.2,v(ctat)-0.2),min(v(vdd)-0.2-v(ptat),v(vdd)-0.2-v(ctat)))",
     "iq_ua": "-i(vsup)*1e6",
     "iq_dis_ua": "-i(vsupd)*1e6",
+    "ibias_dis_na": "i(vibd)*1e9",
+    "vibias_dis_v": "v(ibiasd)",
     "vptat_dis_mv": "v(ptatd)*1e3",
     "vctat_dis_mv": "v(ctatd)*1e3",
     "load10m_err_pct": "(v(ptatl)-v(ptat))/v(ptat)*100",
@@ -62,6 +64,14 @@
     "iq_dis_ua": {
       "max": 0.10,
       "description": "EN low (pre-POR): the cell's own draw from its VDD pin must be negligible"
+    },
+    "ibias_dis_na": {
+      "max": 25.0,
+      "description": "THE DR-010 INVARIANT. EN low (pre-POR): current the disabled cell takes out of the shared IBIAS node, metered by vibd. A disabled consumer must present HIGH IMPEDANCE to that node -- it used to short it to VSS through an ENB-gated XMDIB, which starved por_comparator's tail mirror and made RESETn unreleasable (sim/bias-core-ibias-sharing/, design/bias_core.md 'The shared IBIAS net'). Bounded at 25 nA = 5 % of the 0.5 uA IBIAS convention: small enough that the remaining consumers keep essentially the whole reference in exactly the state POR has to work in. This is the requirement, not the observation."
+    },
+    "vibias_dis_v": {
+      "min": 0.3,
+      "description": "Same branch: the shared node still sits at a diode drop with a DISABLED temp_core hanging on it, because the node is defined by xmshd (the stand-in for por_output_chain's always-on XMBD) and no longer by this cell. Bounding it at a diode drop is what makes 'high impedance' mean 'does not drag the node down' rather than merely 'draws little current'."
     },
     "vptat_dis_mv": {
       "max": 1.0,

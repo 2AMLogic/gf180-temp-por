@@ -1,0 +1,80 @@
+{
+  "name": "temp-por-top-release",
+  "description": "Full four-cell assembly liveness check on design/netlist/temp_por_top.spice: cold start from 0 V with bias_core, temp_core, por_comparator and por_output_chain in the real top-level wiring, asking whether the shared IBIAS node survives the reset-asserted state and whether RESETn therefore releases and enables the sensor. This is the witness that the bias-vs-POR lockup DR-010 fixed is absent from the assembled block, not just from the two-cell integration testbench that found it.",
+  "claim": "spec/decision-records/DR-010-shared-ibias-disabled-consumer-contract.md -- the disabled-consumer high-impedance contract on the shared IBIAS net, measured on the full assembly. Also substantiates DR-005 startup ordering steps 4-6 end to end (bias core up, POR decides, sensor enabled only afterwards) and records the assembled block against spec/target-spec.md#por-iq in the state that row is defined in. Liveness and ordering only: the threshold itself is sim/por-comparator-designer-check/'s, the >=1 ms pulse width is sim/por-output-chain-pulse/'s, and the ramp-rate / brownout envelope is #14's. Deterministic corners only (design.ngspice sets sw_stat_mismatch=0), so it makes no distribution claim -- mismatch is #15's Monte Carlo job.",
+  "netlist": "tb_temp_por_top.spice",
+  "nominal_supply_v": 3.3,
+  "supply_tolerance": 0.1,
+  "temperatures_c": [-40, 27, 125],
+  "corners": ["full"],
+  "options": ["reltol=1e-5", "abstol=1e-15", "vntol=1e-9"],
+  "analyses": [
+    "tran 10u 30m",
+    "meas tran iq_pre avg i(vsup) from=1.5m to=1.9m",
+    "meas tran vrst_pre find v(resetn) at=1.9m",
+    "meas tran vib_pre find v(xdut.ibias) at=1.9m",
+    "meas tran vref_pre find v(xdut.vref) at=1.9m",
+    "meas tran vptat_pre find v(ptat) at=1.9m",
+    "meas tran trel when v(resetn)=1.0 rise=1",
+    "meas tran vrst_post find v(resetn) at=28m",
+    "meas tran vib_post find v(xdut.ibias) at=28m",
+    "meas tran vptat_post find v(ptat) at=28m",
+    "meas tran vctat_post find v(ctat) at=28m"
+  ],
+  "measure": {
+    "vibias_asserted_v": "vib_pre",
+    "vibias_released_v": "vib_post",
+    "vref_asserted_v": "vref_pre",
+    "resetn_asserted_mv": "vrst_pre*1e3",
+    "resetn_released_v": "vrst_post",
+    "t_release_ms": "trel*1e3",
+    "vptat_asserted_mv": "vptat_pre*1e3",
+    "vptat_released_v": "vptat_post",
+    "vctat_released_v": "vctat_post",
+    "iq_por_ua": "-iq_pre*1e6"
+  },
+  "checks": {
+    "vibias_asserted_v": {
+      "min": 0.3,
+      "description": "THE DR-010 CHECK, on the full assembly. The shared IBIAS node with the real disabled temp_core hanging on it, in the reset-asserted state. It used to sit at 1.0-6.6 mV at every one of the 81 points (sim/bias-core-ibias-sharing/records/20260801-054722-6cf5898.md) because temp_core's ENB-gated XMDIB shorted it to VSS; bounding it at a diode drop says the shared node must be ALIVE in exactly the state POR has to work in."
+    },
+    "resetn_asserted_mv": {
+      "max": 300.0,
+      "description": "no early release: RESETn is still a valid logic low with the rail settled and the one-shot still running (DR-004 active-low). Guards against the opposite failure to the lockup -- a block that releases reset before the bias core is up."
+    },
+    "t_release_ms": {
+      "min": 1.0,
+      "max": 29.0,
+      "description": "THE LIVENESS CHECK. RESETn must actually release, at every corner, within the run. Before DR-010 this measurement did not exist at all: RESETn was never released at any point of the grid, so the loop never got here. Bounded loosely on purpose -- the accurate >=1 ms pulse-width claim is sim/por-output-chain-pulse/'s, measured from a stepped t0; this row only asks whether the block starts. The 29 ms ceiling is the run span minus the settled sample, so a corner that never releases fails rather than silently reporting the last time point."
+    },
+    "resetn_released_v": {
+      "min": 2.8,
+      "description": "spec/target-spec.md#por-drive: the deasserted state is actively driven to the rail into the 5 pF load, push-pull, not open-drain (DR-004)."
+    },
+    "vptat_asserted_mv": {
+      "max": 1.0,
+      "description": "DR-005 startup ordering step 6, first half: while RESETn is asserted the sensor is genuinely off and its pad is held at VSS, not floating."
+    },
+    "vptat_released_v": {
+      "min": 0.9,
+      "max": 2.1,
+      "min_spread_pct": 40.0,
+      "description": "DR-005 startup ordering step 6, second half, and the end-to-end proof the lockup is gone: releasing RESETn really does enable temp_core and the PTAT output comes alive. That arrow is the one the old lockup closed on itself. The spread floor is a harness-integrity check -- a PTAT output that does not move with temperature means .temp or a .lib section failed to apply."
+    },
+    "vctat_released_v": {
+      "min": 0.40,
+      "max": 0.85,
+      "min_spread_pct": 30.0,
+      "description": "same, on the CTAT pad (VEB of temp_core's 1x PNP)."
+    },
+    "vref_asserted_v": {
+      "min": 1.14,
+      "max": 1.26,
+      "description": "bias_core's reference in the reset-asserted state. It was never the thing at fault -- the reference loop is self-biased and does not depend on the IBIAS leg's compliance -- and carrying it here keeps that separation visible on the assembled block too."
+    },
+    "iq_por_ua": {
+      "max": 1.0,
+      "description": "spec/target-spec.md#por-iq (<1 uA), the assembled block, in the state the row is defined in (section 5 rule 1: RESETn asserted, rail settled, sensor disabled). EXPECTED TO FAIL. This is the ALREADY-OWNED overrun design/bias_core.md 'Iq apportionment' records at 2.37x from the per-cell numbers; this row is the first time it is measured on the real assembly instead of summed across records. DR-010 does not address it and does not pretend to -- it is a magnitude problem pending its own re-cost decision record through #1, whereas DR-010 fixed a liveness defect. The check is left at the RATIFIED 1.0 uA and allowed to fail: per CLAUDE.md and target-spec.md section 5, the target is not relaxed to make a result pass."
+    }
+  }
+}

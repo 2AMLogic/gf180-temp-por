@@ -2,7 +2,7 @@
 * Do not edit. Sources:
 *   sim/bias-core-ibias-sharing/testbench/stimulus.spice
 *   design/netlist/bias_core.spice  (sha256 87b6f9437f43932e965022b3effd38d18cc21aa7bcf675fb1d383b6e91d8baeb)
-*   design/netlist/temp_core.spice  (sha256 aaf7da6b2fc201a7ce0c38f56345da5d5c56f638e830ea67f03f744af4843578)
+*   design/netlist/temp_core.spice  (sha256 c017e15399812a21ff04ac037d785e3c6b1fa77b5b0c45080fcacf6b9a5e64d4)
 *   design/netlist/por_comparator.spice  (sha256 0d1814a878b2cf7d5dc567ff2eac6c54096c5fc873f3c8540a75dc0a65810bbe)
 * Regenerate with:
 *   python3 sim/build_tb.py
@@ -173,8 +173,6 @@ XMBD IBIAS NBG VSS VSS nfet_03v3 L=2u W=4u nf=1 ad='int((nf+1)/2) * W/nf * 0.18u
 XMPASS IBIAS EN NBG VSS nfet_03v3 L=0.5u W=2u nf=1 ad='int((nf+1)/2) * W/nf * 0.18u' as='int((nf+2)/2) * W/nf * 0.18u' pd='2*int((nf+1)/2) * (W/nf + 0.18u)'
 + ps='2*int((nf+2)/2) * (W/nf + 0.18u)' nrd='0.18u / W' nrs='0.18u / W' sa=0 sb=0 sd=0 m=1
 XMDNB NBG ENB VSS VSS nfet_03v3 L=0.5u W=2u nf=1 ad='int((nf+1)/2) * W/nf * 0.18u' as='int((nf+2)/2) * W/nf * 0.18u' pd='2*int((nf+1)/2) * (W/nf + 0.18u)'
-+ ps='2*int((nf+2)/2) * (W/nf + 0.18u)' nrd='0.18u / W' nrs='0.18u / W' sa=0 sb=0 sd=0 m=1
-XMDIB IBIAS ENB VSS VSS nfet_03v3 L=1u W=1u nf=1 ad='int((nf+1)/2) * W/nf * 0.18u' as='int((nf+2)/2) * W/nf * 0.18u' pd='2*int((nf+1)/2) * (W/nf + 0.18u)'
 + ps='2*int((nf+2)/2) * (W/nf + 0.18u)' nrd='0.18u / W' nrs='0.18u / W' sa=0 sb=0 sd=0 m=1
 XMBN1 PB NBG VSS VSS nfet_03v3 L=2u W=4u nf=1 ad='int((nf+1)/2) * W/nf * 0.18u' as='int((nf+2)/2) * W/nf * 0.18u' pd='2*int((nf+1)/2) * (W/nf + 0.18u)'
 + ps='2*int((nf+2)/2) * (W/nf + 0.18u)' nrd='0.18u / W' nrs='0.18u / W' sa=0 sb=0 sd=0 m=1
