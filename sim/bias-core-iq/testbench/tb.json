@@ -1,0 +1,49 @@
+{
+  "name": "bias-core-iq",
+  "description": "Quiescent current of design/bias_core.sch in the reset-asserted state, split into the reference-core share and the IBIAS distribution share, measured over the full 81-point PVT grid. This is the acceptance-critical number spec/target-spec.md section 5 assigns to issue #11 -- and it does NOT fit the ratified <1 uA por-iq target.",
+  "claim": "spec/target-spec.md#por-iq -- the shared bias/reference core's contribution to the <1 uA POR quiescent-current target, quoted per section 5 rule 1 (RESETn asserted, temperature sensor disabled, including every branch that must conduct for the POR threshold decision to be valid). bias_core has no enable pin in the ratified port list, so no branch of it can be off in that state and the whole cell is charged here. Section 5's 'Known accounting risk -- owned by #11' amendment requires this issue either to show the shared core fits inside <1 uA or to flag a spec conflict; this record is that flag, and the CHECK BELOW IS EXPECTED TO FAIL at the FF/+125 C/3.63 V binding corner the row names. Deterministic corners only (design.ngspice sets sw_stat_mismatch=0); por-iq is a [CWC] row, so corner-worst-case is the right basis and no Monte Carlo is owed here.",
+  "netlist": "tb_bias_core_iq.spice",
+  "nominal_supply_v": 3.3,
+  "supply_tolerance": 0.1,
+  "temperatures_c": [-40, 27, 125],
+  "corners": ["full"],
+  "options": ["reltol=1e-5", "abstol=1e-15", "vntol=1e-9"],
+  "analyses": ["op"],
+  "measure": {
+    "iq_total_ua": "-i(vsup)*1e6",
+    "iq_core_ua": "(-i(vsup)-i(vib))*1e6",
+    "iq_dist_ua": "i(vib)*1e6",
+    "iq_noload_ua": "-i(vsupn)*1e6",
+    "vref_v": "v(vref)",
+    "ok_v": "v(bias_ok)"
+  },
+  "checks": {
+    "iq_total_ua": {
+      "max": 1.0,
+      "description": "spec/target-spec.md#por-iq (<1 uA), binding at FF/+125 C/3.63 V. THIS CHECK IS EXPECTED TO FAIL and the failure is the deliverable: it is the spec conflict section 5 assigns to #11, recorded as evidence rather than argued in prose. Note how LENIENT the check is -- por-iq must also cover por_comparator (a measured 146-292 nA of its own, sim/por-comparator-designer-check/) and the whole of por_output_chain (#12, not yet designed), so the real budget available to bias_core is well under 1 uA. Even measured against the full 1 uA as if bias_core were the only consumer of the budget, it does not fit at the hot/fast end of the grid. See design/bias_core.md, 'Iq budget and the por-iq apportionment', for the decomposition and for what a re-cost would have to move."
+    },
+    "iq_core_ua": {
+      "max": 1.0,
+      "description": "The reference core alone -- the DVBE loop, the VREF output leg, the amplifier and its bias, the startup kick and the BIAS_OK logic -- with the IBIAS distribution current excluded by the in-line ammeter. Recorded as its own row because the two shares have different remedies: the core share is set by the branch current the loop can be run at, while the distribution share is set by an interface convention (0.5 uA at the IBIAS pin) that #9 and #10 were each characterised against and that this issue is not entitled to change unilaterally."
+    },
+    "iq_dist_ua": {
+      "min": 0.2,
+      "max": 1.2,
+      "min_spread_pct": 50.0,
+      "description": "The IBIAS distribution share. It is over half of the cell's draw at every corner, which is why design/bias_core.md names it as the first thing a re-cost should look at. min_spread_pct is the harness-integrity check: this current is super-PTAT by construction, so a flat reading across the grid would mean .temp or a .lib section silently failed to apply."
+    },
+    "iq_noload_ua": {
+      "max": 1.0,
+      "description": "The same cell with its IBIAS pin left OPEN -- the counterfactual that isolates how much of the draw is intrinsic to holding a valid VREF and BIAS_OK versus how much is the shared-node distribution convention. Not a physical configuration and not a spec claim; it exists so the re-cost discussion has the number instead of an estimate. (MP4's leg still conducts into the open pin's own capacitance-free node only until it saturates, so this reads close to iq_core_ua rather than to zero.)"
+    },
+    "vref_v": {
+      "min": 1.14,
+      "max": 1.26,
+      "description": "Sanity row only -- the full VREF claim lives in sim/bias-core-designer-check/. Recorded here so a reader can confirm the Iq numbers above were taken with the core actually settled and not in some starved state that would flatter them."
+    },
+    "ok_v": {
+      "min": 2.9,
+      "description": "Same purpose: the Iq numbers are quoted with the core valid and BIAS_OK asserted."
+    }
+  }
+}

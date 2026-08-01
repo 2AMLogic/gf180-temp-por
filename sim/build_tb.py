@@ -36,6 +36,9 @@ FRAGMENTS: dict[str, tuple[str, tuple[str, ...]]] = {
     "temp-core-designer-check": ("tb_temp_core.spice", ("temp_core",)),
     "temp-core-startup": ("tb_temp_core_startup.spice", ("temp_core",)),
     "por-comparator-designer-check": ("tb_por_comparator.spice", ("por_comparator",)),
+    "bias-core-designer-check": ("tb_bias_core.spice", ("bias_core",)),
+    "bias-core-iq": ("tb_bias_core_iq.spice", ("bias_core",)),
+    "bias-core-startup": ("tb_bias_core_startup.spice", ("bias_core",)),
 }
 
 

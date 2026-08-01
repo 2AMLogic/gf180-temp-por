@@ -1,0 +1,92 @@
+* bias-core-designer-check -- stimulus half of the testbench fragment.
+*
+* The other half is a verbatim copy of design/netlist/bias_core.spice,
+* appended by sim/build_tb.py to produce tb_bias_core.spice. Edit THIS file
+* (or the schematic), never the generated fragment.
+*
+* Netlist FRAGMENT: no .include / .lib / .temp / .control / .end -- the
+* harness owns those. Parameters it supplies: vdd_val, vdd_nom, temp_c.
+*
+* IBIAS LOAD CONVENTION. bias_core SOURCES its reference current into the
+* IBIAS pin; every consumer puts a diode-connected nfet on that pin (see
+* design/netlist/temp_core.spice XMBD, 4u/2u, and
+* design/netlist/por_comparator.spice XMBD, 2u/2u). At the top level all
+* three consumers hang off ONE net, so the load here is a verbatim replica
+* of the two designed consumers' diodes in parallel -- not an idealised
+* current sink. por_output_chain (#12) is still a placeholder and therefore
+* contributes no diode yet; design/bias_core.md, "IBIAS fan-out", states what
+* changes when it lands.
+*
+* Every DUT instance drives its own copy of that load, so no branch here can
+* borrow another branch's bias.
+*
+* Five branches:
+*
+*   1. xdut     the cell at this PVT point's rail. The 0 V source vib is an
+*               ammeter in the IBIAS path, so the record can split the cell's
+*               total draw into the distribution share (the current it hands
+*               to its consumers) and the core share (everything else) --
+*               which is exactly the split spec/target-spec.md section 5 asks
+*               #11 to produce.
+*   2. xdead    an ELECTRICALLY IDENTICAL instance whose DC operating point is
+*               seeded, via .nodeset, in the degenerate zero-current state
+*               (mirror gate at VDD, every core node at 0 V, startup detector NK at 0 = 'dead'). If the loop had
+*               a second stable DC solution the solver would settle in it from
+*               that seed, exactly as sim/temp-core-designer-check/ caught for
+*               the temp core's first startup detector. v(vrefd) landing on
+*               the live value is the no-latched-state proof, per PVT point.
+*   3-5. xr14 / xr20 / xr247
+*               identical instances held at three FIXED absolute rails --
+*               1.40 V (below the core's dropout), 2.00 V, and 2.47 V (the
+*               MINIMUM ratified POR release threshold,
+*               spec/target-spec.md#por-vth-rise). These are during-ramp
+*               snapshots taken as DC points: they establish where BIAS_OK is
+*               still low, and that by the earliest rail at which
+*               por_comparator is allowed to release, VREF is already at its
+*               settled value. They deliberately do NOT scale with vdd_val --
+*               a ramp passes through the same absolute voltages whatever the
+*               final rail is.
+*
+* Deterministic corners only: design.ngspice sets sw_stat_mismatch=0, so
+* everything here bounds the systematic/corner term. The random share
+* (PNP Is mismatch, input-pair and mirror Vt mismatch) is issue #15's job.
+
+* ---- 1. the cell at this point's rail -------------------------------------
+vsup vdd 0 dc {vdd_val}
+xdut vdd 0 ibsrc vref bias_ok bias_core
+vib ibsrc ibias dc 0
+xldt ibias ibias 0 0 nfet_03v3 L=2u W=4u nf=1 m=1
+xldc ibias ibias 0 0 nfet_03v3 L=2u W=2u nf=1 m=1
+
+* ---- 2. same cell, DC solve seeded in the dead state -----------------------
+vsupd vddd 0 dc {vdd_val}
+xdead vddd 0 ibsrcd vrefd bias_okd bias_core
+vibd ibsrcd ibiasd dc 0
+xldtd ibiasd ibiasd 0 0 nfet_03v3 L=2u W=4u nf=1 m=1
+xldcd ibiasd ibiasd 0 0 nfet_03v3 L=2u W=2u nf=1 m=1
+
+* ---- 3/4/5. fixed-rail snapshots along the ramp ---------------------------
+vs14 vdd14 0 dc 1.40
+xr14 vdd14 0 ibsrc14 vref14 bias_ok14 bias_core
+vib14 ibsrc14 ibias14 dc 0
+xldt14 ibias14 ibias14 0 0 nfet_03v3 L=2u W=4u nf=1 m=1
+xldc14 ibias14 ibias14 0 0 nfet_03v3 L=2u W=2u nf=1 m=1
+
+vs20 vdd20 0 dc 2.00
+xr20 vdd20 0 ibsrc20 vref20 bias_ok20 bias_core
+vib20 ibsrc20 ibias20 dc 0
+xldt20 ibias20 ibias20 0 0 nfet_03v3 L=2u W=4u nf=1 m=1
+xldc20 ibias20 ibias20 0 0 nfet_03v3 L=2u W=2u nf=1 m=1
+
+vs247 vdd247 0 dc 2.47
+xr247 vdd247 0 ibsrc247 vref247 bias_ok247 bias_core
+vib247 ibsrc247 ibias247 dc 0
+xldt247 ibias247 ibias247 0 0 nfet_03v3 L=2u W=4u nf=1 m=1
+xldc247 ibias247 ibias247 0 0 nfet_03v3 L=2u W=2u nf=1 m=1
+
+* ---- dead-state seed for branch 2 -----------------------------------------
+* Only xdead's nodes are seeded; every other instance keeps the solver's own
+* default guess, so branch 1's answer is not influenced by this.
+.nodeset v(xdead.pg)={vdd_val} v(xdead.nt)={vdd_val} v(xdead.na)=0 v(xdead.nb)=0
++ v(xdead.nc)=0 v(xdead.nre)=0 v(vrefd)=0 v(xdead.n1)=0 v(xdead.n2)=0
++ v(xdead.nk)=0 v(xdead.nkb)={vdd_val} v(xdead.pb)={vdd_val}

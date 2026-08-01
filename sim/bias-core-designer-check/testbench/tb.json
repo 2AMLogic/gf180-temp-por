@@ -1,0 +1,91 @@
+{
+  "name": "bias-core-designer-check",
+  "description": "Designer-level PVT check of design/bias_core.sch: settled VREF over the full grid, the current bias_core sources into the shared IBIAS node, amplifier systematic offset, startup-kick idle state, an explicit no-latched-dead-state DC proof, and three fixed-rail snapshots that place BIAS_OK and VREF validity relative to the ratified POR release threshold.",
+  "claim": "spec/target-spec.md#por-vth-rise (the VREF-referred share of the ratified +/-5 % threshold window, which sim/por-comparator-designer-check/ measured to be essentially the whole window -- por_comparator's own vref_gain_frac is 1.00 by topology and that cell spends only +/-0.15 % of the window itself), plus DR-005 startup-ordering steps 3 and 4 (the shared core's own startup kick out of the degenerate zero-current state, and the BIAS_OK flag the comparator's release decision is gated on). Designer-level deterministic-corner evidence: design.ngspice sets sw_stat_mismatch=0, so this bounds the SYSTEMATIC/corner term only -- the [3sigma] mismatch share por-vth-rise carries is issue #15's Monte Carlo job. The por-iq quiescent-current claim is deliberately NOT made here: it has its own experiment, sim/bias-core-iq/, because it does not pass and isolating it keeps the failure unambiguous. Full ramp-rate/brownout evidence is #14's job; the cold-start and brownout transients live in sim/bias-core-startup/.",
+  "netlist": "tb_bias_core.spice",
+  "nominal_supply_v": 3.3,
+  "supply_tolerance": 0.1,
+  "temperatures_c": [
+    -40,
+    27,
+    125
+  ],
+  "corners": [
+    "full"
+  ],
+  "options": [
+    "reltol=1e-5",
+    "abstol=1e-15",
+    "vntol=1e-9"
+  ],
+  "analyses": [
+    "op"
+  ],
+  "measure": {
+    "vref_v": "v(vref)",
+    "vref_dead_v": "v(vrefd)",
+    "ibias_na": "i(vib)*1e9",
+    "iq_total_ua": "-i(vsup)*1e6",
+    "iq_core_ua": "(-i(vsup)-i(vib))*1e6",
+    "ok_v": "v(bias_ok)",
+    "amp_offset_uv": "(v(xdut.na)-v(xdut.nb))*1e6",
+    "pg_headroom_v": "v(vdd)-v(xdut.pg)",
+    "ok_1v4_mv": "v(bias_ok14)*1e3",
+    "ok_2v0_v": "v(bias_ok20)",
+    "ok_2v47_v": "v(bias_ok247)",
+    "vref_1v4_v": "v(vref14)",
+    "vref_err_2v0_pct": "(v(vref20)-v(vref))/v(vref)*100",
+    "vref_err_2v47_pct": "(v(vref247)-v(vref))/v(vref)*100",
+    "nk_frac": "v(xdut.nk)/v(vdd)"
+  },
+  "checks": {
+    "vref_v": {
+      "min": 1.14,
+      "max": 1.26,
+      "max_spread_pct": 3.0,
+      "description": "Settled VREF. The min/max window is the ratified +/-5 % of spec/target-spec.md#por-vth-rise referred back to the reference, about the 1.1997 V nominal this cell sets at tt/27 C/3.30 V -- por_comparator's threshold is VREF times a same-flavour resistor ratio, and sim/por-comparator-designer-check/ MEASURED that sensitivity as 1.00 fractional, so a fractional VREF error is a fractional threshold error one-for-one. max_spread_pct is the tighter design-intent bound: the R3/R1 ratio is a same-flavour ppolyf_u_3k ratio, so the +/-25 % sheet corner and the -1545 ppm/C tempco must cancel rather than multiply through, and 3 % is a generous ceiling on what is left."
+    },
+    "vref_dead_v": {
+      "min": 1.14,
+      "max": 1.26,
+      "description": "THE no-latched-state check, and the load-bearing one for DR-005 startup step 3. This is an electrically identical instance whose DC solve is seeded (.nodeset) in the degenerate zero-current state: mirror gate at VDD, every core node at 0 V. A DVBE loop has that solution as well as its intended one; if it were stable at this corner the solver would stay in it and this reads ~0 V, not ~1.20 V. sim/temp-core-designer-check/ caught exactly that failure for the temp core's first (level-referenced) startup detector at three corners, which is why the check is written as a seeded DC solve rather than as a transient that always starts from 0 V and therefore never visits the dead state."
+    },
+    "ibias_na": {
+      "min": 200.0,
+      "max": 1200.0,
+      "min_spread_pct": 50.0,
+      "description": "Current sourced OUT of the IBIAS pin into the consumer-diode replica load. Design intent is 0.5 uA at tt/27 C/3.30 V -- the value temp_core (design/temp_core.md) and por_comparator (design/por_comparator.md) were each characterised against at their own pin. It is deliberately super-PTAT: I = DVBE/R1 with R1 a -1545 ppm/C ppolyf_u_3k, so it roughly doubles from ss/-40 C to ff/+125 C, and the min/max window is that range plus margin. min_spread_pct is a harness-integrity check in the sense sim/harness/README.md describes: a reference current that did NOT move across this grid would mean .temp or a .lib section silently failed to apply."
+    },
+    "ok_v": {
+      "min": 2.9,
+      "description": "BIAS_OK in the settled state, at every point of the grid. The lowest rail on the grid is 2.97 V, so this asserts the flag is a hard rail-referenced HIGH (por_comparator consumes it as a logic enable) and not a partially-resolved analog level."
+    },
+    "amp_offset_uv": {
+      "min": -50.0,
+      "max": 50.0,
+      "description": "Systematic input offset of the error amplifier, V(NA)-V(NB). It matters disproportionately: the loop sets I = (DVBE + Vos)/R1, so 1 mV of offset is a 1.9 % branch-current error and therefore a ~1.2 % VREF error -- a quarter of the whole ratified threshold window. XMS2N is sized as a current-density copy of XML1 so the offset is structurally near zero rather than a residual; this check is what proves that held at every corner."
+    },
+    "ok_1v4_mv": {
+      "max": 300.0,
+      "description": "BIAS_OK with the rail held at a fixed 1.40 V -- below the core's own dropout, where VREF has not arrived. It must be a solid NOT-VALID. This is the check that a false-early BIAS_OK cannot let por_comparator's threshold decision go authoritative against a reference that is still coming up: with BIAS_OK high and VREF at, say, 0.5 V, the comparator's threshold would scale down with it and POR would release at roughly half the intended rail."
+    },
+    "ok_2v47_v": {
+      "min": 2.2,
+      "description": "BIAS_OK with the rail held at a fixed 2.47 V -- the MINIMUM of the ratified release threshold spec/target-spec.md#por-vth-rise. BIAS_OK must already be asserted by the earliest rail at which por_comparator is permitted to release, or the flag would gate out a release the comparator is entitled to make (DR-005 startup step 4/5)."
+    },
+    "vref_err_2v47_pct": {
+      "min": -1.0,
+      "max": 1.0,
+      "description": "VREF at a fixed 2.47 V rail against VREF at this point's own rail. Together with the row above this is the real 'the reference is valid before POR can release' statement: not merely that the flag is high, but that the reference the flag vouches for is already within 1 % of its settled value at the lowest rail where a release is allowed."
+    },
+    "vref_err_2v0_pct": {
+      "min": -2.0,
+      "max": 2.0,
+      "description": "The same comparison at a fixed 2.00 V rail, i.e. 470 mV below the earliest legal release. Recorded so the margin between 'the core is settled' and 'POR may release' is a measured number for #14's ramp-rate testbench rather than an assumption."
+    },
+    "nk_frac": {
+      "min": 0.9,
+      "description": "The startup detector's node in the settled state, as a fraction of the rail. NK is designed to be a genuine rail-to-rail node -- the replica leg outruns the degenerated native pull-down by more than an order of magnitude once the loop carries its full current -- so NK near VDD is the statement that the kick device XMSU3 sees VGS = 0 and is fully off, i.e. the startup circuit contributes nothing to the operating point."
+    }
+  }
+}

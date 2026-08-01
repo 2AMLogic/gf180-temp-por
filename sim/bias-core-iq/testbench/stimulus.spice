@@ -1,0 +1,52 @@
+* bias-core-iq -- stimulus half of the testbench fragment.
+*
+* The other half is a verbatim copy of design/netlist/bias_core.spice,
+* appended by sim/build_tb.py to produce tb_bias_core_iq.spice. Edit THIS
+* file (or the schematic), never the generated fragment.
+*
+* Netlist FRAGMENT: no .include / .lib / .temp / .control / .end -- the
+* harness owns those. Parameters it supplies: vdd_val, vdd_nom, temp_c.
+*
+* WHY THIS IS A SEPARATE EXPERIMENT. It is the one claim in this cell that
+* does NOT pass, and spec/target-spec.md section 5 names #11 as the owner of
+* exactly that risk ("Known accounting risk -- owned by #11"). Isolating it
+* means the failure is unambiguous in the evidence trail instead of being
+* one red row inside an otherwise-green record.
+*
+* WHAT IS BEING MEASURED, and why it is all charged to por-iq.
+* spec/target-spec.md section 5 rule 1 quotes por-iq with RESETn asserted and
+* the temperature sensor disabled, and includes "whatever part of the shared
+* bias/reference core has to be live for the comparator's decision to be
+* valid". bias_core has NO enable pin -- the ratified port list is
+* (VDD, VSS, IBIAS, VREF, BIAS_OK) and this issue does not change it -- so
+* there is no state in which any branch of this cell is off. Every branch is
+* live before POR releases, and under rule 1 the whole cell lands in por-iq.
+* That is not a modelling choice made here; it falls out of the interface.
+*
+* Two branches, so the number is reported split rather than as one lump:
+*
+*   1. xdut   the cell driving the SAME consumer-diode replica load
+*             sim/bias-core-designer-check/ uses (temp_core's XMBD 4u/2u and
+*             por_comparator's XMBD 2u/2u in parallel -- verbatim from the
+*             exported netlists). vib is an ammeter in the IBIAS path, so
+*             iq_dist_ua is the distribution share (current handed to the
+*             consumers) and iq_core_ua is everything else -- the reference
+*             loop, the amplifier, the startup kick and the BIAS_OK logic.
+*   2. xnl    the same cell with its IBIAS pin OPEN. This is not a physical
+*             configuration; it is the counterfactual that says how much of
+*             the cell's draw would survive if the shared-node distribution
+*             convention were re-costed, which is precisely the input the
+*             re-cost conversation needs.
+*
+* Deterministic corners only (design.ngspice sets sw_stat_mismatch=0).
+
+* ---- 1. loaded cell: total, split into core and distribution shares -------
+vsup vdd 0 dc {vdd_val}
+xdut vdd 0 ibsrc vref bias_ok bias_core
+vib ibsrc ibias dc 0
+xldt ibias ibias 0 0 nfet_03v3 L=2u W=4u nf=1 m=1
+xldc ibias ibias 0 0 nfet_03v3 L=2u W=2u nf=1 m=1
+
+* ---- 2. same cell with IBIAS open: the no-distribution counterfactual -----
+vsupn vddn 0 dc {vdd_val}
+xnl vddn 0 ibopen vrefn bias_okn bias_core
