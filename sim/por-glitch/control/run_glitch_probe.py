@@ -269,15 +269,16 @@ def main() -> int:
             "point's does not -- record 20260801-233813-32fbaa0's 'recovers' vs. "
             "'stuck' split is that window effect, not two different circuit "
             "behaviours.",
-            "The crossing count is 3, not 2, at both points: the release edge itself "
-            "carries a brief extra rise/fall/rise (tens of us) on top of the main "
-            "transition. That is NOT a second mechanism -- it is the SAME release-edge "
-            "chatter sim/por-ramp-rate/control/ finds and root-causes (a marginal "
-            "transition inside por_output_chain's own trip detector / release-NAND / "
-            "XMAST keeper loop, temperature-dependent, independent of what charged "
-            "TIM). It shows up here because a glitch-regenerated pulse still ends with "
-            "TIM crossing the same trip detector the same way a cold-start or ramp "
-            "release does.",
+            "The crossing count is the read-out for issue #56's OTHER finding. Before "
+            "XMRLK (the release latch DR-016 adds) it was 3, not 2, at both points: "
+            "the regenerated pulse's own release edge carried the same shared-IBIAS "
+            "release chatter sim/por-ramp-rate/control/ root-causes, because a "
+            "glitch-regenerated pulse ends by crossing the same trip detector a "
+            "cold-start release does. With XMRLK it is 1 -- a single clean release "
+            "rise; the pulse's falling edge happens during the glitch itself, before "
+            "this window opens -- so this deck doubles as an independent confirmation "
+            "that the latch fixes the chatter on a release path the ramp-rate "
+            "testbench never exercises.",
         )
     ]
 

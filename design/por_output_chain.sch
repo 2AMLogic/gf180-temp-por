@@ -346,6 +346,22 @@ nf=1
 m=1
 model=pfet_03v3
 spiceprefix=X}
+N -20 750 -20 710 {}
+C {devices/lab_pin.sym} -20 710 0 0 {name=l113 lab=ND1}
+N -60 780 -120 780 {}
+C {devices/lab_pin.sym} -120 780 0 0 {name=l114 lab=RESETn}
+N -20 810 -20 850 {}
+C {devices/lab_pin.sym} -20 850 0 0 {name=l115 lab=VSS}
+N -20 780 30 780 {}
+C {devices/lab_pin.sym} 30 780 0 0 {name=l116 lab=VSS}
+C {symbols/nfet_03v3.sym} -40 780 0 0 {name=MRLK
+L=1u
+W=1u
+nf=1
+m=1
+model=nfet_03v3
+spiceprefix=X}
+T {XMRLK  --  RELEASE LATCH (issue #56).  Without it, this detector's decision is not final:\nND1's balance point is a function of the NDL/PDN starve bias, which is a function of the\nSHARED IBIAS node -- and RESETn's own release enables temp_core, adding a mirror diode to\nthat shared node and stepping IBIAS down by ~34 mV. That step weakens XMDANT ~2x, ND1's\nbalance point drifts back up, XMDBNI re-conducts, TRIP collapses and RESETn re-asserts --\nwhich disables temp_core again, restores IBIAS, and starts the cycle over. A relaxation\noscillation whose loop leaves this cell entirely (measured: 2-6 extra RESETn edges over a\n20-110 us window at 61/81 PVT points, at all four ratified ramp rates).\n\nXMRLK closes the release the same way XMAST closes the assert: once RESETn is high, ND1 is\nheld at VSS, so TRIP stays high and the release is one-way regardless of where the nA\nbalance drifts afterwards. It costs no static current (it sinks the same XMDAPI subthreshold\nleg XMDANT was sinking) and cannot latch prematurely, because RSTB = NAND(TRIP, PGDG) --\nPGDG low forces RSTB high and RESETn low no matter what TRIP does, so the latch can only\narm after the deglitched rail is already good. Re-arming after a brownout is unaffected:\nPGDG falls -> RESETn falls -> XMRLK opens before ND1 has to move.\n\nSizing: 1u/1u, the same device as XMDBNI. It only has to beat XMDAPI's subthreshold leg at\nthe released operating point (TIM parked at ~VDD-0.58 V), a few hundred pA -- three decades\nof margin. Evidence: sim/por-ramp-rate/control/, sim/por-ramp-rate/records/, DR-016.} -1400 830 0 0 0.3 0.3 {}
 T {OUTPUT  --  release NAND + startup-assist keeper + push-pull driver.} -1400 920 0 0 0.4 0.4 {}
 T {RESETn releases only when the timer has expired (TRIP) AND the deglitched rail is good (PGDG),\nso this cell -- not por_comparator -- owns the final gate (DR-005). A NAND, not a NOR, because\nthe below-floor assist depends on which way its leakage divider falls: a NAND's pull-up is two\nPARALLEL PMOS against a SERIES NMOS stack, so with both inputs at their dead-circuit default\n(low) RSTB is pinned to VDD by a divider that is ~30-80x in the PMOS's favour once the stack's\nown Ioff reduction is counted. RSTB = VDD turns XMON fully on and holds XMOP fully off, which\nIS the startup-assist pull-down of DR-004/DR-005 -- and it is not gated by POR_RAW.\n\nXMAST closes the loop: with RESETn low it latches RSTB high independently of TRIP/PGDG, so the\nassist survives even if the comparator drives POR_RAW high below its own floor. It is 0.5u/10u\nagainst a 2u/0.5u NAND stack (~40x), so the release still wins, and it draws nothing in either\nsettled state (RESETn high -> Vgs = 0).\n\nXMON/XMOP are 20:1 in W/L, not 1:1. The pull-up only has to move the 5 pF measurement load, but\nthe valid-low floor is a LEAKAGE-DIVIDER limit as VDD -> 0 (por-reset-valid-floor asks for\nV(RESETn) <= 0.1*VDD at every VDD, and the on/off ratio of a MOSFET vanishes as VDD -> 0), so\ngeometry has to supply the >=10x that biasing no longer can.} -1400 950 0 0 0.3 0.3 {}
 N -980 1010 -980 970 {}

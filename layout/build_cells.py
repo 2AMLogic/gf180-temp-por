@@ -746,9 +746,12 @@ POR_OUTPUT_CHAIN_NMOS = (
     "XMG1N",
     "XMG2N",
     "XMDIS",
-    # trip detector
+    # trip detector, then the release latch that holds its stage-A node down
+    # once RESETn is high (issue #56 / DR-016) -- adjacent to XMDBNI, whose
+    # gate it shares a net with (ND1) and whose geometry it duplicates.
     "XMDANT",
     "XMDBNI",
+    "XMRLK",
     # release-NAND series pull-down stack (matched pair -- adjacent, same
     # orientation, identical drawn geometry)
     "XMNAN1",
@@ -833,14 +836,16 @@ POC_MIM_ARRAYS = {"XCTIM": (2, 2), "XCDG": (1, 1)}
 
 
 def por_output_chain(b: CellBuilder) -> None:
-    """All of ``por_output_chain`` (``design/por_output_chain.sch``) -- the 27
+    """All of ``por_output_chain`` (``design/por_output_chain.sch``) -- the 28
     MOS devices and, since #92, both MiM caps.
 
-    **What is drawn, and what is still not proven.** The cell has 29 devices:
-    27 single-finger MOS (14 pfet, 13 nfet) and 2 MiM caps (``XCDG`` 11x11 um,
-    ``XCTIM`` 4 x 28x28 um). All 29 are drawn and all 29 are extracted and
-    compared -- 32 extracted devices, because ``XCTIM``'s ``m=4`` draws as four
-    units and the deck models no multiplier.
+    **What is drawn, and what is still not proven.** The cell has 30 devices:
+    28 single-finger MOS (14 pfet, 14 nfet) and 2 MiM caps (``XCDG`` 11x11 um,
+    ``XCTIM`` 4 x 28x28 um). All 30 are drawn and all 30 are extracted and
+    compared -- 33 extracted devices, because ``XCTIM``'s ``m=4`` draws as four
+    units and the deck models no multiplier. The 28th MOS, ``XMRLK``, is the
+    release latch issue #56 added (DR-016); it is placed beside ``XMDBNI``,
+    whose gate net (``ND1``) and drawn geometry it shares.
 
     The caps were reserved floor area until #92: ``klt``'s curated ``gf180mcu``
     deck used to recognise ``nfet``/``pfet`` only (klayout-tools#219), so drawn
@@ -909,7 +914,7 @@ def por_output_chain(b: CellBuilder) -> None:
     redrawing a proven cell to use a capability it does not need is a
     regression risk for no gain. The MiM block's ``Metal4`` is the cell's only
     geometry above Metal1, and it is device geometry, not routing. The scheme
-    that makes 27 devices routable on one metal is ``bias_core``'s: **horizontal
+    that makes 28 devices routable on one metal is ``bias_core``'s: **horizontal
     Poly2 tracks, one per signal net, with vertical Metal1 risers**, so a riser
     crosses every track it does not belong to with no contact.
 

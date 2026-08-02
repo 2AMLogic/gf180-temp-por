@@ -1,0 +1,84 @@
+* por-glitch / depth-and-duration sweep control -- stimulus half of the deck.
+*
+* The other half is design/netlist/temp_por_top.spice, included by
+* run_depth_sweep.py to produce the composed decks under decks/. Edit THIS
+* file (or the schematic), never a composed deck.
+*
+* Netlist FRAGMENT: no .include / .lib / .temp / .options / .control / .end --
+* run_depth_sweep.py owns those. Parameters it supplies, all in SECONDS or
+* VOLTS (ngspice's `{expr}unit` PWL syntax does not tolerate a `{param}m`
+* split token):
+*
+*   vdd_val    the settled rail
+*   glitch_v   the rail's floor during the glitch (the DEPTH axis)
+*   t_fall     when the rail reaches glitch_v
+*   t_hold     when the rail starts recovering
+*   t_rise     when the rail is back at vdd_val
+*   stop_s     the run's stop time
+*
+* ---------------------------------------------------------------------------
+* WHAT THIS DECK IS FOR
+*
+* Issue #56's third acceptance question: is "full depth" (0.2 V) the right
+* representative glitch depth for the por-glitch check, given that
+* sim/por-glitch/records/20260801-233813-32fbaa0.md is 0/81 PASS at that
+* depth and DR-014 root-causes the failure to a mechanism -- PGDG is produced
+* by plain VDD-referenced inverters, so a VDD collapse drags it down with no
+* RC lag and fires the one-shot's reset transistor XMDIS -- that has NO
+* dependence on the deglitch dwell the 300 ns duration was chosen against.
+*
+* DR-014 asserted that the dwell provides "zero protection against a
+* disturbance on VDD itself, of any depth or duration". That is a strong
+* claim and it was made from two points at one depth and one duration. This
+* deck MEASURES it, on two axes, one variable per run:
+*
+*   DEPTH     glitch_v swept from 0.2 V (the testbench's own choice) up
+*             toward the rail, at the testbench's own 300 ns total duration.
+*             The question this answers: at what rail floor does the block
+*             stop regenerating a pulse? If there is a clean floor well above
+*             0.2 V, "full depth" is a choice with a defensible alternative;
+*             if the response is flat all the way up to the rail, it is not.
+*
+*   DURATION  the 0.2 V floor held for anywhere from a few tens of ns to tens
+*             of us, spanning BOTH sides of por_output_chain's characterized
+*             deglitch dwell (1.86-8.88 us, cell level). The question this
+*             answers: is the response really duration-independent, i.e. is
+*             the dwell genuinely not in the path at all?
+*
+* Re-run with:
+*
+*   python3 sim/por-glitch/control/run_depth_sweep.py
+*
+* It is NOT a recorded PVT result and does not live under records/: this is a
+* two-axis sweep at two PVT points, characterising a mechanism, not the
+* corner-grid evidence for the por-glitch claim itself, which remains
+* sim/por-glitch/records/. See sim/README.md, "Control experiments".
+*
+* PAD LOAD / TIMESTEP notes: identical rationale to
+* ../testbench/stimulus.spice -- 1 pF + 1 Tohm DC leak on PTAT/CTAT (so
+* ngspice's local truncation error control does not chase a floating
+* capacitive node while temp_core is disabled), 5 pF on RESETn.
+*
+* TIMELINE: cold start (0 -> 1 ms), settle (1 -> 20 ms, RESETn released),
+* glitch (from 20 ms: fall to glitch_v, hold, recover), then held at vdd_val
+* to stop_s. stop_s is chosen by run_depth_sweep.py to be long enough that a
+* regenerated reset pulse -- >=1 ms ratified, 4.2-17.0 ms measured -- is
+* unmistakable in the post-glitch window even when it has not finished.
+
+vsup vdd 0 PWL(
++ 0          0
++ 1m         {vdd_val}
++ 20m        {vdd_val}
++ {t_fall}   {glitch_v}
++ {t_hold}   {glitch_v}
++ {t_rise}   {vdd_val}
++ {stop_s}   {vdd_val}
++ )
+
+Cpp ptat 0 1p
+Cpc ctat 0 1p
+Rlp ptat 0 1T
+Rlc ctat 0 1T
+Crn resetn 0 5p
+
+xdut vdd 0 ptat ctat resetn temp_por_top

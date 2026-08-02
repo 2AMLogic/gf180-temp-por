@@ -531,7 +531,7 @@ CELLS = {
     "por_output_chain": {
         "source": "por_output_chain.spice",
         "subckt": "por_output_chain",
-        # Every MOS device in design/por_output_chain.sch -- 14 pfet + 13 nfet.
+        # Every MOS device in design/por_output_chain.sch -- 14 pfet + 14 nfet.
         # The cell's other 2 devices are the MiM caps XCDG/XCTIM, now drawn and
         # compared as well -- see this manifest's own `caps` field below.
         "devices": [
@@ -550,6 +550,8 @@ CELLS = {
             "XMDIS",
             "XMDANT",
             "XMDBNI",
+            # XMRLK -- the issue #56 / DR-016 release latch on ND1.
+            "XMRLK",
             "XMNAN1",
             "XMNAN2",
             "XMON",

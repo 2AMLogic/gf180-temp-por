@@ -8,7 +8,7 @@ interactive KLayout session, no netgen/magic.
 > see it.**
 > #16 brought the flow up on one two-device proof cell. #68 added `bias_core`
 > (**34** MOS devices), #69 `por_comparator` (**18**), #70 `por_output_chain`
-> (**27**) and #71 `temp_core` (**55** drawn: 39 schematic MOS split into
+> (**28** after issue #56's release latch) and #71 `temp_core` (**55** drawn: 39 schematic MOS split into
 > interleaved fingers, plus 6 edge dummies). #72 assembles all four into
 > **`temp_por_top`** — with the domain-seam moat, the perimeter guard ring and
 > the `VDD`/`VSS` rails. #92 then drew `por_output_chain`'s **2 MiM caps** (5
@@ -363,13 +363,16 @@ Recorded result (`layout/reports/por_comparator/`):
 
 ### `por_output_chain` — the reset output chain (#70, MiM caps added by #92)
 
-`design/por_output_chain.sch`'s 27 MOS devices **and both of its MiM caps**,
-drawn from `design/netlist/por_output_chain.spice`. 221.7 × 105.9 µm, 1473
-polygons.
+`design/por_output_chain.sch`'s 28 MOS devices **and both of its MiM caps**,
+drawn from `design/netlist/por_output_chain.spice`. 225.3 × 105.9 µm, 1493
+polygons. The 28th MOS, `XMRLK`, is the release latch issue #56 added
+([DR-016](../spec/decision-records/DR-016-por-ramp-rate-chatter-release-latch.md));
+it is placed beside `XMDBNI`, whose gate net (`ND1`) and drawn geometry it
+shares.
 
-**What a clean run here covers, and what it does not.** The cell has 29
-schematic devices and all 29 are drawn: 27 MOS (14 pfet, 13 nfet), plus `XCDG`
-(11 × 11 µm) and `XCTIM` (4 × 28 × 28 µm). The extraction sees **32** devices,
+**What a clean run here covers, and what it does not.** The cell has 30
+schematic devices and all 30 are drawn: 28 MOS (14 pfet, 14 nfet), plus `XCDG`
+(11 × 11 µm) and `XCTIM` (4 × 28 × 28 µm). The extraction sees **33** devices,
 because `XCTIM`'s `m=4` draws as four units and the curated deck models no
 multiplier — the same treatment `temp_core`'s multi-finger MOS get.
 
@@ -378,7 +381,7 @@ class. What each half of the compare now answers for:
 
 | Device | Drawn as | What LVS proves | What it does not |
 | --- | --- | --- | --- |
-| 27 MOS | Comp/Poly2/Contact/Metal1 | count, sizing, signal-net topology | body ties (see below) |
+| 28 MOS | Comp/Poly2/Contact/Metal1 | count, sizing, signal-net topology | body ties (see below) |
 | 5 MiM units | `FuseTop` + `CAP_MK` + `MIM_L_MK` over `Metal4` | count, **plate area → capacitance** (242 fF and 4 × 1.568 pF, from the golden `c_width`/`c_length`) | what either plate is connected to |
 
 The connectivity gap is the deck's, not the drawing's: `klt` registers a
@@ -499,8 +502,8 @@ Recorded result (`layout/reports/por_output_chain/`):
 | Check | Result |
 | ----- | ------ |
 | `klt drc --deck gf180mcu` | clean — 0 violations (`mim.space.1` / `mim.enclosing.fusetop.1` now exercised) |
-| `klt extract --deck gf180mcu` | 32 devices (13 nfet, 14 pfet, 5 `cap_mim_2f0_m4m5_noshield`), 30 nets, 6 pins |
-| `klt lvs` | **match** — 32/32 devices, 30/30 nets, 6/6 pins, 0 errors (13 warnings: 2 `device.body_unverified`, 11 ambiguous-pairing `topology`) |
+| `klt extract --deck gf180mcu` | 33 devices (14 nfet, 14 pfet, 5 `cap_mim_2f0_m4m5_noshield`), 30 nets, 6 pins |
+| `klt lvs` | **match** — 33/33 devices, 30/30 nets, 6/6 pins, 0 errors (13 warnings: 2 `device.body_unverified`, 11 ambiguous-pairing `topology`) |
 | negative control `topology` | detected (exit 3; `device.unmatched` 1, `topology` 12) |
 | negative control `device-param` | detected (exit 3; `device.property` 5, `topology` 12) |
 
@@ -711,7 +714,7 @@ them — 5 `cap_mim_2f0_m4m5_noshield` units, with the same
 isolated-plate-net caveat that cell's section records), and `temp_core`'s own
 PNP array and `R2` gain ladder (#93 folded them in — 9 `bjt` + 50 `ppolyf_u`
 real devices, retiring the sibling top cells that used to hold them outside
-this compare entirely). So the 198 devices below are the MOS subset **plus one
+this compare entirely). So the 199 devices below are the MOS subset **plus one
 cell's MiM caps plus one cell's resistors and bipolars** — not yet
 `por_comparator`'s 3 divider resistors.
 
@@ -720,8 +723,8 @@ Recorded result (`layout/reports/temp_por_top/`):
 | Check | Result |
 | ----- | ------ |
 | `klt drc --deck gf180mcu` | clean — 0 violations (Metal2/Metal3 rules now exercised, not skipped; `mim.*` too since #92) |
-| `klt extract --deck gf180mcu --top-cell-pins` | 198 devices (70 nfet, 64 pfet, 50 `ppolyf_u`, 9 `bjt`, 5 `cap_mim_2f0_m4m5_noshield`), 131 nets, 6 pins |
-| `klt lvs` | **match** — 198/198 devices, 131/131 nets, 6/6 pins, 0 errors (2 `device.body_unverified` warnings) |
+| `klt extract --deck gf180mcu --top-cell-pins` | 199 devices (71 nfet, 64 pfet, 50 `ppolyf_u`, 9 `bjt`, 5 `cap_mim_2f0_m4m5_noshield`), 131 nets, 6 pins |
+| `klt lvs` | **match** — 199/199 devices, 131/131 nets, 6/6 pins, 0 errors (2 `device.body_unverified` warnings) |
 | negative control `topology` | detected (exit 3; `device.unmatched` 1, `topology` 12) |
 | negative control `device-param` | detected (exit 3; `device.property` 5, `topology` 12) |
 | negative control `passive-param` | detected (exit 3; `device.property` 11, `topology` 15) |
