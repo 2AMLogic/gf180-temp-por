@@ -17,9 +17,9 @@
       "matched": 18
     },
     "devices": {
-      "layout": 18,
-      "reference": 18,
-      "matched": 18
+      "layout": 21,
+      "reference": 21,
+      "matched": 21
     },
     "pins": {
       "layout": 8,
@@ -37,8 +37,8 @@
   "environment": {
     "engine": "klayout",
     "engine_version": "0.30.10",
-    "layout_sha256": "fbd8b47ead55fe618ca7ae35a08ba14e6e832075015705659a77ee60bd2d99f8",
-    "reference_sha256": "8195604df4c91877225509724512604380c3d249a1f7f4c44096093daf8b6a01",
+    "layout_sha256": "514f8c4a7b1604c448dd09e88137e9682b58e84645d7eef14a343223480e8238",
+    "reference_sha256": "bee586ec94d52cbc98ec0f48dfb0a3187f7e0df6e3b1d881c281639ded85c305",
     "extracted_netlist": null
   },
   "provenance": {

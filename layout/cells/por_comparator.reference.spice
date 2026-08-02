@@ -20,4 +20,7 @@ M15 SNSB N1 VSS vsubs nfet L=0.5U W=10U
 M16 CMPO BIAS_OKB VSS vsubs nfet L=1U W=2U
 M17 N1 CMPO VSS vsubs nfet L=0.5U W=1U
 M18 POR_RAW N1 VSS vsubs nfet L=0.5U W=1U
+R19 SNS VDD vsubs 3948720 ppolyf_u_1k
+R20 SNSB SNS vsubs 3384615 ppolyf_u_1k
+R21 VSS SNSB vsubs 387500 ppolyf_u_1k
 .ENDS por_comparator

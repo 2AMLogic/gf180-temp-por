@@ -35,15 +35,21 @@ M$11 \$5 BIAS_OKB VSS vsubs nfet L=1U W=2U AS=1.6P AD=1.6P PS=5.6U PD=5.6U
 * device instance $12 r0 *1 55.75,5 nfet
 M$12 \$14 \$7 VSS vsubs nfet L=0.5U W=10U AS=8P AD=8P PS=21.6U PD=21.6U
 * device instance $13 r0 *1 11.35,1 pfet
-M$13 \$7 \$5 VDD \$17 pfet L=0.5U W=2U AS=1.6P AD=1.6P PS=5.6U PD=5.6U
+M$13 \$7 \$5 VDD \$16 pfet L=0.5U W=2U AS=1.6P AD=1.6P PS=5.6U PD=5.6U
 * device instance $14 r0 *1 14.45,1 pfet
-M$14 POR_RAW \$7 VDD \$17 pfet L=0.5U W=2U AS=1.6P AD=1.6P PS=5.6U PD=5.6U
+M$14 POR_RAW \$7 VDD \$16 pfet L=0.5U W=2U AS=1.6P AD=1.6P PS=5.6U PD=5.6U
 * device instance $15 r0 *1 1.3,2 pfet
-M$15 \$4 \$4 \$3 \$17 pfet L=1U W=4U AS=3.2P AD=3.2P PS=9.6U PD=9.6U
+M$15 \$4 \$4 \$3 \$16 pfet L=1U W=4U AS=3.2P AD=3.2P PS=9.6U PD=9.6U
 * device instance $16 r0 *1 4.9,2 pfet
-M$16 \$5 \$4 \$3 \$17 pfet L=1U W=4U AS=3.2P AD=3.2P PS=9.6U PD=9.6U
+M$16 \$5 \$4 \$3 \$16 pfet L=1U W=4U AS=3.2P AD=3.2P PS=9.6U PD=9.6U
 * device instance $17 r0 *1 8.25,2 pfet
-M$17 \$3 BIAS_OKB VDD \$17 pfet L=0.5U W=4U AS=3.2P AD=3.2P PS=9.6U PD=9.6U
+M$17 \$3 BIAS_OKB VDD \$16 pfet L=0.5U W=4U AS=3.2P AD=3.2P PS=9.6U PD=9.6U
 * device instance $18 r0 *1 73.35,4 pfet
-M$18 BIAS_OKB BIAS_OK VDD \$16 pfet L=0.5U W=2U AS=1P AD=1.6P PS=5U PD=5.6U
+M$18 BIAS_OKB BIAS_OK VDD \$17 pfet L=0.5U W=2U AS=1P AD=1.6P PS=5U PD=5.6U
+* device instance $19 r0 *1 157,73.451 ppolyf_u_1k
+R$19 \$10 VDD vsubs 3948720 ppolyf_u_1k
+* device instance $20 r0 *1 309,68.04 ppolyf_u_1k
+R$20 \$14 \$10 vsubs 3384615 ppolyf_u_1k
+* device instance $21 r0 *1 410,18.87 ppolyf_u_1k
+R$21 VSS \$14 vsubs 387500 ppolyf_u_1k
 .ENDS por_comparator
