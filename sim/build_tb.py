@@ -54,6 +54,7 @@ FRAGMENTS: dict[str, tuple[str, tuple[str, ...]]] = {
     "por-vth": ("tb_por_vth.spice", ("temp_por_top",)),
     "por-ramp-rate": ("tb_por_ramp_rate.spice", ("temp_por_top",)),
     "por-brownout": ("tb_por_brownout.spice", ("temp_por_top",)),
+    "por-brownout-spurious": ("tb_por_brownout_spurious.spice", ("temp_por_top",)),
     "por-glitch": ("tb_por_glitch.spice", ("temp_por_top",)),
     # #60's falling-slew boundary characterization: same 1.0 V / 50 us
     # qualifying dip as por-brownout, with the falling EDGE duration as the

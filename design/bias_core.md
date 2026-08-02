@@ -788,6 +788,40 @@ below it is 108.7 µs or more, well clear of the band, which only opens at
 own characterization and DR-011's control both stand for the static condition
 they measured.
 
+#### An intermediate falling-slew band with a different symptom (#61)
+
+DR-011's Consequences section flagged, but deliberately left open, a second
+falling-edge finding: at falling rates **slower** than the boundary above
+(so `RESETn` does reach a valid low and the dip is not the DR-005-owned
+below-`vdd_ref90_v` failure), `POR_RAW` can still assert at a rail **above**
+`VPOR-uparrow,max` = 2.73 V — a spurious reset while the supply is still
+comfortably inside the ratified operating range.
+[DR-013](../spec/decision-records/DR-013-por-brownout-spurious-assert.md)
+confirms this across the full 81-point grid, and it is pervasive rather than
+a corner curiosity: **45/81 (56 %)** of corners fail at 7.67 mV/µs, **74/81
+(91 %)** at 2.30 mV/µs, and even the control's own "correct" 0.77 mV/µs
+reference point fails at **15/81 (19 %)** of corners — overwhelmingly
+`−40 °C` combined with the two higher supplies. The assert rail **tracks
+`VDD`** rather than sitting at a fixed absolute threshold: holding process
+and temperature fixed and sweeping only supply, the 2.30 mV/µs branch's
+assert rail sits within 9 mV of 160 mV below whichever `VDD` it started
+from, while the supply itself moves by 660 mV across the grid's three
+points — a ratiometric trip, not a threshold pinned to a device voltage.
+
+The obvious candidate explanation — this section's own ≈2.4 µs × ramp-rate
+`VREF` feedthrough coefficient, extended to a falling edge — **does not
+close quantitatively**. At `tt`/27 °C/3.30 V the coefficient predicts
+5.5–18.4 mV of `VREF` offset at the two confirmed-spurious rates; the
+measured `VREF` at the assert instant is **467 mV low** (7.67 mV/µs branch)
+and **81 mV low** (2.30 mV/µs branch) relative to its 1.1993 V settled
+value — one to two orders of magnitude larger, and (per this cell's own
+`VPOR-downarrow = VREF · (RTOP+RBOT+RHYS)/(RBOT+RHYS)` algebra in
+`design/por_comparator.md`) in the **wrong direction**: a depressed `VREF`
+predicts a *lower* assert threshold, not a higher one. DR-013 states this
+explicitly rather than accepting a qualitative family resemblance: neither
+this coefficient nor the static divider relationship explains the effect,
+and the true dynamic mechanism is an open item.
+
 ### Why it cannot be fixed inside this cell's Iq budget
 
 The obvious fix is a "core is starved" detector that does not depend on the

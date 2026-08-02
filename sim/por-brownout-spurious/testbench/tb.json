@@ -1,0 +1,59 @@
+{
+  "name": "por-brownout-spurious",
+  "description": "Full-assembly full-PVT confirm/refute of the intermediate-falling-slew spurious POR_RAW assertion sim/por-brownout/control/results.md Part B found at one point: three parallel dip branches (0.3/1.0/3.0 ms edge, 1.0 V depth, 50 us dwell), reproducing the control's own three Part-B points, on design/netlist/temp_por_top.spice, each reporting the rail voltage at the instant POR_RAW asserts. Originally six branches (adding 0.5/1.5/2.0 ms edges); trimmed to three under a documented shared-machine resource constraint -- see testbench/stimulus.spice's header and DR-013's Consequences section.",
+  "claim": "spec/target-spec.md#por-vth-fall and #por-hysteresis -- on a falling rail dipping to 1.0 V, does POR_RAW assert within the ratified VPOR-downarrow band (2.22-2.63 V), or -- as sim/por-brownout/control/results.md Part B found at tt/27C/3.30V for 7.67 and 2.30 mV/us edges -- above VPOR-uparrow,max = 2.73 V, a spurious reset at a rail still inside the ratified operating range? Deterministic corners only (design.ngspice sets sw_stat_mismatch=0); mismatch is #15's job and does not apply to a dip/recovery topology. Distinct from spec/target-spec.md#por-brownout (#60's falling-slew boundary characterization, a faster-edge regime where RESETn does not leave the dip rail at all) and from #56 (rising-edge release chatter).",
+  "netlist": "tb_por_brownout_spurious.spice",
+  "nominal_supply_v": 3.3,
+  "supply_tolerance": 0.1,
+  "temperatures_c": [-40, 27, 125],
+  "corners": ["full"],
+  "options": ["reltol=1e-4", "abstol=1e-13", "vntol=1e-8", "method=gear"],
+  "analyses": [
+    "tran 20u 55m",
+    "let praw_r_b1 = v(xb1.por_raw)/(v(vddb1)+0.001)",
+    "let praw_r_b3 = v(xb3.por_raw)/(v(vddb3)+0.001)",
+    "let praw_r_b6 = v(xb6.por_raw)/(v(vddb6)+0.001)",
+    "meas tran t_praw_b1 when praw_r_b1=0.5 fall=1 td=20m",
+    "meas tran vdd_praw_b1 find v(vddb1) when praw_r_b1=0.5 fall=1 td=20m",
+    "meas tran vref_praw_b1 find v(xb1.vref) when praw_r_b1=0.5 fall=1 td=20m",
+    "meas tran t_praw_b3 when praw_r_b3=0.5 fall=1 td=20m",
+    "meas tran vdd_praw_b3 find v(vddb3) when praw_r_b3=0.5 fall=1 td=20m",
+    "meas tran vref_praw_b3 find v(xb3.vref) when praw_r_b3=0.5 fall=1 td=20m",
+    "meas tran t_praw_b6 when praw_r_b6=0.5 fall=1 td=20m",
+    "meas tran vdd_praw_b6 find v(vddb6) when praw_r_b6=0.5 fall=1 td=20m",
+    "meas tran vref_praw_b6 find v(xb6.vref) when praw_r_b6=0.5 fall=1 td=20m"
+  ],
+  "measure": {
+    "t_praw_b1_us": "(t_praw_b1-20m)*1e6",
+    "vdd_at_praw_b1_v": "vdd_praw_b1",
+    "vref_at_praw_b1_v": "vref_praw_b1",
+    "t_praw_b3_us": "(t_praw_b3-20m)*1e6",
+    "vdd_at_praw_b3_v": "vdd_praw_b3",
+    "vref_at_praw_b3_v": "vref_praw_b3",
+    "t_praw_b6_us": "(t_praw_b6-20m)*1e6",
+    "vdd_at_praw_b6_v": "vdd_praw_b6",
+    "vref_at_praw_b6_v": "vref_praw_b6"
+  },
+  "checks": {
+    "vdd_at_praw_b1_v": {
+      "max": 2.73,
+      "description": "0.3 ms edge (tt/27C/3.30V slew 7.67 mV/us -- the control's first spurious point). A POR_RAW assert rail above VPOR-uparrow,max = 2.73 V is a reset asserted while the supply is still inside the ratified operating range, per #61's own definition of the defect (spec/target-spec.md#por-brownout's amendment already names this bound). This branch is also closest to DR-011's own boundary (~7.67-11.50 mV/us at one point, corner-dependent), so a MISSING (not merely high) value here at some corners is itself informative -- it means the dip window closed before POR_RAW asserted at that corner, i.e. this corner sits in #55/DR-011's already-owned regime rather than #61's, and the record's own per-point ERROR rows say so."
+    },
+    "vdd_at_praw_b3_v": {
+      "max": 2.73,
+      "description": "1.0 ms edge (tt/27C/3.30V slew 2.30 mV/us -- the control's second spurious point, and its most spurious: 3.1385 V, only 160 mV below nominal VDD). Same bound."
+    },
+    "vdd_at_praw_b6_v": {
+      "max": 2.73,
+      "description": "3.0 ms edge (tt/27C/3.30V slew 0.77 mV/us -- the control's own correct point, 2.3828 V, inside the ratified VPOR-downarrow band). Expected to PASS at every corner; a FAIL here would mean the spurious region extends further than the control's own bracket suggested."
+    }
+  },
+  "unchecked_measurement_notes": {
+    "t_praw_b1_us": "Recorded, deliberately NOT checked: the crossing instant, used only to classify whether the assert happened inside each branch's own dip window (b1: <=350 us after t_dip) or on the recovery ramp instead (the already-owned #55/DR-011 regime) -- a comparison made in the record's write-up, not as an in-deck bound.",
+    "t_praw_b3_us": "Same, dip window <=1050 us.",
+    "t_praw_b6_us": "Same, dip window <=3050 us.",
+    "vref_at_praw_b1_v": "Recorded, deliberately NOT checked: VREF at the assert instant, the direct read of whether an elevated reference (the signature design/bias_core.md's ramp-rate feedthrough term would leave, sign always toward VREF high) is present at the moment POR_RAW trips -- diagnostic context for the arithmetic check in #61's write-up, not a bound of its own.",
+    "vref_at_praw_b3_v": "Same.",
+    "vref_at_praw_b6_v": "Same."
+  }
+}
