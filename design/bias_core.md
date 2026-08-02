@@ -743,7 +743,7 @@ Two consequences worth stating plainly:
 
 The boundary above is a **one-corner** number and is not fit to ratify
 against; [DR-011](../spec/decision-records/DR-011-brownout-falling-slew-limit.md)
-records it as `[TBD-#55]` pending an 81-point characterization. The
+records it as `[TBD-#60]` pending an 81-point characterization. The
 "why it cannot be fixed inside this cell's Iq budget" arithmetic below
 applies unchanged — it is the same detector that would be needed.
 
