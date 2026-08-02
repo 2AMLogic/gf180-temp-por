@@ -57,7 +57,7 @@ All five comparisons came out as expected.
 - PDK: gf180mcuD @ open_pdks `c6d73a35f524070e85faff4a6a9eef49553ebc2b` (/Users/rwalters/.volare/gf180mcuD, found via search_root:~/.volare)
 - ngspice: ngspice-46 : Circuit level simulation program
 - Harness: sim/harness 0.1.0 (corner sections and solver options only), python 3.14.6
-- git: `989ce7aae40af1891024b5faf850a2375427f7e1 (dirty)`
+- git: `21e48c55b273c3f2cfcb7f2af31a0aec9e8d622c (clean apart from this experiment's own outputs)`
 - Corner sections: typical res_typical bjt_typical diode_typical moscap_typical mimcap_typical
 - Solver options (from `../testbench/tb.json`): reltol=1e-5 abstol=1e-15 vntol=1e-9
 - `mismatch_switch.spice` sha256: `741d7879b5a7256457d18aba00193b25cdd6859518ea992c9d3e7890779155d8`
