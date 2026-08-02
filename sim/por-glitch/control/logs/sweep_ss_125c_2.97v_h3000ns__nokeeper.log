@@ -125,62 +125,53 @@ xdut.xpor.nnand                   -1.78275e-18
 vsup#branch                        1.94484e-29
 
  Reference value :  0.00000e+00
- Reference value :  2.73758e-04
- Reference value :  4.41378e-04
- Reference value :  4.46389e-04
+ Reference value :  2.67747e-04
+ Reference value :  4.41792e-04
+ Reference value :  4.46428e-04
  Reference value :  4.73988e-04
- Reference value :  8.97728e-04
- Reference value :  9.57467e-04
- Reference value :  9.75950e-04
- Reference value :  3.97228e-03
- Reference value :  7.85228e-03
- Reference value :  9.88347e-03
- Reference value :  9.88510e-03
- Reference value :  9.88678e-03
- Reference value :  9.88805e-03
- Reference value :  9.89772e-03
- Reference value :  9.89792e-03
- Reference value :  9.90970e-03
- Reference value :  9.91947e-03
- Reference value :  9.92083e-03
- Reference value :  9.92206e-03
- Reference value :  9.93650e-03
- Reference value :  9.94240e-03
- Reference value :  9.94515e-03
- Reference value :  9.96051e-03
- Reference value :  9.96186e-03
- Reference value :  9.96308e-03
- Reference value :  9.97743e-03
- Reference value :  1.34696e-02
- Reference value :  1.74296e-02
- Reference value :  2.00001e-02
- Reference value :  2.00008e-02
- Reference value :  2.00031e-02
+ Reference value :  8.57728e-04
+ Reference value :  9.57134e-04
+ Reference value :  9.69805e-04
+ Reference value :  1.01844e-03
+ Reference value :  4.85228e-03
+ Reference value :  8.85228e-03
+ Reference value :  9.88467e-03
+ Reference value :  9.88538e-03
+ Reference value :  9.88683e-03
+ Reference value :  9.88857e-03
+ Reference value :  9.89794e-03
+ Reference value :  9.91962e-03
+ Reference value :  9.92100e-03
+ Reference value :  9.92279e-03
+ Reference value :  9.94233e-03
+ Reference value :  9.94477e-03
+ Reference value :  9.96052e-03
+ Reference value :  9.96187e-03
+ Reference value :  9.96310e-03
+ Reference value :  1.07896e-02
+ Reference value :  1.48696e-02
+ Reference value :  1.89296e-02
+ Reference value :  2.00007e-02
  Reference value :  2.00032e-02
- Reference value :  2.00040e-02
- Reference value :  2.00108e-02
+ Reference value :  2.00041e-02
+ Reference value :  2.00109e-02
  Reference value :  2.00126e-02
- Reference value :  2.00141e-02
- Reference value :  2.00760e-02
- Reference value :  2.41023e-02
- Reference value :  2.80623e-02
- Reference value :  2.89352e-02
- Reference value :  2.89359e-02
- Reference value :  2.89372e-02
- Reference value :  2.89387e-02
+ Reference value :  2.00142e-02
+ Reference value :  2.05823e-02
+ Reference value :  2.44623e-02
+ Reference value :  2.88519e-02
+ Reference value :  2.89354e-02
+ Reference value :  2.89369e-02
+ Reference value :  2.89383e-02
+ Reference value :  2.89482e-02
  Reference value :  2.89484e-02
- Reference value :  2.89484e-02
- Reference value :  2.89688e-02
- Reference value :  2.89700e-02
- Reference value :  2.89713e-02
- Reference value :  2.89728e-02
- Reference value :  2.89928e-02
+ Reference value :  2.89616e-02
+ Reference value :  2.89703e-02
+ Reference value :  2.89735e-02
  Reference value :  2.89929e-02
- Reference value :  2.90097e-02
- Reference value :  2.90111e-02
- Reference value :  2.90124e-02
- Reference value :  2.90137e-02
- Reference value :  2.99023e-02
+ Reference value :  2.89935e-02
+ Reference value :  2.90109e-02
+ Reference value :  2.90135e-02
 No. of Data Rows : 6339
 Note: Simulation executed from .control section 
 

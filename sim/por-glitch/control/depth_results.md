@@ -137,7 +137,7 @@ Both at two PVT points, each run held 30 ms so a regenerated reset pulse (≥1 m
 - PDK: gf180mcuD @ open_pdks `c6d73a35f524070e85faff4a6a9eef49553ebc2b` (/Users/rwalters/.volare/gf180mcuD, found via search_root:~/.volare)
 - ngspice: ngspice-46 : Circuit level simulation program
 - Harness: sim/harness 0.1.0 (corner sections and solver options only), python 3.14.6
-- git: `ab3e393deb49d98629918e8d267c6ad3c26d600c (dirty)`
+- git: `4cc7acd62b39b957189579dd7f3725ac01cdef27 (clean apart from this experiment's own outputs)`
 - Solver options (from `../testbench/tb.json`): reltol=1e-5 abstol=1e-15 vntol=1e-9
 - `depth_sweep.spice` sha256: `4f5c36739d302f3bdf7342b61e110e5f74ebc083158d989f2592ba8d7e80d222`
 - `design/netlist/temp_por_top.spice` sha256: `ae7021b9e44f38c5b0d14cfc73e0e2eaec23ae2f0498bfcbe09849b40f67526e`

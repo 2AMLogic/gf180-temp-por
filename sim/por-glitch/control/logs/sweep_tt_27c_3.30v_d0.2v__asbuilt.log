@@ -124,36 +124,44 @@ xdut.xpor.rstb                     9.85756e-21
 xdut.xpor.nnand                   -3.51075e-20
 vsup#branch                        3.33886e-31
 
- Reference value :  1.08399e-04
- Reference value :  1.88511e-04
- Reference value :  3.87477e-04
- Reference value :  4.19670e-04
- Reference value :  4.42725e-04
- Reference value :  4.55657e-04
- Reference value :  8.53567e-04
- Reference value :  8.65919e-04
- Reference value :  8.81929e-04
- Reference value :  4.30480e-03
- Reference value :  1.00668e-02
- Reference value :  1.00689e-02
+ Reference value :  0.00000e+00
+ Reference value :  1.74061e-04
+ Reference value :  3.75033e-04
+ Reference value :  4.19631e-04
+ Reference value :  4.20654e-04
+ Reference value :  4.52231e-04
+ Reference value :  8.51808e-04
+ Reference value :  8.53783e-04
+ Reference value :  8.66066e-04
+ Reference value :  2.10480e-03
+ Reference value :  6.70480e-03
+ Reference value :  1.00665e-02
+ Reference value :  1.00681e-02
+ Reference value :  1.00698e-02
  Reference value :  1.00710e-02
- Reference value :  1.11475e-02
- Reference value :  1.76875e-02
+ Reference value :  1.00722e-02
+ Reference value :  1.09875e-02
+ Reference value :  1.49875e-02
+ Reference value :  1.89275e-02
  Reference value :  2.00001e-02
+ Reference value :  2.00002e-02
  Reference value :  2.00003e-02
  Reference value :  2.00003e-02
  Reference value :  2.00015e-02
- Reference value :  2.00045e-02
- Reference value :  2.00055e-02
+ Reference value :  2.00019e-02
+ Reference value :  2.00048e-02
+ Reference value :  2.00348e-02
  Reference value :  2.00361e-02
  Reference value :  2.00398e-02
- Reference value :  2.00410e-02
- Reference value :  2.54426e-02
+ Reference value :  2.00401e-02
+ Reference value :  2.00458e-02
+ Reference value :  2.34226e-02
+ Reference value :  2.61061e-02
  Reference value :  2.61093e-02
  Reference value :  2.61108e-02
  Reference value :  2.61121e-02
  Reference value :  2.61133e-02
- Reference value :  2.69614e-02
+ Reference value :  2.67414e-02
 No. of Data Rows : 4404
 Note: Simulation executed from .control section 
 
