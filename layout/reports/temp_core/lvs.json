@@ -5,26 +5,25 @@
   "reference": "temp_core.reference.spice",
   "top": "temp_core",
   "status": "match",
-  "mismatch_count": 3,
+  "mismatch_count": 2,
   "category_counts": {
-    "device.body_unverified": 2,
-    "topology": 1
+    "device.body_unverified": 2
   },
   "counts": {
     "nets": {
+      "layout": 73,
+      "reference": 73,
+      "matched": 73
+    },
+    "devices": {
+      "layout": 114,
+      "reference": 114,
+      "matched": 114
+    },
+    "pins": {
       "layout": 30,
       "reference": 30,
       "matched": 30
-    },
-    "devices": {
-      "layout": 55,
-      "reference": 55,
-      "matched": 55
-    },
-    "pins": {
-      "layout": 28,
-      "reference": 28,
-      "matched": 28
     }
   },
   "device_classes": [
@@ -37,8 +36,8 @@
   "environment": {
     "engine": "klayout",
     "engine_version": "0.30.10",
-    "layout_sha256": "85eca1a1d099e9a3ff2989351e643466a4dd22512aacc24e6a7d50eb24ecd694",
-    "reference_sha256": "ab7e5c43037f0c5e40c3982ae7f4f643b9f845f63859d3ee6cb67602f88dbe04",
+    "layout_sha256": "852d534c2004326c2405bc689b1c12bd9e16f022ed17fcbe69fcbd8eb1866f10",
+    "reference_sha256": "cdcf15730f9a9f39063dbd9ab4742dd701803f482e291608e762bfbc15794a0d",
     "extracted_netlist": null
   },
   "provenance": {
@@ -75,15 +74,6 @@
         "reference": null,
         "class": "pfet"
       },
-      "property": null
-    },
-    {
-      "category": "topology",
-      "severity": "warning",
-      "description": "device class has no counterpart on the other side, but no devices of this class were extracted either -- not a real topology mismatch",
-      "side": "layout",
-      "net": null,
-      "device": null,
       "property": null
     }
   ]

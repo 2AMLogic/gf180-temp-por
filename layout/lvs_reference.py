@@ -57,9 +57,11 @@ friction; tracked in ``layout/README.md``.
 from __future__ import annotations
 
 import argparse
+import math
 import re
 import sys
 from pathlib import Path
+from typing import NamedTuple
 
 LAYOUT_DIR = Path(__file__).resolve().parent
 REPO_ROOT = LAYOUT_DIR.parent
@@ -100,6 +102,32 @@ CAP_CLASS = {"cap_mim_2f0_m3m4_noshield": "cap_mim_2f0_m4m5_noshield"}
 #: extracted capacitance is ``plate overlap area * this``, so a wrong value here
 #: shows up immediately as a ``device.property`` LVS mismatch, not as silence.
 MIM_AREA_CAP_F_UM2 = 2.0e-15
+
+#: gf180mcu PDK resistor subcircuit -> (extracted device class, sheet rho).
+#: 350 ohm/square is the curated deck's own ``ppolyf_u`` value, transcribed
+#: there from the PDK's ``res_extraction.lvs`` / ``gf180mcuD.tech``. It is
+#: repeated here because the reference has to state the same resistance the
+#: extractor computes from the drawn geometry (``R = L / W * rho``); a wrong
+#: value fails LVS loudly rather than silently.
+RESISTOR_CLASS = {"ppolyf_u": ("ppolyf_u", 350.0)}
+
+#: The extraction deck recognises one generic ``bjt`` class off the DRM's
+#: ``DRC_BJT`` mark layer -- it models no Nplus/Pplus implant, so it cannot
+#: tell an NPN from a PNP and does not try (see the deck's own note). The
+#: PDK's device name carries the drawn emitter size, which is the one
+#: parameter the compare checks, so it is read from the name rather than
+#: retyped: ``pnp_10p00x10p00`` -> 10.00 x 10.00 um.
+BIPOLAR_CLASS = "bjt"
+BIPOLAR_NAME_RE = re.compile(r"^(?:npn|pnp)_(\d+)p(\d+)x(\d+)p(\d+)$")
+
+#: Longest resistor segment this repo draws as one recognised body. A drawn
+#: ``ppolyf_u`` body is one straight rectangle -- KLayout's resistor extractor
+#: solves ``L``/``W`` from the recognised region's own area and perimeter, so a
+#: folded (serpentine) body would extract a length its corners make wrong. A
+#: long resistor is therefore drawn as a **series string** of straight
+#: segments strapped end to end, exactly as a real PDK resistor array is, and
+#: the reference below emits the same string.
+RESISTOR_SEGMENT_MAX_UM = 120.0
 
 #: Layout cell -> how to build its reference netlist from a golden netlist.
 #:
@@ -286,11 +314,15 @@ CELLS = {
             ]
         },
     },
-    # temp_core: the MOS subset of design/netlist/temp_core.spice. The cell's
-    # vertical PNPs (XQ1/XQ8A..H), poly resistors (XR1/XR2*/XRISO/XRZ) and MiM
-    # cap (XCC) have no device model in the curated gf180mcu extraction deck
-    # (klayout-tools#219/#222), so they are drawn as sibling top cells and are
-    # outside this compare -- see layout/README.md and layout/floorplan.md.
+    # temp_core: every device of design/netlist/temp_core.spice except the MiM
+    # cap XCC. The vertical PNPs (XQ1/XQ8A..H) and the poly resistors
+    # (XR1/XR2*/XRISO/XRZ) used to be drawn as sibling top cells, outside this
+    # compare, because the curated deck could not model them; #93 folded them
+    # back in once klayout-tools#222/#223 landed and the marker geometry was
+    # drawn. XCC stays out: the deck models only the 5LM (Metal4/Metal5) MiM
+    # option and this block's cap is the m3m4 flavour, and a recognised MiM's
+    # plate nets are not joined to the routing connectivity stack at all --
+    # see layout/README.md -> "Known deck limits".
     "temp_core": {
         "source": "temp_core.spice",
         "subckt": "temp_core",
@@ -364,6 +396,39 @@ CELLS = {
             {"class": "pfet", "l": 4.0, "w": 4.0, "nets": ["VDD", "VDD", "VDD"],
              "well": "NW1"},
         ],
+        # The R2 gain ladder, the isolation/zero resistors and the PNP array,
+        # in the order layout/build_cells.py draws them left to right.
+        "resistors": [
+            "XR1",
+            "XRISO",
+            "XRZ",
+            "XR2F",
+            "XR2T5",
+            "XR2T4",
+            "XR2T3",
+            "XR2T2",
+            "XR2T1",
+            "XR2T0",
+        ],
+        # rank 3's centroid array: XQ1 at the centre, the 8 XQ8 units around
+        # it. Every one of them is a 10x10 um emitter, which is the whole
+        # point of the 8:1 ratio and the one parameter the compare checks.
+        "bipolars": [
+            "XQ1",
+            "XQ8A",
+            "XQ8B",
+            "XQ8C",
+            "XQ8D",
+            "XQ8E",
+            "XQ8F",
+            "XQ8G",
+            "XQ8H",
+        ],
+        # The drawn Nwell every PNP's base lands in. Same deck-imposed rewrite
+        # as the PMOS wells below: the deck never joins Nwell to Contact, so
+        # the base ring's VSS tie is invisible and the base is an anonymous
+        # net carrying only base terminals.
+        "bjt_well": "NWQ",
         "ports": [
             "VSS",
             "VDD",
@@ -392,6 +457,14 @@ CELLS = {
             "T2",
             "T1",
             "T0",
+            # Drawn as routing tracks (and so labelled, and so pins) only
+            # since #93 folded the passives in: NC joins XR1 to the eight
+            # XQ8 emitters, NZ is XRZ's free end. NZ's other schematic
+            # connection is to XCC, which is not drawn (see the note above
+            # this manifest), so NZ carries exactly one device terminal --
+            # the same situation por_comparator's SNS/SNSB are in.
+            "NC",
+            "NZ",
             SUBSTRATE_NET,
         ],
         # Two drawn Nwells: the input pair's own well is biased to the tail
@@ -596,14 +669,37 @@ def format_um(value_um: float) -> str:
     return f"{text or '0'}U"
 
 
-def _parse_cards(body: list[str], models) -> dict[str, dict]:
-    """Parse ``X<name> <nodes...> <model> k=v ...`` cards into a dict by name.
+def resistor_segments(length_um: float, max_um: float = RESISTOR_SEGMENT_MAX_UM) -> list[float]:
+    """Split one schematic resistor into the drawn series segments.
 
-    Only cards whose model name is a key of ``models`` are returned; every other
-    ``X`` card is skipped rather than guessed at, so a device class this deck
-    cannot represent can never reach the reference netlist by accident.
+    An **even** segment count is deliberate, not cosmetic: the drawn string
+    folds back and forth (segment *i* is strapped to *i+1* alternately at the
+    top and the bottom), so an even count leaves both of the string's free
+    ends at the *same* end of the array -- which is what lets both terminals
+    escape downward to the routing channel without a wire crossing the array.
+
+    The split must be exact on the 1 nm database grid: a segment length that
+    does not round-trip would make the drawn resistance differ from the one
+    this reference states, which LVS would report as a device.property
+    mismatch nobody could act on. Raises rather than rounding silently.
     """
-    cards: dict[str, dict] = {}
+    if length_um <= 0.0:
+        raise ReferenceError(f"resistor length {length_um} is not positive")
+    count = max(2, math.ceil(length_um / max_um))
+    if count % 2:
+        count += 1
+    segment = round(length_um / count, 3)
+    if abs(segment * count - length_um) > 1e-9:
+        raise ReferenceError(
+            f"resistor of {length_um}um does not split into {count} segments on "
+            "the 1nm grid -- pick a segment count that divides it exactly"
+        )
+    return [segment] * count
+
+
+def parse_devices(body: list[str]) -> dict[str, dict]:
+    """Parse ``X<name> d g s b <model> k=v ...`` MOS cards into a dict by name."""
+    devices: dict[str, dict] = {}
     for line in body:
         fields = line.split()
         if not fields[0].upper().startswith("X"):
@@ -615,24 +711,96 @@ def _parse_cards(body: list[str], models) -> dict[str, dict]:
             if "=" in field:
                 key, _, value = field.partition("=")
                 params[key.lower()] = value.strip("'\"")
-            elif model is None and field in models:
+            elif model is None and field in DEVICE_CLASS:
                 model = field
             elif model is None:
                 nodes.append(field)
         if model is None:
-            continue  # not a device of the class asked for here
-        cards[fields[0]] = {"nodes": nodes, "model": model, "params": params}
-    return cards
-
-
-def parse_devices(body: list[str]) -> dict[str, dict]:
-    """Parse ``X<name> d g s b <model> k=v ...`` MOS cards into a dict by name."""
-    return _parse_cards(body, DEVICE_CLASS)
+            continue  # not a device this deck can model (resistor, cap, BJT...)
+        devices[fields[0]] = {"nodes": nodes, "model": model, "params": params}
+    return devices
 
 
 def parse_capacitors(body: list[str]) -> dict[str, dict]:
-    """Parse ``X<name> p1 p2 <model> c_width=.. c_length=.. m=..`` MiM cards."""
-    return _parse_cards(body, CAP_CLASS)
+    """Parse ``X<name> p1 p2 <model> c_width=.. c_length=.. m=..`` MiM cap cards.
+
+    Same shape as :func:`parse_devices`, scoped to :data:`CAP_CLASS` instead of
+    :data:`DEVICE_CLASS` -- the one other device class the curated deck now
+    recognises that this repo draws as more than one instance per manifest
+    entry (``m=`` -- see :func:`cap_units`).
+    """
+    caps: dict[str, dict] = {}
+    for line in body:
+        fields = line.split()
+        if not fields[0].upper().startswith("X"):
+            continue
+        params: dict[str, str] = {}
+        nodes: list[str] = []
+        model: str | None = None
+        for field in fields[1:]:
+            if "=" in field:
+                key, _, value = field.partition("=")
+                params[key.lower()] = value.strip("'\"")
+            elif model is None and field in CAP_CLASS:
+                model = field
+            elif model is None:
+                nodes.append(field)
+        if model is None:
+            continue  # not a capacitor this deck can model
+        caps[fields[0]] = {"nodes": nodes, "model": model, "params": params}
+    return caps
+
+
+def parse_passives(body: list[str]) -> dict[str, dict]:
+    """Parse the golden netlist's resistor and bipolar cards.
+
+    Same shape as :func:`parse_devices`, for the two non-MOS device classes
+    the curated deck grew recognition for (klayout-tools#222/#223): a
+    ``ppolyf_u`` poly resistor (``X<name> a b bulk ppolyf_u r_width= r_length=``)
+    and a vertical bipolar (``X<name> c b e pnp_WWpWWxHHpHH``). Everything
+    else -- notably the MiM cap, whose model has no counterpart in the deck --
+    is skipped here and picked up by nothing, which is exactly what
+    ``layout/README.md`` records as still outside the compare.
+    """
+    passives: dict[str, dict] = {}
+    for line in body:
+        fields = line.split()
+        if not fields[0].upper().startswith("X"):
+            continue
+        params: dict[str, str] = {}
+        nodes: list[str] = []
+        model: str | None = None
+        for field in fields[1:]:
+            if "=" in field:
+                key, _, value = field.partition("=")
+                params[key.lower()] = value.strip("'\"")
+            elif model is not None:
+                continue
+            elif field in RESISTOR_CLASS or BIPOLAR_NAME_RE.match(field):
+                model = field
+            else:
+                nodes.append(field)
+        if model is None:
+            continue
+        kind = "resistor" if model in RESISTOR_CLASS else "bipolar"
+        passives[fields[0]] = {
+            "kind": kind,
+            "nodes": nodes,
+            "model": model,
+            "params": params,
+        }
+    return passives
+
+
+def emitter_area_um2(model: str) -> float:
+    """The drawn emitter area a gf180mcu bipolar's device name states."""
+    match = BIPOLAR_NAME_RE.match(model)
+    if not match:
+        raise ReferenceError(f"cannot read an emitter size out of {model!r}")
+    whole_w, frac_w, whole_h, frac_h = match.groups()
+    width = float(f"{whole_w}.{frac_w}")
+    height = float(f"{whole_h}.{frac_h}")
+    return width * height
 
 
 def subckt_ports(text: str, name: str) -> list[str]:
@@ -644,9 +812,43 @@ def subckt_ports(text: str, name: str) -> list[str]:
     raise ReferenceError(f"subcircuit {name!r} not found")
 
 
+class Card(NamedTuple):
+    """One plain-element card, before it is numbered and formatted.
+
+    ``prefix`` is the SPICE element letter the emitted card gets (``M`` for a
+    schematic MOS, ``MD`` for a drawn-only dummy finger, ``R``, ``Q``).
+    ``value`` is the positional value a SPICE ``R``/``C`` card carries between
+    its nodes and its model token (``R1 a b w 3500 ppolyf_u``); ``None`` for
+    an element whose value is entirely in ``params`` (``M``, ``Q``).
+
+    A ``Q`` card **must** carry at least one ``key=value`` parameter: with a
+    bare model token and nothing after it, ``NetlistSpiceReader`` reads the
+    model name as a fourth (substrate) node and falls back to its built-in
+    ``BJT`` device class, which then fails to pair with the extracted ``bjt``
+    class for a reason no mismatch entry explains. ``AE`` is emitted for
+    every bipolar, which is also the one parameter the compare checks.
+    """
+
+    prefix: str
+    klass: str
+    nodes: list[str]
+    value: str | None = None
+    params: tuple[tuple[str, str], ...] = ()
+
+
+def mos_card(prefix: str, klass: str, nodes: list[str], length_um: float, width_um: float) -> Card:
+    return Card(
+        prefix,
+        klass,
+        nodes,
+        None,
+        (("L", format_um(length_um)), ("W", format_um(width_um))),
+    )
+
+
 def build_cards(
     cell: str, corrupt: str | None = None, rename=None
-) -> list[tuple[str, str, list[str], float, float]]:
+) -> list[Card]:
     """Every device card one manifest entry contributes, before numbering.
 
     ``rename`` (used only by :func:`build_assembly`) maps this cell's own net
@@ -667,10 +869,15 @@ def build_cards(
     known_nets = (
         set(ports) | set(spec.get("wells", {})) | set(spec.get("internal", []))
     )
+    if spec.get("bjt_well"):
+        known_nets.add(spec["bjt_well"])
 
     fingers = spec.get("fingers", {})
 
-    cards: list[tuple[str, str, list[str], float, float]] = []
+    def out(net: str) -> str:
+        return net if rename is None else rename(net)
+
+    cards: list[Card] = []
     for name in spec["devices"]:
         if name not in devices:
             raise ReferenceError(f"{cell}: device {name!r} not in {spec['source']}")
@@ -716,10 +923,10 @@ def build_cards(
         count = int(fingers.get(name, 1))
         for finger in range(count):
             cards.append(
-                (
+                mos_card(
                     letter,
                     klass,
-                    [net if rename is None else rename(net) for net in nodes],
+                    [out(net) for net in nodes],
                     to_um(device["params"]["l"]),
                     to_um(device["params"]["w"]) / count,
                 )
@@ -732,12 +939,102 @@ def build_cards(
         body = SUBSTRATE_NET if klass == "nfet" else dummy["well"]
         nodes = [drain, gate, source_node, body]
         cards.append(
-            (
+            mos_card(
                 "MD",
                 klass,
-                [net if rename is None else rename(net) for net in nodes],
+                [out(net) for net in nodes],
                 float(dummy["l"]),
                 float(dummy["w"]),
+            )
+        )
+
+    cards.extend(build_passive_cards(cell, known_nets, out))
+    cards.extend(build_cap_cards(cell, out))
+    return cards
+
+
+def build_passive_cards(cell: str, known_nets: set[str], out) -> list[Card]:
+    """The resistor and bipolar cards one manifest entry contributes.
+
+    Both device classes were outside the curated deck when these cells were
+    first drawn and are inside it now (klayout-tools#222/#223/#225); what the
+    layout owns, and what this function mirrors, is the *marker* geometry that
+    makes the deck recognise them.
+
+    Two deck-imposed rewrites happen here, exactly parallel to the MOS body
+    rewrites at the top of this module:
+
+    * a ``ppolyf_u`` resistor's bulk terminal goes to the substrate global,
+      because the deck extracts it with ``'W' => sub`` and there is no drawn
+      tap to derive anything else from;
+    * a vertical bipolar's **collector** goes to the same global (the DRM's
+      vertical device has no drawn collector layer -- its collector *is* the
+      substrate), and its **base** goes to the anonymous net of the drawn
+      Nwell it sits in, because the deck never joins ``Nwell`` to ``Contact``
+      and so cannot see the base ring's tie. The schematic ties both to
+      ``VSS``; the layout does too, and no check in this flow proves it.
+    """
+    spec = CELLS[cell]
+    passives = parse_passives(
+        subckt_body((NETLIST_DIR / spec["source"]).read_text(), spec["subckt"])
+    )
+    cards: list[Card] = []
+
+    for name in spec.get("resistors", []):
+        if name not in passives or passives[name]["kind"] != "resistor":
+            raise ReferenceError(f"{cell}: resistor {name!r} not in {spec['source']}")
+        device = passives[name]
+        klass, sheet_rho = RESISTOR_CLASS[device["model"]]
+        if len(device["nodes"]) != 3:
+            raise ReferenceError(f"{cell}: {name} is not a 3-terminal resistor")
+        head, tail, _bulk = device["nodes"]
+        for net in (head, tail):
+            if net not in known_nets:
+                raise ReferenceError(
+                    f"{cell}: {name} touches undeclared net {net} -- add it to "
+                    "the manifest's ports/internal"
+                )
+        width = to_um(device["params"]["r_width"])
+        # One drawn straight body per segment; the series nodes between them
+        # are unlabelled straps in the layout, so they are anonymous in the
+        # extracted netlist and matched by topology alone. They are *derived*
+        # from the split, not declared, so a manifest can never disagree with
+        # the drawn string about how many there are.
+        segments = resistor_segments(to_um(device["params"]["r_length"]))
+        nets = [head] + [f"{name}.{i}" for i in range(1, len(segments))] + [tail]
+        for index, length in enumerate(segments):
+            cards.append(
+                Card(
+                    "R",
+                    klass,
+                    [out(nets[index]), out(nets[index + 1]), SUBSTRATE_NET],
+                    f"{length / width * sheet_rho:.10g}",
+                )
+            )
+
+    for name in spec.get("bipolars", []):
+        if name not in passives or passives[name]["kind"] != "bipolar":
+            raise ReferenceError(f"{cell}: bipolar {name!r} not in {spec['source']}")
+        device = passives[name]
+        if len(device["nodes"]) != 3:
+            raise ReferenceError(f"{cell}: {name} is not a 3-terminal bipolar")
+        _collector, _base, emitter = device["nodes"]
+        if emitter not in known_nets:
+            raise ReferenceError(
+                f"{cell}: {name} touches undeclared net {emitter} -- add it to "
+                "the manifest's ports/internal"
+            )
+        well = spec.get("bjt_well")
+        if well is None:
+            raise ReferenceError(f"{cell}: {name} needs a bjt_well in the manifest")
+        area = emitter_area_um2(device["model"])
+        cards.append(
+            Card(
+                "Q",
+                BIPOLAR_CLASS,
+                [SUBSTRATE_NET, out(well), out(emitter)],
+                None,
+                (("AE", f"{area:.10g}P"),),
             )
         )
 
@@ -773,9 +1070,7 @@ def cap_plate_nets(name: str, cap: dict, unit: int, units: int) -> list[str]:
     return [f"{tag}.{node}" for node in cap["nodes"]]
 
 
-def build_cap_cards(
-    cell: str, rename=None
-) -> list[tuple[str, str, list[str], float]]:
+def build_cap_cards(cell: str, rename=None) -> list[Card]:
     """Every drawn-MiM card one manifest entry contributes, before numbering.
 
     Plate dimensions are read out of the golden netlist's own ``c_width`` /
@@ -783,7 +1078,8 @@ def build_cap_cards(
     and the capacitance is that overlap area times :data:`MIM_AREA_CAP_F_UM2`,
     which is exactly what ``klt extract`` computes from the drawn geometry. So a
     plate drawn at the wrong size fails LVS on the value rather than passing
-    against a number typed to agree with it.
+    against a number typed to agree with it. ``rename`` follows the same
+    convention as :func:`build_cards` -- used only by :func:`build_assembly`.
     """
     spec = CELLS[cell]
     names = spec.get("caps", [])
@@ -792,7 +1088,7 @@ def build_cap_cards(
     source = NETLIST_DIR / spec["source"]
     caps = parse_capacitors(subckt_body(source.read_text(), spec["subckt"]))
 
-    cards: list[tuple[str, str, list[str], float]] = []
+    cards: list[Card] = []
     for name in names:
         if name not in caps:
             raise ReferenceError(f"{cell}: MiM cap {name!r} not in {spec['source']}")
@@ -806,27 +1102,17 @@ def build_cap_cards(
         value_f = width_um * length_um * MIM_AREA_CAP_F_UM2
         for unit in range(1, units + 1):
             nets = cap_plate_nets(name, cap, unit, units)
+            plates = [net if rename is None else rename(net) for net in nets]
             cards.append(
-                (
-                    "C",
-                    klass,
-                    [net if rename is None else rename(net) for net in nets],
-                    value_f,
-                )
+                Card("C", klass, plates, f"{value_f:.6g}")
             )
     return cards
 
 
-def build_assembly(
-    cell: str,
-) -> tuple[
-    list[tuple[str, str, list[str], float, float]],
-    list[tuple[str, str, list[str], float]],
-]:
+def build_assembly(cell: str) -> list[Card]:
     """Compose an assembly cell's cards from the cells it instances.
 
-    Returns the same ``(MOS cards, MiM cards)`` pair :func:`build` builds for a
-    leaf cell. Each sub-cell's own manifest supplies its devices, sizes, wells,
+    Each sub-cell's own manifest supplies its devices, sizes, wells,
     dummy fingers and drawn MiM caps unchanged; the only thing this adds is the
     net renaming, taken from the golden top-level netlist itself:
 
@@ -861,8 +1147,7 @@ def build_assembly(
         if fields[0].lower().startswith("x"):
             instances[fields[0].lower()] = fields[1:]
 
-    cards: list[tuple[str, str, list[str], float, float]] = []
-    cap_cards: list[tuple[str, str, list[str], float]] = []
+    cards: list[Card] = []
     for inst, sub_cell in spec["assembly"]:
         if inst not in instances:
             raise ReferenceError(f"{cell}: no instance {inst!r} in {spec['source']}")
@@ -892,28 +1177,54 @@ def build_assembly(
             return mapping.get(net, f"{inst}.{net}")
 
         cards.extend(build_cards(sub_cell, rename=rename))
-        cap_cards.extend(build_cap_cards(sub_cell, rename=rename))
-    return cards, cap_cards
+    return cards
 
 
 def build(cell: str, corrupt: str | None = None) -> str:
     spec = CELLS[cell]
     ports = list(spec["ports"])
     if "assembly" in spec:
-        cards, cap_cards = build_assembly(cell)
+        cards = build_assembly(cell)
     else:
         cards = build_cards(cell)
-        cap_cards = build_cap_cards(cell)
 
+    # Both controls perturb the first two cards, which are always MOS: every
+    # manifest lists its schematic MOS devices first and the passives are
+    # appended after them (see build_cards). That keeps the two controls
+    # comparable across cells and across this change.
     if corrupt == "device-param":
-        name, klass, nodes, length, width = cards[0]
-        cards[0] = (name, klass, nodes, length, width * 2.0)
+        params = dict(cards[0].params)
+        params["W"] = format_um(to_um(params["W"]) * 2.0)
+        cards[0] = cards[0]._replace(params=tuple(params.items()))
     elif corrupt == "topology":
         if len(cards) < 2:
             raise ReferenceError(f"{cell}: topology control needs >= 2 devices")
-        nodes = list(cards[0][2])
-        nodes[2] = cards[1][2][2]  # re-tie device 1's source to device 2's
-        cards[0] = (cards[0][0], cards[0][1], nodes, cards[0][3], cards[0][4])
+        nodes = list(cards[0].nodes)
+        nodes[2] = cards[1].nodes[2]  # re-tie device 1's source to device 2's
+        cards[0] = cards[0]._replace(nodes=nodes)
+    elif corrupt == "passive-param":
+        # The MOS controls above say nothing about the resistor and bipolar
+        # classes #93 folded in: a compare that paired them by topology and
+        # never looked at a resistance or an emitter area would pass both.
+        # This one doubles the first resistor's value and halves the first
+        # bipolar's emitter area, so a clean run is evidence that the drawn
+        # *sizes* of the passives are compared too, not just their wiring.
+        first = {}
+        for index, card in enumerate(cards):
+            if card.prefix in ("R", "Q"):
+                first.setdefault(card.prefix, index)
+        if not first:
+            raise ReferenceError(f"{cell}: no passive device to corrupt")
+        if "R" in first:
+            card = cards[first["R"]]
+            cards[first["R"]] = card._replace(
+                value=f"{float(card.value) * 2.0:.10g}"
+            )
+        if "Q" in first:
+            card = cards[first["Q"]]
+            params = dict(card.params)
+            params["AE"] = f"{float(params['AE'].rstrip('P')) / 2.0:.10g}P"
+            cards[first["Q"]] = card._replace(params=tuple(params.items()))
     elif corrupt is not None:
         raise ReferenceError(f"unknown corruption {corrupt!r}")
 
@@ -924,19 +1235,13 @@ def build(cell: str, corrupt: str | None = None) -> str:
         "* Do not edit: edit the schematic, re-run design/netlist.py, re-run this.",
         f".SUBCKT {cell} {' '.join(ports)}",
     ]
-    for index, (prefix, klass, nodes, length, width) in enumerate(cards):
-        lines.append(
-            f"{prefix}{index + 1} {' '.join(nodes)} {klass} "
-            f"L={format_um(length)} W={format_um(width)}"
-        )
-    # MiM cards last, numbered in their own C1..Cn sequence. The value is a
-    # bare number in Farads followed by the device-class name: without the class
-    # name KLayout's SPICE reader builds its own generic ``CAP`` class and every
-    # cap compares as unmatched against the extracted
-    # ``cap_mim_2f0_m4m5_noshield`` -- a class mismatch that reads like a
-    # missing device.
-    for index, (prefix, klass, nodes, value_f) in enumerate(cap_cards):
-        lines.append(f"{prefix}{index + 1} {' '.join(nodes)} {value_f:.6g} {klass}")
+    for index, card in enumerate(cards):
+        fields = [f"{card.prefix}{index + 1}", *card.nodes]
+        if card.value is not None:
+            fields.append(card.value)
+        fields.append(card.klass)
+        fields.extend(f"{key}={value}" for key, value in card.params)
+        lines.append(" ".join(fields))
     lines.append(f".ENDS {cell}")
     return "\n".join(lines) + "\n"
 
@@ -987,7 +1292,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--cell", help="build/check only this cell")
     parser.add_argument(
         "--corrupt",
-        choices=["device-param", "topology"],
+        choices=["device-param", "topology", "passive-param"],
         help="emit a deliberately wrong reference (LVS negative control)",
     )
     parser.add_argument("-o", "--output", help="where to write a --corrupt reference")

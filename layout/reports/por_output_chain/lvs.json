@@ -38,7 +38,7 @@
     "engine": "klayout",
     "engine_version": "0.30.10",
     "layout_sha256": "74f27fdcc94c2266032a5873e4db58211c1fdd4b0f5c6d63705e60f56be03ad0",
-    "reference_sha256": "af996742acf38111841d68dacbef65df3dcd3ca152bda58b4cda3646b6a36d8e",
+    "reference_sha256": "5fdc736d7b294f92926db277e750c0ac3708095608b7ed441c5775cf809fae59",
     "extracted_netlist": null
   },
   "provenance": {
