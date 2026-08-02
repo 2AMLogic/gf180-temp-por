@@ -1,0 +1,79 @@
+* por-glitch / recovery-mechanism control -- stimulus half of the control deck.
+*
+* The other half is design/netlist/temp_por_top.spice, included by
+* run_glitch_probe.py to produce the composed decks under decks/. Edit THIS
+* file (or the schematic), never a composed deck.
+*
+* Netlist FRAGMENT: no .include / .lib / .temp / .options / .control / .end --
+* run_glitch_probe.py owns those. Parameters it supplies: vdd_val, stop_s
+* (the run's stop time IN SECONDS, not ms -- ngspice's `{expr}unit` PWL
+* syntax does not tolerate a `{param}m` split token).
+*
+* ---------------------------------------------------------------------------
+* WHAT THIS DECK IS FOR
+*
+* This is the one-variable-per-run control experiment behind issue #56's
+* por-glitch finding (record 20260801-233813-32fbaa0, 0/81 PASS): RESETn
+* droops during a 300 ns full-depth (0.2 V) supply glitch and, at a subset of
+* corners, is still low 5.5 ms after the glitch ends.
+*
+* It is ONE DUT, the same glitch profile ../testbench/stimulus.spice uses
+* (300 ns collapse to 0.2 V at t=20 ms), but held for LONGER afterward (this
+* deck runs to 45 ms, not 26 ms) and with internal nodes traced instead of
+* only RESETn -- VREF and BIAS_OK (bias_core's own health), POR_RAW
+* (por_comparator's raw decision), PGDG (por_output_chain's deglitched
+* power-good, i.e. the node the 1.86-8.88 us dwell in
+* design/por_output_chain.md protects), and TIM/TRIP (the one-shot timer and
+* its trip detector) -- to distinguish two mechanisms that look identical on
+* RESETn alone:
+*
+*   (a) the deglitch filter's own bias current collapses and it loses its
+*       stored state (the hypothesis #56's body proposes), vs.
+*   (b) the filter works exactly as designed, but POR_RAW itself stays
+*       invalid for far longer than the programmed 300 ns glitch -- because
+*       VDD collapsing to 0.2 V takes bias_core below its own ~1.13-1.79 V
+*       dropout (design/bias_core.md, "Settling and dropout"), and bias_core
+*       takes measurable time to restart once VDD returns -- so a genuine,
+*       correctly-regenerated full reset pulse is what RESETn is doing, not
+*       a stuck filter.
+*
+* Re-run with:
+*
+*   python3 sim/por-glitch/control/run_glitch_probe.py
+*
+* It is NOT a recorded PVT result and does not live under records/: this is
+* a handful of PVT points tracing internal nodes, not the corner-grid
+* evidence for the por-glitch claim itself, which remains
+* sim/por-glitch/records/. See sim/README.md, "Control experiments".
+*
+* PAD LOAD / TIMESTEP notes: identical rationale to
+* ../testbench/stimulus.spice -- 1 pF + 1 Tohm DC leak on PTAT/CTAT (so
+* ngspice's local truncation error control does not chase a floating
+* capacitive node while temp_core is disabled), 5 pF on RESETn.
+*
+* GLITCH TIMELINE: cold start (0 -> 1 ms), settle (1 -> 20 ms, RESETn
+* released), glitch (20 ms -> 20.0003 ms, 300 ns collapse to 0.2 V and back),
+* then held at vdd_val to {stop_ms} ms -- long enough to see a full
+* regenerated reset pulse complete even at this deck's slowest corner
+* (design/por_output_chain.md measures 4.2-7.75 ms at the cell level,
+* design/bias_core.md's sibling sim/temp-por-top-release/ up to 16.95 ms
+* end-to-end on the assembly from a cold start; this deck's stop time is
+* chosen per corner by run_glitch_probe.py with that margin in mind).
+
+vsup vdd 0 PWL(
++ 0          0
++ 1m         {vdd_val}
++ 20m        {vdd_val}
++ 20.0001m   0.2
++ 20.0002m   0.2
++ 20.0003m   {vdd_val}
++ {stop_s}    {vdd_val}
++ )
+
+Cpp ptat 0 1p
+Cpc ctat 0 1p
+Rlp ptat 0 1T
+Rlc ctat 0 1T
+Crn resetn 0 5p
+
+xdut vdd 0 ptat ctat resetn temp_por_top

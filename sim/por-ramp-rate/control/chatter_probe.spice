@@ -1,0 +1,49 @@
+* por-ramp-rate / release-chatter control -- stimulus half of the control deck.
+*
+* The other half is design/netlist/temp_por_top.spice, included by
+* run_chatter_probe.py to produce the composed decks under decks/. Edit THIS
+* file (or the schematic), never a composed deck.
+*
+* Netlist FRAGMENT: no .include / .lib / .temp / .options / .control / .end --
+* run_chatter_probe.py owns those. Parameters it supplies: vdd_val, stop_s
+* (the run's stop time IN SECONDS -- ngspice's `{expr}unit` PWL syntax does
+* not tolerate a `{param}m` split token), rate_v_per_s.
+*
+* ---------------------------------------------------------------------------
+* WHAT THIS DECK IS FOR
+*
+* This is the one-variable-per-run control experiment behind issue #56's
+* por-ramp-rate chatter finding (record 20260802-000004-32fbaa0, 20/81 PASS):
+* RESETn crosses its release threshold more than once at 60/81 points, at ALL
+* FOUR tested ramp rates including the two slow ones where
+* design/bias_core.md's "starved-loop window" (a slew-rate-limited effect
+* specific to the fast 1 V/us ratified limit) does not apply.
+*
+* ONE DUT, ONE RATE per run (unlike ../testbench/stimulus.spice's four DUTs
+* sharing one transient), with every node on the release path traced instead
+* of only RESETn -- POR_RAW, PGDG, VREF, BIAS_OK (to rule bias_core and
+* por_comparator in or out), and TIM/TRIP/RSTB (por_output_chain's one-shot
+* timer, its trip detector, and the release NAND's output) -- to find which
+* stage actually multiply-toggles.
+*
+* Re-run with:
+*
+*   python3 sim/por-ramp-rate/control/run_chatter_probe.py
+*
+* It is NOT a recorded PVT result and does not live under records/: this is
+* a handful of PVT points tracing internal nodes, not the corner-grid
+* evidence for the por-ramp-rate claim itself, which remains
+* sim/por-ramp-rate/records/. See sim/README.md, "Control experiments".
+*
+* PAD LOAD notes: identical rationale to ../testbench/stimulus.spice -- 1 pF
+* + 1 Tohm DC leak on PTAT/CTAT, 5 pF on RESETn.
+
+vsup vdd 0 PWL(0 0 {vdd_val/rate_v_per_s} {vdd_val} {stop_s} {vdd_val})
+
+Cpp ptat 0 1p
+Cpc ctat 0 1p
+Rlp ptat 0 1T
+Rlc ctat 0 1T
+Crn resetn 0 5p
+
+xdut vdd 0 ptat ctat resetn temp_por_top
