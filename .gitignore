@@ -18,6 +18,13 @@ __pycache__/
 # evidence that is meant to survive lives in sim/<experiment-slug>/.
 sim/.work/
 
+# Full v(t) traces a control experiment's wrdata step writes (e.g.
+# sim/por-glitch/control/, sim/por-ramp-rate/control/): large, regenerable on
+# demand from the committed decks/ + logs/, and no design document or
+# results.md cites them directly (only the numbers results.md derives from
+# them) -- so, unlike control/logs/*.log, they are not the evidence itself.
+sim/*/control/traces/
+
 # Machine-local PDK override (sim/pdk.json is the committed default).
 sim/pdk.local.json
 # >>> loom-managed (do not edit) >>>

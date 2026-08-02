@@ -822,6 +822,25 @@ explicitly rather than accepting a qualitative family resemblance: neither
 this coefficient nor the static divider relationship explains the effect,
 and the true dynamic mechanism is an open item.
 
+### Not the same defect as `por-ramp-rate`'s release-edge chatter (issue #56)
+
+`sim/por-ramp-rate/records/20260802-000004-32fbaa0.md`'s full-assembly sweep
+also measures `RESETn` **chattering** (crossing its release threshold more
+than once) at 60 of 81 points, at all four tested rates including the two
+slow ones (1 V/s, 10 V/s) where this section's slew-rate argument does not
+apply. It was an open question whether that is this window operating at
+smaller scale on a slow ramp, or a distinct effect. **It is distinct, and it
+is not owned by this cell.** `sim/por-ramp-rate/control/` traces the release
+path on a slow ramp and finds `VREF`/`BIAS_OK`/`POR_RAW` each cross their
+threshold once, cleanly, well before `RESETn` starts toggling — this cell is
+settled throughout the chatter window. The chatter itself lives entirely
+inside `por_output_chain`'s trip detector / release-NAND / `XMAST` keeper
+loop and is ramp-rate independent (same window width a decade apart in
+rate) but temperature-dependent, the opposite signature from this section's
+slew-limited mechanism. See
+[`design/por_output_chain.md`, "The release-edge chatter"](por_output_chain.md#the-release-edge-chatter--a-marginal-transition-in-the-trip-detector-not-the-starved-loop-window)
+for the full root-cause.
+
 ### Why it cannot be fixed inside this cell's Iq budget
 
 The obvious fix is a "core is starved" detector that does not depend on the

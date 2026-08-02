@@ -291,6 +291,154 @@ the timer at 1.2 ms and pushed the release ~0.9 ms later than the
 un-chattered pulse recorded in `sim/por-output-chain-pulse/`. A one-sided
 minimum would have called that a pass.
 
+**That result is at the cell level, with `IBIAS` idealised, and the glitch is
+on `POR_RAW`.** Issue #56's two findings, below, are a full-assembly result
+(`bias_core`-driven `IBIAS`, nothing idealised) with the glitch on `VDD`
+itself, or with no glitch at all (a plain rail ramp) — a different attack
+surface and a different mechanism from the one this section covers, even
+though the vocabulary ("chatter", "deglitch") overlaps. Neither invalidates
+the result above; both are additional, distinct findings this cell's cell-
+level testbenches could not see.
+
+## Two new findings from #14's assembly-level sweeps (issue #56)
+
+`sim/por-ramp-rate/` (record `20260802-000004-32fbaa0`, 20/81 PASS) and
+`sim/por-glitch/` (record `20260801-233813-32fbaa0`, 0/81 PASS) each surfaced
+a full-assembly defect this cell's own cell-level records do not — both
+root-caused here, with a committed, re-runnable control experiment behind
+each claim (`sim/README.md`, "Control experiments").
+
+### The release-edge chatter — a marginal transition in the trip detector, not the starved-loop window
+
+`por-ramp-rate`'s chatter (`RESETn` toggling more than once at the release
+edge, up to 109.6 µs against a ≤1 ns bound, 60/81 points) was hypothesised in
+#56 to be either `design/bias_core.md`'s starved-loop mechanism operating at
+a smaller scale on slow ramps, or a distinct effect. It is the latter, and it
+lives entirely in this cell, not in `bias_core` or `por_comparator`.
+
+`sim/por-ramp-rate/control/run_chatter_probe.py` traces every node on the
+release path — `POR_RAW`, `PGDG`, `VREF`, `BIAS_OK`, `TIM`, `TRIP`, `RSTB`,
+`RESETn` — at three PVT + rate points picked to isolate the variables:
+
+| Point | Rate | `RESETn` crossings of 1.0 V | Other nodes |
+| --- | --- | --- | --- |
+| `tt_27c_3.30v` | 10 V/s | 3 (36.85 µs window) | `POR_RAW`/`PGDG`/`VREF`/`BIAS_OK`/`TIM` cross **once**; `TRIP`/`RSTB` cross **3×/4×**, same window |
+| `tt_-40c_3.30v` | 10 V/s | 1 (clean) | every node crosses once |
+| `tt_27c_3.30v` | 1 V/s (a decade slower) | 3 (36.32 µs window) | same pattern as the 10 V/s point |
+
+Three things fall out of that table, all load-bearing:
+
+- **`bias_core` and `por_comparator` are firmly settled before the chatter
+  window opens** — `VREF`, `BIAS_OK` and `POR_RAW` each cross their threshold
+  once, well before `RESETn` starts toggling. The chatter is entirely
+  downstream of them, inside this cell's own trip detector (`XMDAPI` /
+  `XMDANT` / `XMDBNI` / `XMDBPT` → `TRIP`), the release NAND, and the
+  `XMAST` keeper loop on `RSTB` — `TRIP` and `RSTB` toggle in lock-step with
+  `RESETn`, same count, same window, at every chattering point.
+- **It is ramp-rate independent.** The 10 V/s and 1 V/s points at the same
+  corner chatter with near-identical window widths (36.85 vs. 36.32 µs).
+  `design/bias_core.md`'s starved-loop window is a slew-rate-limited effect
+  — the amplifier cannot track `dVDD/dt` — and would scale with the ramp
+  rate; this does not, because `TIM`'s approach to the trip detector's
+  decision point is set by its own `~2.5 nA / 6.27 pF` time constant *after*
+  `PGDG` has already asserted, not by how fast `VDD` is still moving at that
+  point. That is also why the corner-grid record itself shows comparable
+  chatter magnitudes across all four tested rates at a given corner (e.g.
+  `tt_27c`: 35–42 µs at every rate) rather than the fast-endpoint-only
+  pattern the starved-loop window produces.
+- **It is temperature-dependent, consistent with the trip detector's own
+  construction.** `tt`/−40 °C settles in one clean transition at the same
+  rate and `VDD` that chatters at `tt`/27 °C. The trip detector is
+  deliberately **"two nA-limited current comparators"** (see
+  [The one-shot is a current-starved ramp](#the-one-shot-is-a-current-starved-ramp-and-its-trip-is-vdd--v_sg)
+  above) — exactly the kind of weak-inversion, exponentially
+  temperature-sensitive stage that sits closest to a marginal, regenerative
+  decision point at higher temperature, and furthest from one in the cold.
+
+**Conclusion.** This is a real defect in `por_output_chain`'s own trip
+detector / release-NAND / `XMAST` loop — most likely a stability margin the
+NAND-and-keeper's deliberately weak, nA-class devices do not carry at every
+corner, not an inherent architecture-level tension between two ratified
+rows the way the starved-loop window is. Fixing it (wider/faster trip-stage
+devices, more decisive `RSTB` drive, or decoupling `XMAST`'s feedback path)
+is real analog sizing work that needs its own stability analysis and a fresh
+81-point re-verification across all four rates — genuinely possible, but
+outside a root-cause pass's safe scope; see #56's PR for the hand-off. Full
+evidence: [`sim/por-ramp-rate/control/results.md`](../sim/por-ramp-rate/control/results.md).
+
+### Why the deglitch dwell cannot reject a VDD-level glitch
+
+`por-glitch`'s finding (`RESETn` droops during a 300 ns / 0.2 V supply
+glitch and, at a subset of corners, is still low 5.5 ms later) was
+hypothesised in #56 to be `bias_core` collapsing below its own operating
+floor and losing the deglitch filter's bias current — the same theme as
+issue #55. `sim/por-glitch/control/run_glitch_probe.py` traces `VDD`,
+`POR_RAW`, `PGDG`, `VREF`, `BIAS_OK`, `TIM`, `TRIP` and `RESETn` through the
+glitch and the following tens of milliseconds, at two points chosen to
+bracket the record's "recovers" / "stuck" split (same process/temperature,
+different `VDD`):
+
+| Point | min `PGDG` during the 300 ns glitch | `TIM` immediately after | time from glitch-end to release |
+| --- | ---: | ---: | ---: |
+| `tt_27c_2.97v` (record: "recovers") | 0.499 V | 0.926 V | 5.076 ms |
+| `tt_27c_3.30v` (record: "stuck" at 5.5 ms) | 0.496 V | 0.927 V | 6.106 ms |
+
+That refutes the bias-collapse hypothesis directly: `VREF` and `BIAS_OK`
+wobble but never drop out, and `POR_RAW`/`PGDG` are back at the rail within
+microseconds of `VDD` recovering — `bias_core` does **not** take an
+appreciable time to restart from this glitch, unlike the multi-hundred-µs
+restart this document's own [starved-loop window](#the-starved-loop-window)
+and its brownout-restart branch measure after a genuine, sustained rail
+collapse. The real mechanism is simpler and is entirely inside this cell:
+
+1. `PGDG` is produced by `XMG1`/`XMG2`, two plain ratioed inverters
+   referenced to `VDD` itself — **not** to the deglitch dwell capacitor
+   `CDG`, which sits only on the `POR_RAW` input side of the chain
+   (`NDG`). When `VDD` itself collapses, `PGDG` collapses with it,
+   instantaneously, with no RC lag: the table above shows `PGDG` diving to
+   ~0.5 V during the 300 ns glitch at every point.
+2. `XMDIS`'s gate is `PGDGB` (`PGDG`'s inverted complement), and it is wired
+   — deliberately, per [Deglitch dwell](#deglitch-dwell--cdg-is-bounded-on-both-sides)
+   above — to **slam `TIM` back to `VSS` the instant `PGDG` falls**, which is
+   exactly the mechanism that correctly regenerates a full pulse after a
+   genuine brownout. It does not, and structurally cannot, distinguish "`PGDG`
+   fell because `POR_RAW` is genuinely bad" from "`PGDG` fell because `VDD`
+   itself is what collapsed". Both readings above show `TIM` discharged to
+   ~0.93 V immediately after the glitch ends — the one-shot has been fully
+   reset, not merely disturbed.
+3. `RESETn` then regenerates a complete, freshly-timed reset pulse from that
+   discharged `TIM` — one low, then release, **5.08–6.11 ms** later at these
+   two points (and the release edge itself carries the same tens-of-µs
+   3-crossing chatter [above](#the-release-edge-chatter--a-marginal-transition-in-the-trip-detector-not-the-starved-loop-window),
+   since it is the same trip detector doing the same thing regardless of
+   what charged `TIM`). The pulse **width scales with `VDD`**
+   (`design/por_output_chain.md`'s own "trip is `VDD − V_sg`" finding: a
+   higher rail needs a bigger swing on `TIM` before it trips), which is
+   exactly why record `20260801-233813-32fbaa0`'s lower-`VDD` corners
+   complete inside its fixed 5.5 ms observation window ("recovers") and its
+   higher-`VDD` corners do not ("stuck") — one mechanism, one window effect,
+   not two different circuit behaviours and not a filter that has lost its
+   state.
+
+**Conclusion — this is architecture-level, not a sizing miss.** The deglitch
+dwell (`CDG`, 1.86–8.88 µs) bounds how long a `POR_RAW`-only disturbance
+takes to reach `PGDG` *while `VDD` itself holds steady* — that is the
+mechanism [Deglitch dwell](#deglitch-dwell--cdg-is-bounded-on-both-sides)
+above measures and it is correct on its own terms. It provides **zero**
+protection against a disturbance on `VDD` itself, of *any* depth or
+duration, because `PGDG`'s `VDD`-referenced inverters have no time constant
+on that path at all — there is nothing for a longer or shorter glitch to be
+compared against. `por-glitch`'s own 300 ns choice ("well under" the dwell)
+was never testable by this filter in the first place; "well under" only has
+meaning for a `POR_RAW`-side disturbance. Rejecting a `VDD`-level glitch
+would need a genuinely new element (e.g. a locally-reserved, rail-independent
+hold on `XMDIS`'s trigger, or an entirely separate rail-collapse detector) —
+real new circuit topology, not a resize of `CDG` — so this is handed to a
+decision record rather than fixed here; see
+[DR-014](../spec/decision-records/DR-014-por-glitch-vdd-level-immunity.md).
+Full evidence:
+[`sim/por-glitch/control/results.md`](../sim/por-glitch/control/results.md).
+
 ## Iq budget
 
 [`por-iq`](../spec/target-spec.md#por-iq) is **<1 µA**, quoted in the
@@ -435,10 +583,16 @@ python3 sim/build_tb.py --check              # netlist ↔ testbench fragments
 python3 sim/run_corners.py por-output-chain-pulse    -j 8
 python3 sim/run_corners.py por-output-chain-deglitch -j 8
 python3 sim/run_corners.py por-output-chain-floor    -j 8
+python3 sim/por-ramp-rate/control/run_chatter_probe.py   # issue #56, release-edge chatter
+python3 sim/por-glitch/control/run_glitch_probe.py       # issue #56, VDD-level glitch
 ```
 
-Each run mints a **new** record id; `sim/` is append-only, so none of them
-overwrites the records cited at the top of this document.
+Each `run_corners.py` invocation mints a **new** record id; `sim/` is
+append-only, so none of them overwrites the records cited at the top of this
+document. The two `control/` scripts are diagnoses, not records — they
+overwrite their own outputs in place on every run, exactly as
+`sim/bias-core-startup/control/` does (`sim/README.md`, "Control
+experiments").
 
 ## Out of scope here, on purpose
 
