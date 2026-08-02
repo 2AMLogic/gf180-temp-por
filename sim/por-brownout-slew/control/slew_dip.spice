@@ -1,0 +1,47 @@
+* por-brownout-slew control -- assembly dip-shape fragment (issue #74).
+*
+* Netlist FRAGMENT: no .include / .lib / .temp / .control / .end -- the
+* control runner owns those, exactly as the corner harness does for
+* ../testbench/stimulus.spice.
+*
+* This is ../testbench/stimulus.spice with the falling edge's DURATION
+* lifted out of the PWL into a .param, and nothing else changed: same 1 ms
+* cold start, same 20 ms settle to a released state, same 1.0 V dip target,
+* same 50 us dwell, same 1 pF + 1 Tohm PTAT/CTAT pad references, same 5 pF
+* RESETn load, same DUT.
+*
+* WHY t_edge IS A LITERAL HERE AND AN EXPRESSION IN {vdd_val} THERE: the
+* testbench must hold the realized SLEW fixed while the harness sweeps the
+* supply axis underneath it, so it computes the edge from {vdd_val} at
+* elaboration time (see ../testbench/gen_rung.py's module docstring). A
+* control deck fixes ONE supply per deck, so the runner computes the same
+* quantity, (vdd - dip_v)/slew, in Python and passes it in -- identical
+* arithmetic, one fewer moving part in the deck. Each control deck is
+* therefore the exact stimulus one grid point of one rung saw.
+*
+* Parameters the runner supplies: vdd_val, vdd_nom, temp_c (from the
+* harness, as for any deck), plus t_edge (derived from the control's slew
+* variable), t_dip, dip_v, t_dwell and t_margin. All of them are in SPICE
+* base units (seconds, volts) and no expression below carries an SI suffix
+* -- the two numparam pitfalls ../testbench/gen_rung.py documents (a
+* .param may not reference another .param on this ngspice build; a literal
+* suffix after a {...} expression re-scales an already-base-unit value)
+* apply verbatim to this deck.
+
+vsup vdd 0 PWL(
++ 0                            0
++ 1m                           {vdd_val}
++ {t_dip}                      {vdd_val}
++ {t_dip+t_edge}               {dip_v}
++ {t_dip+t_edge+t_dwell}       {dip_v}
++ {t_dip+2*t_edge+t_dwell}     {vdd_val}
++ {t_dip+2*t_edge+t_dwell+t_margin} {vdd_val}
++ )
+
+Cpp ptat 0 1p
+Cpc ctat 0 1p
+Rlp ptat 0 1T
+Rlc ctat 0 1T
+Crn resetn 0 5p
+
+xdut vdd 0 ptat ctat resetn temp_por_top

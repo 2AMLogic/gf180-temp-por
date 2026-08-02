@@ -755,6 +755,39 @@ midpoint. The "why it cannot be fixed inside this cell's Iq budget"
 arithmetic below applies unchanged — it is the same detector that would be
 needed.
 
+**The non-monotonic band's mechanism, root-caused (#74).** A follow-up
+characterization — three additional full-grid rungs at 3.42/3.44/3.46 mV/µs
+(the last one moving the earliest observed failure down from 3.4795 to
+**3.46 mV/µs**, at `ss`/−40 °C/3.30 V) plus an event-timing control at the
+binding corner family — confirms the transition-zone hypothesis above and
+turns it into a concrete mechanism rather than an analogy. It is a race
+between two things this same starved loop drives: the dip window (fixed by
+the falling edge's own duration) and `por_output_chain`'s deglitch dwell
+(`design/por_output_chain.md`), realized here not at its documented
+1.86–8.88 µs ceiling but at whatever current survives a bias collapse that is
+**still in progress** when `POR_RAW` trips — the near-boundary edge has not
+finished falling, so the deglitch tail keeps losing current for hundreds of
+microseconds after the decision instant, stretching the measured dwell to
+several hundred microseconds and, in a few cases, past 1 ms. That is
+materially slower than either `design/por_output_chain.md`'s own
+IBIAS-envelope characterization or
+[DR-011](../spec/decision-records/DR-011-brownout-falling-slew-limit.md)'s
+control C (valid-low in 3.70–7.30 µs down to zero `IBIAS`) — neither of which
+is contradicted, because both hold the rail static once collapsed, and this
+regime never gets there before the window closes. Because the collapse
+trajectory behind that race differs slightly with the starting supply
+(a higher `vdd_val` buys a longer absolute edge for the same mV/µs), the
+race's winner is not a function of slew rate alone: `ss`/−40 °C/3.30 V and
+/3.63 V cross it at slightly different slews, which is the non-monotonicity
+itself. Full data, the per-supply event timeline, and the "is it the solver"
+check that rules out an integration artefact are in
+[`sim/por-brownout-slew/records/20260802-134958-dd0cd60-transition-band.md`](../sim/por-brownout-slew/records/20260802-134958-dd0cd60-transition-band.md).
+This does not touch the ratified 3.40 mV/µs bound — every PASS margin at or
+below it is 108.7 µs or more, well clear of the band, which only opens at
+3.46 mV/µs — and it is not a claim that `por_output_chain` is defective: its
+own characterization and DR-011's control both stand for the static condition
+they measured.
+
 ### Why it cannot be fixed inside this cell's Iq budget
 
 The obvious fix is a "core is starved" detector that does not depend on the
