@@ -27,11 +27,14 @@
       "22/0",
       "30/0",
       "33/0",
-      "34/0"
+      "34/0",
+      "46/0",
+      "75/0"
     ],
     "layers_in_stream_without_rules": [
       "34/10",
-      "200/0"
+      "117/5",
+      "117/10"
     ],
     "rules_skipped": [
       "bjt.separation.comp.1",
@@ -42,9 +45,7 @@
       "metal5.space.1",
       "metal5.width.1",
       "metaltop.space.1",
-      "metaltop.width.1",
-      "mim.enclosing.fusetop.1",
-      "mim.space.1"
+      "metaltop.width.1"
     ]
   },
   "provenance": {

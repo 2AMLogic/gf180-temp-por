@@ -5,21 +5,21 @@
   "reference": "por_output_chain.reference.spice",
   "top": "por_output_chain",
   "status": "match",
-  "mismatch_count": 3,
+  "mismatch_count": 13,
   "category_counts": {
     "device.body_unverified": 2,
-    "topology": 1
+    "topology": 11
   },
   "counts": {
     "nets": {
-      "layout": 20,
-      "reference": 20,
-      "matched": 20
+      "layout": 30,
+      "reference": 30,
+      "matched": 30
     },
     "devices": {
-      "layout": 27,
-      "reference": 27,
-      "matched": 27
+      "layout": 32,
+      "reference": 32,
+      "matched": 32
     },
     "pins": {
       "layout": 6,
@@ -37,8 +37,8 @@
   "environment": {
     "engine": "klayout",
     "engine_version": "0.30.10",
-    "layout_sha256": "44d2d167d68de122398fa389fecb4262ffdae6bccb7617d79bb1bfe89ef63295",
-    "reference_sha256": "2aa16f393694fce5c3fcb011aef7218cb2f60b38e1cecdf7fd0939d0591d31cd",
+    "layout_sha256": "74f27fdcc94c2266032a5873e4db58211c1fdd4b0f5c6d63705e60f56be03ad0",
+    "reference_sha256": "af996742acf38111841d68dacbef65df3dcd3ca152bda58b4cda3646b6a36d8e",
     "extracted_netlist": null
   },
   "provenance": {
@@ -75,6 +75,126 @@
         "reference": null,
         "class": "pfet"
       },
+      "property": null
+    },
+    {
+      "category": "topology",
+      "severity": "warning",
+      "description": "nets were paired ambiguously; the comparer resolved it structurally (consider a hints.same_nets entry to pin this down)",
+      "side": "both",
+      "net": {
+        "layout": "$20",
+        "reference": "XCDG.NDG"
+      },
+      "device": null,
+      "property": null
+    },
+    {
+      "category": "topology",
+      "severity": "warning",
+      "description": "nets were paired ambiguously; the comparer resolved it structurally (consider a hints.same_nets entry to pin this down)",
+      "side": "both",
+      "net": {
+        "layout": "$22",
+        "reference": "XCDG.VSS"
+      },
+      "device": null,
+      "property": null
+    },
+    {
+      "category": "topology",
+      "severity": "warning",
+      "description": "nets were paired ambiguously; the comparer resolved it structurally (consider a hints.same_nets entry to pin this down)",
+      "side": "both",
+      "net": {
+        "layout": "$24",
+        "reference": "XCTIM.1.TIM"
+      },
+      "device": null,
+      "property": null
+    },
+    {
+      "category": "topology",
+      "severity": "warning",
+      "description": "nets were paired ambiguously; the comparer resolved it structurally (consider a hints.same_nets entry to pin this down)",
+      "side": "both",
+      "net": {
+        "layout": "$25",
+        "reference": "XCTIM.1.VSS"
+      },
+      "device": null,
+      "property": null
+    },
+    {
+      "category": "topology",
+      "severity": "warning",
+      "description": "nets were paired ambiguously; the comparer resolved it structurally (consider a hints.same_nets entry to pin this down)",
+      "side": "both",
+      "net": {
+        "layout": "$27",
+        "reference": "XCTIM.2.TIM"
+      },
+      "device": null,
+      "property": null
+    },
+    {
+      "category": "topology",
+      "severity": "warning",
+      "description": "nets were paired ambiguously; the comparer resolved it structurally (consider a hints.same_nets entry to pin this down)",
+      "side": "both",
+      "net": {
+        "layout": "$28",
+        "reference": "XCTIM.2.VSS"
+      },
+      "device": null,
+      "property": null
+    },
+    {
+      "category": "topology",
+      "severity": "warning",
+      "description": "nets were paired ambiguously; the comparer resolved it structurally (consider a hints.same_nets entry to pin this down)",
+      "side": "both",
+      "net": {
+        "layout": "$30",
+        "reference": "XCTIM.3.TIM"
+      },
+      "device": null,
+      "property": null
+    },
+    {
+      "category": "topology",
+      "severity": "warning",
+      "description": "nets were paired ambiguously; the comparer resolved it structurally (consider a hints.same_nets entry to pin this down)",
+      "side": "both",
+      "net": {
+        "layout": "$31",
+        "reference": "XCTIM.3.VSS"
+      },
+      "device": null,
+      "property": null
+    },
+    {
+      "category": "topology",
+      "severity": "warning",
+      "description": "nets were paired ambiguously; the comparer resolved it structurally (consider a hints.same_nets entry to pin this down)",
+      "side": "both",
+      "net": {
+        "layout": "$33",
+        "reference": "XCTIM.4.TIM"
+      },
+      "device": null,
+      "property": null
+    },
+    {
+      "category": "topology",
+      "severity": "warning",
+      "description": "nets were paired ambiguously; the comparer resolved it structurally (consider a hints.same_nets entry to pin this down)",
+      "side": "both",
+      "net": {
+        "layout": "$34",
+        "reference": "XCTIM.4.VSS"
+      },
+      "device": null,
       "property": null
     },
     {

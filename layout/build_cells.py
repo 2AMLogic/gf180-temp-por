@@ -26,13 +26,16 @@ Layers are the gf180mcu drawn layers ``klt``'s curated ``gf180mcu`` deck reads
 
     Nwell 21/0 · Comp 22/0 · Poly2 30/0 · Contact 33/0 · Metal1 34/0
     Metal1 pin/label purpose 34/10 (net names -> extracted pin names)
+    Metal4 46/0 · FuseTop 75/0 · CAP_MK 117/5 · MIM_L_MK 117/10
+                    (the MiM capacitor stack, ``por_output_chain`` only)
 
 plus one repo-local annotation layer that is **not** a gf180mcu drawn layer and
 is read by neither the DRC deck nor the extraction deck:
 
     RESERVED 200/0  area reserved for devices the deck cannot represent
-                    (see ``bias_core``'s, ``por_comparator``'s, and
-                    ``por_output_chain``'s docstrings)
+                    (see ``bias_core``'s and ``por_comparator``'s docstrings;
+                    ``por_output_chain``'s MiM reservation is gone -- it draws
+                    those capacitors for real, #92)
 
 Device dimensions are never retyped here. The real sub-circuit cells
 (``bias_core``, ``por_comparator``, ``por_output_chain``) read every ``L``/``W``
@@ -79,6 +82,16 @@ METAL2 = (36, 0)
 METAL2_LABEL = (36, 10)
 VIA2 = (38, 0)
 METAL3 = (42, 0)
+#: The gf180mcu MiM capacitor stack, used only by ``por_output_chain`` (#92).
+#: ``klt``'s curated deck recognises exactly one MiM device class,
+#: ``cap_mim_2f0_m4m5_noshield`` -- the DRM's "10.4.2 MIM Option B" 5-metal
+#: stack -- as a ``FuseTop`` top plate carrying **both** marker layers over a
+#: ``Metal4`` bottom plate. All four layers are read by the extraction deck, and
+#: ``Metal4`` by the DRC deck's ``mim.*`` rules; none is an annotation layer.
+METAL4 = (46, 0)
+FUSETOP = (75, 0)
+CAP_MK = (117, 5)
+MIM_L_MK = (117, 10)
 RESERVED = (200, 0)
 
 #: gf180mcu DRM "CO.1": contact is a fixed 0.22 x 0.22 um square.
@@ -340,6 +353,90 @@ def _golden_devices(source: str, subckt: str) -> dict[str, dict]:
     """Parse ``design/netlist/<source>``'s ``<subckt>`` for its MOS devices."""
     text = (REPO_ROOT / "design" / "netlist" / source).read_text()
     return lvsref.parse_devices(lvsref.subckt_body(text, subckt))
+
+
+def _golden_caps(source: str, subckt: str) -> dict[str, dict]:
+    """Parse ``design/netlist/<source>``'s ``<subckt>`` for its MiM caps."""
+    text = (REPO_ROOT / "design" / "netlist" / source).read_text()
+    return lvsref.parse_capacitors(lvsref.subckt_body(text, subckt))
+
+
+#: gf180mcu DRM "10.4.2 MIM Capacitor", Option B, rule ``MIMTM.3``: minimum MiM
+#: bottom-plate (Metal4) overlap of the top plate (FuseTop) is 0.6 um. Drawn
+#: with margin -- the recognised capacitance is set by the *top* plate's area
+#: (the plates' geometric overlap), so an oversized bottom plate costs nothing.
+#: ``klt``'s ``mim.enclosing.fusetop.1`` checks this one.
+MIM_ENCLOSURE_UM = 0.7
+#: DRM rule ``MIMTM.1``: minimum MiM bottom-plate spacing to any bottom-plate
+#: metal, 1.2 um. Drawn with the same margin; ``klt``'s ``mim.space.1`` checks
+#: it (as a general Metal4-to-Metal4 space, which over-flags rather than under-).
+MIM_SPACE_UM = 1.4
+
+
+def _mim_cap(b: CellBuilder, x0: float, y0: float, w: float, h: float) -> None:
+    """One drawn MiM capacitor with its lower-left top-plate corner at x0, y0.
+
+    Three coincident rectangles on ``FuseTop`` + ``CAP_MK`` + ``MIM_L_MK`` --
+    the deck's ``top_plate`` and both of its ``top_plate_requires`` markers, all
+    three needed before any of the geometry is a capacitor rather than
+    unrecognised metal -- over a ``Metal4`` bottom plate enclosing it by
+    :data:`MIM_ENCLOSURE_UM` on every side. The extracted capacitance is the two
+    plates' overlap area times the deck's 2.0 fF/um^2, i.e. ``w * h`` exactly,
+    which is what ``lvs_reference.build_cap_cards`` puts in the reference.
+    """
+    b.box(FUSETOP, x0, y0, x0 + w, y0 + h)
+    b.box(CAP_MK, x0, y0, x0 + w, y0 + h)
+    b.box(MIM_L_MK, x0, y0, x0 + w, y0 + h)
+    edge = MIM_ENCLOSURE_UM
+    b.box(METAL4, x0 - edge, y0 - edge, x0 + w + edge, y0 + h + edge)
+
+
+def _mim_block(
+    caps: dict[str, dict], arrays: dict[str, tuple[int, int]], x0: float, y0: float
+) -> tuple[list[tuple[str, float, float, float, float]], float, float]:
+    """Place every drawn MiM plate of ``arrays``, left to right from x0, y0.
+
+    ``arrays`` maps a golden MiM card's name to the (columns, rows) array its
+    ``m=`` multiplier is drawn as -- one schematic device stays one contiguous
+    array, because that is what it is. Plate sizes come out of the golden
+    netlist's own ``c_width`` / ``c_length``; nothing is retyped here, so a
+    schematic edit that resizes a cap moves this geometry with it and both
+    ``--check`` gates fail together if the committed stream is not rebuilt.
+
+    ``x0``/``y0`` are the lower-left corner of the first *bottom* plate.
+    Returns ``(rects, x1, y1)`` where ``rects`` are the top plates as
+    ``(name, x, y, w, h)`` and ``x1``/``y1`` bound the whole block's Metal4.
+    """
+    rects: list[tuple[str, float, float, float, float]] = []
+    edge, gap = MIM_ENCLOSURE_UM, MIM_SPACE_UM
+    cursor = x0
+    top = y0
+    for name, (columns, rows) in arrays.items():
+        cap = caps[name]
+        units = lvsref.cap_units(cap)
+        if columns * rows != units:
+            raise ValueError(
+                f"{name}: {columns}x{rows} drawn plates for m={units} in the "
+                "golden netlist"
+            )
+        width = lvsref.to_um(cap["params"]["c_width"])
+        height = lvsref.to_um(cap["params"]["c_length"])
+        pitch_x = width + 2 * edge + gap
+        pitch_y = height + 2 * edge + gap
+        for row in range(rows):
+            for column in range(columns):
+                rects.append(
+                    (
+                        name,
+                        cursor + edge + column * pitch_x,
+                        y0 + edge + row * pitch_y,
+                        width,
+                        height,
+                    )
+                )
+        cursor += columns * pitch_x
+        top = max(top, y0 + rows * pitch_y)
+    return rects, cursor - gap, top - gap
 
 
 def _contact_rows(width_um: float) -> list[float]:
@@ -698,38 +795,63 @@ POR_OUTPUT_CHAIN_PIN_ON = {
     "RESETn": ("XMON", "d"),
 }
 
-#: Floor area reserved for the two MiM caps the deck cannot represent
-#: (``XCDG`` 11x11 um, ``XCTIM`` 4 x 28x28 um -- about 3.26e3 um^2 of MiM).
-#: Sized to hold them side by side *without* assuming they may be stacked over
-#: the device row: MiM sits on metal 3/4, so stacking is plausible, but whether
-#: it is allowed is a DRC call this repo cannot make against a deck that
-#: declares one metal level. Reserving separate floor area keeps the number
-#: pessimistic rather than optimistic.
-POC_RESERVED_W_UM = 70.0
-POC_RESERVED_H_UM = 62.0
+#: How the cell's 2 MiM caps are drawn: name -> (columns, rows). ``XCTIM``'s
+#: ``m=4`` becomes a 2x2 array of its own 28x28 um plate, kept contiguous
+#: because it is one schematic device; ``XCDG`` is a single 11x11 um plate in
+#: the column beside it. ``_mim_block`` asserts each array against the golden
+#: netlist's own ``m=``, and takes the plate sizes from the same card, so
+#: nothing about the caps is retyped here.
+#:
+#: The whole block lands in the same place the pre-#92 reservation did (above
+#: the VDD rail, inside the guard ring) and comes out 74.0 x 60.2 um against the
+#: 70 x 62 um that reservation predicted -- the same separate floor area, now
+#: drawn. It is still **not** stacked over the device row: MiM sits high enough
+#: that stacking is plausible, but that is a DRC call this repo cannot make
+#: against a deck carrying two MiM rules and no inter-layer ones, so the
+#: pessimistic choice stands (``design/por_output_chain.md`` defers the same
+#: question).
+POC_MIM_ARRAYS = {"XCTIM": (2, 2), "XCDG": (1, 1)}
 
 
 def por_output_chain(b: CellBuilder) -> None:
-    """The MOS portion of ``por_output_chain`` (``design/por_output_chain.sch``).
+    """All of ``por_output_chain`` (``design/por_output_chain.sch``) -- the 27
+    MOS devices and, since #92, both MiM caps.
 
-    **What is drawn, and what deliberately is not.** The cell has 29 devices:
-    27 single-finger MOS (14 pfet, 13 nfet) and 2 MiM caps (``XCDG``,
-    ``XCTIM``). The 27 MOS are drawn, extracted and compared. The 2 MiM caps
-    are **not drawn** -- ``klt``'s curated ``gf180mcu`` extraction deck models
-    ``nfet``/``pfet`` and nothing else (klayout-tools#219; #222 for the
-    resistor sub-case), and it declares one metal level, so it has neither a
-    capacitor device class nor the metal 3/4 the gf180mcu MiM stack lives on.
-    Drawing them anyway would be worse than leaving them out: the deck reads
-    unmodelled-device geometry as ordinary interconnect and shorts its terminal
-    nets silently (klayout-tools#288). So this cell draws everything the deck
-    can represent and nothing it cannot, and reserves the MiM area as a
-    floorplan rectangle on annotation layer 200/0, read by neither deck.
+    **What is drawn, and what is still not proven.** The cell has 29 devices:
+    27 single-finger MOS (14 pfet, 13 nfet) and 2 MiM caps (``XCDG`` 11x11 um,
+    ``XCTIM`` 4 x 28x28 um). All 29 are drawn and all 29 are extracted and
+    compared -- 32 extracted devices, because ``XCTIM``'s ``m=4`` draws as four
+    units and the deck models no multiplier.
 
-    Unlike ``bias_core``, leaving the caps out costs **no net**: both ``NDG``
-    and ``TIM`` carry MOS terminals as well, so every net in the schematic
-    still exists on both sides of the compare. What is unproven is the two
-    capacitor values themselves -- i.e. the deglitch dwell and the one-shot
-    width. Those remain ``sim/``'s claims, unchanged.
+    The caps were reserved floor area until #92: ``klt``'s curated ``gf180mcu``
+    deck used to recognise ``nfet``/``pfet`` only (klayout-tools#219), so drawn
+    MiM geometry would have been read as ordinary interconnect and silently
+    shorted (klayout-tools#288). ``klt 0.1.0`` declares
+    ``cap_mim_2f0_m4m5_noshield`` (#225 landed), so the plates are now real:
+    ``FuseTop`` top plate carrying both ``CAP_MK`` and ``MIM_L_MK``, over a
+    ``Metal4`` bottom plate -- see :func:`_mim_cap`. That is the whole of the
+    upper-level geometry in this cell; signal routing is still Metal1-only.
+
+    What the compare now proves about them is their **capacitance**: the
+    extracted value is the drawn plates' overlap area times the deck's
+    2.0 fF/um^2, checked against the same golden ``c_width``/``c_length`` the
+    plates are drawn from. What it still does not prove is **what either plate
+    is connected to**. ``klt`` registers a recognised capacitor's plates as
+    their own self-connected nodes outside the deck's metal/via stack, and the
+    top plate's layer is not in that stack at all, so no drawn routing can put a
+    plate on a schematic net -- every cap extracts as an isolated pair of nets
+    whatever is drawn around it. Drawing plate-to-rail routing anyway would add
+    real geometry that no check in this flow can read, so it is not drawn, and
+    ``lvs_reference.py`` names the plate nets after the schematic nodes they are
+    *meant* to be on (``XCDG.NDG``) so the gap is legible in the reference
+    netlist. Filed generically as klayout-tools#314 (and #315 for the deck
+    modelling only the 5-metal MiM variant); ``layout/README.md`` records both.
+
+    That gap costs **no net** in the compare: both ``NDG`` and ``TIM`` carry MOS
+    terminals as well, so every net in the schematic still exists on both sides
+    with all of its MOS connections. And the two capacitor *values* -- the
+    deglitch dwell and the one-shot width -- are no longer purely ``sim/``'s
+    claim: the drawn area behind them is now checked.
 
     **Placement.** ``layout/floorplan.md`` puts this cell nearest the
     ``RESETn`` pad, "shortest path from the push-pull output driver", and in
@@ -755,7 +877,7 @@ def por_output_chain(b: CellBuilder) -> None:
     the same golden netlist the LVS reference is derived from)::
 
         +--- guard ring: COMP + Metal1, VSS-tied, continuous, contacts 1um ---+
-        |  [ reserved MiM area (annotation 200/0) ]                           |
+        |  [ MiM block: 4 x XCTIM as 2x2, then XCDG -- Metal4 + FuseTop ]     |
         |  VDD rail (Metal1)                                                  |
         |  ..... routing channel: one Poly2 track per signal net .....        |
         |  [ NMOS row ]  [ PMOS row, one Nwell, ends XMOP ]   [ XMON ]        |
@@ -763,9 +885,12 @@ def por_output_chain(b: CellBuilder) -> None:
         |  VSS rail (Metal1) over a p-substrate tap strap (COMP)              |
         +---------------------------------------------------------------------+
 
-    Routing is Metal1-only because the extraction deck declares one metal level
-    (re-checked at ``klt 0.1.0`` for this cell -- still one). The scheme that
-    makes 27 devices routable on one metal is ``bias_core``'s: **horizontal
+    Signal routing is Metal1-only -- the scheme this cell was drawn with when
+    the extraction deck declared one metal level, kept because it works and
+    redrawing a proven cell to use a capability it does not need is a
+    regression risk for no gain. The MiM block's ``Metal4`` is the cell's only
+    geometry above Metal1, and it is device geometry, not routing. The scheme
+    that makes 27 devices routable on one metal is ``bias_core``'s: **horizontal
     Poly2 tracks, one per signal net, with vertical Metal1 risers**, so a riser
     crosses every track it does not belong to with no contact.
 
@@ -811,16 +936,20 @@ def por_output_chain(b: CellBuilder) -> None:
     vss_y0, vss_y1 = -5.2, -4.2
     tie_y0, tie_y1 = -2.2, -1.2
 
-    reserved_x0 = row_x0 + 1.0
-    reserved_x1 = reserved_x0 + POC_RESERVED_W_UM
-    reserved_y0 = vdd_y1 + 3.0
-    reserved_y1 = reserved_y0 + POC_RESERVED_H_UM
+    mim_plates, mim_x1, mim_y1 = _mim_block(
+        _golden_caps("por_output_chain.spice", "por_output_chain"),
+        POC_MIM_ARRAYS,
+        row_x0 + 1.0,
+        vdd_y1 + 3.0,
+    )
 
     clear = GUARD_RING_CLEAR_UM + GUARD_RING_W_UM
     gx0 = row_x0 - 1.0 - clear
     gx1 = row_x1 + 2.0 + clear
     gy0 = vss_y0 - clear
-    gy1 = reserved_y1 + clear
+    gy1 = mim_y1 + clear
+    if mim_x1 + clear > gx1:
+        raise ValueError("the drawn MiM block does not fit inside the guard ring")
 
     def riser(x_centre: float, net: str, y_low: float, y_high: float) -> None:
         """One Metal1 riser from a device terminal to its rail or track."""
@@ -872,8 +1001,9 @@ def por_output_chain(b: CellBuilder) -> None:
     # VSS by abutting the VSS rail's left end, with no floating segment.
     _draw_guard_ring(b, gx0, gy0, gx1, gy1)
 
-    # --- reserved MiM area (annotation only) -------------------------------
-    b.box(RESERVED, reserved_x0, reserved_y0, reserved_x1, reserved_y1)
+    # --- MiM caps: drawn, not reserved (#92) -------------------------------
+    for _name, x, y, w, h in mim_plates:
+        _mim_cap(b, x, y, w, h)
 
     # --- pins --------------------------------------------------------------
     b.label("VDD", row_x1, (vdd_y0 + vdd_y1) / 2.0)

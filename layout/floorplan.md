@@ -496,6 +496,11 @@ What changes, and what does not:
   crossunders and their committed GDS is byte-identical. The lifted limit is
   an opportunity for the assembly level, not an obligation to redraw proven
   cells.
+  *(Superseded in one place by #92: `por_output_chain` now draws its two MiM
+  caps, whose bottom plate is `Metal4`, so that cell's GDS is no longer the
+  #72 stream. Its **signal** routing is still Metal1-only with poly
+  crossunders — the MiM is device geometry, not routing — and the other three
+  cells remain byte-identical. See `layout/README.md`.)*
 - **The matching plan is untouched.** Nothing in ranks 1–4 depended on the
   metal count.
 
