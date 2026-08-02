@@ -5,6 +5,7 @@
     python3 layout/lvs_reference.py --check    # verify committed references are current
     python3 layout/lvs_reference.py --cell por_comparator_bias_okb_inv
     python3 layout/lvs_reference.py --cell <name> --corrupt device-param -o /tmp/bad.spice
+    python3 layout/lvs_reference.py --check-deck-hash  # committed drc.json all one deck?
 
 stdlib only; no PDK, no klayout, no ngspice.
 
@@ -72,6 +73,7 @@ upstream as tool friction; tracked in ``layout/README.md``.
 from __future__ import annotations
 
 import argparse
+import json
 import re
 import sys
 from pathlib import Path
@@ -81,6 +83,16 @@ LAYOUT_DIR = Path(__file__).resolve().parent
 REPO_ROOT = LAYOUT_DIR.parent
 NETLIST_DIR = REPO_ROOT / "design" / "netlist"
 CELLS_DIR = LAYOUT_DIR / "cells"
+REPORTS_DIR = LAYOUT_DIR / "reports"
+
+#: Cells whose committed ``layout/reports/<cell>/drc.json`` is allowed to lag
+#: the rest on deck version because the cell itself is intentionally frozen
+#: (see that cell's own section in ``layout/README.md``). Today this is only
+#: ``temp_por_top``, held behind #97 (its assembly is re-derived once, after
+#: the sub-cell device work lands, rather than four times); remove an entry
+#: once its issue lands and its reports are regenerated against the shared
+#: deck like every other cell's.
+FROZEN_DECK_CELLS = {"temp_por_top"}
 
 #: The deck ties every extracted NMOS body to this global net.
 SUBSTRATE_NET = "vsubs"
@@ -1517,6 +1529,65 @@ def build(cell: str, corrupt: str | None = None) -> str:
     return "\n".join(lines) + "\n"
 
 
+def check_deck_hash_consistency(reports_dir: Path = REPORTS_DIR) -> list[str]:
+    """Fail loudly if committed ``layout/reports/*/drc.json`` disagree on
+    ``provenance.deck.content_hash``.
+
+    ``layout/reports/`` is append-only evidence (repo ``CLAUDE.md``,
+    "Verification is the product"): every committed report is supposed to
+    describe a run of the *same* ``klt`` deck, so a DRC-clean verdict recorded
+    for one cell means something about every other cell's report too. Nothing
+    else in this flow checked that invariant, so two cells' reports could (and
+    did, see #103) silently drift onto two different deck revisions with no
+    error anywhere.
+
+    Cells in :data:`FROZEN_DECK_CELLS` are excluded from the agreement check
+    (their own committed report can lag while the cell is intentionally
+    frozen) but still required to have a well-formed ``provenance.deck``
+    block -- a frozen cell with an unreadable report is still a bug, just not
+    a hash-drift one.
+
+    Returns a list of human-readable failure strings; empty means consistent.
+    """
+    hashes: dict[str, str] = {}
+    failures: list[str] = []
+    for drc_path in sorted(reports_dir.glob("*/drc.json")):
+        cell = drc_path.parent.name
+        try:
+            data = json.loads(drc_path.read_text())
+        except (OSError, json.JSONDecodeError) as error:
+            failures.append(f"{cell}: could not read {drc_path}: {error}")
+            continue
+        content_hash = data.get("provenance", {}).get("deck", {}).get("content_hash")
+        if not content_hash:
+            failures.append(
+                f"{cell}: {drc_path} has no provenance.deck.content_hash"
+            )
+            continue
+        if cell in FROZEN_DECK_CELLS:
+            continue
+        hashes[cell] = content_hash
+
+    distinct = sorted(set(hashes.values()))
+    if len(distinct) > 1:
+        by_hash: dict[str, list[str]] = {}
+        for cell, content_hash in hashes.items():
+            by_hash.setdefault(content_hash, []).append(cell)
+        detail = "; ".join(
+            f"{content_hash} -> {', '.join(sorted(cells))}"
+            for content_hash, cells in sorted(by_hash.items())
+        )
+        frozen = sorted(FROZEN_DECK_CELLS)
+        failures.append(
+            "committed layout/reports/*/drc.json disagree on "
+            f"provenance.deck.content_hash: {detail}. Regenerate every "
+            "non-frozen cell's reports against one deck (bash "
+            f"layout/run_checks.sh) before committing. (Excluded as frozen: "
+            f"{', '.join(frozen) if frozen else 'none'}.)"
+        )
+    return failures
+
+
 def run(check: bool, only: str | None, corrupt: str | None, out: str | None) -> int:
     names = [only] if only else sorted(CELLS)
     for name in names:
@@ -1567,7 +1638,23 @@ def main(argv: list[str] | None = None) -> int:
         help="emit a deliberately wrong reference (LVS negative control)",
     )
     parser.add_argument("-o", "--output", help="where to write a --corrupt reference")
+    parser.add_argument(
+        "--check-deck-hash",
+        action="store_true",
+        help=(
+            "fail if committed layout/reports/*/drc.json disagree on "
+            "provenance.deck.content_hash (ignores --cell/--corrupt/--output; "
+            f"tolerates {', '.join(sorted(FROZEN_DECK_CELLS))} while frozen)"
+        ),
+    )
     args = parser.parse_args(argv)
+    if args.check_deck_hash:
+        failures = check_deck_hash_consistency()
+        for line in failures:
+            print(f"FAIL {line}")
+        if not failures:
+            print(f"ok {REPORTS_DIR.relative_to(REPO_ROOT)}/*/drc.json: one deck hash")
+        return 1 if failures else 0
     try:
         return run(args.check, args.cell, args.corrupt, args.output)
     except ReferenceError as error:
