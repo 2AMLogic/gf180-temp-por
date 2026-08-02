@@ -130,6 +130,18 @@ else
   stale_gate
 fi
 
+# --- deck-hash consistency gate -----------------------------------------------
+#
+# Unscoped by design, even for a single-cell run: this checks an invariant
+# across the whole `layout/reports/` directory (every committed drc.json
+# describes the same klt deck), not a property of any one cell, so scoping it
+# to `$@` would let a single-cell run stay blind to drift a full run would
+# catch. `temp_por_top` is tolerated while frozen behind #97 (see
+# lvs_reference.py's FROZEN_DECK_CELLS) -- everything else must agree.
+
+info "==> checking layout/reports/ agree on one deck (provenance.deck.content_hash)"
+python3 layout/lvs_reference.py --check-deck-hash
+
 # --- per-cell checks ---------------------------------------------------------
 
 status=0

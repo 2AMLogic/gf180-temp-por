@@ -13,7 +13,9 @@ emit a reference the layout can never match.
 from __future__ import annotations
 
 import collections
+import json
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -1238,6 +1240,99 @@ class TempPorTopFloorplanTest(unittest.TestCase):
         xs = list(bc.TOP_MARGIN_X.values())
         self.assertEqual(len(xs), len(set(xs)))
         self.assertNotIn("VSS", bc.TOP_TRUNK_Y)  # VSS's trunk is the rail
+
+
+class DeckHashConsistencyTest(unittest.TestCase):
+    """``check_deck_hash_consistency`` is the guard #103 added so committed
+    ``layout/reports/*/drc.json`` cannot silently drift onto two different
+    ``klt`` deck revisions the way `por_comparator`'s did (see #102). It
+    operates on a real reports directory, so every case here builds one from
+    scratch under a temp dir rather than touching the committed reports."""
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.reports_dir = Path(self._tmp.name)
+
+    def _write(self, cell: str, content_hash: str | None, malformed: bool = False):
+        cell_dir = self.reports_dir / cell
+        cell_dir.mkdir(parents=True, exist_ok=True)
+        path = cell_dir / "drc.json"
+        if malformed:
+            path.write_text("{not json")
+            return
+        payload: dict = {"status": "clean", "violation_count": 0}
+        if content_hash is not None:
+            payload["provenance"] = {"deck": {"content_hash": content_hash}}
+        else:
+            payload["provenance"] = {"deck": {}}
+        path.write_text(json.dumps(payload))
+
+    def test_one_shared_hash_is_clean(self):
+        self._write("por_comparator", "sha256:aaa")
+        self._write("temp_core", "sha256:aaa")
+        self._write("por_output_chain", "sha256:aaa")
+        self.assertEqual(lr.check_deck_hash_consistency(self.reports_dir), [])
+
+    def test_two_hashes_across_non_frozen_cells_is_a_failure(self):
+        self._write("bias_core", "sha256:new")
+        self._write("por_comparator", "sha256:old")
+        self._write("temp_core", "sha256:old")
+        failures = lr.check_deck_hash_consistency(self.reports_dir)
+        self.assertEqual(len(failures), 1)
+        self.assertIn("sha256:new", failures[0])
+        self.assertIn("sha256:old", failures[0])
+        self.assertIn("bias_core", failures[0])
+        self.assertIn("por_comparator", failures[0])
+
+    def test_temp_por_top_frozen_exception_is_tolerated(self):
+        # temp_por_top may lag behind #97; every other cell must still agree.
+        self.assertIn("temp_por_top", lr.FROZEN_DECK_CELLS)
+        self._write("por_comparator", "sha256:current")
+        self._write("temp_core", "sha256:current")
+        self._write("temp_por_top", "sha256:stale-behind-97")
+        self.assertEqual(lr.check_deck_hash_consistency(self.reports_dir), [])
+
+    def test_frozen_cell_disagreement_does_not_mask_a_real_non_frozen_split(self):
+        # The frozen exception must not become a blanket bypass: a real split
+        # among the *non*-frozen cells still has to fail even with a frozen
+        # cell present in the same directory.
+        self._write("por_comparator", "sha256:current")
+        self._write("temp_core", "sha256:different")
+        self._write("temp_por_top", "sha256:stale-behind-97")
+        failures = lr.check_deck_hash_consistency(self.reports_dir)
+        self.assertEqual(len(failures), 1)
+        # temp_por_top is only named in the "excluded as frozen" aside, never
+        # as one of the disagreeing cells -- its own (different-again) hash
+        # must not appear attributed to either side of the real split.
+        self.assertNotIn("sha256:stale-behind-97", failures[0])
+        self.assertIn("por_comparator", failures[0])
+        self.assertIn("temp_core", failures[0])
+
+    def test_missing_provenance_is_a_failure_even_when_frozen(self):
+        self._write("por_comparator", "sha256:current")
+        self._write("temp_por_top", None)
+        failures = lr.check_deck_hash_consistency(self.reports_dir)
+        self.assertEqual(len(failures), 1)
+        self.assertIn("temp_por_top", failures[0])
+        self.assertIn("no provenance.deck.content_hash", failures[0])
+
+    def test_unreadable_report_is_a_failure(self):
+        self._write("por_comparator", "sha256:current")
+        self._write("temp_core", None, malformed=True)
+        failures = lr.check_deck_hash_consistency(self.reports_dir)
+        self.assertEqual(len(failures), 1)
+        self.assertIn("temp_core", failures[0])
+
+    def test_a_single_cell_is_trivially_consistent(self):
+        self._write("por_comparator", "sha256:only-one")
+        self.assertEqual(lr.check_deck_hash_consistency(self.reports_dir), [])
+
+    def test_no_reports_at_all_is_not_a_failure(self):
+        # An empty reports/ directory is a "nothing to check" state, not a
+        # drift finding -- the per-cell checks in run_checks.sh are what
+        # require reports to exist at all.
+        self.assertEqual(lr.check_deck_hash_consistency(self.reports_dir), [])
 
 
 if __name__ == "__main__":

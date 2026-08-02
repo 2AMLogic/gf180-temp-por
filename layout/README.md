@@ -27,10 +27,22 @@ interactive KLayout session, no netgen/magic.
 > nets, and the ratified 5-pad pinout, unchanged by any of them; #97 is what
 > unfreezes it, reworking that floorplan once for all of them at once rather
 > than once per sub-cell change (rebuilding the assembly before then DRCs
-> dirty — see the `temp_por_top` section). Every cell under test is DRC-clean
-> and LVS-clean against the schematic-derived netlist with every applicable
-> negative control detected (three per cell where a cell draws a resistor or a
-> bipolar: topology, device-param, and passive-param).
+> dirty — see the `temp_por_top` section). Every cell under test is LVS-clean
+> against the schematic-derived netlist with every applicable negative control
+> detected (three per cell where a cell draws a resistor or a bipolar:
+> topology, device-param, and passive-param). **DRC is *not* currently clean
+> everywhere, and the committed reports do not yet say so.** `por_comparator`'s
+> committed `drc.json` reads `clean`, but it was recorded under an older `klt`
+> whose `"enclosing"` primitive missed zero-overlap escapes
+> ([klayout-tools#318](https://github.com/2AMLogic/klayout-tools/issues/318),
+> fixed upstream); that cell's *unchanged* committed GDS fails **2×
+> `poly2.enclosing.contact.1`** under the current deck — a real drawing defect
+> that was always there, fixed by #102, root-caused by #103 (which also added
+> the deck-hash guard that catches this class of stale-report drift). Until
+> #102 lands, treat every "clean" DRC row in this file as *as-recorded*, not as
+> a current verdict; the `por_comparator` section and
+> [Known deck limits](#known-deck-limits--what-a-clean-lvs-here-does-not-prove)
+> have the full trace.
 > `temp_core`'s own MiM cap is the one device still outside what the curated
 > deck can extract, deliberately not drawn *into the extracted cell*, and
 > inherited unchanged by `temp_por_top`, which therefore cannot be LVS'd whole
@@ -87,6 +99,19 @@ sources that have since moved:
 ```bash
 python3 layout/build_cells.py   --check   # committed GDS still matches its source
 python3 layout/lvs_reference.py --check   # reference netlist still matches design/
+```
+
+**0b. Deck-hash consistency gate.** A recorded DRC-clean verdict is only
+meaningful relative to one `klt` deck revision, so every committed
+`layout/reports/*/drc.json` has to agree on `provenance.deck.content_hash` —
+otherwise the evidence describes two different rule sets and a clean report
+for one cell says nothing about another's. Unscoped even for a single-cell
+run, since it is a property of the whole `layout/reports/` directory, not of
+any one cell; tolerates `temp_por_top` while it is intentionally frozen
+behind #97 (`lvs_reference.FROZEN_DECK_CELLS`):
+
+```bash
+python3 layout/lvs_reference.py --check-deck-hash
 ```
 
 **1. DRC.**
@@ -417,11 +442,37 @@ GDS is intentionally left untouched by this change — see #97, which waits
 for #90/#92/#93 to land too before re-deriving the floorplan once, rather
 than reworking it four times.
 
-Recorded result (`layout/reports/por_comparator/`):
+**The "clean" DRC row below is currently stale (#102 in flight; #103 root-caused
+it and added the guard that catches this class of drift).** The committed
+`layout/reports/por_comparator/drc.json` was recorded against an installed
+`klt` build whose `Region.enclosing_check`/`enclosed_check`-backed
+`"enclosing"` check primitive only reports *marginal* violations at facing
+edges of shapes that already partially overlap — a shape of the enclosed
+layer with **zero** overlap with the enclosing layer (the worst-case
+enclosure failure, not a lesser one) produced no violation at all. Filed
+generically, with no design details, as
+[klayout-tools#318](https://github.com/2AMLogic/klayout-tools/issues/318) and
+fixed upstream (`klayout-tools` PR #327): the same primitive now also flags
+that zero-overlap escape under the same rule id. Rerunning `klt drc` against
+this cell's *unchanged* committed GDS with the fix installed reports 2
+violations of `poly2.enclosing.contact.1` (DRM `CO.3`, 0.07 µm Poly2-over-
+Contact — a threshold that has never moved: `gf180mcu.py`'s
+`poly2.enclosing.contact.1` entry is unchanged since it was first authored),
+both at the `SNS`/`SNSB` Metal2-escape landing contacts. So this was never a
+clean layout that a rule tightened against — it was always 0.07 µm short of
+the rule, and the "clean" report below was a false negative in the tool, not
+evidence the layout ever met the rule. #102 root-causes the exact drawing
+defect (`build_cells.py`'s `SNS`/`SNSB` Poly2 track landing its contact with
+zero enclosure margin) and fixes it; the committed GDS/report here are
+intentionally left as `main` has them until it lands, per this repo's
+"regenerate the evidence, don't hand-edit it" rule.
+
+Recorded result (`layout/reports/por_comparator/`) — **stale, see caveat
+above; do not read the DRC row as a current verdict**:
 
 | Check | Result |
 | ----- | ------ |
-| `klt drc --deck gf180mcu` | clean — 0 violations |
+| `klt drc --deck gf180mcu` | clean — 0 violations (stale: current `klt` finds 2× `poly2.enclosing.contact.1`, see #102) |
 | `klt extract --deck gf180mcu` | 21 devices (12 nfet, 6 pfet, 3 ppolyf_u_1k), 18 nets, 8 pins |
 | `klt lvs` | **match** — 21/21 devices, 18/18 nets, 8/8 pins |
 | negative control `topology` | detected (exit 3; `device.unmatched` 1, `topology` 2) |
@@ -1093,10 +1144,43 @@ filed upstream per this repo's friction protocol.
   `Resistor` ID layer, so nothing in this flow checks a drawn resistor's own
   DRM rules. It is not a tapeout-grade signoff, and no claim in this repo
   should be written as if it were.
+- **~~`"enclosing"`/`"enclosed"` checks missed zero-overlap escapes.~~ Fixed
+  upstream, found via `por_comparator` (#102/#103).** `klt drc`'s `"enclosing"`
+  check kind (`poly2.enclosing.contact.1` among others) used to dispatch
+  straight onto KLayout's `Region.enclosing_check`, which only reports
+  *marginal* violations at facing edges of shapes that already partially
+  overlap — a shape of the enclosed layer with **zero** overlap with the
+  enclosing layer (the worst-case enclosure failure) produced no violation at
+  all, so a layout that missed a contact's enclosure entirely could still
+  read `status: clean`. Found rerunning `por_comparator`'s committed,
+  unchanged GDS through a newer `klt` build and seeing it go from clean to 2
+  violations with no layout change on this side. Filed generically (tool gap,
+  no design details) as
+  [klayout-tools#318](https://github.com/2AMLogic/klayout-tools/issues/318)
+  and already fixed upstream (`klayout-tools` PR #327): the same rule id now
+  also reports the zero-overlap escape. `por_comparator`'s own section above
+  has the full trace; the drawing defect itself (not a tool problem) is #102.
+- **Committed reports can silently drift onto two different `klt` deck
+  revisions.** `provenance.deck.content_hash` (below) is a hash of the deck's
+  own source module, so any change to the file that defines the `gf180mcu`
+  deck — including one scoped to extraction, nothing to do with DRC rules —
+  moves it, and nothing used to check that every committed
+  `layout/reports/*/drc.json` names the *same* one. That is exactly how the
+  zero-overlap-escape fix above went undetected here for as long as it did:
+  `por_comparator`'s report was regenerated once, under an older deck, and
+  never again. #103 added `python3 layout/lvs_reference.py --check-deck-hash`
+  (wired into `run_checks.sh`, unscoped even for a single-cell run) so this
+  fails loudly instead of drifting silently; it tolerates `temp_por_top`
+  while that cell is intentionally frozen behind #97 (see
+  `lvs_reference.FROZEN_DECK_CELLS`).
 
 `layout/reports/environment.json` records the `klt` version each report was
 produced with, because several of the limits above are version-dependent.
-Re-run `run_checks.sh` after upgrading `klt` and commit the refreshed reports.
+Re-run `run_checks.sh` after upgrading `klt` and commit the refreshed reports
+— `run_checks.sh` now checks that every committed cell's `drc.json` agrees on
+`provenance.deck.content_hash` before running anything else, so a report
+regenerated against a new `klt` for only some cells is caught immediately
+rather than becoming this section's next entry.
 
 ## Adding a cell (for #17 / #18)
 
