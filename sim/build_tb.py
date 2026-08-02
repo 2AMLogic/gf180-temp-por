@@ -55,6 +55,14 @@ FRAGMENTS: dict[str, tuple[str, tuple[str, ...]]] = {
     "por-ramp-rate": ("tb_por_ramp_rate.spice", ("temp_por_top",)),
     "por-brownout": ("tb_por_brownout.spice", ("temp_por_top",)),
     "por-glitch": ("tb_por_glitch.spice", ("temp_por_top",)),
+    # #15's Monte Carlo local-mismatch testbenches -- cell-level idealised-bias
+    # DUTs (same cells temp-core-designer-check / por-comparator-designer-check
+    # use), not the full four-cell assembly: mismatch is a property of these
+    # cells' own devices, not of bias_core's startup dynamics, and the
+    # idealised-bias level is cheap enough to run N=500+ ngspice invocations
+    # per binding point at.
+    "temp-accuracy-mc": ("tb_temp_accuracy_mc.spice", ("temp_core",)),
+    "por-threshold-mc": ("tb_por_threshold_mc.spice", ("por_comparator",)),
     # NOTE: sim/por-iq/ is deliberately absent here -- it has no netlist
     # fragment of its own. It PUBLISHES spec/target-spec.md#por-iq/#iq-total
     # as a derivation from sim/temp-accuracy-vt/'s already-run raw logs (see

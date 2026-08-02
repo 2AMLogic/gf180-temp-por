@@ -1,0 +1,18 @@
+* temp-accuracy-mc mismatch-switch control -- stimulus fragment.
+*
+* Netlist FRAGMENT: no .include / .lib / .temp / .control / .end and no
+* mismatch/seed lines -- run_mismatch_switch.py owns all of those, because
+* they are the variable under control.
+*
+* The DUT is the same idealised-IBIAS temp_core cell sim/temp-accuracy-mc/'s
+* own stimulus uses, cut down to the single enabled-state operating point
+* (one `op`, nominal rail, 27 C): this control is about whether the
+* mismatch machinery is engaged at all, not about the V(T) characteristic,
+* so anything the harness testbench sweeps is dead weight here.
+
+vsup  vdd 0 dc 3.3
+ven   en  0 dc 3.3
+xdut  vdd 0 ibias en ptat ctat temp_core
+ibref vdd ibias dc 500n
+Rlp   ptat 0 1T
+Rlc   ctat 0 1T

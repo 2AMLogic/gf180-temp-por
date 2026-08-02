@@ -3,7 +3,10 @@
 - **Status**: RATIFIED (see [DR-008](decision-records/DR-008-target-spec-ratification.md)).
   Ratified by the operator on issue #1, conditional on the amendments in
   DR-007 exactly as tabled; per-row `conditional #15` / `TBD-#n` tags below
-  remain in force and are not upgraded by this ratification.
+  remain in force and are not upgraded by this ratification. The
+  `conditional #15` tags have since been discharged by #15's Monte Carlo —
+  three rows pass, two are recorded as measured misses under
+  [DR-011](decision-records/DR-011-temp-accuracy-mismatch-not-met.md); see §2.
 - **Date**: 2026-07-31
 - **Assembled by**: Loom Builder agent, issue #32 (amendments A1–A8 of the
   spec review posted on #1)
@@ -37,10 +40,12 @@ decision from a new proposal at a glance:
 | **[TBD-#n]** | Deliberately unset; issue `#n` owns producing the number. Listed in [§8](#8-open-tbd-register). |
 
 **Status** — `ratifiable` (evidence exists or the row is a definition),
-`conditional #15` (mismatch-dominated; the current `sim/devchar` evidence is
-deterministic-corners-only by its own admission, so the row can only be
-*conditionally* ratified pending #15's Monte-Carlo data), or `pending #n`
-(no evidence at all yet; #n owns it).
+`conditional #15` (mismatch-dominated; the deterministic-corners-only evidence
+could ratify the row only *conditionally*, pending #15's Monte-Carlo data), or
+`pending #n` (no evidence at all yet, or evidence showing the row is not met;
+#n owns it). **No row carries `conditional #15` any more** — #15's Monte Carlo
+has run and every one of the five is now either `ratifiable` on
+mismatch-inclusive evidence or `pending #1` as a measured miss; see §2.
 
 **Binding corner** — the corner at which the row's *hard edge* is set. Two
 adjacent rows routinely bind at opposite corners (accuracy at the temperature
@@ -103,11 +108,37 @@ depending on the reader, so every performance row below carries one of:
 
 **Consequence — conditional ratification.** `sim/devchar/SUMMARY.md` states
 outright that it ran with `sw_stat_mismatch=0` and that local mismatch "should
-not be assumed small". Every **[3σ]** row is therefore marked
-`conditional #15`: it can be ratified now as a *target*, but it cannot be
-called evidenced, and #15's Monte-Carlo mismatch data may force a re-cost of
+not be assumed small". Every **[3σ]** row was therefore marked
+`conditional #15`: it could be ratified as a *target*, but it could not be
+called evidenced, and #15's Monte-Carlo mismatch data might force a re-cost of
 the number (a spec revision through a new decision record, not a silent
 relaxation).
+
+**Resolved by #15 (2026-08-02).** The Monte Carlo has been run — N = 500
+local-mismatch samples per binding point, at each row's own named binding
+point, `sw_stat_mismatch=1`, process held at the row's own deterministic
+corner (`sim/run_mc.py`; see `sim/harness/README.md` § "Monte Carlo mismatch"
+for why global spread is left to the deterministic sweep rather than
+double-counted). The five rows split:
+
+- **The three POR rows close.** [`por-vth-rise`](#por-vth-rise),
+  [`por-vth-fall`](#por-vth-fall) and [`por-hysteresis`](#por-hysteresis) are
+  inside their ratified windows at 3σ at all five of their binding points,
+  with 100 % empirical yield — `sim/por-threshold-mc/records/20260802-083749-3b9b414.md`.
+  Their `conditional #15` tag is discharged; they are `ratifiable` on
+  mismatch-inclusive evidence.
+- **The two temperature-accuracy rows do not.**
+  [`temp-accuracy-untrimmed`](#temp-accuracy-untrimmed) misses ±3 °C by 6.5×
+  and [`temp-accuracy-trimmed`](#temp-accuracy-trimmed) misses ±1.5 °C by
+  4.9× — `sim/temp-accuracy-mc/records/20260802-082345-989ce7a.md`. Per
+  CLAUDE.md neither number is relaxed: both rows keep their target and move to
+  `pending #1` as measured-and-not-met, with the remedy routed to a design
+  revision. That is the re-cost this section anticipated, taken as
+  [DR-011](decision-records/DR-011-temp-accuracy-mismatch-not-met.md) rather
+  than as a silent edit to the numbers.
+
+The **[3σ]** basis itself is unchanged by any of this — the definition above
+is what was measured against.
 
 ---
 
@@ -116,8 +147,8 @@ relaxation).
 | ID | Parameter | Target | Stretch | Conditions / binding corner | Basis · Status | Source · Evidence |
 |---|---|---|---|---|---|---|
 | <a id="temp-range"></a>`temp-range` | Operating temperature range | **−40…+125 °C** | — | Is the temperature axis; the condition column for every row below. | — · `ratifiable` | **[DR-002, DR-005]** · #13 |
-| <a id="temp-accuracy-untrimmed"></a>`temp-accuracy-untrimmed` | Temperature error, untrimmed | **±3 °C** | — | Judged at the `PTAT`/`CTAT` **pin voltage**, converted through the published V(T) characteristic ([`temp-vt-transfer`](#temp-vt-transfer)) and compared against true die temperature. Window per [`accuracy-window`](#accuracy-window). **Binds at the temperature extremes (−40 °C and +125 °C), at both rail extremes.** **Measured (assembled path, systematic/corner share only)**: **−0.335…+0.099 °C** over the full 108-point grid (`ff_25c_2.97v` / `bjt_ss_125c_3.63v`), **11 % of budget** — well inside ±3 °C, comfortably in the neighborhood of `temp-core-designer-check`'s idealised-source −0.230…+0.422 °C. | **[3σ]** · `conditional #15` | **[DR-002, DR-005]**, measured `sim/temp-accuracy-vt/` (record `20260801-121458-660d016`) · #13, #15 |
-| <a id="temp-accuracy-trimmed"></a>`temp-accuracy-trimmed` | Temperature error, 1-point trim | — | **±1.5 °C** | As above, after the [`temp-trim-strategy`](#temp-trim-strategy) trim. **Binds at the temperature extremes** (a 25 °C trim leaves the residual curvature at the ends of the span). **Measured (derived, systematic/corner + quantisation share only)**: **−0.346…+0.847 °C** across all 81 non-25 °C (corner, supply, temperature) points (`ff_-40c_3.63v` / `res_ff_125c_3.63v`), **56 % of budget**, 81/81 within bound — the wave-1 `100000b` metal-strap trim already baked into `design/netlist/temp_core.spice`, no schematic re-simulation needed. | **[3σ]** · `conditional #15` | **[DR-002, DR-005]**, derived `sim/temp-accuracy-vt/analyze_derived.py` (record `20260801-121458-660d016-derived`) · #13, #15 |
+| <a id="temp-accuracy-untrimmed"></a>`temp-accuracy-untrimmed` | Temperature error, untrimmed | **±3 °C** | — | Judged at the `PTAT`/`CTAT` **pin voltage**, converted through the published V(T) characteristic ([`temp-vt-transfer`](#temp-vt-transfer)) and compared against true die temperature. Window per [`accuracy-window`](#accuracy-window). **Binds at the temperature extremes (−40 °C and +125 °C), at both rail extremes.** **Measured (assembled path, systematic/corner share only)**: **−0.335…+0.099 °C** over the full 108-point grid (`ff_25c_2.97v` / `bjt_ss_125c_3.63v`), **11 % of budget** — well inside ±3 °C, comfortably in the neighborhood of `temp-core-designer-check`'s idealised-source −0.230…+0.422 °C. **Measured (Monte Carlo, local mismatch on, N = 500 per binding point at each of the four named binding points)**: mean ± 3σ worst point **−19.23…+19.63 °C** (`tt`/125 °C/2.97 V; σ = 6.08–6.48 °C across the four), empirical yield **33.4–40.4 %** — **6.5× over budget. Not met.** Attribution (`…-breakdown`): amplifier offset σ(`V_os`) = 0.93–1.02 mV → 5.18–5.71 °C, gain `R2/R1`×mirror 2.16–2.44 °C, PNP Δ`V_BE` 1.00–1.11 °C; **all three bust ±3 °C individually**. Target **not relaxed** — see [DR-011](decision-records/DR-011-temp-accuracy-mismatch-not-met.md). Evidence: [`sim/temp-accuracy-mc/records/20260802-082345-989ce7a.md`](../sim/temp-accuracy-mc/records/20260802-082345-989ce7a.md), [`…-breakdown.md`](../sim/temp-accuracy-mc/records/20260802-082345-989ce7a-breakdown.md). | **[3σ]** · `pending #1` (measured, not met; re-design decision pending per DR-011) | **[DR-002, DR-005, DR-011]**, measured `sim/temp-accuracy-vt/` (record `20260801-121458-660d016`) + `sim/temp-accuracy-mc/` (record `20260802-082345-989ce7a`) · #13, #15 |
+| <a id="temp-accuracy-trimmed"></a>`temp-accuracy-trimmed` | Temperature error, 1-point trim | — | **±1.5 °C** | As above, after the [`temp-trim-strategy`](#temp-trim-strategy) trim. **Binds at the temperature extremes** (a 25 °C trim leaves the residual curvature at the ends of the span). **Measured (derived, systematic/corner + quantisation share only)**: **−0.346…+0.847 °C** across all 81 non-25 °C (corner, supply, temperature) points (`ff_-40c_3.63v` / `res_ff_125c_3.63v`), **56 % of budget**, 81/81 within bound — the wave-1 `100000b` metal-strap trim already baked into `design/netlist/temp_core.spice`, no schematic re-simulation needed. **Measured (Monte Carlo, local mismatch on, N = 500 per binding point, per-die 25 °C trim reference)**: mean ± 3σ worst point **−7.08…+7.70 °C** (`tt`/125 °C/2.97 V; σ = 1.49–2.46 °C across the four), empirical yield **37.2–65.8 %** — **4.9× over budget. Not met.** The trim removes the gain and Δ`V_BE` terms but not the amplifier offset, whose surviving lever measures **−1.32/−1.34 °C/mV cold, +1.94/+2.02 °C/mV hot** (confirming `design/temp_core.md`'s +1.21 / ±1.87 °C/mV). Even with `V_os` = 0 the ½-LSB quantisation plus the unexplained curvature residue leave ≈3.6 °C at 3σ. Target **not relaxed** — see [DR-011](decision-records/DR-011-temp-accuracy-mismatch-not-met.md). Evidence: [`sim/temp-accuracy-mc/records/20260802-082345-989ce7a.md`](../sim/temp-accuracy-mc/records/20260802-082345-989ce7a.md), [`…-breakdown.md`](../sim/temp-accuracy-mc/records/20260802-082345-989ce7a-breakdown.md). | **[3σ]** · `pending #1` (measured, not met; re-design decision pending per DR-011) | **[DR-002, DR-005, DR-011]**, derived `sim/temp-accuracy-vt/analyze_derived.py` (record `20260801-121458-660d016-derived`) + `sim/temp-accuracy-mc/` (record `20260802-082345-989ce7a`) · #13, #15 |
 | <a id="temp-trim-strategy"></a>`temp-trim-strategy` | Trim strategy | **1-point, at +25 °C, on the PTAT gain** (equivalently the PTAT bias current) | — | Corrects gain/offset only; residual curvature over the 165 °C span is **not** corrected (that needs 2-point or curvature compensation — out of wave 1). Trim **mechanism** (filled by #9): **6-bit binary-weighted short-out ladder on the PTAT gain resistor `R2`, switch gates strapped by metal-1 mask option in wave 1**; measured LSB 0.229–0.242 % of `R2` (= 0.71 °C at the trim point, so ±0.35 °C quantisation) and full range ±7.80…7.85 % (= ±23 °C, equivalently ±4.2 mV of amplifier input offset). No trim pad — the strap is the entire interface, and it is the drop-in hook-up point for a fuse/OTP bit-cell array in a later wave. No POR trim node in wave 1. | — · `ratifiable` | **[DR-005]**, mechanism from #9 (`design/temp_core.md`) · #9 |
 | <a id="temp-vt-transfer"></a>`temp-vt-transfer` | Nominal V(T) transfer characteristic at the pads | Slope (design intent, filled by #9): `PTAT` = **+4.3088 mV/K** (`V(PTAT) = K₀·T`, `K₀ = 4.308842 mV/K`, i.e. a ratiometric-to-absolute-temperature output through the origin, **not** an offset-and-slope line); `CTAT` = **−1.86 mV/°C**, 0.6533 V at 27 °C. **Published measured (assembled path, #13)**: `PTAT` K₂₅ = **4.304–4.30756 mV/K** at the 25 °C reference across the 9-corner × 3-supply grid (matches design intent to within 0.1 %); `CTAT` slope = **−1.88424…−1.82384 mV/°C** over −40…125 °C (matches design intent). Output range (design intent, filled by #9): `PTAT` **1.004…1.717 V**, `CTAT` **0.461…0.782 V** over the full 216-point PVT grid; worst headroom margin **+260 mV** (`bjt_ff_125c_2.97v`), so the bound at right holds with margin. **Measured (assembled path)**: `PTAT` **1.00329…1.71599 V**, `CTAT` **0.460507…0.782332 V**; worst headroom margin **+260.507 mV**, same binding corner (`bjt_ff_125c_2.97v`) — the idealised-500 nA-source design-intent numbers hold on the real `bias_core`-driven path. | — | **Load-bearing**: DR-002 judges [`temp-accuracy-untrimmed`](#temp-accuracy-untrimmed) *through* this function, so an unfilled slope makes that row unverifiable. Headroom bound **[P]**: the output must stay within **0.2 V ≤ V(out) ≤ VDD − 0.2 V at every corner**, evaluated at VDD = 2.97 V and both temperature extremes, so the signal remains observable at the worst-case rail. Informative physics anchors from `sim/devchar/SUMMARY.md`: un-amplified ΔVBE(8:1) = +0.179 mV/°C, single-PNP VBE = −1.83 mV/°C at 10 µA — the PTAT slope is the former times the chosen gain. | **[CWC]** (headroom bound) · `ratifiable` (measured, assembled path) | **[DR-002]**, this amendment, slope/range design intent from #9 (`design/temp_core.md`, `sim/temp-core-designer-check/`), published measured value from #13 (`sim/temp-accuracy-vt/records/20260801-121458-660d016.md`) · #9, #13 |
 | <a id="temp-supply-sensitivity"></a>`temp-supply-sensitivity` | Supply sensitivity of the reported temperature | **≤0.5 °C/V [P]** (≤0.33 °C across the ±10 % window) | — | Budgeted **inside** [`temp-accuracy-untrimmed`](#temp-accuracy-untrimmed), not additive to it. **Binds at the rail extremes (2.97 V and 3.63 V), evaluated at the temperature extremes.** #13 was chartered to sweep supply with no target to assert against; this row is that target. **Measured**: per-point rail-extreme shift **−0.089…+0.034 °C** (108/108 points within ±0.33 °C); stricter full-window (2.97→3.63 V) peak-to-peak **≤0.1216 °C** at every one of 36 (corner, temperature) groups (worst: `res_ss_125c`) — **37 %** of the 0.33 °C budget at its worst point. | **[CWC]** · `ratifiable` (measured) | this amendment, measured `sim/temp-accuracy-vt/` (record `20260801-121458-660d016`, derived full-window reading in `-derived`) · #13 |
@@ -140,9 +171,9 @@ toward the downstream digital domain's floor.
 
 | ID | Parameter | Min | Typ | Max | Binding corner | Basis · Status |
 |---|---|---|---|---|---|---|
-| <a id="por-vth-rise"></a>`por-vth-rise` | **VPOR↑** — release threshold, rising VDD | **2.47 V** | **2.60 V** | **2.73 V** | **Max binds at SS / −40 °C**; min binds at FF / +125 °C. **Measured (assembled path, deterministic corner-worst-case, full 81-point grid)**: **2.58384–2.64453 V**, 81/81 within [2.47, 2.73] V — max at `ss_-40c_3.63v` (2.64453 V), min at `bjt_ff_125c_2.97v` (2.58384 V), confirming the predicted binding corners. Evidence: [`sim/por-vth/records/20260801-233802-32fbaa0.md`](../sim/por-vth/records/20260801-233802-32fbaa0.md). | **[3σ]** · `conditional #15` |
-| <a id="por-vth-fall"></a>`por-vth-fall` | **VPOR↓** — assert threshold, falling VDD | **2.22 V [P]** | **2.45 V [P]** | **2.63 V [P]** | Derived edge-by-edge from VPOR↑ and V_hys (see below); min binds at FF / +125 °C with maximum hysteresis. **Measured (assembled path, full 81-point grid)**: **2.38722–2.45092 V**, 81/81 within [2.22, 2.63] V — min at `res_ss_-40c_3.63v` (2.38722 V), max at `bjt_ss_125c_2.97v` (2.45092 V). Evidence: [`sim/por-vth/records/20260801-233802-32fbaa0.md`](../sim/por-vth/records/20260801-233802-32fbaa0.md). | **[3σ]** · `conditional #15` |
-| <a id="por-hysteresis"></a>`por-hysteresis` | **V_hys** = VPOR↑ − VPOR↓ | **100 mV** | **150 mV [P]** | **250 mV [P]** | Both edges measured **at the same corner point** (hysteresis is a same-die difference, not a corner-to-corner one). **Measured (assembled path, full 81-point grid)**: **164.633–248.74 mV**, 81/81 within [100, 250] mV — min at `ff_125c_2.97v`, max at `ss_-40c_3.63v`. Evidence: [`sim/por-vth/records/20260801-233802-32fbaa0.md`](../sim/por-vth/records/20260801-233802-32fbaa0.md). | **[3σ]** · `conditional #15` |
+| <a id="por-vth-rise"></a>`por-vth-rise` | **VPOR↑** — release threshold, rising VDD | **2.47 V** | **2.60 V** | **2.73 V** | **Max binds at SS / −40 °C**; min binds at FF / +125 °C. **Measured (assembled path, deterministic corner-worst-case, full 81-point grid)**: **2.58384–2.64453 V**, 81/81 within [2.47, 2.73] V — max at `ss_-40c_3.63v` (2.64453 V), min at `bjt_ff_125c_2.97v` (2.58384 V), confirming the predicted binding corners. **Measured (Monte Carlo, local mismatch on, N = 500 at each of the five named binding points)**: σ = **12.2–14.3 mV**, mean ± 3σ spanning **2.5583–2.6470 V** across all five points, **100 % empirical yield**, parametric 3σ inside [2.47, 2.73] V at every point — **met, with ≈83 mV of margin at the nearer edge.** Evidence: [`sim/por-vth/records/20260801-233802-32fbaa0.md`](../sim/por-vth/records/20260801-233802-32fbaa0.md), [`sim/por-threshold-mc/records/20260802-083749-3b9b414.md`](../sim/por-threshold-mc/records/20260802-083749-3b9b414.md). | **[3σ]** · `ratifiable` (mismatch-inclusive; #15's MC closes the `conditional` tag) |
+| <a id="por-vth-fall"></a>`por-vth-fall` | **VPOR↓** — assert threshold, falling VDD | **2.22 V [P]** | **2.45 V [P]** | **2.63 V [P]** | Derived edge-by-edge from VPOR↑ and V_hys (see below); min binds at FF / +125 °C with maximum hysteresis. **Measured (assembled path, full 81-point grid)**: **2.38722–2.45092 V**, 81/81 within [2.22, 2.63] V — min at `res_ss_-40c_3.63v` (2.38722 V), max at `bjt_ss_125c_2.97v` (2.45092 V). **Measured (Monte Carlo, local mismatch on, N = 500 at each of the five named binding points)**: σ = **11.4–13.4 mV**, mean ± 3σ spanning **2.4002–2.4807 V**, **100 % empirical yield**, parametric 3σ inside [2.22, 2.63] V at every point — **met, with ≈180 mV of margin at the nearer edge.** Evidence: [`sim/por-vth/records/20260801-233802-32fbaa0.md`](../sim/por-vth/records/20260801-233802-32fbaa0.md), [`sim/por-threshold-mc/records/20260802-083749-3b9b414.md`](../sim/por-threshold-mc/records/20260802-083749-3b9b414.md). | **[3σ]** · `ratifiable` (mismatch-inclusive; #15's MC closes the `conditional` tag) |
+| <a id="por-hysteresis"></a>`por-hysteresis` | **V_hys** = VPOR↑ − VPOR↓ | **100 mV** | **150 mV [P]** | **250 mV [P]** | Both edges measured **at the same corner point** (hysteresis is a same-die difference, not a corner-to-corner one). **Measured (assembled path, full 81-point grid)**: **164.633–248.74 mV**, 81/81 within [100, 250] mV — min at `ff_125c_2.97v`, max at `ss_-40c_3.63v`. **Measured (Monte Carlo, local mismatch on, N = 500 at each of the five named binding points; both edges taken from one triangle ramp on the same die, so the figure stays a same-die difference under mismatch)**: σ = **0.77–0.97 mV**, mean ± 3σ spanning **150.48–166.51 mV**, **100 % empirical yield**, parametric 3σ inside [100, 250] mV at every point — **met, with ≈50 mV of margin above the 100 mV floor.** Mismatch is a far weaker term here than on the absolute thresholds because both edges share the same divider and the same comparator offset, which largely cancels in the difference. Evidence: [`sim/por-vth/records/20260801-233802-32fbaa0.md`](../sim/por-vth/records/20260801-233802-32fbaa0.md), [`sim/por-threshold-mc/records/20260802-083749-3b9b414.md`](../sim/por-threshold-mc/records/20260802-083749-3b9b414.md). | **[3σ]** · `ratifiable` (mismatch-inclusive; #15's MC closes the `conditional` tag) |
 
 - **VPOR↑ [DR-001, DR-005]**: 2.60 V ±5 % → 2.47/2.60/2.73 V. Release margin
   against the worst-low rail is preserved exactly as DR-001 argued it:
@@ -269,7 +300,8 @@ Each is a *new* line, not a change to an existing one.
 | [`por-reset-pulse`](#por-reset-pulse) | `RESETn` measurement load | #8, #12 |
 | [`por-reset-valid-floor`](#por-reset-valid-floor) | Achieved floor if 0 V is unreachable | #12 |
 | [`area`](#area) | Measured post-layout area | #17 |
-| All **[3σ]** rows | Monte-Carlo mismatch evidence (they are `conditional` until it lands) | #15 |
+| ~~All **[3σ]** rows~~ | ~~Monte-Carlo mismatch evidence (they are `conditional` until it lands)~~ — **closed by #15**: `sim/temp-accuracy-mc/` and `sim/por-threshold-mc/`, N = 500 per binding point at every row's own binding point. Three POR rows pass; the two temperature-accuracy rows miss and are recorded as such under [DR-011](decision-records/DR-011-temp-accuracy-mismatch-not-met.md) | ~~#15~~ |
+| [`temp-accuracy-untrimmed`](#temp-accuracy-untrimmed), [`temp-accuracy-trimmed`](#temp-accuracy-trimmed) | A `temp_core` revision that meets them. #15 measured the miss and published the per-term sensitivities a fix has to be sized against ([DR-011](decision-records/DR-011-temp-accuracy-mismatch-not-met.md), "Alternatives considered"); choosing between growing the input pair, chopping/auto-zeroing, fixing the mirror ratio and re-balancing the trim ladder is a design decision, not a measurement | #1, #17 |
 
 ---
 
@@ -286,6 +318,8 @@ Each is a *new* line, not a change to an existing one.
 | Everything tagged **[P]**, plus the row structure, binding corners and statistical basis | DR-007 (this amendment) |
 | `por-reset-pulse` and `por-reset-valid-floor` binding-corner correction (measured, not predicted) | DR-009 (binding-corner correction) |
 | `temp-vt-transfer` published measured value, `temp-accuracy-untrimmed`/`temp-accuracy-trimmed` systematic/corner share, `temp-supply-sensitivity`, `temp-iq` — all on the real assembled path (`design/netlist/temp_por_top.spice`, post-#41/DR-010) | #13 (`sim/temp-accuracy-vt/`) |
+| The **local-mismatch** share of all five **[3σ]** rows, at each row's own binding point (N = 500 each): the three POR rows' measured pass, and the two temperature-accuracy rows' measured miss with its per-device attribution | #15 (`sim/por-threshold-mc/`, `sim/temp-accuracy-mc/`) |
+| `temp-accuracy-untrimmed`/`temp-accuracy-trimmed` recorded as not-met with the targets left intact | DR-011 (temperature-accuracy mismatch outcome) |
 
 The eight rows of the deleted README draft table are all present here:
 temp range → [`temp-range`](#temp-range); temp accuracy →

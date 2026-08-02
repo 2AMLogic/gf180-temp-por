@@ -1,0 +1,70 @@
+* temp-accuracy-mc -- stimulus half of the testbench fragment.
+*
+* The other half is a verbatim copy of design/netlist/temp_core.spice,
+* appended by sim/build_tb.py to produce tb_temp_accuracy_mc.spice. Edit
+* THIS file (or the schematic), never the generated fragment.
+*
+* Netlist FRAGMENT: no .include / .lib / .temp / .control / .end -- the
+* harness owns those. Parameters supplied by sim/harness/montecarlo.py:
+* vdd_val, vdd_nom, temp_c (plus .option seed=/.param sw_stat_mismatch=1,
+* which are the whole point of this deck -- see that module's docstring).
+*
+* WHAT THIS EXPERIMENT SUBSTANTIATES (issue #15)
+*
+* spec/target-spec.md#temp-accuracy-untrimmed and #temp-accuracy-trimmed --
+* the LOCAL MISMATCH share of both [3sigma] rows, complementing the
+* deterministic corner-sweep systematic/corner share already published by
+* sim/temp-accuracy-vt/ (#13) and sim/temp-core-designer-check/. Runs the
+* SAME idealised-IBIAS cell-level DUT sim/temp-core-designer-check/ uses
+* (design/temp_core.spice, 500 nA idealised IBIAS reference, not the
+* assembled path's bias_core-driven current) -- deliberate, not a cut
+* corner: mismatch is a property of THIS cell's own devices (the PNP
+* pair/ratio, the R1/R2/RISO resistor ratios, the differential-pair
+* amplifier), not of bias_core's startup dynamics, so isolating it on the
+* cheaper idealised-bias cell-level testbench is the right level to run
+* N=500-2000 independent ngspice invocations at, the way
+* temp-core-designer-check already isolates the systematic term on the same
+* cell. The assembled-path corner sweep (#13) remains the authority for the
+* systematic/process/temperature/rail axis; this experiment adds the
+* mismatch axis on top, at #13's own measured binding points.
+*
+* ONE BRANCH, NOT FIVE: temp-core-designer-check's other four branches
+* (disabled-state draw, nominal-rail reference, 10 Mohm pad load, standalone
+* trim ladder) answer questions this issue does not ask (Iq, supply
+* sensitivity, buffering, trim-range) and would only add ngspice solve cost
+* to N=500-2000 invocations per binding point for no evidence this issue
+* needs.
+*
+* TWO TEMPERATURES, ONE DIE: #temp-accuracy-trimmed is not a direct
+* measurement -- exactly as sim/temp-accuracy-vt/analyze_derived.py's module
+* docstring explains, "error after a one-point 25 C gain trim" relates a
+* point's own reading to that SAME corner's 25 C reading, and a real 25 C
+* production trim calibrates each physical die against ITS OWN mismatch, not
+* against a population average. So each MC sample here takes two readings
+* off the SAME die (the same random mismatch draw): one at the fixed 25 C
+* trim-reference point, one at this binding point's own temperature. `.temp`
+* is a single global value per ngspice run, so this uses the
+* `dc temp <T> <T> 1` idiom (a one-point DC sweep of the special TEMP
+* variable) TWICE in the same control block -- ngspice has no interactive
+* "settemp" command, and .param-elaborated mismatch values are fixed once at
+* netlist load time regardless of how many analyses run afterward, so this
+* changes the die's operating temperature WITHOUT re-drawing its mismatch
+* (verified empirically -- see sim/tests/test_montecarlo.py). The 25 C
+* reading's own `let`/`print` pair runs immediately after its `dc`, before
+* the second `dc` switches ngspice's "current plot" out from under it (see
+* sim/harness/montecarlo.py's `_format_analysis` docstring for why this
+* can't just be two ordinary tb.json `measure` entries).
+*
+* Absolute-temperature probe `tk`: `temper` is not reachable from a measure
+* expression, so it is published as a node voltage (1 V per kelvin), exactly
+* as temp-core-designer-check does.
+
+Btk tk 0 v='temper + 273.15'
+Rtk tk 0 1G
+
+vsup  vdd 0 dc {vdd_val}
+ven   en  0 dc {vdd_val}
+xdut  vdd 0 ibias en ptat ctat temp_core
+ibref vdd ibias dc 500n
+Rlp   ptat 0 1T
+Rlc   ctat 0 1T

@@ -17,6 +17,7 @@ not `mos`.
 ```
 sim/
   run_corners.py            CLI entry point (stdlib python3, no venv)
+  run_mc.py                 Monte Carlo mismatch entry point (see "Monte Carlo" below)
   env.sh                    `source sim/env.sh` to export the same PDK to your shell
   selftest.sh               harness acceptance test (unit tests + end-to-end PVT run)
   pdk.json                  committed PDK defaults (variant, extra search roots)
@@ -38,6 +39,9 @@ python3 sim/run_corners.py --check-env     # is ngspice + the PDK present?
 python3 sim/run_corners.py --list          # experiments, corners, corner sets
 python3 sim/run_corners.py smoke-bias      # run the full PVT grid, mint a record
 bash sim/selftest.sh                       # prove the harness works (writes nothing)
+
+python3 sim/run_mc.py --list               # Monte Carlo experiments + binding points
+python3 sim/run_mc.py temp-accuracy-mc     # N samples per binding point, mint a record
 ```
 
 ## Prerequisites
@@ -217,6 +221,76 @@ unjustified PVT subset).
 Generated decks land in `sim/.work/<experiment-slug>/<record-id>/` and are
 git-ignored, so a failing corner can be reproduced by hand with
 `ngspice -b sim/.work/<slug>/<record-id>/<corner-id>.spice`.
+
+## Monte Carlo mismatch (`sim/run_mc.py`)
+
+Everything above sweeps a **deterministic** PVT grid with mismatch off
+(`sw_stat_mismatch=0`, the default `design.ngspice` ships). That answers *how
+far does the systematic/corner term move the answer*. `spec/target-spec.md` §2
+additionally ratifies a **[3σ]** basis for the accuracy and threshold rows —
+*process plus local mismatch, Monte Carlo, N ≥ 500, evaluated at the row's
+binding corner* — which is a different question and gets a different entry
+point:
+
+```bash
+python3 sim/run_mc.py --list                    # MC experiments + their binding points
+python3 sim/run_mc.py temp-accuracy-mc -j 12    # N per binding point, mint a record
+python3 sim/run_mc.py por-threshold-mc --n 20 --no-write   # fast deck iteration
+```
+
+| | `run_corners.py` | `run_mc.py` |
+|---|---|---|
+| grid | process × temperature × supply (81 points, `full`) | binding point × sample (N ≥ 500 each) |
+| process | swept, mismatch off | **held** at each row's own named binding corner |
+| mismatch | off | **on** (`sw_stat_mismatch=1`) + per-sample `.option seed=` |
+| verdict | per-corner pass/fail | per-(binding point, measurement) distribution: mean, σ, empirical yield, parametric mean ± 3σ vs the ratified limits |
+| record | `report.py` | `mc_report.py` — same nine `sim/README.md` fields, distribution-shaped Result |
+
+`sw_stat_global` stays at `design.ngspice`'s default `0` on purpose: global
+die-to-die spread is exactly what the deterministic corner sweep already
+covers, so randomizing it too would double-count the same variation. The two
+records compose — the corner sweep owns the process/temperature/rail axis, the
+MC record adds the local-mismatch axis on top of it, at the same binding
+points.
+
+A testbench opts in by adding an `mc` block to its `tb.json`; `run_corners.py`
+ignores the key entirely.
+
+```json
+"mc": {
+  "n": 500,
+  "seed_base": 20260802,
+  "derive": "temp_trim",
+  "binding_points": [
+    {"label": "vth-rise-max", "corner": "ss", "temp_c": -40, "vdd": 3.63}
+  ]
+}
+```
+
+- **`binding_points`** — named, not a grid. Each entry is one row's own "binds
+  at" text from `spec/target-spec.md` §4, resolved against the same `CORNERS`
+  table `corners.py` defines. A row whose min and max edges bind at different
+  corners contributes two entries.
+- **`n`** — samples per binding point. A **recorded** run enforces the N ≥ 500
+  floor §2 ratifies; `--no-write` lifts it so a deck can be iterated on
+  quickly (the same split `run_corners.py --no-write` / `--subset-reason`
+  uses).
+- **`seed_base`** — seeds are `seed_base + binding_index*100000 + sample`, so
+  the sample set is a pure function of the manifest and re-running reproduces
+  it exactly.
+- **`derive`** *(optional)* — a hook in `montecarlo.DERIVE_HOOKS` that adds
+  per-sample computed quantities to each sample's measurements before
+  summarization (e.g. `temp_trim`, which renormalizes each die against *its
+  own* 25 °C reading to model a one-point production trim).
+- `analyses` lines additionally accept Python `%(temp_c)g` / `%(vdd)g`
+  placeholders, substituted before the line reaches ngspice — needed because
+  ngspice's own `{expr}` substitution is netlist-elaboration-time and does not
+  reach into `.control` commands like `dc temp <lo> <hi> <step>`.
+
+One MC sample is one ngspice invocation with its own seed and its own log
+under `corners/<record-id>/<label>_<corner>_<temp>c_<vdd>v_s<NNNN>.log`, so a
+2000-sample distribution is reproducible from the repository rather than
+transcribed into a summary table.
 
 ## smoke-bias
 

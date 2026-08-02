@@ -17,11 +17,22 @@ evidence run, not from an estimate:
 
 It is a **deterministic corner** record: `design.ngspice` sets
 `sw_stat_mismatch=0`, so everything below bounds the **systematic + corner**
-error only. The random/mismatch share is issue #15's Monte Carlo job — the
-three threshold rows are tagged `[3σ] conditional #15` in `target-spec.md`
-for exactly that reason — and the budget below is written so #15 knows how
-much room is left. Full ramp-rate / brownout / reset-pulse-interaction
+error only. The random/mismatch share was issue #15's Monte Carlo job — the
+three threshold rows were tagged `[3σ] conditional #15` in `target-spec.md`
+for exactly that reason — and the budget below is written so #15 knew how
+much room was left. Full ramp-rate / brownout / reset-pulse-interaction
 evidence against a real (non-idealised) startup sequence is #14's.
+
+> **#15 has now run it, and all three rows close.**
+> [`sim/por-threshold-mc/`](../sim/por-threshold-mc/) — record
+> `20260802-083749-3b9b414`, N = 500 local-mismatch samples at each of the
+> five binding points these rows name, `sw_stat_mismatch=1`, 2500/2500 samples
+> ok. Measured: comparator input-referred offset **σ = 5.47–6.62 mV** at the
+> sense node, VPOR↑ **σ = 12.2–14.3 mV**, VPOR↓ **σ = 11.4–13.4 mV**, V_hys
+> **σ = 0.77–0.97 mV**. Every row is inside its ratified window at 3σ at every
+> binding point, with 100 % empirical yield, and no chatter on either edge at
+> any of the 2500 samples. The `conditional #15` tags are discharged; the
+> three rows are `ratifiable` on mismatch-inclusive evidence.
 
 ## What this cell is and is not
 
@@ -110,6 +121,15 @@ ratified 100…250 mV window, but with **6.6 mV** of margin to the floor and
 **13.2 mV** to the ceiling, on a row whose statistical basis is `[3σ]` and
 whose mismatch share has not been simulated yet. That is a design that passes
 a corner sim and fails #15.
+
+**Vindicated in hindsight**: #15's Monte Carlo measures the comparator's own
+input-referred offset at **σ = 5.47–6.62 mV**. The discarded
+current-injection variant's 6.6 mV of margin to the hysteresis floor was
+therefore roughly *one sigma* of the comparator's offset — it would have
+failed the `[3σ]` row outright. The ratio-feedback scheme this cell ships
+instead measures **σ(V_hys) = 0.77–0.97 mV**, an order of magnitude tighter,
+because both edges see the same offset and it cancels in the difference
+(record `20260802-083749-3b9b414`).
 
 Feeding `POR_RAW` back into the **divider ratio** instead removes the term
 entirely. `MHSW` shorts the `RHYS` segment out whenever `POR_RAW` is low:
@@ -306,6 +326,9 @@ this cell's sizing pushes VPOR↓ toward that floor, and the `[TBD]`
 integrator-supplied V_DIG,min row is not in conflict with anything measured
 here. If #15's mismatch data or a revised VREF moves VPOR↓ down by more than
 224 mV, that is a re-ratification through #1, not something to absorb here.
+**#15's data does not**: the mismatch-inclusive VPOR↓ 3σ minimum is
+**2.4002 V** (`sim/por-threshold-mc/`), still 180 mV above the 2.22 V floor.
+A revised `VREF` remains the only way this margin gets spent.
 
 ## Error budget
 
@@ -322,7 +345,7 @@ part-per-thousand of threshold error, with no attenuation to hide behind.
 | --- | --- | --- |
 | Divider ratio + comparator offset, over the full 81-point deterministic grid | this cell | **±0.144 %** (2.59311…2.60057 V about a 2.59684 V mean) |
 | Reference accuracy `VREF` | `bias_core`, #11 | whatever is left of the ratified ±5 % window: **±4.85 %** |
-| Local mismatch (divider segment matching, input-pair offset) | not simulated here | #15's Monte Carlo, `sw_stat_mismatch=0` in this record |
+| Local mismatch (divider segment matching, input-pair offset) | this cell, **measured by #15** (`sw_stat_mismatch=0` in *this* record) | **±1.58 %** — VPOR↑ σ = 12.2–14.3 mV, i.e. 3σ ≈ ±41 mV about a ~2.598 V mean; comparator input-referred offset σ = 5.47–6.62 mV at the sense node, referred to VDD through the ~2.17× divider ratio. `sim/por-threshold-mc/` record `20260802-083749-3b9b414` |
 
 In other words: **this cell spends 3 % of the ratified threshold window and
 hands 97 % of it to #11's reference**, before mismatch. That is the intended
@@ -330,6 +353,14 @@ outcome of choosing an absolute-reference topology over a rail-fraction one
 (DR-005) — the accuracy problem is deliberately concentrated in one place —
 but it is also the number #11 has to design against, and it is stated here so
 it cannot be discovered late.
+
+**After mismatch, that split is 34/66, not 3/97.** #15's ±1.58 % is ~32 % of
+the ratified ±5 % window on its own; with the ±0.144 % systematic on top this
+cell owns **≈34 %** and hands **≈66 %** — about ±3.3 % — to `VREF`. The row
+still closes with margin (3σ spans 2.5583–2.6470 V inside [2.47, 2.73] V), and
+the concentration argument still holds directionally, but **#11 has ±3.3 %,
+not ±4.85 %, to work with.** Anyone sizing `bias_core`'s reference against the
+pre-mismatch number would be over by half a per cent of rail.
 
 **If #11 lands on a VREF other than 1.2 V**, the fix is a divider re-ratio,
 not a re-architecture: `RTOP/RBOT` scales as `VPOR↑/VREF − 1` and `RHYS`
@@ -462,5 +493,5 @@ not overwrite `20260801-015413-5dfccf2`.
 | Deglitch, the ≥1 ms one-shot, push-pull drive, the below-floor `RESETn` pull-down | `por_output_chain`, #12 |
 | The real `VREF` / `IBIAS` / `BIAS_OK` sources and their startup ordering | `bias_core`, #11 |
 | Ramp-rate envelope, brownout re-assertion, reset-pulse interaction on a real bring-up sequence | POR testbench suite, #14 |
-| Monte Carlo mismatch on the three `[3σ]` threshold rows | #15 |
+| ~~Monte Carlo mismatch on the three `[3σ]` threshold rows~~ — **done**, `sim/por-threshold-mc/` record `20260802-083749-3b9b414`; all three pass | ~~#15~~ |
 | Layout, matching strategy, measured area | #17 |

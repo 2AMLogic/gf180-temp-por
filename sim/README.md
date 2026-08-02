@@ -151,7 +151,14 @@ Rules, so this never becomes a back door around the record convention:
   things the append-only rule protects — are never touched by a control.
 
 First instance: [`sim/bias-core-startup/control/`](bias-core-startup/control/),
-the `gmin` control that diagnoses record `20260801-111049-bc599be`.
+the `gmin` control that diagnoses record `20260801-111049-bc599be`. Second:
+[`sim/temp-accuracy-mc/control/`](temp-accuracy-mc/control/), the
+mismatch-switch control that demonstrates the three ngspice/PDK mechanisms
+`sim/harness/montecarlo.py` rests on (the `sw_stat_mismatch` switch engages
+the statistical models; `.option seed` both reproduces and varies the draw;
+the override must follow the `.include` to survive). That one diagnoses no
+record — it substantiates a *mechanism* every MC record depends on, which is
+the same "make the reasoning reproducible rather than asserted" job.
 
 ## Worked example
 
@@ -214,10 +221,28 @@ values exist yet, see #1):
 ```
 
 A later Monte Carlo mismatch check of the same untrimmed claim (#15)
-illustrates the **Statistical convention** field: nominal PVT only, with
-`--subset-reason` naming why, `N = 500` samples and the distribution reported
-at ±3σ. It is a distinct claim from the corner-matrix record above, not a
-correction of it, so it does **not** use Supersedes.
+illustrates the **Statistical convention** field: `N = 500` samples per
+binding point and the distribution reported at ±3σ. It is a distinct claim
+from the corner-matrix record above, not a correction of it, so it does
+**not** use Supersedes.
+
+**As actually built** (#15), such a record lives in its own experiment
+directory — `sim/temp-accuracy-mc/`, `sim/por-threshold-mc/` — and is written
+by `sim/run_mc.py` rather than `sim/run_corners.py`. It carries the same nine
+fields, but its **Corner matrix run** field names the row's own spec-ratified
+binding points instead of the 81-point grid (with the justification inline,
+which is the role `--subset-reason` plays for a deterministic subset), and its
+**Result** is a per-(binding point, measurement) distribution table rather
+than one row per PVT point. See `sim/harness/README.md` § "Monte Carlo
+mismatch" for the mechanism and why the two record shapes are deliberately
+different.
+
+A **derived** record may reduce an existing record's raw logs without running
+a simulation — `sim/temp-accuracy-vt/analyze_derived.py` and
+`sim/temp-accuracy-mc/analyze_breakdown.py` both do this, minting
+`<record-id>-derived` / `<record-id>-breakdown`. A derived record cites its
+source record, makes no measurement of its own, and does not supersede the
+record it reads.
 
 A later post-layout extracted re-run (#18) of the original corner-matrix
 claim would live under the same `temp-accuracy/` experiment directory with
