@@ -337,6 +337,134 @@ class PorComparatorMatchingPlanTest(unittest.TestCase):
         )
 
 
+class PorOutputChainManifestTest(unittest.TestCase):
+    """``por_output_chain`` is the always-on POR domain's output cell. Beyond
+    the structural checks ``bias_core`` gets, it carries one contract that is
+    not a layout convention but a ratified one: DR-010 requires an ungated,
+    always-on diode-connected input to remain on the shared ``IBIAS`` net, and
+    ``XMBD`` is it."""
+
+    CELL = "por_output_chain"
+    SOURCE = "por_output_chain.spice"
+
+    def golden(self):
+        text = (REPO_ROOT / "design" / "netlist" / self.SOURCE).read_text()
+        return lr.parse_devices(lr.subckt_body(text, self.CELL))
+
+    def test_reference_matches_the_committed_file(self):
+        committed = (LAYOUT_DIR / "cells" / f"{self.CELL}.reference.spice").read_text()
+        self.assertEqual(lr.build(self.CELL), committed)
+
+    def test_every_mos_device_in_the_schematic_is_in_the_manifest(self):
+        # The two MiM caps (XCDG, XCTIM) are outside the curated deck's device
+        # coverage and are deliberately absent; every device it *can* model
+        # must be present, or the layout is being compared against a quietly
+        # reduced circuit.
+        self.assertEqual(set(self.golden()), set(lr.CELLS[self.CELL]["devices"]))
+
+    def test_the_omitted_mim_caps_cost_no_net(self):
+        # bias_core's undrawn passives delete three nets from both sides of the
+        # compare. Here they delete none: both cap nodes carry MOS terminals
+        # too, so the compare still covers every net in the schematic. If a
+        # future schematic edit ever made an undrawn device the sole owner of a
+        # node, this fails rather than silently narrowing what LVS answers for.
+        text = (REPO_ROOT / "design" / "netlist" / self.SOURCE).read_text()
+        body = lr.subckt_body(text, self.CELL)
+        modelled = self.golden()
+        self.assertNotIn("XCDG", modelled)  # the caps really are skipped
+        self.assertNotIn("XCTIM", modelled)
+
+        mos_nets = {net for d in modelled.values() for net in d["nodes"]}
+        cap_nets = set()
+        for line in body:
+            fields = line.split()
+            if fields[0] in ("XCDG", "XCTIM"):
+                cap_nets.update(fields[1:3])
+        self.assertEqual(cap_nets, {"NDG", "TIM", "VSS"})
+        self.assertTrue(cap_nets <= mos_nets, cap_nets - mos_nets)
+
+        declared = set(lr.CELLS[self.CELL]["ports"]) | set(
+            lr.CELLS[self.CELL]["internal"]
+        )
+        self.assertEqual(mos_nets | {lr.SUBSTRATE_NET}, declared)
+
+    def test_the_always_on_ibias_diode_is_ungated(self):
+        # DR-010: at least one always-on diode-connected input must remain on
+        # the shared IBIAS net, and XMBD is the element that defines that
+        # node's operating point. Drawn, diode-connected (gate == drain ==
+        # IBIAS), source straight to VSS -- no series device in either path, so
+        # no placement or routing choice can gate it.
+        xmbd = self.golden()["XMBD"]
+        drain, gate, source, _body = xmbd["nodes"]
+        self.assertEqual((drain, gate, source), ("IBIAS", "IBIAS", "VSS"))
+        self.assertIn("XMBD", lr.CELLS[self.CELL]["devices"])
+        self.assertIn("XMBD", bc.POR_OUTPUT_CHAIN_NMOS)
+        # ... and it is the IBIAS pin's own owner, so the pin label sits on
+        # XMBD's terminal rather than on some net downstream of a switch.
+        self.assertEqual(bc.POR_OUTPUT_CHAIN_PIN_ON["IBIAS"], ("XMBD", "d"))
+        # Nothing else in the cell touches IBIAS except XMN1's *gate* (a mirror
+        # read, not a series element in XMBD's path).
+        on_ibias = {
+            name: device["nodes"]
+            for name, device in self.golden().items()
+            if "IBIAS" in device["nodes"]
+        }
+        self.assertEqual(set(on_ibias), {"XMBD", "XMN1"})
+        self.assertEqual(on_ibias["XMN1"][1], "IBIAS")  # gate only
+
+    def test_the_push_pull_driver_is_at_the_pad_facing_edge(self):
+        # floorplan.md places this cell nearest the RESETn pad for the shortest
+        # run from the push-pull driver. Inside the cell that means XMON is the
+        # last drawn device and XMOP the one before it, with the RESETn pin on
+        # XMON's own drain.
+        drawn = (
+            list(bc.POR_OUTPUT_CHAIN_NMOS)
+            + list(bc.POR_OUTPUT_CHAIN_PMOS)
+            + list(bc.POR_OUTPUT_CHAIN_DRIVER)
+        )
+        self.assertEqual(drawn[-2:], ["XMOP", "XMON"])
+        self.assertEqual(bc.POR_OUTPUT_CHAIN_PIN_ON["RESETn"], ("XMON", "d"))
+
+    def test_topology_control_has_two_different_sources_to_work_with(self):
+        devices = self.golden()
+        first, second = lr.CELLS[self.CELL]["devices"][:2]
+        self.assertNotEqual(devices[first]["nodes"][2], devices[second]["nodes"][2])
+        self.assertNotEqual(
+            lr.build(self.CELL), lr.build(self.CELL, corrupt="topology")
+        )
+
+    def test_every_pfet_is_assigned_to_the_one_drawn_well(self):
+        spec = lr.CELLS[self.CELL]
+        devices = self.golden()
+        pfets = {n for n in spec["devices"] if devices[n]["model"] == "pfet_03v3"}
+        self.assertEqual(pfets, set(spec["wells"]["NW1"]))
+        self.assertEqual(pfets, set(bc.POR_OUTPUT_CHAIN_PMOS))
+
+    def test_the_drawn_row_and_the_reference_cover_the_same_devices(self):
+        drawn = (
+            set(bc.POR_OUTPUT_CHAIN_NMOS)
+            | set(bc.POR_OUTPUT_CHAIN_PMOS)
+            | set(bc.POR_OUTPUT_CHAIN_DRIVER)
+        )
+        self.assertEqual(drawn, set(lr.CELLS[self.CELL]["devices"]))
+
+    def test_every_net_the_layout_routes_is_a_net_the_reference_declares(self):
+        spec = lr.CELLS[self.CELL]
+        declared = set(spec["ports"]) | set(spec["internal"])
+        routed = set(bc.POR_OUTPUT_CHAIN_TRACKS) | {"VDD", "VSS"}
+        self.assertEqual(routed | {lr.SUBSTRATE_NET}, declared)
+
+    def test_pin_labels_land_on_a_terminal_of_that_net(self):
+        # A label only becomes an extracted pin inside a Metal1 shape on its
+        # own net; naming a device/terminal that does not carry the net would
+        # produce a silently missing pin, not an error.
+        golden = self.golden()
+        index = {"d": 0, "g": 1, "s": 2}
+        for net, (owner, terminal) in bc.POR_OUTPUT_CHAIN_PIN_ON.items():
+            self.assertEqual(golden[owner]["nodes"][index[terminal]], net)
+            self.assertIn(net, lr.CELLS[self.CELL]["ports"])
+
+
 class GuardTest(unittest.TestCase):
     """The guards exist so a bad manifest fails loudly instead of emitting a
     reference the layout can never match (which reads as a layout bug)."""

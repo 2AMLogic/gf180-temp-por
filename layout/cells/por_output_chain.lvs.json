@@ -1,0 +1,13 @@
+{
+  "schema": "klt.lvs.request/1",
+  "engine": "klayout",
+  "layout": {
+    "file": "por_output_chain.gds",
+    "deck": "gf180mcu",
+    "top": "por_output_chain"
+  },
+  "reference": {
+    "netlist": "por_output_chain.reference.spice",
+    "top": "por_output_chain"
+  }
+}

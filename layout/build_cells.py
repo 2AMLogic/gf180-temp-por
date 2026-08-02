@@ -31,16 +31,18 @@ plus one repo-local annotation layer that is **not** a gf180mcu drawn layer and
 is read by neither the DRC deck nor the extraction deck:
 
     RESERVED 200/0  area reserved for devices the deck cannot represent
-                    (see ``bias_core``'s and ``por_comparator``'s docstrings)
+                    (see ``bias_core``'s, ``por_comparator``'s, and
+                    ``por_output_chain``'s docstrings)
 
-Device dimensions are never retyped here. ``bias_core`` and ``por_comparator``
-read every ``L``/``W`` out of ``design/netlist/*.spice`` through
-``lvs_reference``'s parser -- the same golden netlist the LVS reference is
-derived from -- so the layout and the reference cannot drift apart silently:
-move a size in the schematic and both ``--check`` gates fail together. The same
-holds for the one reserved region whose size is load-bearing: the sense
-divider's footprint is folded from the golden netlist's own ``r_width`` /
-``r_length``, not from a number typed in here.
+Device dimensions are never retyped here. The real sub-circuit cells
+(``bias_core``, ``por_comparator``, ``por_output_chain``) read every ``L``/``W``
+out of their ``design/netlist/*.spice`` through ``lvs_reference``'s parser --
+the same golden netlist the LVS reference is derived from -- so the layout and
+the reference cannot drift apart silently: move a size in the schematic and both
+``--check`` gates fail together. The same holds for the one reserved region
+whose size is load-bearing: the sense divider's footprint is folded from the
+golden netlist's own ``r_width`` / ``r_length``, not from a number typed in
+here.
 """
 
 from __future__ import annotations
@@ -323,6 +325,115 @@ def _span(low: float, high: float, pitch: float) -> list[float]:
     return [low + index * step for index in range(count + 1)]
 
 
+def _place_tiles(devices: dict[str, dict], groups) -> list[dict]:
+    """Fix every device's x across a left-to-right sequence of regions.
+
+    ``groups`` is a sequence of device-name sequences; each becomes one
+    contiguous region of the drawn row, separated from the next by
+    ``REGION_GAP_UM`` (wide enough for an Nwell edge to fall between an Nwell'd
+    region and an adjacent non-Nwell one). ``l``/``w`` come out of the golden
+    netlist -- no dimension is retyped here.
+    """
+    tiles: list[dict] = []
+    cursor = 0.0
+    for index, group in enumerate(groups):
+        if index:
+            cursor += REGION_GAP_UM
+        for name in group:
+            device = devices[name]
+            length = lvsref.to_um(device["params"]["l"])
+            width = lvsref.to_um(device["params"]["w"])
+            drain, gate, source, _body = device["nodes"]
+            tiles.append(
+                {
+                    "name": name,
+                    "group": index,
+                    "x0": cursor,
+                    "l": length,
+                    "w": width,
+                    "d": drain,
+                    "g": gate,
+                    "s": source,
+                }
+            )
+            cursor += 2 * SD_EXT_UM + length + TILE_GAP_UM
+    return tiles
+
+
+def _tile_x1(tile: dict) -> float:
+    """Right edge of a tile's drawn active."""
+    return tile["x0"] + 2 * SD_EXT_UM + tile["l"]
+
+
+def _terminal_x(tile: dict, terminal: str) -> float:
+    """x of a tile's source / gate / drain riser column."""
+    if terminal == "s":
+        return tile["x0"] + CONT_INSET_UM
+    if terminal == "d":
+        return _tile_x1(tile) - CONT_INSET_UM
+    if terminal == "g":
+        return tile["x0"] + SD_EXT_UM + tile["l"] / 2.0
+    raise ValueError(f"unknown terminal {terminal!r}")
+
+
+def _draw_tiles(b: CellBuilder, tiles: list[dict], riser) -> None:
+    """Draw one single-finger MOS per tile, and riser out its three terminals.
+
+    ``riser(x, net, y_low, y_high)`` is the caller's frame-aware router: it
+    knows where that cell's supply rails and Poly2 tracks are.
+    """
+    for tile in tiles:
+        x0, length, width = tile["x0"], tile["l"], tile["w"]
+        tile_w = 2 * SD_EXT_UM + length
+        gate_x0 = x0 + SD_EXT_UM
+        gate_cx = gate_x0 + length / 2.0
+        x_source = x0 + CONT_INSET_UM
+        x_drain = x0 + tile_w - CONT_INSET_UM
+
+        b.box(COMP, x0, 0.0, x0 + tile_w, width)
+        # The gate strip runs past the channel at both ends (DRM PL.4) and
+        # carries its own landing pad above the diffusion, where nothing else
+        # in these cells routes.
+        b.box(POLY2, gate_x0, -0.3, gate_x0 + length, width + 1.1)
+        b.contact(gate_cx, width + 0.75)
+        for y in _contact_rows(width):
+            b.contact(x_source, y)
+            b.contact(x_drain, y)
+
+        riser(x_source, tile["s"], 0.15, max(0.6, width - 0.2))
+        riser(x_drain, tile["d"], 0.15, max(0.6, width - 0.2))
+        riser(gate_cx, tile["g"], width + 0.55, width + 0.95)
+
+
+def _draw_guard_ring(
+    b: CellBuilder, gx0: float, gy0: float, gx1: float, gy1: float
+) -> None:
+    """A continuous COMP+Metal1 p-substrate guard ring, contacted at 1 um.
+
+    Tied to VSS by the caller abutting the VSS rail to it; no floating segment.
+    Per klayout-tools#281 the deck has no tap/well-label layer, so LVS cannot
+    confirm the tie -- that stays a design-review claim (``layout/README.md``).
+    """
+    ring = [
+        (gx0, gy0, gx1, gy0 + GUARD_RING_W_UM),
+        (gx0, gy1 - GUARD_RING_W_UM, gx1, gy1),
+        (gx0, gy0, gx0 + GUARD_RING_W_UM, gy1),
+        (gx1 - GUARD_RING_W_UM, gy0, gx1, gy1),
+    ]
+    for rect in ring:
+        b.box(COMP, *rect)
+        b.box(METAL1, *rect)
+    half = GUARD_RING_W_UM / 2.0
+    for x in _span(gx0 + half, gx1 - half, TAP_PITCH_UM):
+        b.contact(x, gy0 + half)
+        b.contact(x, gy1 - half)
+    inner_low = gy0 + GUARD_RING_W_UM + half
+    inner_high = gy1 - GUARD_RING_W_UM - half
+    for y in _span(inner_low, inner_high, TAP_PITCH_UM):
+        b.contact(gx0 + half, y)
+        b.contact(gx1 - half, y)
+
+
 def bias_core(b: CellBuilder) -> None:
     """The MOS portion of ``bias_core`` (``design/bias_core.sch``), drawn.
 
@@ -371,33 +482,12 @@ def bias_core(b: CellBuilder) -> None:
     devices = _golden_devices("bias_core.spice", "bias_core")
 
     # --- placement pass: fix every device's x, then derive the frame -------
-    tiles = []
-    cursor = 0.0
-    for name in BIAS_CORE_PMOS + BIAS_CORE_NMOS:
-        if name == BIAS_CORE_NMOS[0]:
-            cursor += REGION_GAP_UM
-        device = devices[name]
-        length = lvsref.to_um(device["params"]["l"])
-        width = lvsref.to_um(device["params"]["w"])
-        drain, gate, source, _body = device["nodes"]
-        tiles.append(
-            {
-                "name": name,
-                "pmos": name in BIAS_CORE_PMOS,
-                "x0": cursor,
-                "l": length,
-                "w": width,
-                "d": drain,
-                "g": gate,
-                "s": source,
-            }
-        )
-        cursor += 2 * SD_EXT_UM + length + TILE_GAP_UM
+    tiles = _place_tiles(devices, (BIAS_CORE_PMOS, BIAS_CORE_NMOS))
 
-    pmos = [tile for tile in tiles if tile["pmos"]]
+    pmos = [tile for tile in tiles if tile["group"] == 0]
     p_x0 = pmos[0]["x0"]
-    p_x1 = pmos[-1]["x0"] + 2 * SD_EXT_UM + pmos[-1]["l"]
-    row_x1 = cursor - TILE_GAP_UM
+    p_x1 = _tile_x1(pmos[-1])
+    row_x1 = _tile_x1(tiles[-1])
     max_w = max(tile["w"] for tile in tiles)
     max_pw = max(tile["w"] for tile in pmos)
 
@@ -440,27 +530,7 @@ def bias_core(b: CellBuilder) -> None:
         )
 
     # --- devices -----------------------------------------------------------
-    for tile in tiles:
-        x0, length, width = tile["x0"], tile["l"], tile["w"]
-        tile_w = 2 * SD_EXT_UM + length
-        gate_x0 = x0 + SD_EXT_UM
-        gate_cx = gate_x0 + length / 2.0
-        x_source = x0 + CONT_INSET_UM
-        x_drain = x0 + tile_w - CONT_INSET_UM
-
-        b.box(COMP, x0, 0.0, x0 + tile_w, width)
-        # The gate strip runs past the channel at both ends (DRM PL.4) and
-        # carries its own landing pad above the diffusion, where nothing else
-        # in this cell routes.
-        b.box(POLY2, gate_x0, -0.3, gate_x0 + length, width + 1.1)
-        b.contact(gate_cx, width + 0.75)
-        for y in _contact_rows(width):
-            b.contact(x_source, y)
-            b.contact(x_drain, y)
-
-        riser(x_source, tile["s"], 0.15, max(0.6, width - 0.2))
-        riser(x_drain, tile["d"], 0.15, max(0.6, width - 0.2))
-        riser(gate_cx, tile["g"], width + 0.55, width + 0.95)
+    _draw_tiles(b, tiles, riser)
 
     # --- Poly2 routing channel --------------------------------------------
     for net in BIAS_CORE_TRACKS:
@@ -486,24 +556,7 @@ def bias_core(b: CellBuilder) -> None:
 
     # --- guard ring: continuous, VSS-tied, contacted at 1 um ---------------
     # Tied to VSS by abutting the VSS rail's left end; no floating segment.
-    ring = [
-        (gx0, gy0, gx1, gy0 + GUARD_RING_W_UM),
-        (gx0, gy1 - GUARD_RING_W_UM, gx1, gy1),
-        (gx0, gy0, gx0 + GUARD_RING_W_UM, gy1),
-        (gx1 - GUARD_RING_W_UM, gy0, gx1, gy1),
-    ]
-    for rect in ring:
-        b.box(COMP, *rect)
-        b.box(METAL1, *rect)
-    half = GUARD_RING_W_UM / 2.0
-    for x in _span(gx0 + half, gx1 - half, TAP_PITCH_UM):
-        b.contact(x, gy0 + half)
-        b.contact(x, gy1 - half)
-    inner_low = gy0 + GUARD_RING_W_UM + half
-    inner_high = gy1 - GUARD_RING_W_UM - half
-    for y in _span(inner_low, inner_high, TAP_PITCH_UM):
-        b.contact(gx0 + half, y)
-        b.contact(gx1 - half, y)
+    _draw_guard_ring(b, gx0, gy0, gx1, gy1)
 
     # --- reserved passive/bipolar region (annotation only) -----------------
     b.box(RESERVED, reserved_x0, reserved_y0, reserved_x1, reserved_y1)
@@ -513,9 +566,278 @@ def bias_core(b: CellBuilder) -> None:
     b.label("VSS", row_x1, (vss_y0 + vss_y1) / 2.0)
     by_name = {tile["name"]: tile for tile in tiles}
     for net, owner in BIAS_CORE_PIN_ON_DRAIN.items():
-        tile = by_name[owner]
-        x = tile["x0"] + 2 * SD_EXT_UM + tile["l"] - CONT_INSET_UM
-        b.label(net, x, track_y[net])
+        b.label(net, _terminal_x(by_name[owner], "d"), track_y[net])
+
+
+# --------------------------------------------------------------------------- #
+# por_output_chain (#70)
+# --------------------------------------------------------------------------- #
+
+#: ``por_output_chain``'s NMOS devices, left to right. ``XMBD`` leads: it is the
+#: always-on ``IBIAS`` mirror diode that DR-010 makes load-bearing for the whole
+#: shared node, so it sits at the ``IBIAS``-entry (bias_core-facing) edge of the
+#: cell with nothing between it and the ``IBIAS`` pin.
+POR_OUTPUT_CHAIN_NMOS = (
+    "XMBD",
+    "XMN1",
+    # 10 nA NMOS reference leg, then the two 5x deglitch tails' NMOS half
+    "XMND",
+    "XMDGNT",
+    "XMDGNI",
+    # the two restoring inverters' NMOS halves
+    "XMG1N",
+    "XMG2N",
+    "XMDIS",
+    # trip detector
+    "XMDANT",
+    "XMDBNI",
+    # release-NAND series pull-down stack (matched pair -- adjacent, same
+    # orientation, identical drawn geometry)
+    "XMNAN1",
+    "XMNAN2",
+)
+
+#: ``por_output_chain``'s PMOS devices, left to right, ending with ``XMOP`` so
+#: the push-pull pair lands together at the pad-facing end (see the docstring).
+POR_OUTPUT_CHAIN_PMOS = (
+    # 10 nA PMOS reference and its copy (matched mirror pair -- adjacent)
+    "XMPD",
+    "XMP2",
+    "XMDGPT",
+    # the 1:4 timer leg and the trip stage B source, both off PDN (matched
+    # legs -- identical geometry, adjacent, same orientation)
+    "XMPT",
+    "XMDBPT",
+    "XMDGPI",
+    "XMG1P",
+    "XMG2P",
+    "XMTSW",
+    "XMDAPI",
+    # release-NAND parallel pull-ups (matched pair -- adjacent)
+    "XMNAP1",
+    "XMNAP2",
+    "XMAST",
+    # output pull-up: last, so it abuts the driver region
+    "XMOP",
+)
+
+#: The pad-facing output pull-down. Its own region at the right-hand edge, so
+#: ``RESETn`` leaves the cell at the edge nearest the ``RESETn`` pad.
+POR_OUTPUT_CHAIN_DRIVER = ("XMON",)
+
+#: One Poly2 routing track per signal net, bottom to top in the channel above
+#: the device row. ``VDD``/``VSS`` are Metal1 rails, not tracks.
+POR_OUTPUT_CHAIN_TRACKS = (
+    "PDN",
+    "NDL",
+    "IBIAS",
+    "POR_RAW",
+    "NDGP",
+    "NDGN",
+    "NDG",
+    "PGDG",
+    "PGDGB",
+    "NTS",
+    "TIM",
+    "ND1",
+    "TRIP",
+    "NNAND",
+    "RSTB",
+    "RESETn",
+)
+
+#: Metal1 pin labels: net -> (device, terminal). A label becomes an extracted
+#: pin only inside a Metal1 shape on that net, so each is dropped on the riser
+#: of a terminal that carries it -- chosen at the edge the signal enters or
+#: leaves by.
+POR_OUTPUT_CHAIN_PIN_ON = {
+    "IBIAS": ("XMBD", "d"),
+    "POR_RAW": ("XMDGNI", "g"),
+    "RESETn": ("XMON", "d"),
+}
+
+#: Floor area reserved for the two MiM caps the deck cannot represent
+#: (``XCDG`` 11x11 um, ``XCTIM`` 4 x 28x28 um -- about 3.26e3 um^2 of MiM).
+#: Sized to hold them side by side *without* assuming they may be stacked over
+#: the device row: MiM sits on metal 3/4, so stacking is plausible, but whether
+#: it is allowed is a DRC call this repo cannot make against a deck that
+#: declares one metal level. Reserving separate floor area keeps the number
+#: pessimistic rather than optimistic.
+POC_RESERVED_W_UM = 70.0
+POC_RESERVED_H_UM = 62.0
+
+
+def por_output_chain(b: CellBuilder) -> None:
+    """The MOS portion of ``por_output_chain`` (``design/por_output_chain.sch``).
+
+    **What is drawn, and what deliberately is not.** The cell has 29 devices:
+    27 single-finger MOS (14 pfet, 13 nfet) and 2 MiM caps (``XCDG``,
+    ``XCTIM``). The 27 MOS are drawn, extracted and compared. The 2 MiM caps
+    are **not drawn** -- ``klt``'s curated ``gf180mcu`` extraction deck models
+    ``nfet``/``pfet`` and nothing else (klayout-tools#219; #222 for the
+    resistor sub-case), and it declares one metal level, so it has neither a
+    capacitor device class nor the metal 3/4 the gf180mcu MiM stack lives on.
+    Drawing them anyway would be worse than leaving them out: the deck reads
+    unmodelled-device geometry as ordinary interconnect and shorts its terminal
+    nets silently (klayout-tools#288). So this cell draws everything the deck
+    can represent and nothing it cannot, and reserves the MiM area as a
+    floorplan rectangle on annotation layer 200/0, read by neither deck.
+
+    Unlike ``bias_core``, leaving the caps out costs **no net**: both ``NDG``
+    and ``TIM`` carry MOS terminals as well, so every net in the schematic
+    still exists on both sides of the compare. What is unproven is the two
+    capacitor values themselves -- i.e. the deglitch dwell and the one-shot
+    width. Those remain ``sim/``'s claims, unchanged.
+
+    **Placement.** ``layout/floorplan.md`` puts this cell nearest the
+    ``RESETn`` pad, "shortest path from the push-pull output driver", and in
+    the always-on POR domain. Both are honoured *inside* the cell as well as
+    by the block-level slot:
+
+    - ``XMON`` -- the push-pull pull-down -- is its own region at the **right
+      (pad-facing) edge**, with ``XMOP`` the last device of the PMOS region
+      immediately to its left. The pair is adjacent, and the ``RESETn`` pin
+      label sits on ``XMON``'s drain riser, the cell's right-most Metal1 on
+      that net. Nothing is placed between the driver and the pad edge.
+    - ``XMBD`` leads the NMOS region at the **left (``bias_core``-facing)
+      edge**, where ``IBIAS`` arrives. Per
+      ``spec/decision-records/DR-010-...``, ``XMBD`` is ungated and always on,
+      and is what defines the shared ``IBIAS`` node's operating point. It is
+      drawn gate-and-drain on the ``IBIAS`` pin net and source on ``VSS``, with
+      **no series device anywhere in that path** -- the pin label is on
+      ``XMBD``'s own drain riser, so there is nowhere for a gating element to
+      hide. ``layout/tests/test_lvs_reference.py`` asserts that mechanically
+      rather than leaving it to this paragraph.
+
+    **Structure** (all dimensions from ``design/netlist/por_output_chain.spice``,
+    the same golden netlist the LVS reference is derived from)::
+
+        +--- guard ring: COMP + Metal1, VSS-tied, continuous, contacts 1um ---+
+        |  [ reserved MiM area (annotation 200/0) ]                           |
+        |  VDD rail (Metal1)                                                  |
+        |  ..... routing channel: one Poly2 track per signal net .....        |
+        |  [ NMOS row ]  [ PMOS row, one Nwell, ends XMOP ]   [ XMON ]        |
+        |                Nwell tie strap (COMP in Nwell -> VDD)     ^ RESETn  |
+        |  VSS rail (Metal1) over a p-substrate tap strap (COMP)              |
+        +---------------------------------------------------------------------+
+
+    Routing is Metal1-only because the extraction deck declares one metal level
+    (re-checked at ``klt 0.1.0`` for this cell -- still one). The scheme that
+    makes 27 devices routable on one metal is ``bias_core``'s: **horizontal
+    Poly2 tracks, one per signal net, with vertical Metal1 risers**, so a riser
+    crosses every track it does not belong to with no contact.
+
+    **Matching.** ``layout/floorplan.md``'s ranked, #15-data-driven
+    common-centroid plan covers ``temp_core`` (ranks 1-3) and ``por_comparator``
+    (rank 4) only -- it prescribes nothing for this cell, and nothing is
+    invented here to fill the gap. The same-polarity matched groups get ordinary
+    matched-pair practice instead (adjacent placement, same orientation,
+    identical drawn geometry, common well): ``XMPD``/``XMP2`` (the 10 nA PMOS
+    reference and its copy), ``XMPT``/``XMDBPT`` (identical 0.5/10 legs off
+    ``PDN``), ``XMNAP1``/``XMNAP2`` and ``XMNAN1``/``XMNAN2`` (the release
+    NAND's pull-up pair and pull-down stack). **Dummy edge devices are not
+    drawn**: a drawn dummy MOS extracts as a real device, and the deck has no
+    way to mark one as non-functional, so it would land in the extracted
+    netlist as a device the schematic-derived reference does not have and fail
+    LVS. That is a tool gap, filed generically upstream, not a matching
+    decision -- see ``layout/README.md``.
+    """
+    devices = _golden_devices("por_output_chain.spice", "por_output_chain")
+
+    # --- placement pass: fix every device's x, then derive the frame -------
+    tiles = _place_tiles(
+        devices,
+        (POR_OUTPUT_CHAIN_NMOS, POR_OUTPUT_CHAIN_PMOS, POR_OUTPUT_CHAIN_DRIVER),
+    )
+    by_name = {tile["name"]: tile for tile in tiles}
+
+    pmos = [tile for tile in tiles if tile["group"] == 1]
+    p_x0 = pmos[0]["x0"]
+    p_x1 = _tile_x1(pmos[-1])
+    row_x0 = tiles[0]["x0"]
+    row_x1 = _tile_x1(tiles[-1])
+    max_w = max(tile["w"] for tile in tiles)
+    max_pw = max(tile["w"] for tile in pmos)
+
+    channel_y0 = max_w + 3.0
+    track_y = {
+        net: channel_y0 + index * TRACK_PITCH_UM
+        for index, net in enumerate(POR_OUTPUT_CHAIN_TRACKS)
+    }
+    vdd_y0 = channel_y0 + len(POR_OUTPUT_CHAIN_TRACKS) * TRACK_PITCH_UM + 1.5
+    vdd_y1 = vdd_y0 + 1.2
+    vss_y0, vss_y1 = -5.2, -4.2
+    tie_y0, tie_y1 = -2.2, -1.2
+
+    reserved_x0 = row_x0 + 1.0
+    reserved_x1 = reserved_x0 + POC_RESERVED_W_UM
+    reserved_y0 = vdd_y1 + 3.0
+    reserved_y1 = reserved_y0 + POC_RESERVED_H_UM
+
+    clear = GUARD_RING_CLEAR_UM + GUARD_RING_W_UM
+    gx0 = row_x0 - 1.0 - clear
+    gx1 = row_x1 + 2.0 + clear
+    gy0 = vss_y0 - clear
+    gy1 = reserved_y1 + clear
+
+    def riser(x_centre: float, net: str, y_low: float, y_high: float) -> None:
+        """One Metal1 riser from a device terminal to its rail or track."""
+        if net == "VDD":
+            y_high = vdd_y1
+        elif net == "VSS":
+            y_low = vss_y0
+        else:
+            y_high = track_y[net] + 0.2
+            b.contact(x_centre, track_y[net])
+        b.box(
+            METAL1,
+            x_centre - RISER_W_UM / 2.0,
+            y_low,
+            x_centre + RISER_W_UM / 2.0,
+            y_high,
+        )
+
+    # --- devices -----------------------------------------------------------
+    _draw_tiles(b, tiles, riser)
+
+    # --- Poly2 routing channel --------------------------------------------
+    for net in POR_OUTPUT_CHAIN_TRACKS:
+        y = track_y[net]
+        half_w = TRACK_W_UM / 2.0
+        b.box(POLY2, row_x0 - 1.0, y - half_w, row_x1 + 1.0, y + half_w)
+
+    # --- Nwell over the PMOS row, and its VDD tie strap --------------------
+    # XMON's active starts REGION_GAP_UM + TILE_GAP_UM right of XMOP's, so the
+    # well edge clears the pad-facing nfet by 4 um.
+    b.box(NWELL, p_x0 - 1.0, -2.6, p_x1 + 1.0, max_pw + 1.5)
+    b.box(COMP, p_x0 - 0.5, tie_y0, p_x1 + 0.5, tie_y1)
+    b.box(METAL1, p_x0 - 0.6, tie_y0 - 0.05, p_x1 + 0.6, tie_y1 + 0.05)
+    for x in _span(p_x0 - 0.1, p_x1 + 0.1, TAP_PITCH_UM):
+        b.contact(x, (tie_y0 + tie_y1) / 2.0)
+    # ... carried up to the VDD rail in the gap between the two device rows,
+    # clear of any device's own risers.
+    b.box(METAL1, p_x0 - 0.6, tie_y1, p_x0 - 0.2, vdd_y1)
+
+    # --- supply rails ------------------------------------------------------
+    b.box(METAL1, gx0 + 2.5, vdd_y0, row_x1 + 2.0, vdd_y1)
+    b.box(METAL1, gx0 + 1.0, vss_y0, row_x1 + 2.0, vss_y1)
+    b.box(COMP, gx0 + 2.3, vss_y0, row_x1 + 1.7, vss_y1)
+    for x in _span(gx0 + 2.8, row_x1 + 1.2, TAP_PITCH_UM):
+        b.contact(x, (vss_y0 + vss_y1) / 2.0)
+
+    # --- guard ring: continuous, VSS-tied, contacted at 1 um ---------------
+    # This is the cell's edge of the always-on POR domain's ring; it is tied to
+    # VSS by abutting the VSS rail's left end, with no floating segment.
+    _draw_guard_ring(b, gx0, gy0, gx1, gy1)
+
+    # --- reserved MiM area (annotation only) -------------------------------
+    b.box(RESERVED, reserved_x0, reserved_y0, reserved_x1, reserved_y1)
+
+    # --- pins --------------------------------------------------------------
+    b.label("VDD", row_x1, (vdd_y0 + vdd_y1) / 2.0)
+    b.label("VSS", row_x1, (vss_y0 + vss_y1) / 2.0)
+    for net, (owner, terminal) in POR_OUTPUT_CHAIN_PIN_ON.items():
+        b.label(net, _terminal_x(by_name[owner], terminal), track_y[net])
 
 
 # --------------------------------------------------------------------------- #
@@ -1338,6 +1660,7 @@ CELLS = {
     "por_comparator": por_comparator,
     "por_comparator_bias_okb_inv": por_comparator_bias_okb_inv,
     "temp_core": temp_core,
+    "por_output_chain": por_output_chain,
 }
 
 
