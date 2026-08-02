@@ -1039,15 +1039,32 @@ requirement and had been failing):
 | `por_raw_shared_droop_mv` | pinned low | **≤ 0.005 mV** from the rail |
 
 And on the **full four-cell assembly** — `sim/temp-por-top-release/`, record
-`20260801-074334-8b7e57f`, which is also the first corner record taken on
-`temp_por_top` as a whole:
+`20260802-205904-bdc077d` (re-run on the post-#56 assembly;
+`20260801-074334-8b7e57f`, the first corner record taken on `temp_por_top` as
+a whole, measured it before `XMRLK`):
 
 | | Result, 81 points |
 | --- | --- |
 | `RESETn` releases | **at every point**, 5.61–16.95 ms |
 | `PTAT` after release | **1.003–1.716 V** — the sensor really is enabled |
 | shared `IBIAS`, reset asserted | 0.507–0.821 V |
+| shared `IBIAS`, reset **released** | 0.460–0.793 V — **lower at every point** |
 | `iq_por_ua` vs. [`por-iq`](../spec/target-spec.md#por-iq) < 1 µA | **0.657–2.385 µA — FAILS at 54 of 81 points** |
+
+The released row is not a rounding difference and it is not new data — it has
+been in this record since the row was added — but issue #56 is what gave it a
+meaning. Releasing `RESETn` **enables `temp_core`**, whose mirror diode joins
+this node, so the same source current splits one more way and the node's
+operating point steps **down** by tens of millivolts (−36 mV on the means
+here; −34.4 mV measured directly at `tt`/27 °C in
+`sim/por-ramp-rate/control/`). Every nA-biased decision hanging off this node
+moves with that step. That is the **dynamic** half of
+[DR-010](../spec/decision-records/DR-010-shared-ibias-disabled-consumer-contract.md)'s
+shared-node contract, added by
+[DR-016](../spec/decision-records/DR-016-por-ramp-rate-chatter-release-latch.md):
+DR-010 required a disabled consumer to present high impedance; DR-016 adds
+that *switching* a consumer moves the node, and that a downstream decision the
+node can walk back must be latched rather than left standing.
 
 That last row is the *other* conflict this document already owns (see
 [Iq apportionment](#iq-apportionment)), now measured on the real assembly

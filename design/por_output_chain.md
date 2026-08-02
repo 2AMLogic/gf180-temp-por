@@ -18,9 +18,9 @@ evidence run, not from an estimate:
 
 | Evidence | What it substantiates |
 | --- | --- |
-| [`sim/por-output-chain-pulse/`](../sim/por-output-chain-pulse/) — record `20260801-031819-fce635f` | [`por-reset-pulse`](../spec/target-spec.md#por-reset-pulse) ≥1 ms at nominal **and 3× IBIAS**, the deasserted level (push-pull, [`por-drive`](../spec/target-spec.md#por-drive)), no early release, and this cell's own share of [`por-iq`](../spec/target-spec.md#por-iq) in both the asserted and released states |
-| [`sim/por-output-chain-deglitch/`](../sim/por-output-chain-deglitch/) — record `20260801-032128-309621f` | the deglitch **dwell time** ([`por-brownout`](../spec/target-spec.md#por-brownout)'s `[TBD-#12]`) at nominal **and half** IBIAS, capture of a *qualifying* 10 µs dip, regeneration of the full pulse after it, and the no-early/no-double-pulse chatter edge case |
-| [`sim/por-output-chain-floor/`](../sim/por-output-chain-floor/) — record `20260801-032940-d59d7c4` | [`por-reset-valid-floor`](../spec/target-spec.md#por-reset-valid-floor) against a slow 0 V → VDD ramp, with `POR_RAW` held low **and** driven to the rail, plus [`por-polarity`](../spec/target-spec.md#por-polarity) (degrades to *asserted* near 0 V) |
+| [`sim/por-output-chain-pulse/`](../sim/por-output-chain-pulse/) — record `20260802-205904-bdc077d` (re-run on the post-#56 cell; `20260801-031819-fce635f` measured it before `XMRLK`) | [`por-reset-pulse`](../spec/target-spec.md#por-reset-pulse) ≥1 ms at nominal **and 3× IBIAS**, the deasserted level (push-pull, [`por-drive`](../spec/target-spec.md#por-drive)), no early release, and this cell's own share of [`por-iq`](../spec/target-spec.md#por-iq) in both the asserted and released states |
+| [`sim/por-output-chain-deglitch/`](../sim/por-output-chain-deglitch/) — record `20260802-205904-bdc077d` (re-run on the post-#56 cell; `20260801-032128-309621f` measured it before `XMRLK`) | the deglitch **dwell time** ([`por-brownout`](../spec/target-spec.md#por-brownout)'s `[TBD-#12]`) at nominal **and half** IBIAS, capture of a *qualifying* 10 µs dip, regeneration of the full pulse after it, and the no-early/no-double-pulse chatter edge case |
+| [`sim/por-output-chain-floor/`](../sim/por-output-chain-floor/) — record `20260802-205904-bdc077d` (re-run on the post-#56 cell; `20260801-032940-d59d7c4` measured it before `XMRLK`) | [`por-reset-valid-floor`](../spec/target-spec.md#por-reset-valid-floor) against a slow 0 V → VDD ramp, with `POR_RAW` held low **and** driven to the rail, plus [`por-polarity`](../spec/target-spec.md#por-polarity) (degrades to *asserted* near 0 V) |
 
 All three are **81-point PVT grids** (9 process corners × −40/27/125 °C ×
 2.97/3.30/3.63 V), the full matrix CLAUDE.md mandates, and all three are
@@ -225,13 +225,13 @@ asks for down there. Only **geometry** does, which is why the output pair is
 
 | Row | Requirement | Measured (81-point grid) | Binding point | Verdict |
 | --- | --- | --- | --- | --- |
-| [`por-reset-pulse`](../spec/target-spec.md#por-reset-pulse) | ≥1 ms, no maximum | **4.215 … 7.752 ms** at nominal `IBIAS`; **1.579 … 2.822 ms** at 3× `IBIAS` | min at **FF / −40 °C / 2.97 V** | **PASS** — 4.2× margin at nominal, 1.58× with a 3× `IBIAS` error |
+| [`por-reset-pulse`](../spec/target-spec.md#por-reset-pulse) | ≥1 ms, no maximum | **4.217 … 7.755 ms** at nominal `IBIAS`; **1.580 … 2.823 ms** at 3× `IBIAS` | min at **FF / −40 °C / 2.97 V** | **PASS** — 4.2× margin at nominal, 1.58× with a 3× `IBIAS` error |
 | [`por-brownout`](../spec/target-spec.md#por-brownout) `[TBD-#12]` | deglitch dwell ≤ 10 µs | **1.86 … 4.58 µs** at nominal `IBIAS`; **3.61 … 8.88 µs** at half | max at **SS / −40 °C / 3.63 V** (as the row predicts) | **PASS** — the published dwell is **4.58 µs worst-case**, 2.2× under `T_dip,min` |
 | [`por-brownout`](../spec/target-spec.md#por-brownout) | a qualifying 10 µs dip re-asserts and regenerates the full pulse | `RESETn` back to a valid low in **1.84 … 4.57 µs** end-to-end; stays asserted for the rest of the run | — | **PASS** |
-| [`por-reset-valid-floor`](../spec/target-spec.md#por-reset-valid-floor) | `V(RESETn) ≤ min(0.1 × VDD, 0.3 V)` for all VDD ≥ 0 | max ratio **0.0055 × VDD**; max absolute **1.70 mV** | ratio at **SF / +125 °C**, absolute at **SS / −40 °C** | **PASS** — 18× under the ratio limit, 176× under the absolute one |
-| [`por-polarity`](../spec/target-spec.md#por-polarity) | active low, degrades to *asserted* near 0 V | held ≤1.70 mV through the whole 0 V → VDD ramp, with `POR_RAW` low **and** driven to the rail | — | **PASS** |
-| [`por-drive`](../spec/target-spec.md#por-drive) | push-pull, both states driven | deasserted level = **full rail** (2.96999 / 3.29999 / 3.62999 V into 5 pF) | — | **PASS** |
-| [`por-iq`](../spec/target-spec.md#por-iq) | shared <1 µA | this cell's own draw **24.96 … 31.58 nA** asserted, 19.47 … 25.41 nA released | max at **FF / +125 °C / 3.63 V** | **PASS** — see [Iq budget](#iq-budget) |
+| [`por-reset-valid-floor`](../spec/target-spec.md#por-reset-valid-floor) | `V(RESETn) ≤ min(0.1 × VDD, 0.3 V)` for all VDD ≥ 0 | max ratio **0.0055 × VDD**; max absolute **1.74 mV** | ratio at **SF / +125 °C**, absolute at **SS / −40 °C** | **PASS** — 18× under the ratio limit, 172× under the absolute one |
+| [`por-polarity`](../spec/target-spec.md#por-polarity) | active low, degrades to *asserted* near 0 V | held ≤1.74 mV through the whole 0 V → VDD ramp, with `POR_RAW` low **and** driven to the rail | — | **PASS** |
+| [`por-drive`](../spec/target-spec.md#por-drive) | push-pull, both states driven | deasserted level = **full rail** (2.96999 … 3.63 V into 5 pF, i.e. the rail itself at every corner) | — | **PASS** |
+| [`por-iq`](../spec/target-spec.md#por-iq) | shared <1 µA | this cell's own draw **24.96 … 31.63 nA** asserted, 19.47 … 25.41 nA released | max at **FF / +125 °C / 3.63 V** | **PASS** — see [Iq budget](#iq-budget) |
 
 ### The `RESETn` measurement load — `[TBD-#8/#12]`, now finalized
 
@@ -249,7 +249,7 @@ now measured rather than asserted:
   external pull-up is outside the specified interface (`por-drive`: no
   external pull-up in the specified interface).
 
-### The achieved valid-low floor is 1.70 mV, not exactly 0 V
+### The achieved valid-low floor is 1.74 mV, not exactly 0 V
 
 `por-reset-valid-floor` targets 0 V with an acceptance fallback of ≤0.4 V
 "if #12 demonstrates 0 V is unreachable, with the achieved floor stated". The
@@ -259,7 +259,7 @@ the *specified* criterion (`≤ min(0.1 × VDD, 0.3 V)`) is met outright, with
 18× margin on the ratio, so the ≤0.4 V fallback is not invoked. The achieved
 floor, stated as the row requires:
 
-- **Absolute**: `V(RESETn) ≤ 1.70 mV` at every point of a 0 V → VDD ramp, all
+- **Absolute**: `V(RESETn) ≤ 1.74 mV` at every point of a 0 V → VDD ramp, all
   81 corners (worst at SS / −40 °C).
 - **Relative**: `V(RESETn)/VDD ≤ 0.0055` for VDD ≥ 1 mV (worst at
   SF / +125 °C). Restricted to VDD < 100 mV — where the on/off ratio has
@@ -284,9 +284,9 @@ deglitch function". The deglitch record applies three 1 µs `POR_RAW` glitches
 | Observable | Requirement | Measured |
 | --- | --- | --- |
 | `PGDG` during sub-dwell chatter | must not move | ≥ 2.941 V (i.e. within ~30 mV of the rail at every corner) |
-| `RESETn` during chatter, pulse still running | no **early release** | ≤ 5.03 nV |
+| `RESETn` during chatter, pulse still running | no **early release** | ≤ 5.20 nV |
 | `RESETn` after release, same chatter | no spurious **re-assertion** | ≥ 2.96999 V |
-| pulse width measured through the chatter | neither truncated nor **restarted** | 4.215 … 7.751 ms — the same distribution as the un-chattered pulse |
+| pulse width measured through the chatter | neither truncated nor **restarted** | 4.217 … 7.754 ms — the same distribution as the un-chattered pulse |
 
 The last row is the real discriminator, and it is why the check is two-sided
 rather than a bare `≥1 ms`: a glitch that *did* get through would have reset
@@ -313,9 +313,16 @@ each claim (`sim/README.md`, "Control experiments").
 
 **They resolve differently, and the difference is the point.** The first is a
 real, fixable defect: one device (`XMRLK`) closes it, and the full 81-point ×
-4-rate grid re-run backs that. The second cannot be fixed by sizing anything
-in this cell at all — its mechanism has no dependence on the deglitch dwell
-it was framed against.
+4-rate grid re-run backs that — record
+[`20260802-205904-bdc077d`](../sim/por-ramp-rate/records/20260802-205904-bdc077d.md),
+**81/81 PASS, `chatter_* = 0` at every corner and every rate**. The second
+cannot be fixed by sizing anything in this cell at all — its mechanism has no
+dependence on the deglitch dwell it was framed against, and its re-run with
+`XMRLK` in place is **bit-for-bit the same 0/81**
+([`20260802-205904-bdc077d`](../sim/por-glitch/records/20260802-205904-bdc077d.md)),
+which is the intended outcome: the latch was not aimed at it. What #56 *did*
+settle about `por-glitch` is where the `VDD`-glitch immunity boundary actually
+is — see [below](#but-there-is-a-vdd-glitch-immunity-boundary-and-it-is-05065-v).
 
 ### The release-edge chatter — a relaxation loop through the shared `IBIAS` node, not a local instability
 
@@ -582,7 +589,7 @@ At the binding corner **FF / +125 °C / 3.63 V**:
 | Idealised `IBIAS` reference (bias_core's branch) | 500 nA | charged **once** to `por-iq` by rule 1; already inside #10's recorded `iq_run_ua` |
 | **Running total against `por-iq`** | **~824 nA** | **~176 nA left** for `bias_core`'s own overhead |
 
-Across the whole grid this cell's asserted-state draw is **24.96 … 31.58 nA**
+Across the whole grid this cell's asserted-state draw is **24.96 … 31.63 nA**
 — about **3 %** of the shared budget, and about 6 % of what is left after
 #10's share.
 
@@ -608,7 +615,7 @@ the target in the direction that can fail it:
 
 | Record | Stress DUT | Why that direction | Result |
 | --- | --- | --- | --- |
-| pulse | **3× nominal** (1.5 µA) | more current ⇒ *faster* timer ⇒ shorter pulse ⇒ threatens the ≥1 ms floor | ≥ **1.579 ms** at every point |
+| pulse | **3× nominal** (1.5 µA) | more current ⇒ *faster* timer ⇒ shorter pulse ⇒ threatens the ≥1 ms floor | ≥ **1.580 ms** at every point |
 | deglitch | **0.5× nominal** (0.25 µA) | less current ⇒ *slower* filter ⇒ longer dwell ⇒ threatens the ≤10 µs ceiling | ≤ **8.88 µs** at every point |
 
 So the cell as drawn is proven over an `IBIAS` envelope of **0.5× … 3×
@@ -645,7 +652,7 @@ with the bias core dead. The chain of dead-circuit defaults:
 Every one of those steps is a *ratio* of geometries, not a bias condition,
 which is what makes it work at 10 mV of rail. None of them carries static
 current in the settled state. The floor record measures the end of that chain
-directly (1.70 mV worst case, ≤0.0055 × VDD), including the pathological case
+directly (1.74 mV worst case, ≤0.0055 × VDD), including the pathological case
 where `POR_RAW` is driven high below the comparator floor.
 
 ### Confirmed against a *starved* bias, not just a dead one (#55)
@@ -703,8 +710,12 @@ python3 sim/build_tb.py --check              # netlist ↔ testbench fragments
 python3 sim/run_corners.py por-output-chain-pulse    -j 8
 python3 sim/run_corners.py por-output-chain-deglitch -j 8
 python3 sim/run_corners.py por-output-chain-floor    -j 8
+python3 sim/run_corners.py por-ramp-rate              -j 8   # assembly, all four rates
+python3 sim/run_corners.py por-glitch                -j 8   # assembly, VDD glitch
 python3 sim/por-ramp-rate/control/run_chatter_probe.py   # issue #56, release-edge chatter
-python3 sim/por-glitch/control/run_glitch_probe.py       # issue #56, VDD-level glitch
+python3 sim/por-glitch/control/run_glitch_probe.py       # issue #56, VDD-glitch mechanism
+python3 sim/por-glitch/control/run_depth_sweep.py        # issue #56, VDD-glitch depth/duration
+bash layout/run_checks.sh por_output_chain               # DRC/LVS incl. XMRLK
 ```
 
 Each `run_corners.py` invocation mints a **new** record id; `sim/` is
