@@ -12,6 +12,7 @@ emit a reference the layout can never match.
 
 from __future__ import annotations
 
+import collections
 import sys
 import unittest
 from pathlib import Path
@@ -209,8 +210,121 @@ class BiasCoreManifestTest(unittest.TestCase):
     def test_every_net_the_layout_routes_is_a_net_the_reference_declares(self):
         spec = lr.CELLS[self.CELL]
         declared = set(spec["ports"]) | set(spec["internal"])
-        routed = set(bc.BIAS_CORE_TRACKS) | {"VDD", "VSS"}
+        routed = (
+            set(bc.BIAS_CORE_TRACKS)
+            | set(bc.BIAS_CORE_PASSIVE_TRACKS)
+            | {"VDD", "VSS"}
+        )
         self.assertEqual(routed | {lr.SUBSTRATE_NET}, declared)
+
+    def passives(self, kind=None):
+        golden = (REPO_ROOT / "design" / "netlist" / "bias_core.spice").read_text()
+        parsed = lr.parse_passives(lr.subckt_body(golden, "bias_core"))
+        if kind is None:
+            return parsed
+        return {n: c for n, c in parsed.items() if c["kind"] == kind}
+
+    def res_cards(self):
+        return [card for card in lr.build_cards(self.CELL) if card.prefix == "R"]
+
+    def test_the_reference_covers_every_non_mos_device_in_the_schematic(self):
+        # The whole point of #90: no device in design/bias_core.sch is outside
+        # the compare any more. Read the golden netlist's own non-MOS cards
+        # rather than restating the list, so a schematic that grew one fails.
+        spec = lr.CELLS[self.CELL]
+        golden = (REPO_ROOT / "design" / "netlist" / "bias_core.spice").read_text()
+        body = lr.subckt_body(golden, "bias_core")
+        self.assertEqual(set(self.passives("bipolar")), set(spec["bipolars"]))
+        self.assertEqual(set(self.passives("resistor")), set(spec["resistors"]))
+        self.assertEqual(set(lr.parse_capacitors(body)), set(spec["caps"]))
+        # ... and every one of them is a class the deck has a device for, so
+        # nothing is silently dropped by parse_passives on the way in.
+        drawn = {
+            line.split()[0]
+            for line in body
+            if line.split()[0].upper().startswith("X")
+        }
+        covered = (
+            set(spec["devices"])
+            | set(spec["resistors"])
+            | set(spec["bipolars"])
+            | set(spec["caps"])
+        )
+        self.assertEqual(drawn, covered)
+
+    def test_the_four_formerly_shorted_net_pairs_are_distinct(self):
+        # Each drawn poly resistor used to short its own two terminal nets when
+        # the deck read its body as interconnect, which is why it was not drawn.
+        # Assert every one of those pairs is two different declared nets, and
+        # that the reference's own chain puts one resistor between them.
+        spec = lr.CELLS[self.CELL]
+        declared = set(spec["ports"]) | set(spec["internal"])
+        resistors = self.passives("resistor")
+        cards = self.res_cards()
+        for name in spec["resistors"]:
+            a_node, b_node, _bulk = resistors[name]["nodes"]
+            self.assertNotEqual(a_node, b_node, name)
+            self.assertIn(a_node, declared)
+            self.assertIn(b_node, declared)
+            ends = {net for card in cards for net in card.nodes[:2]}
+            self.assertTrue({a_node, b_node} <= ends, name)
+
+    def test_the_pnp_array_is_a_common_centroid_around_the_1x_device(self):
+        # The 8:1 emitter ratio is what the whole reference rests on, so the
+        # 8x leg's centroid has to be the 1x leg's. Assert it from the drawn
+        # slot table rather than from the picture in the docstring.
+        slots = bc.BIAS_CORE_PNP_SLOTS
+        centre = slots["XQ1"]
+        ring = [slots[f"XQ8{letter}"] for letter in "ABCDEFGH"]
+        self.assertEqual(len(set(ring)), 8)
+        self.assertEqual(
+            (
+                sum(column for column, _row in ring) / 8.0,
+                sum(row for _column, row in ring) / 8.0,
+            ),
+            (float(centre[0]), float(centre[1])),
+        )
+        # ... and every one of the eight is orthogonally adjacent to it, i.e.
+        # they are the perimeter of one 3x3 block, not a scattered ring.
+        for column, row in ring:
+            self.assertLessEqual(abs(column - centre[0]), 1)
+            self.assertLessEqual(abs(row - centre[1]), 1)
+
+    def test_every_resistor_fold_divides_its_length_exactly(self):
+        # A leg length that is not an exact division of the golden r_length is
+        # a resistance the drawn layout and the reference disagree about by a
+        # rounding -- silent, and exactly what LVS's device.property would have
+        # to catch. Catch it here instead.
+        fold = lr.resistor_fold(self.CELL)
+        for name, card in self.passives("resistor").items():
+            length_um = lr.to_um(card["params"]["r_length"])
+            segments = lr.resistor_segments(length_um, fold)
+            legs, leg_um = len(segments), segments[0]
+            self.assertEqual(legs % 2, 0, f"{name}: fold must be even-legged")
+            self.assertLessEqual(leg_um, fold.max_um, name)
+            self.assertEqual(
+                round(leg_um * 1000.0) * legs, round(length_um * 1000.0), name
+            )
+
+    def test_each_drawn_pnp_keeps_its_own_base_region(self):
+        # Two neighbouring DRC_BJT marks that touched would merge into one base
+        # region, and every device in the array would then report that merged
+        # region's AB/PB instead of its own -- a compare that still matches, but
+        # against a number no longer derivable from one device's geometry.
+        self.assertGreater(bc.PNP_GAP_UM, 2 * lr.BIPOLAR_BASE_MARGIN_UM)
+        # ... and the Nwell tap ring stays clear of every mark, which is both
+        # what keeps `bjt.separation.comp.1` clean and what stops the tap being
+        # read as an eleventh emitter.
+        self.assertGreater(bc.PNP_TAP_OFFSET_UM, lr.BIPOLAR_BASE_MARGIN_UM + 0.1)
+        # ... and the mark sits inside the drawn well, so AB is the mark's area.
+        self.assertGreater(bc.PNP_NWELL_MARGIN_UM, lr.BIPOLAR_BASE_MARGIN_UM)
+
+    def test_the_resistor_fold_holds_the_decks_poly_spacing_rule(self):
+        # DRM PL.3a / the deck's poly2.space.1: 0.24 um between two legs.
+        self.assertGreaterEqual(bc.RES_SPACE_UM, 0.24)
+        # The head runs past the marked body far enough to carry its own
+        # contact clear of the bend row at the same edge.
+        self.assertGreater(bc.RES_HEAD_UM, 2.0)
 
     def test_internal_nets_are_declared_not_inferred(self):
         # Dropping an internal net from the manifest must be an error, not a
@@ -822,55 +936,72 @@ class TempPorTopAssemblyTest(unittest.TestCase):
             # sub-cell's manifest -- the documented gap this test works
             # around below has closed, and there is nothing further to check.
             return
-        # Two tracked, deliberate sources of drift, both waiting on #97:
+        # Three tracked, deliberate sources of drift, all waiting on #97:
         #
         #   1. #91 drew por_comparator's sense divider as three real
         #      ppolyf_u_1k resistors (XRTOP/XRBOT/XRHYS) and added them to
         #      that cell's manifest under "resistors".
-        #   2. Issue #56 added XMRLK, por_output_chain's release latch, as the
-        #      28th MOS of that cell's manifest.
+        #   2. #90 drew bias_core's 10 vertical PNPs, 4 poly resistors and 2
+        #      MiM caps, adding "bipolars"/"resistors"/"caps" to its manifest.
+        #   3. Issue #56 added XMRLK, por_output_chain's release latch, as the
+        #      28th entry of that cell's "devices" list.
         #
         # build_assembly composes each sub-cell through the same build_cards()
-        # every standalone cell uses, so both flow into a freshly generated
-        # temp_por_top reference -- but temp_por_top's own committed GDS is
-        # deliberately *not* rebuilt for either (rebuilding it against the
-        # grown sub-cell footprints is DRC-dirty at the instance boundary:
-        # 82 violations, contact.space.1 x79. #97 reworks the floorplan once,
-        # waiting on #90/#93 too, rather than once per sub-cell change). So a
-        # fresh build is legitimately ahead of the committed file by exactly
-        # those three resistor cards and that one MOS card, and this test has
-        # to know that rather than asserting a match it should not expect yet.
-        # Re-derive with both contributions removed from the live manifests
-        # and require *that* to still match byte for byte -- proving the only
-        # drift is the known, tracked one, not something else silently going
-        # stale alongside it.
-        without_divider = dict(lr.CELLS["por_comparator"])
-        without_divider.pop("resistors", None)
-        without_latch = dict(lr.CELLS["por_output_chain"])
-        without_latch["devices"] = [
-            name for name in without_latch["devices"] if name != "XMRLK"
-        ]
-        self.assertEqual(
-            len(without_latch["devices"]),
-            len(lr.CELLS["por_output_chain"]["devices"]) - 1,
-            "XMRLK is no longer in por_output_chain's manifest -- this "
-            "work-around is stale and should be revisited",
-        )
-        originals = {
-            "por_comparator": lr.CELLS["por_comparator"],
-            "por_output_chain": lr.CELLS["por_output_chain"],
+        # every standalone cell uses, so all three flow into a freshly
+        # generated temp_por_top reference too -- but temp_por_top's own
+        # committed GDS is deliberately *not* rebuilt for any of them
+        # (rebuilding it against the grown sub-cell footprints is DRC-dirty at
+        # the instance boundary, reproducible on main alone; #97 reworks the
+        # floorplan once for all of #56/#90/#91/#92/#93 rather than once per
+        # sub-cell change). So a fresh build is legitimately ahead of the
+        # committed file by exactly those cards, and this test has to know that
+        # rather than asserting a match it should not expect yet. Re-derive
+        # with every deferred contribution removed from the live manifests and
+        # require *that* to still match byte for byte -- proving the only drift
+        # is the known, tracked one, not something else silently going stale
+        # alongside it.
+        deferred_keys = {
+            # cell -> the manifest keys #97 has not caught this assembly up
+            # with yet. Remove one from this table when #97 lands, not the
+            # whole workaround: the early return above retires it.
+            "por_comparator": ("resistors",),
+            "bias_core": ("resistors", "bipolars", "caps"),
         }
-        lr.CELLS["por_comparator"] = without_divider
-        lr.CELLS["por_output_chain"] = without_latch
+        deferred_devices = {
+            # cell -> individual "devices" entries that postdate the committed
+            # assembly. Unlike the passives above these are ordinary MOS, so
+            # they are pruned by name rather than by manifest key.
+            "por_output_chain": ("XMRLK",),
+        }
+        originals = {
+            cell: lr.CELLS[cell] for cell in (*deferred_keys, *deferred_devices)
+        }
         try:
-            pre_freeze = lr.build(self.CELL)
+            for cell, keys in deferred_keys.items():
+                pruned = dict(lr.CELLS[cell])
+                for key in keys:
+                    pruned.pop(key, None)
+                lr.CELLS[cell] = pruned
+            for cell, names in deferred_devices.items():
+                pruned = dict(lr.CELLS[cell])
+                pruned["devices"] = [
+                    name for name in pruned["devices"] if name not in names
+                ]
+                self.assertEqual(
+                    len(pruned["devices"]),
+                    len(originals[cell]["devices"]) - len(names),
+                    f"{cell}: {', '.join(names)} no longer in the manifest -- "
+                    "this work-around is stale and should be revisited",
+                )
+                lr.CELLS[cell] = pruned
+            pre_drift = lr.build(self.CELL)
         finally:
             lr.CELLS.update(originals)
         self.assertEqual(
-            pre_freeze,
+            pre_drift,
             committed,
             "temp_por_top's committed reference has drifted from the "
-            "assembly by more than por_comparator's #91 divider and issue "
+            "assembly by more than #90's and #91's drawn passives and issue "
             "#56's XMRLK release latch -- see #97",
         )
 
@@ -905,6 +1036,34 @@ class TempPorTopAssemblyTest(unittest.TestCase):
                 + len(spec.get("dummies", []))
             )
         self.assertEqual(len(self.cards()), expected)
+
+    def test_every_sub_cell_non_mos_device_is_carried_into_the_assembly(self):
+        # Extraction is flat, so a sub-cell's drawn resistors, bipolars and MiM
+        # caps land in this cell's compare too. Assert the composed reference
+        # carries exactly as many of each as the sub-cells' own manifests build.
+        composed = collections.Counter(
+            card.prefix for card in lr.build_assembly(self.CELL)
+        )
+        expected = collections.Counter()
+        for _inst, sub in lr.CELLS[self.CELL]["assembly"]:
+            known = (
+                set(lr.CELLS[sub]["ports"])
+                | set(lr.CELLS[sub].get("wells", {}))
+                | set(lr.CELLS[sub].get("internal", []))
+                | set(filter(None, [lr.CELLS[sub].get("bjt_well")]))
+            )
+            expected.update(
+                card.prefix
+                for card in lr.build_passive_cards(sub, known, lambda net: net)
+            )
+            expected.update(card.prefix for card in lr.build_cap_cards(sub))
+        for prefix in "RQC":
+            self.assertEqual(composed[prefix], expected[prefix], prefix)
+        # ... and that they actually reach the emitted netlist.
+        emitted = collections.Counter(
+            line[:1] for line in lr.build(self.CELL).splitlines() if line[:1] in "CRQ"
+        )
+        self.assertEqual(dict(emitted), {k: v for k, v in expected.items() if v})
 
     def test_shared_nets_are_one_net_across_instances(self):
         # The whole point of the assembly: IBIAS is one node all four

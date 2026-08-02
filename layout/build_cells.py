@@ -99,6 +99,30 @@ METAL4 = (46, 0)
 FUSETOP = (75, 0)
 CAP_MK = (117, 5)
 MIM_L_MK = (117, 10)
+#: Implant and device-marker layers -- the drawn poly resistors' and vertical
+#: bipolars' own stack, shared by ``temp_core`` (#93) and ``bias_core`` (#90).
+#: Only ``DRC_BJT`` carries a rule in ``klt``'s curated ``gf180mcu`` DRC deck
+#: (``bjt.separation.comp.1``); the *extraction* deck reads all six.
+#:
+#: A plain ``ppolyf_u`` body is ``Poly2 & RES_MK & Pplus & SAB``, and the
+#: high-sheet-rho family is the same stack plus the ``Resistor`` high-rho ID
+#: layer. Either way the recognised body is cut out of the poly connectivity
+#: region, so the marked segment is a device and the unmarked poly either side
+#: of it stays the device's two terminals. ``Pplus`` is not required for that
+#: recognition -- it is drawn because it is what makes the device *p+* poly
+#: rather than n+, and the deck reads it (the ``ppolyf_u`` class's own
+#: ``requires``), so leaving it off would be a silent under-description.
+#:
+#: For a vertical bipolar the deck's base region is ``Nwell`` ∩ ``DRC_BJT``, its
+#: emitter is the ``Comp`` inside that base, and it draws no collector at all
+#: (the substrate is the collector). ``DRC_BJT`` being a DRC layer too is why it
+#: has to stay clear of every ``Comp`` that is not an emitter.
+PPLUS = (31, 0)
+NPLUS = (32, 0)
+SAB = (49, 0)
+RESISTOR_ID = (62, 0)
+RES_MK = (110, 5)
+DRC_BJT = (127, 5)
 RESERVED = (200, 0)
 
 #: gf180mcu DRM "CO.1": contact is a fixed 0.22 x 0.22 um square.
@@ -362,10 +386,66 @@ REGION_GAP_UM = 4.0  # spacing between the PMOS and NMOS regions
 GUARD_RING_W_UM = 1.5
 GUARD_RING_CLEAR_UM = 3.0
 TAP_PITCH_UM = 1.0  # contact pitch along guard ring / tap straps
-#: Area reserved for the devices the curated deck cannot represent (10 vertical
-#: PNPs, 4 poly resistors, 2 MiM caps). See ``bias_core``'s docstring.
-RESERVED_W_UM = 130.0
-RESERVED_H_UM = 130.0
+
+# --- bias_core's passive/bipolar block (#90) ------------------------------- #
+#
+# The 16 non-MOS devices used to be a blank 130 x 130 um rectangle on annotation
+# layer 200/0, because the deck recognised nfet/pfet only. They are drawn now.
+# The block sits to the right of the MOS row, inside the same guard ring, and
+# reaches the row the same way everything else in this cell does: **horizontal
+# Poly2 tracks, vertical Metal1 risers**. Its own eight tracks sit in a band
+# below it (one per net a drawn passive touches); a Metal1 jog in the gap
+# between the row and the block carries each of the five nets that exist on both
+# sides from its row track down to its block track.
+
+#: x gap between the MOS row's right edge and the passive block, in um. Wide
+#: enough for the five Metal1 jog columns below plus clearance either side.
+PASSIVE_GAP_UM = 13.0
+#: First jog column's x, relative to the MOS row's right edge, and their pitch.
+#: Ordered so a jog column's x rises with its row track's y, which is what keeps
+#: a jog from ever reaching the y of a row track that extends past it.
+PASSIVE_JOG_X0_UM = 3.0
+PASSIVE_JOG_PITCH_UM = 2.0
+#: Lowest of the block's own Poly2 distribution tracks (they use the row's own
+#: :data:`TRACK_PITCH_UM`).
+PASSIVE_TRACK_Y0_UM = -3.0
+#: The baseline every drawn passive sits on -- clear of the track band below it.
+PASSIVE_BASE_Y_UM = 13.0
+#: One Poly2 track per net a drawn passive touches, bottom to top. The first
+#: five also exist on the MOS row (:data:`BIAS_CORE_TRACKS`) and are jogged
+#: across, in the row's own track order; ``EC``/``ER``/``NZ`` exist only here.
+BIAS_CORE_PASSIVE_TRACKS = ("NA", "NB", "NBTOP", "N2", "VREF", "EC", "ER", "NZ")
+BIAS_CORE_PASSIVE_CROSSING = ("NA", "NB", "NBTOP", "N2", "VREF")
+#: The 3x3 common-centroid array the emitter-ratio pair is drawn as: the 1x
+#: device (``XQ1``) at the centre, the eight 8x devices on the perimeter, so
+#: the 8x leg's centroid *is* the 1x leg's. ``XQR`` -- the VREF branch's own
+#: separate 1x device, not part of that ratio -- takes a fourth column beside
+#: the middle row. Slots are ``(column, row)``.
+BIAS_CORE_PNP_SLOTS = {
+    "XQ1": (1, 1),
+    "XQ8A": (0, 0),
+    "XQ8B": (1, 0),
+    "XQ8C": (2, 0),
+    "XQ8D": (0, 1),
+    "XQ8E": (2, 1),
+    "XQ8F": (0, 2),
+    "XQ8G": (1, 2),
+    "XQ8H": (2, 2),
+    "XQR": (3, 1),
+}
+#: Nwell margin around the PNP array's emitter bounding box, in um.
+PNP_NWELL_MARGIN_UM = 8.0
+#: Where the array's Nwell tap ring sits inside that margin, in um from the
+#: emitter bounding box. Far enough outside every ``DRC_BJT`` mark to clear
+#: ``bjt.separation.comp.1`` with margin, and far enough inside the Nwell edge
+#: to clear ``nwell.enclosing.comp.1`` with margin.
+PNP_TAP_OFFSET_UM = 4.0
+PNP_TAP_W_UM = 1.0
+#: Metal1 escape-riser width and its clearance from an emitter plate, in um.
+PNP_ESCAPE_W_UM = 0.4
+#: Resistor banks, widest first, and the gap between two of them, in um.
+BIAS_CORE_RESISTOR_ORDER = ("XR2", "XRZ", "XR1", "XRT")
+RES_BANK_GAP_UM = 5.0
 
 
 def _golden_devices(source: str, subckt: str) -> dict[str, dict]:
@@ -378,6 +458,22 @@ def _golden_caps(source: str, subckt: str) -> dict[str, dict]:
     """Parse ``design/netlist/<source>``'s ``<subckt>`` for its MiM caps."""
     text = (REPO_ROOT / "design" / "netlist" / source).read_text()
     return lvsref.parse_capacitors(lvsref.subckt_body(text, subckt))
+
+
+def _golden_resistors(source: str, subckt: str) -> dict[str, dict]:
+    """Parse ``design/netlist/<source>``'s ``<subckt>`` for its poly resistors."""
+    text = (REPO_ROOT / "design" / "netlist" / source).read_text()
+    return {name: card for name, card in
+            lvsref.parse_passives(lvsref.subckt_body(text, subckt)).items()
+            if card["kind"] == "resistor"}
+
+
+def _golden_bipolars(source: str, subckt: str) -> dict[str, dict]:
+    """Parse ``design/netlist/<source>``'s ``<subckt>`` for its vertical PNPs."""
+    text = (REPO_ROOT / "design" / "netlist" / source).read_text()
+    return {name: card for name, card in
+            lvsref.parse_passives(lvsref.subckt_body(text, subckt)).items()
+            if card["kind"] == "bipolar"}
 
 
 #: gf180mcu DRM "10.4.2 MIM Capacitor", Option B, rule ``MIMTM.3``: minimum MiM
@@ -456,6 +552,96 @@ def _mim_block(
         cursor += columns * pitch_x
         top = max(top, y0 + rows * pitch_y)
     return rects, cursor - gap, top - gap
+
+
+#: Poly space between two adjacent legs of a drawn serpentine resistor, in um
+#: (DRM ``PL.3a`` asks 0.24; drawn at 1.0 so the fold is readable and the bend
+#: that joins two legs is the same width as a leg).
+RES_SPACE_UM = 1.0
+#: How far each end of a fold's poly runs past the marked body before its
+#: terminal contact, in um. The head is *unmarked* poly -- that is what makes it
+#: the device's terminal rather than more resistor -- and it carries exactly one
+#: contact, because two or more would trip klayout-tools#288's resistor-body
+#: heuristic on the head itself (see ``layout/README.md``).
+RES_HEAD_UM = 4.0
+
+
+def _poly_resistor(
+    b: CellBuilder, x0: float, y0: float, width: float, leg: float, legs: int
+) -> tuple[float, float]:
+    """One folded poly resistor, its lower-left leg corner at ``x0, y0``.
+
+    ``legs`` marked vertical legs of ``width`` x ``leg`` on a
+    ``width + RES_SPACE_UM`` pitch, joined alternately top and bottom by
+    *unmarked* poly bends, with an unmarked head running :data:`RES_HEAD_UM`
+    below the free end of the first and last leg. ``legs`` is always even
+    (:func:`lvs_reference.resistor_segments`), which is exactly what puts both
+    heads at the bottom edge so each terminal risers straight down to its
+    routing track with nothing to cross.
+
+    The marker rectangles are the legs *exactly*: the deck's recognised body is
+    ``Poly2 & RES_MK & SAB & Resistor``, and KLayout derives the device's
+    ``L``/``W`` from that region's own area and perimeter, so a marker that
+    overshot a leg into a bend would silently lengthen the extracted resistor.
+
+    Returns the two heads' centre x, in ``(first, last)`` order -- i.e. the
+    golden netlist's own ``(a, b)`` node order.
+    """
+    pitch = width + RES_SPACE_UM
+    leg_x = [x0 + index * pitch for index in range(legs)]
+
+    for x in leg_x:
+        b.box(POLY2, x, y0, x + width, y0 + leg)
+        # Marked body: coincident on all four layers, from one rectangle.
+        for spec in (PPLUS, SAB, RESISTOR_ID, RES_MK):
+            b.box(spec, x, y0, x + width, y0 + leg)
+
+    for index in range(legs - 1):
+        x = leg_x[index]
+        if index % 2 == 0:
+            b.box(POLY2, x, y0 + leg, x + pitch + width, y0 + leg + width)
+        else:
+            b.box(POLY2, x, y0 - width, x + pitch + width, y0)
+
+    heads = (leg_x[0], leg_x[-1])
+    for x in heads:
+        b.box(POLY2, x, y0 - RES_HEAD_UM, x + width, y0)
+        b.contact(x + width / 2.0, y0 - RES_HEAD_UM / 2.0)
+    return (heads[0] + width / 2.0, heads[1] + width / 2.0)
+
+
+#: Emitter-to-emitter gap inside the drawn PNP array, in um (DRM ``DF.3a`` asks
+#: 0.28). Wide enough that two neighbouring emitters' ``DRC_BJT`` marks -- each
+#: grown by ``lvs_reference.BIPOLAR_BASE_MARGIN_UM`` -- stay geometrically separate,
+#: which is what gives every drawn device its own base region (hence its own
+#: ``AB``/``PB``) while one shared drawn Nwell still puts every base on one net.
+PNP_GAP_UM = 5.0
+PNP_CONT_INSET_UM = 0.5  # contact array inset from the emitter window's edge
+PNP_CONT_PITCH_UM = 2.0
+PNP_PLATE_INSET_UM = 0.3  # Metal1 emitter plate inset from the same edge
+
+
+def _pnp_unit(b: CellBuilder, x0: float, y0: float, width: float, length: float) -> None:
+    """One drawn vertical PNP's emitter window and device mark at ``x0, y0``.
+
+    The base is the caller's drawn Nwell (shared by the whole array, so every
+    base is one net), the collector is the substrate and is not drawn at all,
+    and this is the rest: a ``Comp`` emitter window of the size the PDK
+    subcircuit's own name declares, a contact array inside it, its Metal1 plate,
+    and the ``DRC_BJT`` mark grown by ``lvs_reference.BIPOLAR_BASE_MARGIN_UM`` on
+    every side -- the mark being what turns Nwell into a *base* rather than an
+    ordinary PMOS well, and what fixes the extracted base area.
+    """
+    b.box(COMP, x0, y0, x0 + width, y0 + length)
+    margin = lvsref.BIPOLAR_BASE_MARGIN_UM
+    b.box(DRC_BJT, x0 - margin, y0 - margin, x0 + width + margin, y0 + length + margin)
+    for cx in _span(
+        x0 + PNP_CONT_INSET_UM, x0 + width - PNP_CONT_INSET_UM, PNP_CONT_PITCH_UM
+    ):
+        for cy in _span(
+            y0 + PNP_CONT_INSET_UM, y0 + length - PNP_CONT_INSET_UM, PNP_CONT_PITCH_UM
+        ):
+            b.contact(cx, cy)
 
 
 def _contact_rows(width_um: float) -> list[float]:
@@ -592,50 +778,226 @@ def _draw_guard_ring(
         b.contact(gx1 - half, y)
 
 
+def _bias_core_passives(
+    b: CellBuilder, px0: float, track_y: dict[str, float], vss_y1: float
+) -> tuple[float, float]:
+    """Draw ``bias_core``'s 16 non-MOS devices; return the block's ``(x1, y1)``.
+
+    Three regions, left to right / bottom to top from ``px0``:
+
+    * the **PNP array** -- one drawn Nwell holding all ten emitters, each with
+      its own ``DRC_BJT`` mark, laid out per :data:`BIAS_CORE_PNP_SLOTS`, with a
+      VSS-tied Nwell tap ring around it and one Metal1 escape riser per net;
+    * the **MiM caps**, above the array, drawn but connected to nothing -- the
+      deck registers a recognised capacitor's plates outside its own metal/via
+      stack, so no drawn routing can put a plate on a net (klayout-tools#314);
+    * the **resistor banks**, each a fold from :func:`_poly_resistor` whose leg
+      count and length come from ``lvs_reference.resistor_segments`` -- the same
+      function the reference netlist declares them from.
+
+    Every terminal risers straight down on Metal1 to its own Poly2 track in
+    ``track_y``. Nothing here draws a horizontal Metal1 run, so no two nets'
+    Metal1 can meet: a riser crossing a track it does not belong to has no
+    contact, exactly as in the MOS row above.
+    """
+    resistors = _golden_resistors("bias_core.spice", "bias_core")
+    bipolars = _golden_bipolars("bias_core.spice", "bias_core")
+
+    # --- PNP array ----------------------------------------------------------
+    emitter_w, emitter_l = lvsref.emitter_window_um(bipolars["XQ1"]["model"])
+    for name, card in bipolars.items():
+        if lvsref.emitter_window_um(card["model"]) != (emitter_w, emitter_l):
+            raise ValueError(f"{name}: the array assumes one emitter size")
+    pitch = emitter_w + PNP_GAP_UM
+    columns = max(column for column, _row in BIAS_CORE_PNP_SLOTS.values()) + 1
+    rows = max(row for _column, row in BIAS_CORE_PNP_SLOTS.values()) + 1
+    ax = px0 + PNP_NWELL_MARGIN_UM
+    ay = PASSIVE_BASE_Y_UM
+    array_w = (columns - 1) * pitch + emitter_w
+    array_h = (rows - 1) * pitch + emitter_l
+
+    b.box(
+        NWELL,
+        ax - PNP_NWELL_MARGIN_UM,
+        ay - PNP_NWELL_MARGIN_UM,
+        ax + array_w + PNP_NWELL_MARGIN_UM,
+        ay + array_h + PNP_NWELL_MARGIN_UM,
+    )
+    for name, (column, row) in BIAS_CORE_PNP_SLOTS.items():
+        _pnp_unit(
+            b, ax + column * pitch, ay + row * pitch, emitter_w, emitter_l
+        )
+        del name
+
+    # Escape risers: one per net, each in a column gap or beside the array, so
+    # the centre device's own escape never has to cross the ring of eight.
+    gap = PNP_GAP_UM / 2.0
+    plate = PNP_PLATE_INSET_UM
+    half = PNP_ESCAPE_W_UM / 2.0
+    escape_x = {
+        "EC": (
+            ax - gap + half,  # col 0, out to the left
+            ax + emitter_w + gap,  # cols 1 (rows 0 and 2), into the first gap
+            ax + 2 * pitch + emitter_w + gap,  # col 2, out to the right
+        ),
+        "NA": (ax + pitch + emitter_w + gap,),  # XQ1, into the second gap
+        "ER": (ax + 3 * pitch + emitter_w + gap,),  # XQR, out to the right
+    }
+    #: Which escape column each drawn emitter's Metal1 plate reaches out to.
+    plate_reach = {
+        (0, 0): escape_x["EC"][0], (0, 1): escape_x["EC"][0],
+        (0, 2): escape_x["EC"][0],
+        (1, 0): escape_x["EC"][1], (1, 2): escape_x["EC"][1],
+        (2, 0): escape_x["EC"][2], (2, 1): escape_x["EC"][2],
+        (2, 2): escape_x["EC"][2],
+        (1, 1): escape_x["NA"][0],
+        (3, 1): escape_x["ER"][0],
+    }
+    for (column, row), reach in plate_reach.items():
+        x0 = ax + column * pitch + plate
+        x1 = ax + column * pitch + emitter_w - plate
+        b.box(
+            METAL1,
+            min(x0, reach - half),
+            ay + row * pitch + plate,
+            max(x1, reach + half),
+            ay + row * pitch + emitter_l - plate,
+        )
+    for net, columns_x in escape_x.items():
+        top = ay + (rows - 1) * pitch + emitter_l - plate
+        if net == "NA" or net == "ER":
+            top = ay + pitch + emitter_l - plate
+        for x in columns_x:
+            b.box(METAL1, x - half, track_y[net] - 0.2, x + half, top)
+            b.contact(x, track_y[net])
+
+    # Nwell tap ring: continuous on three sides, open at the bottom where every
+    # escape riser leaves. Tied to VSS by its own riser down to the rail. As
+    # everywhere else in this cell the tie is a design-review claim, not a
+    # checked one -- the deck has no tap layer (klayout-tools#303).
+    tap = PNP_TAP_OFFSET_UM
+    tap_x0, tap_x1 = ax - tap - PNP_TAP_W_UM, ax + array_w + tap
+    tap_y0, tap_y1 = ay - tap, ay + array_h + tap
+    ring = [
+        (tap_x0, tap_y0, tap_x0 + PNP_TAP_W_UM, tap_y1 + PNP_TAP_W_UM),
+        (tap_x1, tap_y0, tap_x1 + PNP_TAP_W_UM, tap_y1 + PNP_TAP_W_UM),
+        (tap_x0, tap_y1, tap_x1 + PNP_TAP_W_UM, tap_y1 + PNP_TAP_W_UM),
+    ]
+    for rect in ring:
+        b.box(COMP, *rect)
+        b.box(METAL1, rect[0] - 0.1, rect[1] - 0.1, rect[2] + 0.1, rect[3] + 0.1)
+    tap_half = PNP_TAP_W_UM / 2.0
+    for y in _span(tap_y0 + tap_half, tap_y1 + tap_half, TAP_PITCH_UM):
+        b.contact(tap_x0 + tap_half, y)
+        b.contact(tap_x1 + tap_half, y)
+    for x in _span(tap_x0 + tap_half, tap_x1 + tap_half, TAP_PITCH_UM):
+        b.contact(x, tap_y1 + tap_half)
+    b.box(METAL1, tap_x0 + 0.1, vss_y1, tap_x0 + PNP_TAP_W_UM - 0.1, tap_y0)
+
+    nwell_x1 = ax + array_w + PNP_NWELL_MARGIN_UM
+    nwell_y1 = ay + array_h + PNP_NWELL_MARGIN_UM
+
+    # --- MiM caps, above the array -----------------------------------------
+    caps = _golden_caps("bias_core.spice", "bias_core")
+    mim_plates, mim_x1, mim_y1 = _mim_block(
+        caps, {"XCC": (1, 1), "XCOK": (1, 1)}, px0, nwell_y1 + 6.0
+    )
+    for _name, x, y, width, height in mim_plates:
+        _mim_cap(b, x, y, width, height)
+
+    # --- resistor banks -----------------------------------------------------
+    bank_x = max(nwell_x1, mim_x1) + RES_BANK_GAP_UM
+    block_y1 = max(nwell_y1, mim_y1)
+    for name in BIAS_CORE_RESISTOR_ORDER:
+        card = resistors[name]
+        width = lvsref.to_um(card["params"]["r_width"])
+        # The one fold decision, taken in lvs_reference so the drawn string and
+        # the declared one can never disagree (bias_core's own manifest entry
+        # sets this cell's leg ceiling/target).
+        segments = lvsref.resistor_segments(
+            lvsref.to_um(card["params"]["r_length"]),
+            lvsref.resistor_fold("bias_core"),
+        )
+        heads = _poly_resistor(
+            b, bank_x, PASSIVE_BASE_Y_UM, width, segments[0], len(segments)
+        )
+        for head_x, net in zip(heads, card["nodes"][:2]):
+            b.box(
+                METAL1,
+                head_x - PNP_ESCAPE_W_UM,
+                PASSIVE_BASE_Y_UM - RES_HEAD_UM + 0.4,
+                head_x + PNP_ESCAPE_W_UM,
+                PASSIVE_BASE_Y_UM - RES_HEAD_UM / 2.0 + 0.4,
+            )
+            b.box(
+                METAL1,
+                head_x - PNP_ESCAPE_W_UM / 2.0,
+                track_y[net] - 0.2,
+                head_x + PNP_ESCAPE_W_UM / 2.0,
+                PASSIVE_BASE_Y_UM - RES_HEAD_UM / 2.0 + 0.4,
+            )
+            b.contact(head_x, track_y[net])
+        bank_w = (len(segments) - 1) * (width + RES_SPACE_UM) + width
+        bank_x += bank_w + RES_BANK_GAP_UM
+        block_y1 = max(block_y1, PASSIVE_BASE_Y_UM + segments[0] + width)
+
+    return bank_x - RES_BANK_GAP_UM, block_y1
+
+
 def bias_core(b: CellBuilder) -> None:
-    """The MOS portion of ``bias_core`` (``design/bias_core.sch``), drawn.
+    """``bias_core`` (``design/bias_core.sch``), drawn -- all 50 devices.
 
-    **What is drawn, and what deliberately is not.** ``bias_core`` has 34 MOS
-    devices, 10 vertical PNPs (``XQ1``, ``XQ8A..H``, ``XQR``), 4 poly resistors
-    (``XR1``, ``XR2``, ``XRT``, ``XRZ``) and 2 MiM caps (``XCC``, ``XCOK``).
-    ``klt``'s curated ``gf180mcu`` extraction deck recognises ``nfet``/``pfet``
-    and nothing else (klayout-tools#219, resistors #222), so the non-MOS
-    devices cannot be extracted as devices -- and drawing them anyway would be
-    worse than leaving them out, because the deck would read a drawn poly
-    resistor body as *interconnect* and silently short its two terminal nets
-    (``NB``-``EC``, ``VREF``-``ER``, ``NBTOP``-``NB``, ``NZ``-``N2``), which
-    would then read as a layout bug in the part that *can* be checked.
-
-    So the sub-cell boundary this cell draws is: **everything the deck can
-    represent, and nothing it cannot**. The passive/bipolar region is reserved
-    as a floorplan rectangle on annotation layer 200/0 -- read by neither deck,
-    so it changes no DRC or LVS verdict -- rather than filled with geometry
-    that no check in this repo could answer for. ``layout/README.md`` records
-    which devices that leaves outside LVS coverage.
+    **What is drawn.** 34 MOS in the device row, and -- as of #90 -- the 16
+    non-MOS devices that used to be a blank rectangle on annotation layer 200/0
+    beside it: 10 vertical PNPs (``XQ1``, ``XQ8A..H``, ``XQR``), 4 poly
+    resistors (``XR1``, ``XR2``, ``XRT``, ``XRZ``) and 2 MiM caps (``XCC``,
+    ``XCOK``). They were left out while ``klt``'s curated ``gf180mcu`` deck
+    recognised ``nfet``/``pfet`` only, because a drawn-but-unrecognised poly
+    resistor body extracts as ordinary *interconnect* and silently shorts its
+    own two terminal nets (``NB``-``EC``, ``VREF``-``ER``, ``NBTOP``-``NB``,
+    ``NZ``-``N2``). ``klt 0.1.0`` declares ``bjt``, ``ppolyf_u``/``ppolyf_u_1k``
+    and ``cap_mim_2f0_m4m5_noshield`` as well, so the geometry that makes each
+    of them a *device* rather than interconnect is drawn here and every one of
+    those four nets is now a distinct extracted net. See
+    :func:`_bias_core_passives`.
 
     **Structure** (all dimensions from ``design/netlist/bias_core.spice``)::
 
         +--- guard ring: COMP + Metal1, VSS-tied, continuous, contacts 1um ---+
-        |  VDD rail (Metal1)                                                  |
-        |  ..... routing channel: one Poly2 track per signal net .....        |
-        |  [ PMOS row, one Nwell ]   [ NMOS row ]      [ reserved passive ]   |
-        |  Nwell tie strap (COMP in Nwell -> VDD)                             |
-        |  VSS rail (Metal1) over a p-substrate tap strap (COMP)              |
+        |  VDD rail (Metal1)                          [ resistor folds ]      |
+        |  ..... routing channel: one Poly2 track per signal net ..... |      |
+        |                                             [ MiM caps ]    | jogs |
+        |  [ PMOS row, one Nwell ]   [ NMOS row ]     [ PNP array  ]   |      |
+        |  Nwell tie strap (COMP in Nwell -> VDD)     ... passive tracks ...  |
+        |  VSS rail (Metal1) over a p-substrate tap strap (COMP), full width  |
         +---------------------------------------------------------------------+
 
-    Routing is Metal1-only by necessity -- the extraction deck declares one
-    metal level (``layout/README.md``, "Single metal level"; still true at
-    ``klt 0.1.0``). The two-layer scheme that makes a 34-device cell routable
-    on one metal is: **horizontal Poly2 tracks, vertical Metal1 risers**. A
-    riser crosses every track it does not belong to with no contact, so the
-    only connections are the ones drawn.
+    Routing is Metal1-only throughout, in both regions and for the same reason:
+    the scheme that makes this cell routable on one metal is **horizontal Poly2
+    tracks, vertical Metal1 risers**. A riser crosses every track it does not
+    belong to with no contact, so the only connections are the ones drawn. The
+    passive block has its own eight-track band below it (one per net a drawn
+    passive touches); the five nets that exist in both regions are carried
+    across by one Metal1 jog each, in the gap between the two.
 
     Matched pairs get ordinary matched-pair practice (adjacent placement, same
     orientation, identical drawn geometry, common well): ``XMI1``/``XMI2``,
     ``XML1``/``XML2``, ``XMOKA``/``XMOKB``, ``XMOL1``/``XMOL2``, and the three
     core mirror legs ``XMP1``/``XMP2``/``XMP3``. ``layout/floorplan.md``'s
     ranked common-centroid plan covers ``temp_core`` and ``por_comparator``
-    only -- it prescribes nothing for this cell, so nothing is invented here.
+    only -- it prescribes nothing for this cell, so nothing is invented for the
+    MOS row. The one place this cell *does* use a common centroid is the
+    emitter-ratio pair the whole reference depends on: ``XQ1`` sits at the
+    centre of the 3x3 array whose perimeter is ``XQ8A..H``
+    (:data:`BIAS_CORE_PNP_SLOTS`), so the 8x leg's centroid is the 1x leg's.
+
+    **What the resistors cannot be matched on.** Every leg of every fold is the
+    same drawn width (the golden netlist's own ``r_width``), which is the
+    first-order matching parameter. Leg *lengths* differ per resistor, and have
+    to: the schematic's ``R2/R1`` is 4104/350, whose lowest terms need a unit
+    leg of 2 um -- 2227 legs between the two devices. A non-integer design ratio
+    is a schematic fact this layout must not silently "fix", so the fold picks
+    the closest exact division per device instead (:func:`resistor_segments`).
     """
     devices = _golden_devices("bias_core.spice", "bias_core")
 
@@ -659,16 +1021,18 @@ def bias_core(b: CellBuilder) -> None:
     vss_y0, vss_y1 = -5.2, -4.2
     tie_y0, tie_y1 = -2.2, -1.2
 
-    reserved_x0 = row_x1 + 5.0
-    reserved_x1 = reserved_x0 + RESERVED_W_UM
-    reserved_y0 = -3.5
-    reserved_y1 = reserved_y0 + RESERVED_H_UM
-
-    clear = GUARD_RING_CLEAR_UM + GUARD_RING_W_UM
-    gx0 = p_x0 - 1.0 - clear
-    gx1 = reserved_x1 + clear
-    gy0 = vss_y0 - clear
-    gy1 = max(vdd_y1, reserved_y1) + clear
+    # The passive/bipolar block, and the two things that reach it: one Poly2
+    # track per net a drawn passive touches, and one Metal1 jog column per net
+    # that also exists on the MOS row.
+    passive_x0 = row_x1 + PASSIVE_GAP_UM
+    passive_track_y = {
+        net: PASSIVE_TRACK_Y0_UM + index * TRACK_PITCH_UM
+        for index, net in enumerate(BIAS_CORE_PASSIVE_TRACKS)
+    }
+    jog_x = {
+        net: row_x1 + PASSIVE_JOG_X0_UM + index * PASSIVE_JOG_PITCH_UM
+        for index, net in enumerate(BIAS_CORE_PASSIVE_CROSSING)
+    }
 
     def riser(x_centre: float, net: str, y_low: float, y_high: float) -> None:
         """One Metal1 riser from a device terminal to its rail or track."""
@@ -691,10 +1055,14 @@ def bias_core(b: CellBuilder) -> None:
     _draw_tiles(b, tiles, riser)
 
     # --- Poly2 routing channel --------------------------------------------
+    # A net that also exists in the passive block runs on to its own jog column
+    # instead of stopping at the row's edge. The columns rise with their tracks'
+    # y, so no jog ever descends across a track that reaches past it.
     for net in BIAS_CORE_TRACKS:
         y = track_y[net]
         half_w = TRACK_W_UM / 2.0
-        b.box(POLY2, p_x0 - 1.0, y - half_w, row_x1 + 1.0, y + half_w)
+        x1 = jog_x[net] + 0.6 if net in jog_x else row_x1 + 1.0
+        b.box(POLY2, p_x0 - 1.0, y - half_w, x1, y + half_w)
 
     # --- Nwell, and its tie strap -----------------------------------------
     b.box(NWELL, p_x0 - 1.0, -2.6, p_x1 + 1.0, max_pw + 1.5)
@@ -705,19 +1073,40 @@ def bias_core(b: CellBuilder) -> None:
     # ... carried up to the VDD rail clear of the first device's own risers.
     b.box(METAL1, p_x0 - 0.6, tie_y1, p_x0 - 0.2, vdd_y1)
 
+    # --- the passive/bipolar block, and its own track band ------------------
+    block_x1, block_y1 = _bias_core_passives(b, passive_x0, passive_track_y, vss_y1)
+    for net, y in passive_track_y.items():
+        half_w = TRACK_W_UM / 2.0
+        x0 = jog_x[net] - 0.6 if net in jog_x else passive_x0 - 0.6
+        b.box(POLY2, x0, y - half_w, block_x1, y + half_w)
+    for net, x in jog_x.items():
+        b.box(
+            METAL1,
+            x - RISER_W_UM / 2.0,
+            passive_track_y[net] - 0.2,
+            x + RISER_W_UM / 2.0,
+            track_y[net] + 0.2,
+        )
+        b.contact(x, track_y[net])
+        b.contact(x, passive_track_y[net])
+
+    clear = GUARD_RING_CLEAR_UM + GUARD_RING_W_UM
+    gx0 = p_x0 - 1.0 - clear
+    gx1 = block_x1 + clear
+    gy0 = vss_y0 - clear
+    gy1 = max(vdd_y1, block_y1) + clear
+
     # --- supply rails ------------------------------------------------------
+    # VSS runs the full cell width: the passive block's Nwell tap ties to it.
     b.box(METAL1, gx0 + 2.5, vdd_y0, row_x1 + 2.0, vdd_y1)
-    b.box(METAL1, gx0 + 1.0, vss_y0, row_x1 + 2.0, vss_y1)
-    b.box(COMP, gx0 + 2.3, vss_y0, row_x1 + 1.7, vss_y1)
-    for x in _span(gx0 + 2.8, row_x1 + 1.2, TAP_PITCH_UM):
+    b.box(METAL1, gx0 + 1.0, vss_y0, block_x1 + 1.0, vss_y1)
+    b.box(COMP, gx0 + 2.3, vss_y0, block_x1 + 0.7, vss_y1)
+    for x in _span(gx0 + 2.8, block_x1 + 0.2, TAP_PITCH_UM):
         b.contact(x, (vss_y0 + vss_y1) / 2.0)
 
     # --- guard ring: continuous, VSS-tied, contacted at 1 um ---------------
     # Tied to VSS by abutting the VSS rail's left end; no floating segment.
     _draw_guard_ring(b, gx0, gy0, gx1, gy1)
-
-    # --- reserved passive/bipolar region (annotation only) -----------------
-    b.box(RESERVED, reserved_x0, reserved_y0, reserved_x1, reserved_y1)
 
     # --- pins --------------------------------------------------------------
     b.label("VDD", row_x1, (vdd_y0 + vdd_y1) / 2.0)
@@ -1129,15 +1518,15 @@ DIVIDER_STRING_GAP_UM = 6.0
 #: Baseline y for every string's bottom (open) end -- clear of the VSS rail.
 DIVIDER_BASE_Y_UM = -3.5
 
-#: gf180mcu resistor-recognition marker layers (klayout_tools.decks.gf180mcu,
-#: "Drawn resistors"): ``RES_MK`` is the deck's own resistor-candidate marker
-#: (required for every recognised flavour); ``SAB`` (salicide block) plus
-#: ``Resistor`` together select the high-sheet-rho ``ppolyf_u_1k`` class
-#: specifically. ``Pplus`` is neither required nor excluded for that flavour
-#: (unlike the base ``ppolyf_u``), so it is deliberately not drawn here.
-SAB = (49, 0)
-RES_MK = (110, 5)
-DIVIDER_RESISTOR_MK = (62, 0)
+#: The high-sheet-rho selector, spelled locally for the divider's own code
+#: (klayout_tools.decks.gf180mcu, "Drawn resistors"): ``RES_MK`` is the deck's
+#: resistor-candidate marker, required for every recognised flavour, and
+#: ``SAB`` (salicide block) plus this ``Resistor`` ID layer together select the
+#: ``ppolyf_u_1k`` class specifically. All three are the module-level layer
+#: constants at the top of this file -- this is an alias, not a second
+#: definition. ``Pplus`` is neither required nor excluded for that flavour
+#: (unlike the base ``ppolyf_u``), so the divider deliberately does not draw it.
+DIVIDER_RESISTOR_MK = RESISTOR_ID
 
 
 def _poly_resistors(source: str, subckt: str, names: tuple[str, ...]) -> dict:
@@ -2004,17 +2393,6 @@ def _temp_core_body(b: CellBuilder) -> None:
     channel.draw()
 
 
-#: Implant and device-marker layers. Only ``DRC_BJT`` carries a rule in
-#: ``klt``'s curated ``gf180mcu`` DRC deck (``bjt.separation.comp.1``), but the
-#: extraction deck reads all five: a ``ppolyf_u`` body is
-#: ``Poly2 & RES_MK & Pplus & SAB``, a vertical bipolar's base/emitter are
-#: ``Nwell``/``Comp`` scoped by ``DRC_BJT``.
-PPLUS = (31, 0)
-NPLUS = (32, 0)
-SAB = (49, 0)
-RES_MK = (110, 5)
-DRC_BJT = (127, 5)
-
 #: The passive field: the R2 gain ladder and the PNP centroid array, drawn
 #: beyond the right end of the device rows and above the routing channel, so
 #: every terminal reaches its own channel track by dropping straight down on
@@ -2148,7 +2526,8 @@ def _temp_core_resistor_bank(
             raise SystemExit(f"{name}: the bank draws one width, not two")
         head, tail, _bulk = device["nodes"]
         plan.append((head, tail, lvsref.resistor_segments(
-            lvsref.to_um(device["params"]["r_length"])
+            lvsref.to_um(device["params"]["r_length"]),
+            lvsref.resistor_fold("temp_core"),
         )))
     tallest = max(max(segments) for _h, _t, segments in plan)
 

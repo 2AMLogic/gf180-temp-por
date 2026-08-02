@@ -33,8 +33,9 @@ documented limits of ``klt``'s curated ``gf180mcu`` extraction deck (see
   inside it. The schematic's body node (``VDD``) is rewritten to a per-well net
   named by the manifest, connected to nothing else.
 
-A third rewrite applies to the one non-MOS device class the deck now models,
-the drawn MiM capacitor (``caps`` in the manifest below):
+Three further rewrites apply to the non-MOS device classes the deck now models
+-- the drawn MiM capacitor (``caps``), the drawn poly resistor (``resistors``)
+and the drawn vertical bipolar (``bipolars``) in the manifest below:
 
 * **MiM plates** -- ``klt``'s extraction registers a recognised capacitor's two
   plate regions as their own self-connected connectivity nodes, *not* as part
@@ -45,19 +46,32 @@ the drawn MiM capacitor (``caps`` in the manifest below):
   per-instance isolated nets named after them (``XCDG.NDG`` / ``XCDG.VSS``), so
   the loss is visible on the face of the reference netlist rather than implied.
   Filed generically as klayout-tools#314.
+* **Bipolar base and collector** -- the deck recognises a vertical bipolar as
+  ``Nwell`` ∩ ``DRC_BJT`` (base) with a ``Comp`` emitter inside it and *no
+  drawn collector*: the collector is the substrate, so it lands on the same
+  global substrate net every NMOS body does. The base is the drawn Nwell, and
+  gf180mcu's curated deck has no well-label or tap layer, so that well is an
+  anonymous net exactly as the PMOS bodies' well is. The schematic's collector
+  node is therefore rewritten to the substrate global and its base node to the
+  manifest's ``bjt_well`` net -- so a clean compare proves the emitter's
+  connectivity and both devices' drawn areas, **not** that the base is tied to
+  the rail the schematic puts it on.
+* **Poly resistor sheet resistance and folding** -- see :data:`RESISTOR_CLASS`
+  and :func:`resistor_segments`: for the high-rho family the deck models the
+  PDK's ``POLY_RES='1k'`` default only, and a resistor drawn as a string of
+  legs extracts as one device per leg.
 
-All three rewrites are *deliberate fidelity loss*: they make the reference
-describe what the deck can actually see. A clean LVS here therefore proves
-device count, device sizing, MiM plate area (hence capacitance) and signal-net
-topology among the MOS devices -- **not** that wells and substrate are correctly
-tied, and **not** what either MiM plate is connected to. Filed upstream as tool
-friction; tracked in ``layout/README.md``.
+All of these are *deliberate fidelity loss*: they make the reference describe
+what the deck can actually see. A clean LVS here therefore proves device count,
+device sizing, MiM plate area (hence capacitance), drawn resistor and bipolar
+geometry, and signal-net topology -- **not** that wells and substrate are
+correctly tied, and **not** what either MiM plate is connected to. Filed
+upstream as tool friction; tracked in ``layout/README.md``.
 """
 
 from __future__ import annotations
 
 import argparse
-import math
 import re
 import sys
 from pathlib import Path
@@ -103,60 +117,101 @@ CAP_CLASS = {"cap_mim_2f0_m3m4_noshield": "cap_mim_2f0_m4m5_noshield"}
 #: shows up immediately as a ``device.property`` LVS mismatch, not as silence.
 MIM_AREA_CAP_F_UM2 = 2.0e-15
 
-#: gf180mcu PDK resistor subcircuit -> (extracted device class, sheet rho
-#: ohm/sq, folded?).
+#: gf180mcu PDK resistor subcircuit -> (extracted device class, sheet rho in
+#: ohms per square). One table for **both** poly-resistor families this block
+#: draws, because both extract through the same deck device and differ only in
+#: the two numbers here:
 #:
-#: 350 ohm/square is the curated deck's own ``ppolyf_u`` value, transcribed
-#: there from the PDK's ``res_extraction.lvs`` / ``gf180mcuD.tech``. It is
-#: repeated here because the reference has to state the same resistance the
-#: extractor computes from the drawn geometry (``R = L / W * rho``); a wrong
-#: value fails LVS loudly rather than silently.
+#: * ``ppolyf_u`` -- the plain unsalicided p+ poly resistor (``Poly2`` +
+#:   ``SAB`` + ``RES_MK``, no ``Resistor`` high-rho ID layer). 350 ohm/square
+#:   is the curated deck's own value, transcribed there from the PDK's
+#:   ``res_extraction.lvs`` / ``gf180mcuD.tech``.
+#: * ``ppolyf_u_3k`` -> ``ppolyf_u_1k`` -- the high-sheet-rho family (the same
+#:   stack *plus* the ``Resistor`` ID layer). Here the mapping is not the
+#:   identity, and the difference is load-bearing: ``_1k``/``_2k``/``_3k`` are
+#:   one geometrically identical drawn device that the official LVS runset
+#:   resolves through a **deck-level** ``POLY_RES`` option rather than through
+#:   any drawn geometry, and ``klt``'s curated deck models only the PDK's own
+#:   default for that option (``POLY_RES='1k'``, confirmed by open_pdks' own
+#:   variant string "2fF MiM + 1k high sheet rho poly"). So the *drawn* device
+#:   is the schematic's, at the schematic's own ``r_width``/``r_length``; only
+#:   the sheet resistance the deck attributes to it is the PDK default rather
+#:   than the 3k option -- a deliberate fidelity loss in the same spirit as the
+#:   NMOS/PMOS body rewrites above. Known and documented in
+#:   klayout-tools#299's own non-goals and filed as klayout-tools#323;
+#:   ``layout/README.md`` -> "Known deck limits" carries it.
 #:
-#: ``ppolyf_u_3k`` (3000 ohm/sq) is the PDK's high-sheet-rho flavor used by
-#: ``por_comparator``'s sense divider. The curated deck wires only the base
-#: class plus the ``_1k`` sheet-rho flavor (the PDK's own default of the
-#: three ``POLY_RES``-selectable flavors, klayout-tools#299) -- not ``_3k`` --
-#: so a schematic ``ppolyf_u_3k`` resistor is drawn with the ``ppolyf_u_1k``
-#: class's marker geometry (the flavors are drawn identically; see
-#: layout/build_cells.py's ``por_comparator`` docstring) and its
-#: reference-side value is computed at this deck-modelled sheet-rho, not the
-#: schematic's true one -- a documented, deliberate fidelity loss in the same
-#: spirit as the NMOS/PMOS body rewrites below. Filed upstream as tool
-#: friction: klayout-tools#323.
+#: This module imports neither ``klt`` nor the PDK, so both sheet rhos are
+#: transcribed here with their provenance for the same reason
+#: :data:`MIM_AREA_CAP_F_UM2` is. The reference has to state the same
+#: resistance the extractor computes from the drawn geometry
+#: (``R = rho * L / W``), so a wrong value fails LVS loudly rather than
+#: silently.
 #:
-#: The third element, ``folded``, is ``True`` for a resistor drawn as one
-#: continuous marked body folded into a zig-zag serpentine (its area, not a
-#: segmented string, reconstructs the schematic's ``r_length`` -- see
-#: layout/build_cells.py's ``_resistor_leg_plan``) and ``False`` for one drawn
-#: as a straight **series string** of segments strapped end to end (see
-#: :data:`RESISTOR_SEGMENT_MAX_UM`/:func:`resistor_segments` below). Both are
-#: real, single- or multi-device ``klt`` extractions of the same PDK resistor
-#: class; which one a given cell's manifest gets follows how that cell's
-#: layout code actually draws it, not a per-cell choice made here.
+#: What is deliberately **not** here is how a cell *draws* the thing. Both
+#: schematic models are drawn both ways in this block (``bias_core`` strings
+#: its ``ppolyf_u_3k`` resistors, ``por_comparator`` serpentines them), so the
+#: drawn style is a per-cell layout decision and lives in that cell's own
+#: manifest entry as :data:`ResistorFold` -- see :func:`resistor_segments`.
 RESISTOR_CLASS = {
-    "ppolyf_u": ("ppolyf_u", 350.0, False),
-    "ppolyf_u_3k": ("ppolyf_u_1k", 1000.0, True),
+    "ppolyf_u": ("ppolyf_u", 350.0),
+    "ppolyf_u_3k": ("ppolyf_u_1k", 1000.0),
 }
+
+
+class ResistorFold(NamedTuple):
+    """How one cell cuts a long drawn resistor into *recognised bodies*.
+
+    ``klt`` recognises a resistor body as the marker-covered part of the poly
+    and solves its ``L``/``W`` from that region's own area and perimeter, which
+    leaves a cell two honest ways to draw a resistor far longer than it is
+    wide, and this block uses both:
+
+    * ``style="string"`` -- a series string of straight marked segments
+      strapped end to end, which extracts as **one device per segment**. The
+      strapping nodes are anonymous. ``max_um`` is the hard ceiling on one
+      segment (it is what bounds the drawn bank's height) and ``target_um`` is
+      the length the split aims for when several counts are legal; ``None``
+      means "as long as the ceiling allows", i.e. the fewest segments.
+    * ``style="serpentine"`` -- one continuous marked body zig-zagged, which
+      extracts as **one device** whose area alone reconstructs the schematic's
+      ``r_length`` (``build_cells.py``'s ``_resistor_leg_plan`` draws it and
+      owns the corner bookkeeping that makes the area come out exact).
+
+    Either way :func:`resistor_segments` returns the drawn bodies' lengths and
+    the reference emits one card each, so the two sides cannot disagree about
+    how many devices the layout contains.
+    """
+
+    style: str = "string"
+    max_um: float = 120.0
+    target_um: float | None = None
+
+
+#: The fold a cell gets when its manifest entry names no ``resistor_fold``.
+#: 120 um is ``temp_core``'s rank-2 bank, the first one drawn.
+DEFAULT_RESISTOR_FOLD = ResistorFold()
 
 #: The extraction deck recognises one generic ``bjt`` class off the DRM's
 #: ``DRC_BJT`` mark layer -- it models no Nplus/Pplus implant, so it cannot
 #: tell an NPN from a PNP and does not try (see the deck's own note). The
-#: PDK's device name carries the drawn emitter size, which is the one
-#: parameter the compare checks, so it is read from the name rather than
-#: retyped: ``pnp_10p00x10p00`` -> 10.00 x 10.00 um.
+#: PDK's device name carries the drawn emitter window, which is what fixes the
+#: ``AE``/``PE`` the reference declares, so it is read from the name rather
+#: than retyped: ``pnp_10p00x10p00`` -> 10.00 x 10.00 um. A schematic that
+#: swaps to a different emitter size therefore moves the drawn geometry and the
+#: declared parameters together.
 BIPOLAR_CLASS = "bjt"
 BIPOLAR_NAME_RE = re.compile(r"^(?:npn|pnp)_(\d+)p(\d+)x(\d+)p(\d+)$")
 
-#: Longest resistor segment this repo draws as one recognised body, for a
-#: resistor whose ``RESISTOR_CLASS`` entry is *not* ``folded``. A drawn
-#: ``ppolyf_u`` body is one straight rectangle -- KLayout's resistor extractor
-#: solves ``L``/``W`` from the recognised region's own area and perimeter, so a
-#: folded (serpentine) body would extract a length its corners make wrong. A
-#: long resistor is therefore drawn as a **series string** of straight
-#: segments strapped end to end, exactly as a real PDK resistor array is, and
-#: the reference below emits the same string. (A ``folded`` resistor sidesteps
-#: this entirely -- see :data:`RESISTOR_CLASS`.)
-RESISTOR_SEGMENT_MAX_UM = 120.0
+#: How far the drawn ``DRC_BJT`` mark extends beyond the emitter window on every
+#: side, in um. The deck's bipolar base region is ``Nwell`` ∩ ``DRC_BJT``, so
+#: this margin is exactly what fixes the extracted ``AB``/``PB`` (and, with no
+#: drawn collector layer, ``AC``/``PC``). It lives here rather than in
+#: ``build_cells.py`` because it is a *device* dimension, not a floorplan one:
+#: it has to stay small enough that two neighbouring marks in an array never
+#: merge (which would give both devices one shared base region) and large enough
+#: to clear the deck's ``bjt.separation.comp.1`` against the array's well tap.
+BIPOLAR_BASE_MARGIN_UM = 1.5
 
 #: Layout cell -> how to build its reference netlist from a golden netlist.
 #:
@@ -168,9 +223,20 @@ RESISTOR_SEGMENT_MAX_UM = 120.0
 #: so the undeclared-net guard below stays a real check rather than a rubber
 #: stamp. ``wells`` groups the PMOS devices that share one drawn Nwell onto one
 #: body net. ``caps`` (optional) lists the drawn MiM capacitors, in emission
-#: order, fixing ``C1``, ``C2``, ... numbering; their plate nets are synthesized
-#: per instance rather than declared, because the deck cannot connect a
-#: recognised capacitor's plates to anything (see :func:`cap_plate_nets`).
+#: order; their plate nets are synthesized per instance rather than declared,
+#: because the deck cannot connect a recognised capacitor's plates to anything
+#: (see :func:`cap_plate_nets`).
+#:
+#: The two remaining drawn classes follow the same pattern. ``resistors`` and
+#: ``bipolars`` (both optional) list the cell's poly resistors and vertical
+#: bipolars in emission order; ``bjt_well`` names the one drawn Nwell every
+#: bipolar's base lands on (anonymous in the extraction, exactly like
+#: ``wells``); ``resistor_fold`` (optional, default :data:`DEFAULT_RESISTOR_FOLD`)
+#: is how that cell draws a long resistor -- serpentined into one body, or cut
+#: into a string of legs at its own ceiling/target (:func:`resistor_segments`).
+#: Every
+#: card of every class is numbered in one emission sequence, MOS first, so the
+#: MOS-only negative controls below can always assume ``cards[0]``/``cards[1]``.
 #:
 #: ``devices[0]`` and ``devices[1]`` must not share a source net: the
 #: ``topology`` negative control re-ties the first device's source to the
@@ -260,16 +326,19 @@ CELLS = {
         # (bulk) node is always rewritten to SUBSTRATE_NET by
         # build_passive_cards regardless of what the schematic names there.
         "resistors": ["XRTOP", "XRBOT", "XRHYS"],
+        # ...each drawn as one continuous serpentined body rather than a
+        # string of separate ones, so each is a single extracted device (#91;
+        # build_cells.py's _resistor_leg_plan owns the corner bookkeeping that
+        # makes the marked area reconstruct r_length exactly).
+        "resistor_fold": ResistorFold(style="serpentine"),
     },
     "bias_core": {
         "source": "bias_core.spice",
         "subckt": "bias_core",
         # Every MOS device in design/bias_core.sch -- 16 pfet + 18 nfet. The
-        # cell's other 16 devices (10 vertical PNPs XQ1/XQ8A..H/XQR, 4 poly
-        # resistors XR1/XR2/XRT/XRZ, 2 MiM caps XCC/XCOK) are outside the
-        # curated gf180mcu deck's device coverage (klayout-tools#219/#222) and
-        # are not drawn; see layout/build_cells.py's bias_core docstring and
-        # layout/README.md for what that leaves unproven.
+        # cell's other 16 devices are drawn and compared too, as of #90: the 10
+        # vertical PNPs in `bipolars`, the 4 poly resistors in `resistors`
+        # (folded, so 24 drawn legs) and the 2 MiM caps in `caps` below.
         "devices": [
             # XMBN/XMP1 lead so the topology control has two different sources
             # to work with (see the note above CELLS).
@@ -308,6 +377,31 @@ CELLS = {
             "XMOK2",
             "XMO1N",
         ],
+        # The 10 vertical PNPs, in emission order. XQ1 is the 1x leg and
+        # XQ8A..H the 8x leg of the emitter-ratio pair; the layout draws them
+        # as a 3x3 common-centroid array with XQ1 at the centre. XQR is the
+        # VREF branch's own 1x device.
+        "bipolars": ["XQ1", "XQ8A", "XQ8B", "XQ8C", "XQ8D", "XQ8E", "XQ8F",
+                     "XQ8G", "XQ8H", "XQR"],
+        # The Nwell every drawn PNP's base lands on. All ten share one drawn
+        # well (their bases are one node in the schematic), and gf180mcu's
+        # curated deck has no well-label layer, so it is anonymous in the
+        # extraction and matched by topology -- exactly like `wells` below.
+        "bjt_well": "NWQ",
+        # The 4 poly resistors, in emission order. Each is drawn as a folded
+        # string, so each contributes `resistor_segments()` legs in series
+        # joined by anonymous internal nets (XR2.1 ...) -- 24 legs in all.
+        "resistors": ["XRT", "XR1", "XR2", "XRZ"],
+        # This bank's legs are drawn vertically beside the PMOS row, so they
+        # can be much longer than temp_core's rank-2 bank before they set the
+        # cell height; 250 um of target keeps XR2's 4104 um to 16 legs rather
+        # than the 36 the default ceiling would force.
+        "resistor_fold": ResistorFold(
+            style="string", max_um=300.0, target_um=250.0
+        ),
+        # The 2 MiM caps. Plate nets are per-instance isolated -- see
+        # `cap_plate_nets` -- so they prove capacitance, not connectivity.
+        "caps": ["XCC", "XCOK"],
         "ports": ["BIAS_OK", "IBIAS", "VDD", "VREF", "VSS", SUBSTRATE_NET],
         "internal": [
             "PG",
@@ -329,6 +423,13 @@ CELLS = {
             "NOKO",
             "NOKL",
             "NOKX",
+            # The three nets that exist only through a drawn passive. Before
+            # #90 they were absent from both sides of the compare because the
+            # devices that own them were not drawn: EC ties XR1 to the 8x PNP
+            # leg, ER ties XR2 to XQR, NZ ties XRZ to the XCC plate.
+            "EC",
+            "ER",
+            "NZ",
         ],
         # One drawn Nwell holds the whole PMOS row, so every pfet body lands on
         # the same anonymous well net.
@@ -710,32 +811,85 @@ def format_um(value_um: float) -> str:
     return f"{text or '0'}U"
 
 
-def resistor_segments(length_um: float, max_um: float = RESISTOR_SEGMENT_MAX_UM) -> list[float]:
-    """Split one schematic resistor into the drawn series segments.
+def resistor_fold(cell: str) -> ResistorFold:
+    """The fold policy ``cell``'s manifest asks for (see :data:`ResistorFold`).
 
-    An **even** segment count is deliberate, not cosmetic: the drawn string
-    folds back and forth (segment *i* is strapped to *i+1* alternately at the
-    top and the bottom), so an even count leaves both of the string's free
-    ends at the *same* end of the array -- which is what lets both terminals
-    escape downward to the routing channel without a wire crossing the array.
+    One lookup for both sides of the compare: ``build_cells.py`` draws the legs
+    this returns and :func:`build_passive_cards` declares them, so a cell can
+    never draw one fold and declare another.
+    """
+    return CELLS[cell].get("resistor_fold", DEFAULT_RESISTOR_FOLD)
 
-    The split must be exact on the 1 nm database grid: a segment length that
-    does not round-trip would make the drawn resistance differ from the one
-    this reference states, which LVS would report as a device.property
-    mismatch nobody could act on. Raises rather than rounding silently.
+
+def resistor_segments(
+    length_um: float, fold: ResistorFold = DEFAULT_RESISTOR_FOLD
+) -> list[float]:
+    """The drawn recognised bodies one schematic resistor becomes, in um.
+
+    A long resistor need not be one extracted device, and in this block it is
+    one or several depending on how its cell draws it (:data:`ResistorFold`):
+
+    * ``style="serpentine"`` -- one continuous marked body. The extractor
+      solves ``L``/``W`` from the region's own area and perimeter, and
+      ``build_cells.py``'s ``_resistor_leg_plan`` draws the zig-zag so that
+      area reconstructs ``r_length`` exactly, corners included. One body, so
+      this returns ``[length_um]`` and the reference emits one card.
+    * ``style="string"`` -- a series string of straight marked legs strapped
+      end to end (exactly as a real PDK resistor array is), each of which
+      extracts as its own two-terminal device, with the split below. It is the
+      same "describe the device the way the deck can see it" move ``fingers``
+      already makes for a matched MOS pair.
+
+    Three constraints pick a *string*'s split, and this is the single place
+    they are applied -- ``build_cells.py`` draws what this returns:
+
+    * **an even leg count**, so the string's two free ends come out at the same
+      end of the array (leg *i* is strapped to *i+1* alternately at the top and
+      the bottom) and both terminals escape to the routing channel without
+      crossing it;
+    * **an exact whole number of database units per leg** -- the drawn leg and
+      the declared resistance are the same number, not a rounding of one. A leg
+      that did not round-trip on the 1 nm grid would make the drawn resistance
+      differ from the stated one, which LVS reports as a ``device.property``
+      mismatch nobody could act on. Raises rather than rounding silently;
+    * no leg longer than ``fold.max_um``, and as close to ``fold.target_um`` as
+      the first two allow. With no target the fewest legs win, which is the
+      longest legs the ceiling permits.
+
+    Leg length falls monotonically as the leg count rises, so the first
+    candidate at or below the target is the last one worth considering.
     """
     if length_um <= 0.0:
         raise ReferenceError(f"resistor length {length_um} is not positive")
-    count = max(2, math.ceil(length_um / max_um))
-    if count % 2:
-        count += 1
-    segment = round(length_um / count, 3)
-    if abs(segment * count - length_um) > 1e-9:
+    if fold.style == "serpentine":
+        return [length_um]
+    if fold.style != "string":
+        raise ReferenceError(f"unknown resistor fold style {fold.style!r}")
+    total_nm = round(length_um * 1000.0)
+    if abs(total_nm - length_um * 1000.0) > 1e-6:
         raise ReferenceError(
-            f"resistor of {length_um}um does not split into {count} segments on "
-            "the 1nm grid -- pick a segment count that divides it exactly"
+            f"resistor length {length_um} um is not a whole number of nm"
         )
-    return [segment] * count
+    target_um = fold.max_um if fold.target_um is None else fold.target_um
+    best: tuple[float, int, float] | None = None
+    for legs in range(2, total_nm + 1, 2):
+        if total_nm % legs:
+            continue
+        leg_um = total_nm / legs / 1000.0
+        if leg_um > fold.max_um:
+            continue
+        distance = abs(leg_um - target_um)
+        if best is None or distance < best[0]:
+            best = (distance, legs, leg_um)
+        if leg_um <= target_um:
+            break
+    if best is None:
+        raise ReferenceError(
+            f"cannot fold {length_um} um into an even number of legs of "
+            f"<= {fold.max_um} um each on the 1nm grid -- the length has no "
+            "even divisor that small"
+        )
+    return [best[2]] * best[1]
 
 
 def parse_devices(body: list[str]) -> dict[str, dict]:
@@ -833,15 +987,25 @@ def parse_passives(body: list[str]) -> dict[str, dict]:
     return passives
 
 
-def emitter_area_um2(model: str) -> float:
-    """The drawn emitter area a gf180mcu bipolar's device name states."""
+def emitter_window_um(model: str) -> tuple[float, float]:
+    """The drawn emitter window a gf180mcu bipolar's device name states, in um.
+
+    ``pnp_10p00x10p00`` -> ``(10.0, 10.0)``. Both the drawn geometry
+    (``build_cells.py``) and the declared ``AE``/``PE``
+    (:func:`build_passive_cards`) come from here, so a schematic that swaps to
+    a different emitter size moves them together.
+    """
     match = BIPOLAR_NAME_RE.match(model)
     if not match:
         raise ReferenceError(f"cannot read an emitter size out of {model!r}")
-    whole_w, frac_w, whole_h, frac_h = match.groups()
-    width = float(f"{whole_w}.{frac_w}")
-    height = float(f"{whole_h}.{frac_h}")
-    return width * height
+    whole_w, frac_w, whole_l, frac_l = match.groups()
+    return float(f"{whole_w}.{frac_w}"), float(f"{whole_l}.{frac_l}")
+
+
+def emitter_area_um2(model: str) -> float:
+    """The drawn emitter area a gf180mcu bipolar's device name states."""
+    width, length = emitter_window_um(model)
+    return width * length
 
 
 def subckt_ports(text: str, name: str) -> list[str]:
@@ -1005,9 +1169,9 @@ def build_passive_cards(cell: str, known_nets: set[str], out) -> list[Card]:
     Two deck-imposed rewrites happen here, exactly parallel to the MOS body
     rewrites at the top of this module:
 
-    * a ``ppolyf_u``/``ppolyf_u_3k`` resistor's bulk terminal goes to the
-      substrate global, because the deck extracts it with ``'W' => sub`` and
-      there is no drawn tap to derive anything else from;
+    * a poly resistor's bulk terminal goes to the substrate global, because the
+      deck extracts it with ``'W' => sub`` and there is no drawn tap to derive
+      anything else from;
     * a vertical bipolar's **collector** goes to the same global (the DRM's
       vertical device has no drawn collector layer -- its collector *is* the
       substrate), and its **base** goes to the anonymous net of the drawn
@@ -1015,16 +1179,39 @@ def build_passive_cards(cell: str, known_nets: set[str], out) -> list[Card]:
       and so cannot see the base ring's tie. The schematic ties both to
       ``VSS``; the layout does too, and no check in this flow proves it.
 
-    A resistor is drawn one of two ways (:data:`RESISTOR_CLASS`'s ``folded``
-    element decides which, per schematic model): a straight **series
-    string** of segments strapped end to end (``folded=False`` --
-    :func:`resistor_segments`'s anonymous intermediate nodes), or one
-    continuous body **folded** into a zig-zag serpentine whose marked area
-    alone reconstructs the schematic's ``r_length`` (``folded=True`` --
-    layout/build_cells.py's ``_resistor_leg_plan``). The string is what
-    ``klt`` extracts as several devices in series; the fold is what it
-    extracts as one -- both are real, single-source-of-truth translations of
-    the same golden ``r_length``/``r_width``, not a per-cell choice made here.
+    A resistor is drawn one of two ways, and the cell's own
+    :data:`ResistorFold` decides which (not the schematic model -- both models
+    are drawn both ways in this block): a **series string** of straight marked
+    segments strapped end to end, which ``klt`` extracts as one device per
+    segment with anonymous intermediate nodes, or one continuous body
+    **serpentined**, which it extracts as a single device whose marked area
+    alone reconstructs the schematic's ``r_length``
+    (``build_cells.py``'s ``_resistor_leg_plan``). Both are real
+    single-source-of-truth translations of the same golden
+    ``r_length``/``r_width``: :func:`resistor_segments` returns the drawn
+    bodies either way and one card is emitted per body.
+
+    ``AE`` -- the drawn emitter window's area -- is declared on every ``Q``
+    card and is not optional: KLayout treats it as the bipolar class's
+    *primary* parameter, and a card that omits it defaults it to zero, which
+    does not pair against the extracted device at all. Worse, on the circuit
+    sizes this repo compares it does not surface as ``device.property``: it
+    degrades into ``device.unmatched`` plus a ``net.merged``/``net.split``
+    cascade, the same mis-localisation klayout-tools#282 records for a MOS
+    parameter defect. It comes out of the PDK subcircuit's own name
+    (:func:`emitter_window_um`), so the reference stays derived from the
+    schematic.
+
+    ``PE``/``AB``/``PB``/``AC``/``PC``/``NE`` are deliberately **not**
+    declared. The extractor measures them off the drawn geometry -- the
+    emitter's perimeter, and the base region ``Nwell`` ∩ ``DRC_BJT`` -- and the
+    comparer does not treat any of them as primary, so declaring them would put
+    drawn-geometry constants into a schematic-derived reference for no checking
+    benefit. That last part is measured, not assumed: a reference built with a
+    deliberately wrong ``PE`` on one bipolar still reports **match**, so a
+    declared ``PE`` would be a number no check answers for. If a later ``klt``
+    starts comparing them, LVS fails loudly and this is where the fix goes;
+    :data:`BIPOLAR_BASE_MARGIN_UM` is what fixes the base values today.
     """
     spec = CELLS[cell]
     passives = parse_passives(
@@ -1036,36 +1223,31 @@ def build_passive_cards(cell: str, known_nets: set[str], out) -> list[Card]:
         if name not in passives or passives[name]["kind"] != "resistor":
             raise ReferenceError(f"{cell}: resistor {name!r} not in {spec['source']}")
         device = passives[name]
-        klass, sheet_rho, folded = RESISTOR_CLASS[device["model"]]
+        klass, sheet_rho = RESISTOR_CLASS[device["model"]]
         if len(device["nodes"]) != 3:
             raise ReferenceError(f"{cell}: {name} is not a 3-terminal resistor")
-        head, tail, _bulk = device["nodes"]
+        require_unit_multiplier(cell, name, device)
+        head, tail, bulk = device["nodes"]
         for net in (head, tail):
             if net not in known_nets:
                 raise ReferenceError(
                     f"{cell}: {name} touches undeclared net {net} -- add it to "
                     "the manifest's ports/internal"
                 )
+        if bulk != "VSS":
+            raise ReferenceError(
+                f"{cell}: {name}'s bulk node is {bulk!r}; the deck ties every "
+                "drawn resistor's bulk to its substrate global"
+            )
         width = to_um(device["params"]["r_width"])
         length_um = to_um(device["params"]["r_length"])
-        if folded:
-            # One drawn continuous body; head and tail are its own two named
-            # nets, with no intermediate strap nodes to derive.
-            cards.append(
-                Card(
-                    "R",
-                    klass,
-                    [out(head), out(tail), SUBSTRATE_NET],
-                    f"{length_um / width * sheet_rho:.10g}",
-                )
-            )
-            continue
-        # One drawn straight body per segment; the series nodes between them
-        # are unlabelled straps in the layout, so they are anonymous in the
+        # One card per drawn recognised body: a serpentine is one body, a
+        # string is one per segment. The series nodes between segments are
+        # unlabelled straps in the layout, so they are anonymous in the
         # extracted netlist and matched by topology alone. They are *derived*
         # from the split, not declared, so a manifest can never disagree with
         # the drawn string about how many there are.
-        segments = resistor_segments(length_um)
+        segments = resistor_segments(length_um, resistor_fold(cell))
         nets = [head] + [f"{name}.{i}" for i in range(1, len(segments))] + [tail]
         for index, length in enumerate(segments):
             cards.append(
@@ -1083,7 +1265,14 @@ def build_passive_cards(cell: str, known_nets: set[str], out) -> list[Card]:
         device = passives[name]
         if len(device["nodes"]) != 3:
             raise ReferenceError(f"{cell}: {name} is not a 3-terminal bipolar")
-        _collector, _base, emitter = device["nodes"]
+        require_unit_multiplier(cell, name, device)
+        collector, _base, emitter = device["nodes"]
+        if collector != "VSS":
+            raise ReferenceError(
+                f"{cell}: {name}'s collector is {collector!r}; the deck draws no "
+                "collector layer and ties every bipolar's collector to its "
+                "substrate global"
+            )
         if emitter not in known_nets:
             raise ReferenceError(
                 f"{cell}: {name} touches undeclared net {emitter} -- add it to "
@@ -1104,6 +1293,23 @@ def build_passive_cards(cell: str, known_nets: set[str], out) -> list[Card]:
         )
 
     return cards
+
+
+def require_unit_multiplier(cell: str, name: str, device: dict) -> None:
+    """Reject a golden card with ``m=`` > 1 on a class drawn one-per-card.
+
+    The curated deck runs no device-combination step and models no multiplier,
+    so a multiplied resistor or bipolar would have to be drawn as *m* separate
+    devices. Nothing in this block needs that yet, and guessing at it silently
+    would be a drawn/declared divergence; :func:`cap_units` is where the MiM
+    caps' equivalent is handled explicitly.
+    """
+    value = float(device["params"].get("m", "1"))
+    if value != 1.0:
+        raise ReferenceError(
+            f"{cell}: {name} has m={device['params']['m']}; the curated "
+            "gf180mcu deck models no device multiplier"
+        )
 
 
 def cap_units(cap: dict) -> int:

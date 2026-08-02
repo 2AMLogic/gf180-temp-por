@@ -36,4 +36,40 @@ M31 NOKO NOKL VSS vsubs nfet L=4U W=2U
 M32 NOKO NKG VSS vsubs nfet L=1U W=2U
 M33 NOKX NOKO VSS vsubs nfet L=4U W=2U
 M34 BIAS_OK NOKX VSS vsubs nfet L=0.5U W=4U
+R35 NBTOP XRT.1 vsubs 4375 ppolyf_u_1k
+R36 XRT.1 NB vsubs 4375 ppolyf_u_1k
+R37 NB XR1.1 vsubs 87500 ppolyf_u_1k
+R38 XR1.1 EC vsubs 87500 ppolyf_u_1k
+R39 VREF XR2.1 vsubs 128250 ppolyf_u_1k
+R40 XR2.1 XR2.2 vsubs 128250 ppolyf_u_1k
+R41 XR2.2 XR2.3 vsubs 128250 ppolyf_u_1k
+R42 XR2.3 XR2.4 vsubs 128250 ppolyf_u_1k
+R43 XR2.4 XR2.5 vsubs 128250 ppolyf_u_1k
+R44 XR2.5 XR2.6 vsubs 128250 ppolyf_u_1k
+R45 XR2.6 XR2.7 vsubs 128250 ppolyf_u_1k
+R46 XR2.7 XR2.8 vsubs 128250 ppolyf_u_1k
+R47 XR2.8 XR2.9 vsubs 128250 ppolyf_u_1k
+R48 XR2.9 XR2.10 vsubs 128250 ppolyf_u_1k
+R49 XR2.10 XR2.11 vsubs 128250 ppolyf_u_1k
+R50 XR2.11 XR2.12 vsubs 128250 ppolyf_u_1k
+R51 XR2.12 XR2.13 vsubs 128250 ppolyf_u_1k
+R52 XR2.13 XR2.14 vsubs 128250 ppolyf_u_1k
+R53 XR2.14 XR2.15 vsubs 128250 ppolyf_u_1k
+R54 XR2.15 ER vsubs 128250 ppolyf_u_1k
+R55 NZ XRZ.1 vsubs 127000 ppolyf_u_1k
+R56 XRZ.1 XRZ.2 vsubs 127000 ppolyf_u_1k
+R57 XRZ.2 XRZ.3 vsubs 127000 ppolyf_u_1k
+R58 XRZ.3 N2 vsubs 127000 ppolyf_u_1k
+Q59 vsubs NWQ NA bjt AE=100P
+Q60 vsubs NWQ EC bjt AE=100P
+Q61 vsubs NWQ EC bjt AE=100P
+Q62 vsubs NWQ EC bjt AE=100P
+Q63 vsubs NWQ EC bjt AE=100P
+Q64 vsubs NWQ EC bjt AE=100P
+Q65 vsubs NWQ EC bjt AE=100P
+Q66 vsubs NWQ EC bjt AE=100P
+Q67 vsubs NWQ EC bjt AE=100P
+Q68 vsubs NWQ ER bjt AE=100P
+C69 XCC.PG XCC.NZ 8e-13 cap_mim_2f0_m4m5_noshield
+C70 XCOK.VDD XCOK.NOKX 7.2e-14 cap_mim_2f0_m4m5_noshield
 .ENDS bias_core
