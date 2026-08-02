@@ -132,6 +132,11 @@ CONTACT_SIDE_UM = 0.22
 #: ``layout/README.md`` -> "Known deck limits"), so this size is held to the
 #: DRM by construction here rather than by a check.
 VIA_SIDE_UM = 0.26
+#: gf180mcu DRM "CO.3": minimum Poly2 overlap of a contact, all round. A Poly2
+#: shape that a contact lands on has to extend at least this far past every
+#: edge of the contact, so the shortest Poly2 stub that can host a contact
+#: centred at ``x`` reaches ``x + CONTACT_SIDE_UM / 2 + POLY2_CONT_ENC_UM``.
+POLY2_CONT_ENC_UM = 0.07
 
 
 class CellBuilder:
@@ -656,6 +661,26 @@ def _contact_rows(width_um: float) -> list[float]:
     count = int((high - low) / 0.5) + 1
     step = (high - low) / (count - 1)
     return [low + index * step for index in range(count)]
+
+
+def _poly2_landing_x1(contact_cx: float) -> float:
+    """Right edge of a Poly2 track that must host a contact at ``contact_cx``.
+
+    A routing track that simply *ends* on its landing contact's centre covers
+    only the contact's west half, which is a ``poly2.enclosing.contact.1``
+    (DRM ``CO.3``) violation on the east side -- and one the deck reports
+    against Poly2, not against the contact, so it is easy to miss while reading
+    the contact's own placement (#102). Deriving the overhang from ``CO.3``
+    rather than hand-writing a coordinate keeps the enclosure correct if the
+    track pitch or contact size ever moves.
+
+    The overhang is at least half a track width, so a track that ends this way
+    gets the same margin east that its own ``TRACK_W_UM`` width already gives
+    the contact north and south.
+    """
+    return contact_cx + max(
+        TRACK_W_UM / 2.0, CONTACT_SIDE_UM / 2.0 + POLY2_CONT_ENC_UM
+    )
 
 
 def _span(low: float, high: float, pitch: float) -> list[float]:
@@ -1891,9 +1916,21 @@ def por_comparator(b: CellBuilder) -> None:
     # reach the divider on Poly2 -- see the Metal2 escape immediately after
     # this loop for why and what replaces it. The instanced inverter's two
     # nets still get their own short custom reach.
+    #
+    # SNS/SNSB do need an explicit reach even so: their track has to run
+    # *past* the escape contact's centre, not stop on it. Both used to fall
+    # back to `row_x1 + 1.0`, which is exactly `div_trunk_x0` -- the escape
+    # contact's own centre x -- so the Poly2 covered only the contact's west
+    # half and left its east half bare: two `poly2.enclosing.contact.1`
+    # violations (CO.3), one per net, in a cell whose committed report claimed
+    # clean (#102). `_poly2_landing_x1` sizes the overhang from the rule, so
+    # the enclosure cannot silently go to zero again if the pitch moves.
+    div_trunk_x0 = row_x1 + 1.0
     track_x1 = {
         "BIAS_OK": inv_x - 2.6,
         "BIAS_OKB": inv_x + 1.8,
+        "SNS": _poly2_landing_x1(div_trunk_x0),
+        "SNSB": _poly2_landing_x1(div_trunk_x0),
     }
     for net in POR_COMPARATOR_TRACKS:
         y = track_y[net]
@@ -1920,11 +1957,12 @@ def por_comparator(b: CellBuilder) -> None:
         pad = 0.25
         b.box(METAL2, cx - pad, cy - pad, cx + pad, cy + pad)
 
-    div_trunk_x0 = row_x1 + 1.0
     for net in ("SNS", "SNSB"):
         y = track_y[net]
-        # One contact where the (now-short) Poly2 track ends, up through a
-        # Metal1 landing pad and a Via1, onto Metal2.
+        # One contact just inside where the (now-short) Poly2 track ends -- the
+        # track runs on to `_poly2_landing_x1(div_trunk_x0)` so this contact is
+        # enclosed on all four sides (see the routing channel above) -- up
+        # through a Metal1 landing pad and a Via1, onto Metal2.
         b.contact(div_trunk_x0, y)
         b.box(
             METAL1,
@@ -3379,6 +3417,18 @@ def run(check: bool, only: str | None) -> int:
 
     if not check:
         for name in names:
+            # A frozen cell's committed stream is pinned (see
+            # lvs_reference.FROZEN_CELLS); a whole-repo regeneration must not
+            # silently overwrite it and break the pin. Naming it explicitly
+            # with --cell still rebuilds it -- that is the tracking issue's own
+            # workflow.
+            if name in lvsref.FROZEN_CELLS and only is None:
+                issue = lvsref.FROZEN_CELLS[name]["issue"]
+                print(
+                    f"skip {name}.gds  (frozen for {issue}; "
+                    f"pass --cell {name} to rebuild it anyway)"
+                )
+                continue
             path = build(name, CELLS_DIR)
             print(f"wrote {path.relative_to(REPO_ROOT)}  sha256={sha256(path)[:16]}")
         return 0
@@ -3386,8 +3436,19 @@ def run(check: bool, only: str | None) -> int:
     failures = []
     with tempfile.TemporaryDirectory() as tmp:
         for name in names:
-            fresh = build(name, Path(tmp))
             committed = CELLS_DIR / f"{name}.gds"
+            # Frozen cells are held against their pinned committed digest
+            # rather than against a rebuild -- deferring that rebuild is
+            # exactly what the freeze is for. `frozen_check` returns None for
+            # every other cell, which falls through to the normal compare.
+            frozen = lvsref.frozen_check(name, "gds", committed)
+            if frozen is not None:
+                if frozen.ok:
+                    print(frozen.line)
+                else:
+                    failures.append(frozen.line)
+                continue
+            fresh = build(name, Path(tmp))
             if not committed.exists():
                 failures.append(f"{name}: not committed (run without --check)")
                 continue

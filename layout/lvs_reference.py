@@ -73,6 +73,7 @@ upstream as tool friction; tracked in ``layout/README.md``.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import re
 import sys
@@ -761,6 +762,106 @@ CELLS["temp_por_top"] = {
     # The four nets that cross between instances and stay inside the block.
     "internal": ["IBIAS", "VREF", "BIAS_OK", "POR_RAW"],
 }
+
+#: Cells whose committed artefacts are deliberately held at an older build than
+#: their sources would produce, keyed by cell name. Read by **both**
+#: ``--check`` paths -- this module's and ``layout/build_cells.py``'s (which
+#: imports this module) -- so a freeze is declared once and cannot drift
+#: between the two gates.
+#:
+#: A freeze is *not* "skip the staleness check". A frozen cell's committed
+#: artefact is pinned to the exact sha256 recorded here, so ``--check`` still
+#: fails if that artefact changes -- what the freeze suspends is only the
+#: comparison against a *fresh rebuild*, which is the thing the tracking issue
+#: owns. The three states are therefore distinguishable in the output:
+#:
+#: * unfrozen and current            -> ``ok <artefact>``
+#: * unfrozen and rebuilt-differs    -> ``FAIL ...: committed ... is stale``
+#: * frozen and baseline intact      -> ``frozen <artefact> ... (see #N)``
+#: * frozen and baseline **changed** -> ``FAIL ...: no longer matches the
+#:   pinned frozen baseline`` (someone regenerated a frozen artefact; either
+#:   restore it or land the tracking issue and delete the entry)
+#:
+#: Regenerating (running either script without ``--check``) also skips a frozen
+#: cell unless it is named explicitly with ``--cell``, so a routine
+#: whole-repo regeneration cannot quietly break the pin.
+#:
+#: Removal condition: delete the entry when its ``issue`` lands. Nothing else
+#: has to change -- both gates fall straight back to rebuild-and-compare.
+FROZEN_CELLS = {
+    "temp_por_top": {
+        "issue": "#97",
+        "why": (
+            "block assembly held at the #72 sub-cell set (#91/#99): rebuilding "
+            "it against today's grown sub-cells is 92 DRC violations at the "
+            "instance boundaries, which #97 owns"
+        ),
+        # sha256 of the committed artefacts as of c076733.
+        "gds_sha256": (
+            "44978656f38fd30f2968ded8ef6519344fa0271027f856af48c6c5d62040aed9"
+        ),
+        "reference_sha256": (
+            "fd2dc1d1b5e19118045d5a76dc07ea4287d3344446414bb8ef45df00f95440f7"
+        ),
+    },
+}
+
+
+class FrozenVerdict(NamedTuple):
+    """One frozen cell's artefact verdict: ``ok`` plus the line to print."""
+
+    ok: bool
+    line: str
+
+
+def sha256_bytes(data: bytes) -> str:
+    return hashlib.sha256(data).hexdigest()
+
+
+def _display_path(path: Path) -> Path:
+    """``path`` relative to the repo root when it is inside it, else as given."""
+    try:
+        return path.relative_to(REPO_ROOT)
+    except ValueError:
+        return path
+
+
+def frozen_check(name: str, artefact: str, path: Path) -> FrozenVerdict | None:
+    """Verify a frozen cell's committed artefact against its pinned digest.
+
+    ``artefact`` selects the pinned digest (``"gds"`` -> ``gds_sha256``,
+    ``"reference"`` -> ``reference_sha256``); ``path`` is the committed file.
+
+    Returns ``None`` when ``name`` is not frozen, which means "do the normal
+    rebuild-and-compare"; every caller must handle that case rather than
+    treating a missing entry as a pass. A ``KeyError`` here means a
+    :data:`FROZEN_CELLS` entry declared a freeze without pinning this artefact,
+    which is a mistake in the freeze, not something to skip.
+    """
+    spec = FROZEN_CELLS.get(name)
+    if spec is None:
+        return None
+    pinned = spec[f"{artefact}_sha256"]
+    where = _display_path(path)
+    if not path.exists():
+        return FrozenVerdict(
+            False,
+            f"{name}: frozen for {spec['issue']} but {where} is not committed",
+        )
+    digest = sha256_bytes(path.read_bytes())
+    if digest != pinned:
+        return FrozenVerdict(
+            False,
+            f"{name}: committed {where} no longer matches the pinned frozen "
+            f"baseline (pinned {pinned[:16]}, committed {digest[:16]}) -- "
+            f"restore it, or land {spec['issue']} and drop the freeze",
+        )
+    return FrozenVerdict(
+        True,
+        f"frozen {where}  sha256={digest[:16]}  "
+        f"(pinned baseline, not rebuilt: see {spec['issue']})",
+    )
+
 
 SUBCKT_RE = re.compile(r"^\.subckt\s+(\S+)\s+(.*)$", re.IGNORECASE)
 ENDS_RE = re.compile(r"^\.ends\b", re.IGNORECASE)
@@ -1605,19 +1706,37 @@ def run(check: bool, only: str | None, corrupt: str | None, out: str | None) -> 
 
     failures = []
     for name in names:
-        text = build(name)
         path = CELLS_DIR / f"{name}.reference.spice"
+        # A frozen cell (see FROZEN_CELLS) is held against its pinned committed
+        # digest instead of against a fresh derivation, in both directions:
+        # --check does not compare it to `build(name)`, and a regeneration pass
+        # does not overwrite it unless it was named explicitly with --cell.
+        frozen = frozen_check(name, "reference", path)
+        if frozen is not None and (check or only is None):
+            if check:
+                if frozen.ok:
+                    print(frozen.line)
+                else:
+                    failures.append(frozen.line)
+            else:
+                print(
+                    f"skip {_display_path(path)}  "
+                    f"(frozen for {FROZEN_CELLS[name]['issue']}; "
+                    f"pass --cell {name} to regenerate it anyway)"
+                )
+            continue
+        text = build(name)
         if check:
             if not path.exists():
                 failures.append(f"{name}: not committed (run without --check)")
             elif path.read_text() != text:
                 failures.append(f"{name}: committed reference netlist is stale")
             else:
-                print(f"ok {path.relative_to(REPO_ROOT)}")
+                print(f"ok {_display_path(path)}")
         else:
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(text)
-            print(f"wrote {path.relative_to(REPO_ROOT)}")
+            print(f"wrote {_display_path(path)}")
 
     for line in failures:
         print(f"FAIL {line}")

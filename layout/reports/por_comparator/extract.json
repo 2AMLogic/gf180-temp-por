@@ -420,6 +420,116 @@
     "promoted 2 net(s) to top-level pins from label(s) found only below the top cell (inside instanced sub-cells): BIAS_OK, BIAS_OKB -- these are internal nodes once instanced; pass top_cell_pins_only (--top-cell-pins) to keep them internal (issue #291)"
   ],
   "black_box_regions": [],
+  "unmodelled_poly": [
+    {
+      "bbox_um": {
+        "left": -1.0,
+        "bottom": 12.8,
+        "right": 67.6,
+        "top": 13.2
+      },
+      "reason": "unmarked"
+    },
+    {
+      "bbox_um": {
+        "left": -1.0,
+        "bottom": 13.6,
+        "right": 67.8,
+        "top": 14.0
+      },
+      "reason": "unmarked"
+    },
+    {
+      "bbox_um": {
+        "left": -1.0,
+        "bottom": 15.2,
+        "right": 67.6,
+        "top": 15.6
+      },
+      "reason": "unmarked"
+    },
+    {
+      "bbox_um": {
+        "left": -1.0,
+        "bottom": 16.0,
+        "right": 67.6,
+        "top": 16.4
+      },
+      "reason": "unmarked"
+    },
+    {
+      "bbox_um": {
+        "left": -1.0,
+        "bottom": 16.8,
+        "right": 67.6,
+        "top": 17.2
+      },
+      "reason": "unmarked"
+    },
+    {
+      "bbox_um": {
+        "left": -1.0,
+        "bottom": 17.6,
+        "right": 67.6,
+        "top": 18.0
+      },
+      "reason": "unmarked"
+    },
+    {
+      "bbox_um": {
+        "left": -1.0,
+        "bottom": 18.4,
+        "right": 67.6,
+        "top": 18.8
+      },
+      "reason": "unmarked"
+    },
+    {
+      "bbox_um": {
+        "left": -1.0,
+        "bottom": 19.2,
+        "right": 67.6,
+        "top": 19.6
+      },
+      "reason": "unmarked"
+    },
+    {
+      "bbox_um": {
+        "left": -1.0,
+        "bottom": 20.0,
+        "right": 67.6,
+        "top": 20.4
+      },
+      "reason": "unmarked"
+    },
+    {
+      "bbox_um": {
+        "left": -1.0,
+        "bottom": 20.8,
+        "right": 70.0,
+        "top": 21.2
+      },
+      "reason": "unmarked"
+    },
+    {
+      "bbox_um": {
+        "left": -1.0,
+        "bottom": 21.6,
+        "right": 74.4,
+        "top": 22.0
+      },
+      "reason": "unmarked"
+    },
+    {
+      "bbox_um": {
+        "left": -1.0,
+        "bottom": 22.4,
+        "right": 67.8,
+        "top": 22.8
+      },
+      "reason": "unmarked"
+    }
+  ],
   "pdk": null,
   "provenance": {
     "klt_version": "0.1.0",
@@ -427,7 +537,7 @@
     "pdk": null,
     "deck": {
       "name": "gf180mcu",
-      "content_hash": "sha256:dcd6c84a4e9f541f47907dbc493d00758b0eeb89f2dc54d9a9d3662587acb4d8"
+      "content_hash": "sha256:be1a89e0f899a68c60baeeedffe1b4d76b965bd763e1b16beed1c85937872b1d"
     }
   },
   "parasitics": null
