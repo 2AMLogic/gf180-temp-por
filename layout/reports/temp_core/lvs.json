@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "engine": "klayout",
+  "layout": "temp_core.gds",
+  "reference": "temp_core.reference.spice",
+  "top": "temp_core",
+  "status": "match",
+  "mismatch_count": 0,
+  "category_counts": {},
+  "counts": {
+    "nets": {
+      "layout": 30,
+      "reference": 30,
+      "matched": 30
+    },
+    "devices": {
+      "layout": 55,
+      "reference": 55,
+      "matched": 55
+    },
+    "pins": {
+      "layout": 28,
+      "reference": 28,
+      "matched": 28
+    }
+  },
+  "environment": {
+    "engine": "klayout",
+    "engine_version": "0.30.10",
+    "layout_sha256": "85eca1a1d099e9a3ff2989351e643466a4dd22512aacc24e6a7d50eb24ecd694",
+    "reference_sha256": "ab7e5c43037f0c5e40c3982ae7f4f643b9f845f63859d3ee6cb67602f88dbe04",
+    "extracted_netlist": null
+  },
+  "mismatches": []
+}

@@ -244,6 +244,136 @@ CELLS = {
             ]
         },
     },
+    # temp_core: the MOS subset of design/netlist/temp_core.spice. The cell's
+    # vertical PNPs (XQ1/XQ8A..H), poly resistors (XR1/XR2*/XRISO/XRZ) and MiM
+    # cap (XCC) have no device model in the curated gf180mcu extraction deck
+    # (klayout-tools#219/#222), so they are drawn as sibling top cells and are
+    # outside this compare -- see layout/README.md and layout/floorplan.md.
+    "temp_core": {
+        "source": "temp_core.spice",
+        "subckt": "temp_core",
+        "devices": [
+            "XMBD",
+            "XMPASS",
+            "XMDNB",
+            "XMBN1",
+            "XMBP",
+            "XMBN2",
+            "XMCB",
+            "XMINVP",
+            "XMINVN",
+            "XMT",
+            "XMI1",
+            "XMI2",
+            "XML1",
+            "XML2",
+            "XMS2N",
+            "XMS2P",
+            "XMP1",
+            "XMPC1",
+            "XMP2",
+            "XMPC2",
+            "XMP3",
+            "XMPC3",
+            "XMSU1",
+            "XMSU2",
+            "XMSU3",
+            "XMDND",
+            "XMENPG",
+            "XMENPT",
+            "XMENCT",
+            "XMSU4",
+            "XMSU5",
+            "XMDN2",
+            "XMDNT",
+            "XSW5",
+            "XSW4",
+            "XSW3",
+            "XSW2",
+            "XSW1",
+            "XSW0",
+        ],
+        # Devices drawn as N interleaved unit fingers (layout/floorplan.md's
+        # rank-1 input pair / load mirror and rank-2 cascoded mirror).
+        "fingers": {
+            "XMI1": 2,
+            "XMI2": 2,
+            "XML1": 2,
+            "XML2": 2,
+            "XMP1": 2,
+            "XMPC1": 2,
+            "XMP2": 2,
+            "XMPC2": 2,
+            "XMP3": 2,
+            "XMPC3": 2,
+        },
+        # Edge dummy fingers. Drawn-only: they are not in the schematic, so
+        # they are declared here rather than derived, and they are the reason
+        # LVS still accounts for *every* drawn device.
+        "dummies": [
+            {"class": "pfet", "l": 4.0, "w": 16.0, "nets": ["NT", "NT", "NT"],
+             "well": "NW2"},
+            {"class": "pfet", "l": 4.0, "w": 16.0, "nets": ["NT", "NT", "NT"],
+             "well": "NW2"},
+            {"class": "nfet", "l": 8.0, "w": 4.0, "nets": ["VSS", "VSS", "VSS"]},
+            {"class": "nfet", "l": 8.0, "w": 4.0, "nets": ["VSS", "VSS", "VSS"]},
+            {"class": "pfet", "l": 4.0, "w": 4.0, "nets": ["VDD", "VDD", "VDD"],
+             "well": "NW1"},
+            {"class": "pfet", "l": 4.0, "w": 4.0, "nets": ["VDD", "VDD", "VDD"],
+             "well": "NW1"},
+        ],
+        "ports": [
+            "VSS",
+            "VDD",
+            "EN",
+            "ENB",
+            "IBIAS",
+            "NBG",
+            "PB",
+            "PCAS",
+            "NT",
+            "NA",
+            "NB",
+            "N1",
+            "N2",
+            "PG",
+            "M1D",
+            "M2D",
+            "M3D",
+            "ND",
+            "NR",
+            "CTAT",
+            "PTAT",
+            "T5",
+            "T4",
+            "T3",
+            "T2",
+            "T1",
+            "T0",
+            SUBSTRATE_NET,
+        ],
+        # Two drawn Nwells: the input pair's own well is biased to the tail
+        # node NT, every other PMOS sits in the VDD well.
+        "wells": {
+            "NW1": [
+                "XMBP",
+                "XMCB",
+                "XMINVP",
+                "XMT",
+                "XMS2P",
+                "XMP1",
+                "XMPC1",
+                "XMP2",
+                "XMPC2",
+                "XMP3",
+                "XMPC3",
+                "XMSU1",
+                "XMENPG",
+                "XMSU4",
+            ],
+            "NW2": ["XMI1", "XMI2"],
+        },
+    },
 }
 
 SUBCKT_RE = re.compile(r"^\.subckt\s+(\S+)\s+(.*)$", re.IGNORECASE)
@@ -346,8 +476,10 @@ def build(cell: str, corrupt: str | None = None) -> str:
         set(ports) | set(spec.get("wells", {})) | set(spec.get("internal", []))
     )
 
+    fingers = spec.get("fingers", {})
+
     cards: list[tuple[str, str, list[str], float, float]] = []
-    for index, name in enumerate(spec["devices"], start=1):
+    for name in spec["devices"]:
         if name not in devices:
             raise ReferenceError(f"{cell}: device {name!r} not in {spec['source']}")
         device = devices[name]
@@ -383,13 +515,36 @@ def build(cell: str, corrupt: str | None = None) -> str:
                 "-- add them to the manifest's ports/wells"
             )
 
+        # A matched device drawn as N interleaved unit fingers extracts as N
+        # devices: the curated deck runs no device-combination step, so N
+        # parallel fingers never fold back into one W. The reference therefore
+        # emits the same N parallel devices of W/N -- the same electrical
+        # device, described the way the deck can see it. Filed upstream as
+        # tool friction; see layout/README.md -> "Known deck limits".
+        count = int(fingers.get(name, 1))
+        for finger in range(count):
+            cards.append(
+                (
+                    f"{letter}{len(cards) + 1}",
+                    klass,
+                    list(nodes),
+                    to_um(device["params"]["l"]),
+                    to_um(device["params"]["w"]) / count,
+                )
+            )
+            del finger
+
+    for dummy in spec.get("dummies", []):
+        klass = dummy["class"]
+        drain, gate, source_node = dummy["nets"]
+        body = SUBSTRATE_NET if klass == "nfet" else dummy["well"]
         cards.append(
             (
-                f"{letter}{index}",
+                f"MD{len(cards) + 1}",
                 klass,
-                nodes,
-                to_um(device["params"]["l"]),
-                to_um(device["params"]["w"]),
+                [drain, gate, source_node, body],
+                float(dummy["l"]),
+                float(dummy["w"]),
             )
         )
 

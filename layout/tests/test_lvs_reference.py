@@ -381,5 +381,82 @@ class GuardTest(unittest.TestCase):
         self.assertIn("nf=2", str(caught.exception))
 
 
+class TempCoreTest(unittest.TestCase):
+    """``temp_core`` is drawn with interleaved unit fingers and edge dummies,
+    so its reference has to describe more devices than the schematic has -- the
+    same electrical devices, described the way the curated deck can see them."""
+
+    CELL = "temp_core"
+
+    def cards(self, text=None):
+        return [
+            line.split()
+            for line in (text or lr.build(self.CELL)).splitlines()
+            if line[:1] == "M"
+        ]
+
+    def test_reference_matches_the_committed_file(self):
+        committed = (LAYOUT_DIR / "cells" / f"{self.CELL}.reference.spice").read_text()
+        self.assertEqual(lr.build(self.CELL), committed)
+
+    def test_finger_split_conserves_the_schematic_width(self):
+        golden = (REPO_ROOT / "design" / "netlist" / "temp_core.spice").read_text()
+        devices = lr.parse_devices(lr.subckt_body(golden, "temp_core"))
+        text = lr.build(self.CELL)
+        for name, count in lr.CELLS[self.CELL]["fingers"].items():
+            schematic_w = lr.to_um(devices[name]["params"]["w"])
+            finger_w = lr.format_um(schematic_w / count)
+            length = lr.format_um(lr.to_um(devices[name]["params"]["l"]))
+            drain, gate, source, _body = devices[name]["nodes"]
+            matches = [
+                card
+                for card in self.cards(text)
+                if card[1:4] == [drain, gate, source]
+                and card[-2:] == [f"L={length}", f"W={finger_w}"]
+            ]
+            self.assertGreaterEqual(len(matches), count, f"{name}: fingers missing")
+
+    def test_every_drawn_device_is_accounted_for(self):
+        # 39 schematic MOS + 10 extra fingers + 6 edge dummies = 55 drawn.
+        spec = lr.CELLS[self.CELL]
+        extra = sum(count - 1 for count in spec["fingers"].values())
+        expected = len(spec["devices"]) + extra + len(spec["dummies"])
+        self.assertEqual(len(self.cards()), expected)
+
+    def test_dummy_fingers_are_declared_not_derived(self):
+        # Dummies are not in the schematic; a silently-derived dummy would be a
+        # device LVS accepts that no golden netlist ever asked for.
+        spec = lr.CELLS[self.CELL]
+        for dummy in spec["dummies"]:
+            self.assertEqual(len(set(dummy["nets"])), 1, "a dummy is tied off")
+        self.addCleanup(lr.CELLS.__setitem__, self.CELL, spec)
+        lr.CELLS[self.CELL] = {**spec, "dummies": []}
+        without = len(self.cards())
+        lr.CELLS[self.CELL] = spec
+        self.assertEqual(len(self.cards()) - without, len(spec["dummies"]))
+
+    def test_non_mos_devices_are_outside_this_compare(self):
+        # The vertical PNPs, poly resistors and the MiM cap have no device
+        # model in the curated deck (klayout-tools#219/#222).
+        golden = (REPO_ROOT / "design" / "netlist" / "temp_core.spice").read_text()
+        body = lr.subckt_body(golden, "temp_core")
+        parsed = lr.parse_devices(body)
+        for name in ("XQ1", "XQ8A", "XR1", "XR2F", "XRISO", "XRZ", "XCC"):
+            self.assertIn(f"{name} ", golden)
+            self.assertNotIn(name, parsed)
+
+    def test_each_control_changes_exactly_one_card(self):
+        clean = lr.build(self.CELL).splitlines()
+        for corruption in ("device-param", "topology"):
+            bad = lr.build(self.CELL, corrupt=corruption).splitlines()
+            self.assertEqual(len(clean), len(bad))
+            differing = [
+                (a, b)
+                for a, b in zip(clean, bad)
+                if a[:1] == "M" and b[:1] == "M" and a != b
+            ]
+            self.assertEqual(len(differing), 1, f"{corruption} changed too much")
+
+
 if __name__ == "__main__":
     unittest.main()
