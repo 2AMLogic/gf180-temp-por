@@ -404,13 +404,18 @@ class PorOutputChainManifestTest(unittest.TestCase):
         # c_width/c_length -- so the reference has to be derived from the same
         # two numbers or it is only ever agreeing with itself.
         caps = self.caps()
-        for _prefix, _klass, _nodes, value_f in lr.build_cap_cards(self.CELL):
-            self.assertIn(value_f, {
-                lr.to_um(cap["params"]["c_width"])
-                * lr.to_um(cap["params"]["c_length"])
-                * lr.MIM_AREA_CAP_F_UM2
-                for cap in caps.values()
-            })
+        # Card.value is already the same ``.6g``-rounded string build() writes
+        # (formatted once, at construction, like every other Card) -- so the
+        # expected set is rounded the same way rather than compared at full
+        # float precision against a value that was never emitted at it.
+        expected = {
+            float(
+                f"{lr.to_um(cap['params']['c_width']) * lr.to_um(cap['params']['c_length']) * lr.MIM_AREA_CAP_F_UM2:.6g}"
+            )
+            for cap in caps.values()
+        }
+        for card in lr.build_cap_cards(self.CELL):
+            self.assertIn(float(card.value), expected)
         self.assertIn("2.42e-13", lr.build(self.CELL))  # XCDG, 11 x 11 um
 
     def test_cap_cards_carry_the_decks_own_device_class_name(self):
@@ -428,9 +433,7 @@ class PorOutputChainManifestTest(unittest.TestCase):
         # nets -- sharing one would describe a layout the deck cannot produce
         # and would fail LVS on net count.
         plates = [
-            net
-            for _prefix, _klass, nodes, _value in lr.build_cap_cards(self.CELL)
-            for net in nodes
+            net for card in lr.build_cap_cards(self.CELL) for net in card.nodes
         ]
         self.assertEqual(len(plates), len(set(plates)))
         declared = set(lr.CELLS[self.CELL]["ports"]) | set(
@@ -670,15 +673,91 @@ class TempCoreTest(unittest.TestCase):
         lr.CELLS[self.CELL] = spec
         self.assertEqual(len(self.cards()) - without, len(spec["dummies"]))
 
-    def test_non_mos_devices_are_outside_this_compare(self):
-        # The vertical PNPs, poly resistors and the MiM cap have no device
-        # model in the curated deck (klayout-tools#219/#222).
+    def passives(self):
+        golden = (REPO_ROOT / "design" / "netlist" / "temp_core.spice").read_text()
+        return lr.parse_passives(lr.subckt_body(golden, "temp_core"))
+
+    def test_the_mim_cap_is_the_only_device_left_out(self):
+        # #93 folded the PNPs and the poly resistors into the compare. XCC is
+        # the one device still outside it, and it is outside for two reasons
+        # the layout cannot fix (the deck models only the m4m5 MiM stack, and
+        # a recognised MiM's plate nets are not joined to the routing
+        # connectivity graph) -- so this asserts the *whole* gap, not a list
+        # someone has to remember to shrink.
         golden = (REPO_ROOT / "design" / "netlist" / "temp_core.spice").read_text()
         body = lr.subckt_body(golden, "temp_core")
-        parsed = lr.parse_devices(body)
-        for name in ("XQ1", "XQ8A", "XR1", "XR2F", "XRISO", "XRZ", "XCC"):
-            self.assertIn(f"{name} ", golden)
-            self.assertNotIn(name, parsed)
+        spec = lr.CELLS[self.CELL]
+        covered = set(spec["devices"]) | set(spec["resistors"]) | set(spec["bipolars"])
+        drawn_names = {
+            line.split()[0]
+            for line in body
+            if line.split()[0].upper().startswith("X")
+        }
+        self.assertEqual(drawn_names - covered, {"XCC"})
+
+    def test_every_resistor_is_a_series_string_of_its_own_length(self):
+        # The bank draws straight bodies and strings them, so the reference has
+        # to describe the same string: N segments whose lengths sum back to the
+        # schematic's own r_length, at the schematic's own r_width.
+        passives = self.passives()
+        cards = [
+            line.split()
+            for line in lr.build(self.CELL).splitlines()
+            if line[:1] == "R"
+        ]
+        index = 0
+        for name in lr.CELLS[self.CELL]["resistors"]:
+            device = passives[name]
+            length = lr.to_um(device["params"]["r_length"])
+            width = lr.to_um(device["params"]["r_width"])
+            segments = lr.resistor_segments(length)
+            self.assertAlmostEqual(sum(segments), length, places=9, msg=name)
+            self.assertEqual(len(segments) % 2, 0, f"{name}: odd segment count")
+            chain = cards[index:index + len(segments)]
+            index += len(segments)
+            # head -> ... -> tail, one net shared by each consecutive pair
+            head, tail, _bulk = device["nodes"]
+            self.assertEqual(chain[0][1], head, name)
+            self.assertEqual(chain[-1][2], tail, name)
+            for before, after in zip(chain, chain[1:]):
+                self.assertEqual(before[2], after[1], name)
+            for card, segment in zip(chain, segments):
+                self.assertEqual(card[3], lr.SUBSTRATE_NET)
+                self.assertEqual(card[5], "ppolyf_u")
+                self.assertAlmostEqual(
+                    float(card[4]), segment / width * 350.0, places=6, msg=name
+                )
+        self.assertEqual(index, len(cards))
+
+    def test_every_pnp_states_its_own_drawn_emitter_area(self):
+        # The 8:1 emitter ratio is the whole point of the array, and AE is the
+        # one bipolar parameter the compare checks -- so it is read out of the
+        # PDK device name rather than retyped.
+        passives = self.passives()
+        cards = [
+            line.split()
+            for line in lr.build(self.CELL).splitlines()
+            if line[:1] == "Q"
+        ]
+        names = lr.CELLS[self.CELL]["bipolars"]
+        self.assertEqual(len(cards), len(names))
+        for card, name in zip(cards, names):
+            _collector, _base, emitter = passives[name]["nodes"]
+            area = lr.emitter_area_um2(passives[name]["model"])
+            self.assertEqual(card[1], lr.SUBSTRATE_NET)  # collector -> substrate
+            self.assertEqual(card[2], lr.CELLS[self.CELL]["bjt_well"])
+            self.assertEqual(card[3], emitter)
+            self.assertEqual(card[5], f"AE={area:.10g}P")
+        # XQ1 alone on NA, the eight XQ8 units in parallel on NC: the ratio.
+        self.assertEqual(sum(1 for card in cards if card[3] == "NA"), 1)
+        self.assertEqual(sum(1 for card in cards if card[3] == "NC"), 8)
+
+    def test_a_length_that_does_not_split_on_the_grid_raises(self):
+        # Silently rounding would make the drawn resistance differ from the
+        # one this reference states, which reads as an unexplainable
+        # device.property mismatch rather than as the netlist edit it is.
+        with self.assertRaises(lr.ReferenceError):
+            lr.resistor_segments(1.0001)
 
     def test_each_control_changes_exactly_one_card(self):
         clean = lr.build(self.CELL).splitlines()

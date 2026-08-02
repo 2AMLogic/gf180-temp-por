@@ -12,16 +12,19 @@ interactive KLayout session, no netgen/magic.
 > interleaved fingers, plus 6 edge dummies). #72 assembles all four into
 > **`temp_por_top`** — with the domain-seam moat, the perimeter guard ring and
 > the `VDD`/`VSS` rails. #92 then drew `por_output_chain`'s **2 MiM caps** (5
-> drawn units) as the first non-MOS devices in the block, taking the assembly to
-> **139** devices, **88** nets, and the ratified 5-pad pinout. Every cell is
-> DRC-clean and LVS-clean against the schematic-derived netlist with both
-> negative controls detected.
+> drawn units) as the first non-MOS devices in the block. #93 folded
+> `temp_core`'s PNP array and `R2` gain ladder into the extracted cell as real
+> `bjt`/`ppolyf_u` devices (**114** drawn, up from 55), retiring the sibling
+> top cells that used to hold them. `temp_por_top` now inherits all of it:
+> **198** devices, **131** nets, and the ratified 5-pad pinout. Every cell is
+> DRC-clean and LVS-clean against the schematic-derived netlist with every
+> applicable negative control detected (three per cell where a cell draws a
+> resistor or a bipolar: topology, device-param, and passive-param).
 > No cell is the *whole* cell. `bias_core`'s 10 vertical PNPs, 4 poly resistors
-> and 2 MiM caps; `por_comparator`'s 3-segment sense divider; `temp_core`'s PNP
-> array, resistor ladder and MiM cap — all still outside what the curated deck
-> can extract, all deliberately not
-> drawn *into the extracted cell*, and all inherited unchanged by
-> `temp_por_top`, which therefore cannot be LVS'd whole either (see
+> and 2 MiM caps; `por_comparator`'s 3-segment sense divider; `temp_core`'s own
+> MiM cap — all still outside what the curated deck can extract, all
+> deliberately not drawn *into the extracted cell*, and all inherited unchanged
+> by `temp_por_top`, which therefore cannot be LVS'd whole either (see
 > [The cells under test](#the-cells-under-test) and
 > [Known deck limits](#known-deck-limits--what-a-clean-lvs-here-does-not-prove)).
 > **What no check in this flow covers** is guard-ring and well-tie
@@ -461,7 +464,7 @@ Note the deck has **no `metal4` width rule at all** — `mim.space.1` is the onl
 thing standing over `Metal4` geometry — so bottom-plate width is held to the DRM
 by construction here, not by a check. Same posture as the Via1/Via2 sizes.
 
-### `temp_core` — the PTAT/CTAT sensing core (#71)
+### `temp_core` — the PTAT/CTAT sensing core (#71, passives folded in by #93)
 
 `design/temp_core.sch`'s 39 MOS devices, drawn from
 `design/netlist/temp_core.spice` per `layout/floorplan.md`'s ranked matching
@@ -473,24 +476,109 @@ extraction; `lvs_reference.py`'s `fingers` field splits the same schematic
 device into the same N devices of W/N in the reference, and its `dummies` field
 declares the edge fingers explicitly (they are not in the schematic, so a
 derived dummy would be a device LVS accepts that no golden netlist asked for).
-39 + 10 extra fingers + 6 dummies = **55** drawn devices, all accounted for.
+39 + 10 extra fingers + 6 dummies = **55** drawn MOS devices.
 
-The cell's PNP array, `R2` gain ladder and MiM cap are outside the deck's
-extraction and are drawn as **sibling top cells** (`temp_core_pnp_array`,
-`temp_core_r2_ladder`) rather than omitted: `klt drc` checks every top cell in
-a stream while `klt extract`/`klt lvs` take a single `--top`, so the geometry
-is still checked without a drawn poly-resistor body shorting `PTAT` into `VSS`
-through the trim ladder.
+**The sibling-top-cell split is retired; the passives are folded into this
+cell (#93).** Until #93 this GDS stream carried **three** top cells:
+`temp_core` (the 55-device MOS network above, the only one `klt
+extract`/`klt lvs` ever ran on) plus `temp_core_r2_ladder` and
+`temp_core_pnp_array` as undrawn-device *siblings* — `klt drc` checks every
+top cell in a stream, so the split let the rank-3 PNP array and the rank-2
+`R2` gain ladder be DRC-checked without a drawn, unmarked poly-resistor body
+shorting `PTAT` into `VSS` through the trim ladder (`klt extract`/`klt lvs`
+take a single `--top` and so never saw them). That constraint was a *deck*
+one: at the time, the curated `gf180mcu` extraction deck declared no
+`resistor`/`bjt` device class at all, so a drawn resistor body would have
+extracted as ordinary interconnect and a drawn bipolar as nothing.
+
+`klt 0.1.0` removed it — `resistor` and `bjt` both landed
+(klayout-tools#222/#223/#225) — which turned the split from a necessity into
+59 real devices sitting permanently outside the only checks that could answer
+for their wiring and sizing. **Decision: fold the PNP array and the `R2`
+ladder into `temp_core` and retire the two sibling top cells**, rather than
+add marker geometry to them in place and keep the split. A sibling is
+DRC-checked but never extracted or LVS'd — keeping it would have kept a
+resistor bank that can short `PTAT`/`VSS` and a PNP array with a schematic-set
+8:1 ratio both outside the one check that reads device sizing, for no reason
+once the deck could model them. Folding costs nothing this repo needs the
+split for: the two former siblings carried no independent pin contract of
+their own, and DRC on `temp_core` alone still covers the same geometry now
+that it is drawn in one stream.
+
+**What is drawn and how.** `XR1`/`XRISO`/`XRZ`/`XR2F`/`XR2T5..T0` (the `R2`
+gain ladder plus the isolation and zero resistors) are drawn as
+`ppolyf_u`-recognised bodies: `SAB` (49/0) + `RES_MK` (110/5) over Pplus'd
+Poly2, so the deck cuts each body out of ordinary poly connectivity and
+extracts a resistor instead of shorting its own two terminals. Every resistor
+is a **series string of straight segments** at the schematic's own drawn
+length (KLayout solves a resistor's `L`/`W` from its recognised region's own
+area and perimeter, so a folded/serpentine body would extract the wrong
+length), reached from the routing channel on **Metal2 risers rather than poly
+crossunders** — deliberately, so the new geometry adds no poly shape that
+touches contact at 2+ points and could be mistaken for another unmodelled
+resistor body (see "Known deck limits" below). `XQ1`/`XQ8A..H` (the rank-3
+PNP centroid array: `XQ1` centre, the eight `XQ8` units around it, both inside
+a ring of unmarked dummy units) each get a per-emitter `DRC_BJT` (127/5)
+patch scoped to their own emitter, not a blanket over the whole array — a
+marker over the shared n+ base ring would extract a 26th device the golden
+netlist never asked for, and marking the sixteen dummies would add sixteen
+more.
+
+**One device stays out: the MiM cap `XCC`.** Two independent blockers, either
+sufficient: the deck models exactly one MiM device
+(`cap_mim_2f0_m4m5_noshield`, the DRM's 5-metal-level Option B) while this
+cell's cap is the `m3m4` flavour the schematic names (same substitution
+`por_output_chain`'s MiM caps make, klayout-tools#315); and a recognised MiM's
+two plate regions are registered *outside* the deck's metal/via connectivity
+stack (klayout-tools#314), so a drawn `XCC` would compare as a capacitor
+floating between two anonymous nets — which says less than leaving it out and
+recording why.
+
+Two deck-imposed rewrites apply to the folded-in passives, mirroring the ones
+`lvs_reference.py`'s module docstring already states for the MOS bodies: a
+`ppolyf_u` resistor's bulk terminal is rewritten to the deck's global
+substrate net (no drawn tap layer to derive anything else from), and a
+vertical bipolar's **collector** goes to that same global (the DRM's vertical
+device has no drawn collector layer — its collector *is* the substrate) while
+its **base** goes to the drawn Nwell's anonymous per-well net (the deck never
+joins `Nwell` to `Contact`, so the base ring's `VSS` tie is invisible to it).
+The schematic ties both to `VSS`; the layout does too, and no check in this
+flow proves it.
 
 Recorded result (`layout/reports/temp_core/`):
 
 | Check | Result |
 | ----- | ------ |
 | `klt drc --deck gf180mcu` | clean — 0 violations |
-| `klt extract --deck gf180mcu` | 55 devices (27 nfet, 28 pfet), 30 nets, 28 pins |
-| `klt lvs` | **match** — 55/55 devices, 30/30 nets, 28/28 pins |
-| negative control `topology` | detected (exit 3; `device.unmatched` 1) |
-| negative control `device-param` | detected (exit 3; `device.property` 5) |
+| `klt extract --deck gf180mcu` | 114 devices (27 nfet, 28 pfet, 50 `ppolyf_u`, 9 `bjt`), 73 nets, 30 pins |
+| `klt lvs` | **match** — 114/114 devices, 73/73 nets, 30/30 pins, 0 errors (2 `device.body_unverified` warnings) |
+| negative control `topology` | detected (exit 3; `device.unmatched` 1, `topology` 1) |
+| negative control `device-param` | detected (exit 3; `device.property` 5, `topology` 1) |
+| negative control `passive-param` | detected (exit 3; `device.property` 11, `topology` 3) |
+
+`passive-param` is new here (#93): it doubles the first resistor's value and
+halves the first bipolar's emitter area, so a clean run is evidence the
+compare reads the passives' **sizes**, not just their topology — the same
+role `device-param` plays for the MOS devices, extended to the two device
+classes this cell just started drawing. `bias_core` and `por_comparator`
+still draw no marked passive, so the control reports `n/a` there (see
+`run_checks.sh`'s per-cell output).
+
+**The klayout-tools#288 poly-shape warning does not drop, and that is the
+expected result, not a regression.** `temp_core`'s `extract.json` still
+reports the same **110** "poly shapes with the resistor-body signature" both
+before and after this change (see "Known deck limits" below for what the
+warning actually counts): those 110 shapes are the routing channel's own
+Poly2 gate-to-track crossunders, unrelated to the resistor bank, which was
+never drawn as unmarked poly inside this cell before #93 (it lived in the
+now-retired siblings). The new resistor and bipolar geometry deliberately
+reaches the channel on Metal2 risers rather than poly crossunders
+specifically so it cannot add to this count — the same "count is unmoved by
+an unrelated device change" result #92 already recorded for
+`por_output_chain`'s MiM caps (16 before, 16 after). Drawing the channel's own
+tracks on a marked layer would be wrong: they are real interconnect, not
+resistor bodies, and marking them would make the deck extract devices no
+golden netlist has.
 
 ### `temp_por_top` — the block-level assembly (#72)
 
@@ -552,22 +640,25 @@ and the only one left, is that `VSS` is the right net to tie the rings to.
 **Coverage.** Most non-MOS devices of the four sub-circuits are still outside
 this compare — `bias_core`'s `XQ1`/`XQ8A..H`/`XQR` PNPs, `XR1`/`XR2`/`XRT`/`XRZ`
 resistors and `XCC`/`XCOK` MiM caps; `por_comparator`'s `XRTOP`/`XRBOT`/`XRHYS`
-divider; `temp_core`'s `XQ1`/`XQ8A..H` PNPs, `XR1`/`XR2*`/`XRISO`/`XRZ`
-resistors and `XCC` MiM cap. The exception is `por_output_chain`'s
-`XCDG`/`XCTIM`: #92 drew them, and because extraction is flat they land in this
-cell's compare too — 5 `cap_mim_2f0_m4m5_noshield` units on top of the 134 MOS,
-with the same isolated-plate-net caveat that cell's section records. So the 139
-devices below are the MOS subset **plus one cell's MiM caps**.
+divider; `temp_core`'s own `XCC` MiM cap. Two exceptions, both inherited
+unchanged because extraction is flat: `por_output_chain`'s `XCDG`/`XCTIM` (#92
+drew them — 5 `cap_mim_2f0_m4m5_noshield` units, with the same
+isolated-plate-net caveat that cell's section records), and `temp_core`'s own
+PNP array and `R2` gain ladder (#93 folded them in — 9 `bjt` + 50 `ppolyf_u`
+real devices, retiring the sibling top cells that used to hold them outside
+this compare entirely). So the 198 devices below are the MOS subset **plus one
+cell's MiM caps plus one cell's resistors and bipolars**.
 
 Recorded result (`layout/reports/temp_por_top/`):
 
 | Check | Result |
 | ----- | ------ |
 | `klt drc --deck gf180mcu` | clean — 0 violations (Metal2/Metal3 rules now exercised, not skipped; `mim.*` too since #92) |
-| `klt extract --deck gf180mcu --top-cell-pins` | 139 devices (70 nfet, 64 pfet, 5 `cap_mim_2f0_m4m5_noshield`), 88 nets, 6 pins |
-| `klt lvs` | **match** — 139/139 devices, 88/88 nets, 6/6 pins |
-| negative control `topology` | detected (exit 3; `device.unmatched` 1) |
-| negative control `device-param` | detected (exit 3; `device.property` 5) |
+| `klt extract --deck gf180mcu --top-cell-pins` | 198 devices (70 nfet, 64 pfet, 50 `ppolyf_u`, 9 `bjt`, 5 `cap_mim_2f0_m4m5_noshield`), 131 nets, 6 pins |
+| `klt lvs` | **match** — 198/198 devices, 131/131 nets, 6/6 pins, 0 errors (2 `device.body_unverified` warnings) |
+| negative control `topology` | detected (exit 3; `device.unmatched` 1, `topology` 12) |
+| negative control `device-param` | detected (exit 3; `device.property` 5, `topology` 12) |
+| negative control `passive-param` | detected (exit 3; `device.property` 11, `topology` 15) |
 
 The 6 pins are the ratified 5 pads plus the deck's `vsubs` global. That set is
 exactly what `layout.top_cell_pins` produces: the five Metal2 labels this cell
@@ -639,8 +730,15 @@ filed upstream per this repo's friction protocol.
   [klayout-tools#315](https://github.com/2AMLogic/klayout-tools/issues/315) —
   the deck models exactly one of the PDK's MiM stack variants, so a schematic
   instantiating the other (`..._m3m4_...`) has to be drawn as the modelled one.
-  The remaining cells (`bias_core`, `por_comparator`, `temp_core`) are still
-  MOS-only in the compare.
+  **#93 closed the second of it for `temp_core`**: its `R2` gain ladder and its
+  rank-3 PNP array are now drawn with `SAB`/`RES_MK` and `DRC_BJT` markers and
+  extract as 50 `ppolyf_u` + 9 `bjt` real devices instead of sitting outside
+  the compare in retired sibling top cells (see `temp_core`'s own section
+  above for the marker geometry and the fold-back decision). The remaining
+  cells (`bias_core`, `por_comparator`) are still MOS-only in the compare;
+  `temp_core`'s own MiM cap `XCC` is still not drawn, for the same two
+  reasons `por_output_chain`'s substitution above states (wrong MiM stack
+  variant, unconnectable plate nets).
   The *silence* has moved too, in the right direction:
   [klayout-tools#288](https://github.com/2AMLogic/klayout-tools/issues/288) is
   live in this build — every cell's `extract.json` now carries a warning naming
@@ -649,14 +747,21 @@ filed upstream per this repo's friction protocol.
   `por_output_chain`, 110 in `temp_core`, 155 in `temp_por_top` = the sum). The
   failure mode is now a wrong netlist *with a warning*, which is what was asked
   for.
-  **These counts are `Poly2` routing tracks, not undrawn devices**, and #92
-  confirmed it: `por_output_chain`'s count is **16 before and 16 after** drawing
-  its MiM caps, and 16 is exactly the number of horizontal Poly2 signal tracks
-  the cell routes on (`POR_OUTPUT_CHAIN_TRACKS`). Each is a poly run contacted at
-  both ends and touching no recognised gate, i.e. the heuristic's stated
-  signature, so it flags the routing scheme rather than a missing device. The
-  warning is a *poly* diagnostic; MiM geometry cannot move it in either
-  direction. Drawing the remaining cells' poly resistors is what would.
+  **These counts are `Poly2` routing tracks, not undrawn devices**, and #92 and
+  #93 both confirmed it by *not* moving the count while drawing new devices:
+  `por_output_chain`'s count is **16 before and 16 after** drawing its MiM
+  caps (16 is exactly the number of horizontal Poly2 signal tracks the cell
+  routes on, `POR_OUTPUT_CHAIN_TRACKS`), and `temp_core`'s is **110 before and
+  110 after** folding in its resistor bank and PNP array — because that
+  geometry reaches the routing channel on Metal2 risers rather than poly
+  crossunders precisely so it draws no *new* poly shape the heuristic could
+  flag (`temp_core`'s own section above). Each of the 110 is a poly run
+  contacted at both ends and touching no recognised gate, i.e. the heuristic's
+  stated signature, so it flags the routing scheme rather than a missing
+  device. The warning is a *poly* diagnostic; neither MiM geometry nor
+  Metal2-routed passives can move it in either direction. Drawing
+  `bias_core`'s and `por_comparator`'s remaining poly resistors on poly
+  crossunders is what would.
 - **There is no dummy-device concept**, so matched-pair *dummy edges* cannot be
   drawn on any cell that must also LVS: a drawn dummy MOS extracts as a real
   device the schematic-derived reference does not have. The cells here
@@ -744,17 +849,23 @@ filed upstream per this repo's friction protocol.
   - `temp_por_top` routes on Metal2/Metal3 and so needs **no notch in either
     guard ring** — see its section above. This is the single biggest thing the
     lifted limit bought.
-  - `bias_core`, `por_comparator` and `temp_core` are **unchanged**: they route
-    on Metal1 with Poly2 crossunders, their committed
-    GDS is byte-identical, and their recorded results stand. Nothing about the
-    lifted limit obliges a redraw, and redrawing a proven cell to use a
-    capability it does not need would be a regression risk for no gain.
-    `por_output_chain` keeps the same Metal1-only *signal* routing; #92 added
-    `Metal4` to it only as MiM bottom-plate geometry.
+  - `bias_core` and `por_comparator` are **unchanged**: they route on Metal1
+    with Poly2 crossunders, their committed GDS is byte-identical, and their
+    recorded results stand. Nothing about the lifted limit obliges a redraw,
+    and redrawing a proven cell to use a capability it does not need would be
+    a regression risk for no gain. `por_output_chain` keeps the same
+    Metal1-only *signal* routing; #92 added `Metal4` to it only as MiM
+    bottom-plate geometry. `temp_core`'s MOS network is likewise unchanged;
+    #93 added its `R2` ladder and PNP array on Metal2 risers rather than
+    Poly2 crossunders specifically to keep the klayout-tools#288 poly-shape
+    count from moving (see `temp_core`'s own section above) — the one cell
+    here where the lifted limit *was* used, and by choice, not by need.
   - The MiM caps stopped being undrawn: the gf180mcu MiM stack (`Metal4` +
     `FuseTop` + the two marker layers) is in the deck's layer set, which is what
-    let #92 draw `por_output_chain`'s. `bias_core`'s and `temp_core`'s are still
-    the missing marker geometry in *those* cells, not the deck.
+    let #92 draw `por_output_chain`'s. `bias_core`'s and `temp_core`'s MiM caps
+    are still the missing marker geometry in *those* cells, not the deck —
+    unchanged by #93, which drew `temp_core`'s resistor and bipolar markers
+    but deliberately left `XCC` out (see `temp_core`'s own section above).
   `layout/floorplan.md`'s "Routing / metal-level note" carries the same
   re-check.
 - **DRC is a curated subset.** Width/space/enclosure across Poly2/Comp/Contact/

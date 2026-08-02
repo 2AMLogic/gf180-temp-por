@@ -4,24 +4,38 @@
   "controls": [
     {
       "corruption": "topology",
+      "applicable": true,
       "detected": true,
       "exit_code": 3,
       "status": "mismatch",
       "category_counts": {
         "device.body_unverified": 2,
         "device.unmatched": 1,
-        "topology": 2
+        "topology": 1
       }
     },
     {
       "corruption": "device-param",
+      "applicable": true,
       "detected": true,
       "exit_code": 3,
       "status": "mismatch",
       "category_counts": {
         "device.body_unverified": 2,
         "device.property": 5,
-        "topology": 2
+        "topology": 1
+      }
+    },
+    {
+      "corruption": "passive-param",
+      "applicable": true,
+      "detected": true,
+      "exit_code": 3,
+      "status": "mismatch",
+      "category_counts": {
+        "device.body_unverified": 2,
+        "device.property": 11,
+        "topology": 3
       }
     }
   ]

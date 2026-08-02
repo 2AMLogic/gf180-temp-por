@@ -28,16 +28,18 @@
       "30/0",
       "33/0",
       "34/0",
+      "36/0",
       "127/5"
     ],
     "layers_in_stream_without_rules": [
       "31/0",
       "32/0",
-      "34/10"
+      "34/10",
+      "35/0",
+      "49/0",
+      "110/5"
     ],
     "rules_skipped": [
-      "metal2.space.1",
-      "metal2.width.1",
       "metal3.space.1",
       "metal3.width.1",
       "metal5.space.1",

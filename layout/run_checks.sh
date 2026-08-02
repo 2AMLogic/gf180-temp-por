@@ -12,9 +12,10 @@
 #   3. runs `klt extract --deck gf180mcu` and records the layout netlist,
 #   4. runs `klt lvs` against the schematic-derived reference and requires
 #      a match,
-#   5. re-runs LVS twice against deliberately-corrupted references (one
-#      topology defect, one device-parameter defect) and requires BOTH to be
-#      reported as mismatches.
+#   5. re-runs LVS against deliberately-corrupted references (one topology
+#      defect, one MOS device-parameter defect, and -- on a cell that has
+#      passives -- one resistor/bipolar parameter defect) and requires every
+#      applicable one to be reported as a mismatch.
 #
 # Step 5 is not decoration. A mis-wired LVS invocation that silently compares
 # nothing also reports "match", so a clean run on its own is not evidence; the
@@ -159,11 +160,18 @@ print(json.load(open(sys.argv[1]))['layout'].get('top_cell_pins', False))
   # 4. negative controls -------------------------------------------------
   control_dir="$(mktemp -d)"
   trap 'rm -rf "$control_dir"' EXIT
-  for corruption in topology device-param; do
+  for corruption in topology device-param passive-param; do
     ref="$control_dir/${cell}.${corruption}.spice"
     req="$control_dir/${cell}.${corruption}.request.json"
-    python3 layout/lvs_reference.py --cell "$cell" \
-      --corrupt "$corruption" -o "$ref" >/dev/null
+    # `passive-param` needs a resistor or a bipolar to perturb; on a cell that
+    # has none the generator says so and the control is recorded as not
+    # applicable rather than silently skipped.
+    if ! python3 layout/lvs_reference.py --cell "$cell" \
+      --corrupt "$corruption" -o "$ref" >/dev/null 2>"$control_dir/${corruption}.why"; then
+      echo "-1" >"$control_dir/${corruption}.exit"
+      info "    CTRL  $corruption -> n/a ($(cat "$control_dir/${corruption}.why"))"
+      continue
+    fi
     # Derived from the cell's own committed request, with *only* the reference
     # netlist swapped: a control that quietly dropped an option the real run
     # uses (`top_cell_pins`, hints, ...) would still exit 3, so it would still
@@ -187,7 +195,7 @@ PY
       status=1
     fi
   done
-  python3 - "$cell" "$control_dir" topology device-param \
+  python3 - "$cell" "$control_dir" topology device-param passive-param \
     >"$out/negative-controls.json" <<'PY'
 import json, sys
 from pathlib import Path
@@ -200,16 +208,25 @@ for name in corruptions:
         report = json.loads(Path(control_dir, f"{name}.report.json").read_text())
     except Exception:
         report = {}
-    controls.append({
+    entry = {
         "corruption": name,
+        # -1 is this script's own marker for "the reference generator has no
+        # such defect to inject in this cell" (today: passive-param on a cell
+        # with no resistor or bipolar), which is not a failed control.
+        "applicable": code != -1,
         "detected": code == 3,
         "exit_code": code,
         "status": report.get("status"),
         "category_counts": report.get("category_counts", {}),
-    })
+    }
+    if not entry["applicable"]:
+        entry["why"] = Path(control_dir, f"{name}.why").read_text().strip()
+    controls.append(entry)
 json.dump({
     "cell": cell,
-    "all_controls_detected": all(c["detected"] for c in controls),
+    "all_controls_detected": all(
+        c["detected"] for c in controls if c["applicable"]
+    ),
     "controls": controls,
 }, sys.stdout, indent=2)
 sys.stdout.write("\n")
@@ -220,7 +237,7 @@ done
 
 echo
 if [ "$status" -eq 0 ]; then
-  green "all cells: DRC clean, LVS match, both negative controls detected"
+  green "all cells: DRC clean, LVS match, every applicable negative control detected"
 else
   red "one or more checks failed -- see $REPORTS"
 fi

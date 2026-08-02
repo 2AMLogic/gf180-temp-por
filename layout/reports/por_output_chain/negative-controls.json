@@ -4,6 +4,7 @@
   "controls": [
     {
       "corruption": "topology",
+      "applicable": true,
       "detected": true,
       "exit_code": 3,
       "status": "mismatch",
@@ -15,6 +16,7 @@
     },
     {
       "corruption": "device-param",
+      "applicable": true,
       "detected": true,
       "exit_code": 3,
       "status": "mismatch",
@@ -23,6 +25,15 @@
         "device.property": 5,
         "topology": 12
       }
+    },
+    {
+      "corruption": "passive-param",
+      "applicable": false,
+      "detected": false,
+      "exit_code": -1,
+      "status": null,
+      "category_counts": {},
+      "why": "lvs_reference: por_output_chain: no passive device to corrupt"
     }
   ]
 }

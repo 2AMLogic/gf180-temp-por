@@ -24,10 +24,17 @@ stream can ever be ``--check``ed.
 Layers are the gf180mcu drawn layers ``klt``'s curated ``gf180mcu`` deck reads
 (see ``layout/README.md`` for the deck's documented coverage limits):
 
-    Nwell 21/0 · Comp 22/0 · Poly2 30/0 · Contact 33/0 · Metal1 34/0
+    Nwell 21/0 · Comp 22/0 · Pplus 31/0 · Nplus 32/0 · Poly2 30/0 ·
+    Contact 33/0 · Metal1 34/0 · Metal2 36/0
     Metal1 pin/label purpose 34/10 (net names -> extracted pin names)
     Metal4 46/0 · FuseTop 75/0 · CAP_MK 117/5 · MIM_L_MK 117/10
                     (the MiM capacitor stack, ``por_output_chain`` only)
+    SAB 49/0 · RES_MK 110/5
+                    (the poly-resistor marker pair, ``temp_core``'s R2 ladder
+                    only, #93)
+    DRC_BJT 127/5
+                    (the vertical-bipolar marker, ``temp_core``'s PNP array
+                    only, #93)
 
 plus one repo-local annotation layer that is **not** a gf180mcu drawn layer and
 is read by neither the DRC deck nor the extraction deck:
@@ -1467,6 +1474,13 @@ _TEMP_CORE_NETS = [
     "T2",
     "T1",
     "T0",
+    # #93: the two nets the folded-in passives add. NC joins XR1's far end to
+    # the eight XQ8 emitters; NZ is XRZ's free end (its other schematic
+    # connection is the MiM cap XCC, which stays undrawn -- see temp_core's
+    # docstring). Appended rather than inserted so every track above keeps the
+    # y it already had.
+    "NC",
+    "NZ",
 ]
 
 
@@ -1490,6 +1504,21 @@ class _Channel:
         y = self.track_y[net]
         self.b.contact(x_center, y)
         self._reach[net] = max(self._reach[net], x_center + 0.25)
+        return y
+
+    def land_via(self, net: str, x_center: float) -> float:
+        """Land a Metal2 riser on ``net``'s track; return the track y.
+
+        The passive field (#93) sits beyond the device rows and reaches the
+        channel from above on Metal2 rather than on a poly crossunder. That is
+        not a style choice: a poly run contacted at both ends is exactly the
+        shape klayout-tools#288 flags as an unmodelled resistor body, so
+        wiring the *resistors* in on poly would add noise to the one warning
+        this cell is trying to read.
+        """
+        y = self.track_y[net]
+        _m1_to_m2(self.b, x_center, y)
+        self._reach[net] = max(self._reach[net], x_center + _VIA_PAD_HALF)
         return y
 
     def draw(self) -> None:
@@ -1647,43 +1676,37 @@ _TEMP_CORE_ROW: list[tuple] = [
 
 
 def temp_core(b: CellBuilder) -> None:
-    """``temp_core``'s MOS network, plus its two non-extractable structures.
+    """``temp_core`` -- one top cell holding every device the deck can model.
 
-    The stream carries three top cells:
+    Until #93 this stream carried **three** top cells: ``temp_core`` (the MOS
+    network, the only one ``klt extract``/``klt lvs`` ran on) plus
+    ``temp_core_r2_ladder`` and ``temp_core_pnp_array``, drawn as siblings so
+    that ``klt drc`` -- which checks every top cell in a stream -- would still
+    see them. That split existed for exactly one reason: the curated
+    ``gf180mcu`` extraction deck had no resistor or bipolar device class, so a
+    drawn poly resistor body extracted as ordinary interconnect and would have
+    shorted its own two terminals, merging ``PTAT`` into ``VSS`` through the
+    trim ladder.
 
-    ``temp_core``
-        every MOS device of ``design/netlist/temp_core.spice``, drawn per
-        ``layout/floorplan.md``'s ranked matching plan. This is the cell
-        ``klt extract``/``klt lvs`` run on (``--top temp_core``).
-    ``temp_core_r2_ladder``
-        rank 2's tiled, common-centroid ``ppolyf_u`` gain-ratio array.
-    ``temp_core_pnp_array``
-        rank 3's ``pnp_10p00x10p00`` centroid array with its dummy ring.
+    klayout-tools#222/#223 removed that reason: with ``SAB``/``RES_MK`` on a
+    poly body the deck cuts it out of the connectivity graph and extracts a
+    ``ppolyf_u``, and with ``DRC_BJT`` over an emitter it extracts a ``bjt``.
+    The ladder and the array are therefore **drawn into this cell**, and the
+    sibling top cells are gone -- a sibling is DRC-checked but never extracted
+    or compared, so keeping the split would have kept 59 real devices
+    permanently outside the only check that could answer for their wiring.
 
-    The last two hold **no** device the curated ``gf180mcu`` extraction deck
-    can recognise (klayout-tools#219/#222: MOS-only device coverage), and a
-    drawn poly resistor is seen by that deck as a plain poly wire -- putting
-    one in ``temp_core`` would short its own two terminals together and merge
-    ``PTAT`` into ``VSS`` through the trim ladder. They are therefore drawn as
-    sibling top cells: ``klt drc`` checks every top cell in the stream, so the
-    geometry is still verified, while extraction/LVS stay on the MOS subset.
+    One device stays out: the MiM cap ``XCC``. See :func:`_temp_core_passives`.
     """
-    _temp_core_mos(b)
-    _temp_core_r2_ladder(b)
-    _temp_core_pnp_array(b)
+    _temp_core_body(b)
 
 
-def _temp_core_mos(b: CellBuilder) -> None:
-    """``temp_core``'s MOS network alone -- everything :func:`temp_core` draws
-    into the ``temp_core`` cell itself, and nothing it draws into a sibling.
+def _temp_core_body(b: CellBuilder) -> None:
+    """Everything ``temp_core`` draws, as a plain body with no ``add_cell``.
 
     Split out for ``temp_por_top`` (#72), which instances *this* into the
-    block-level assembly: :meth:`CellBuilder.add_cell` (which the two sibling
-    structures call) retargets the builder at a new top cell, so calling
-    :func:`temp_core` itself inside :meth:`CellBuilder.instance` would spill
-    the ladder and the PNP array out of the instance mid-body. Splitting is
-    also the honest hierarchy: those two siblings are already *not* part of
-    the cell ``klt extract``/``klt lvs`` run on.
+    block-level assembly rather than calling :func:`temp_core` -- a cell body
+    handed to :meth:`CellBuilder.instance` must not retarget the builder.
     """
     channel = _Channel(b, _TEMP_CORE_NETS)
     nrow_y = 0.0
@@ -1719,84 +1742,233 @@ def _temp_core_mos(b: CellBuilder) -> None:
         y1 = prow_y + max(span[2] for span in spans) + _WELL_MARGIN
         b.box(NWELL, x0, prow_y - _WELL_MARGIN, x1, y1)
 
+    _temp_core_passives(b, channel)
     channel.draw()
 
 
-#: Implant marker layers. No rule in ``klt``'s curated ``gf180mcu`` DRC deck
-#: reads them, but a ``ppolyf_u`` body and a vertical PNP's emitter/base/
-#: collector are not identifiable without them.
+#: Implant and device-marker layers. Only ``DRC_BJT`` carries a rule in
+#: ``klt``'s curated ``gf180mcu`` DRC deck (``bjt.separation.comp.1``), but the
+#: extraction deck reads all five: a ``ppolyf_u`` body is
+#: ``Poly2 & RES_MK & Pplus & SAB``, a vertical bipolar's base/emitter are
+#: ``Nwell``/``Comp`` scoped by ``DRC_BJT``.
 PPLUS = (31, 0)
 NPLUS = (32, 0)
+SAB = (49, 0)
+RES_MK = (110, 5)
 DRC_BJT = (127, 5)
 
-#: rank 2's unit sub-resistor: the block's ``2 um`` drawn width convention and
-#: ``XR1``'s own drawn length, so ``R1`` is exactly one unit and every ``R2``
-#: segment is tiled from copies of it (``design/netlist/temp_core.spice``).
-_R_UNIT_W = 2.0
-_R_UNIT_L = 119.47
-_R_COLS = 11  # 9 interior columns + one dummy column each side
-_R_ROWS = 5  # 3 interior rows + one dummy row top and bottom
+#: The passive field: the R2 gain ladder and the PNP centroid array, drawn
+#: beyond the right end of the device rows and above the routing channel, so
+#: every terminal reaches its own channel track by dropping straight down on
+#: Metal2. Nothing here is placed by eye relative to the MOS rows: the field
+#: starts clear of the widest drawn row and each structure's own extent is
+#: derived below.
+_FIELD_X0 = 300.0  # right of the device row (which ends at x = 288)
+_FIELD_Y0 = 62.0  # above the PMOS row's Nwell (which tops out at 54.5)
+_VIA_PAD_HALF = 0.25  # half-size of a Metal1/Metal2 via landing pad
+_M2_HALF = 0.22  # half-width of a Metal2 wire (0.44 >= metal2.width.1's 0.28)
 
-
-def _r_tile(b: CellBuilder, x: float, y: float) -> None:
-    """One ``ppolyf_u`` unit sub-resistor with both terminals contacted."""
-    b.box(POLY2, x, y, x + _R_UNIT_W, y + _R_UNIT_L)
-    b.box(PPLUS, x - 0.2, y - 0.2, x + _R_UNIT_W + 0.2, y + _R_UNIT_L + 0.2)
-    for end in (y + 0.3, y + _R_UNIT_L - 0.3):
-        for offset in (0.5, 1.0, 1.5):
-            b.contact(x + offset, end)
-        b.box(METAL1, x - 0.05, end - 0.21, x + _R_UNIT_W + 0.05, end + 0.21)
-
-
-def _temp_core_r2_ladder(b: CellBuilder) -> None:
-    """rank 2's gain-ratio array: ``XR1``'s unit at the centroid, the ``R2``
-    tiles common-centroid around it, dummy tiles on the whole perimeter.
-
-    Every tile is one copy of the same drawn unit (same width, orientation and
-    end geometry), so the ratio -- not just the absolute values -- is what the
-    array protects, exactly as ``layout/floorplan.md`` rank 2 asks. The
-    perimeter dummy ring is the "dummy resistor segments, same flavor/width"
-    row of that document's dummy-strategy table.
-    """
-    b.add_cell("temp_core_r2_ladder")
-    pitch_x = _R_UNIT_W + 1.0
-    pitch_y = _R_UNIT_L + 2.0
-    for row in range(_R_ROWS):
-        y = row * pitch_y
-        for col in range(_R_COLS):
-            _r_tile(b, col * pitch_x, y)
-        # Serpentine straps: the tiled units are a series string, not islands.
-        for col in range(_R_COLS - 1):
-            end = y + 0.3 if col % 2 == 0 else y + _R_UNIT_L - 0.3
-            b.box(
-                METAL1,
-                col * pitch_x + _R_UNIT_W + 0.05,
-                end - 0.21,
-                (col + 1) * pitch_x - 0.05,
-                end + 0.21,
-            )
-    # The centroid tile is R1's unit; label it so the array is readable.
-    b.label("R1_UNIT", 5 * pitch_x + 1.0, 2 * pitch_y + _R_UNIT_L / 2.0)
-
+#: One drawn ``ppolyf_u`` segment. ``head`` is the unmarked, contacted poly at
+#: each end -- the deck takes a resistor's terminals from ``body minus the
+#: recognised segment``, so the head *is* the terminal. Exactly **one** contact
+#: per head: a poly island touching contact at two or more separate points is
+#: what klayout-tools#288's diagnostic reads as an unmodelled resistor body, so
+#: a multi-contact head on a resistor the deck *does* model would be a false
+#: positive in the one warning this cell needs to stay readable.
+_R_PITCH = 3.0
+_R_HEAD = 1.0
+_R_DUMMY_LEGS = 2  # unmarked, uncontacted edge legs at each end of the bank
 
 #: rank 3's ``pnp_10p00x10p00`` unit emitter, and the 5x5 grid that holds the
-#: active 3x3 (``XQ1`` centre + ``XQ8A..XQ8H`` at 45 degree steps) inside a
-#: ring of dummy unit cells.
+#: active 3x3 (``XQ1`` centre + ``XQ8A..XQ8H`` around it) inside a ring of
+#: dummy unit cells.
 _Q_EMITTER = 10.0
 _Q_PITCH = 14.0
 _Q_GRID = 5
+_Q_GAP = 25.0  # x between the resistor bank and the PNP array
 
 
-def _temp_core_pnp_array(b: CellBuilder) -> None:
-    """rank 3's vertical-PNP centroid array, with one shared base/collector
-    ring construction so every unit device sees the same well/tap environment.
+def _m2_h(b: CellBuilder, x0: float, x1: float, y: float) -> None:
+    b.box(METAL2, min(x0, x1), y - _M2_HALF, max(x0, x1), y + _M2_HALF)
+
+
+def _m2_v(b: CellBuilder, x: float, y0: float, y1: float) -> None:
+    b.box(METAL2, x - _M2_HALF, min(y0, y1), x + _M2_HALF, max(y0, y1))
+
+
+def _m1_to_m2(b: CellBuilder, x: float, y: float) -> None:
+    """One Via1 with its own landing pad on both levels."""
+    half = _VIA_PAD_HALF
+    b.box(METAL1, x - half, y - half, x + half, y + half)
+    b.box(METAL2, x - half, y - half, x + half, y + half)
+    b.via(VIA1, x, y)
+
+
+def _r_segment(b: CellBuilder, x: float, y: float, width: float, length: float) -> float:
+    """One recognised ``ppolyf_u`` body with its two contacted heads.
+
+    Returns the tile's total height. The marker layers overhang the poly in
+    ``x`` so the recognised region (``Poly2 & RES_MK & Pplus & SAB``) is
+    exactly ``width x length`` -- the extractor computes ``R = L / W * 350``
+    from that region and nothing else, so the overhang is what makes the drawn
+    resistance equal the one ``lvs_reference.py`` states.
     """
-    b.add_cell("temp_core_pnp_array")
+    height = length + 2.0 * _R_HEAD
+    b.box(POLY2, x, y, x + width, y + height)
+    b.box(PPLUS, x - 0.2, y - 0.2, x + width + 0.2, y + height + 0.2)
+    b.box(SAB, x - 0.4, y + _R_HEAD - 0.2, x + width + 0.4, y + _R_HEAD + length + 0.2)
+    b.box(RES_MK, x - 0.3, y + _R_HEAD, x + width + 0.3, y + _R_HEAD + length)
+    for end in (y + _R_HEAD / 2.0, y + height - _R_HEAD / 2.0):
+        b.contact(x + width / 2.0, end)
+        b.box(METAL1, x + 0.1, end - 0.4, x + width - 0.1, end + 0.4)
+    return height
+
+
+def _temp_core_passives(b: CellBuilder, channel: _Channel) -> None:
+    """The R2 gain ladder and the PNP array, drawn *into* ``temp_core`` (#93).
+
+    Both used to be sibling top cells, DRC-checked but never extracted. They
+    are here now because the curated deck grew the two device classes they
+    need (klayout-tools#222/#223) and this repo owns the marker geometry that
+    turns drawn poly and drawn diffusion into those devices.
+
+    **The MiM cap ``XCC`` is still not drawn**, and that is a deck limit, not
+    an oversight. Two independent blockers, either one sufficient:
+
+    * the deck models exactly one MiM device, ``cap_mim_2f0_m4m5_noshield``
+      (bottom plate ``Metal4``, top plate ``FuseTop``), while this block's cap
+      is the ``m3m4`` flavour the schematic names. Drawing the ``m4m5`` stack
+      to make the deck recognise *something* would be drawing a different
+      device than the schematic asks for;
+    * a recognised MiM's two plate regions are registered as their own
+      self-connected nodes and are **not** wired into the deck's
+      contact/via/metal connectivity stack, so the extracted cap's terminals
+      are anonymous nets no matter what the layout connects them to. A drawn
+      ``XCC`` would compare as a capacitor floating between two nets, which
+      says less than leaving it out and saying so.
+
+    See ``layout/README.md`` -> "Known deck limits".
+    """
+    right = _temp_core_resistor_bank(b, channel, _FIELD_X0, _FIELD_Y0)
+    _temp_core_pnp_array(b, channel, right + _Q_GAP, _FIELD_Y0)
+
+
+def _temp_core_resistor_bank(
+    b: CellBuilder, channel: _Channel, x0: float, y0: float
+) -> float:
+    """rank 2's gain-ratio bank: every ``ppolyf_u`` of the golden netlist,
+    drawn at its own length, as a series string of straight segments.
+
+    Straight, not serpentine, and that is forced: KLayout's resistor extractor
+    solves ``L``/``W`` from the recognised body's own area and perimeter, so a
+    folded body extracts a length its corners make wrong. A long resistor is
+    therefore a *string* of straight bodies strapped end to end -- ordinary
+    PDK resistor-array practice, and the same "describe the device the way the
+    deck can see it" move ``lvs_reference.py``'s ``fingers`` field already
+    makes for a matched MOS pair.
+
+    Matching, per ``layout/floorplan.md`` rank 2: every segment of every
+    resistor is the same drawn **width**, the same flavour, the same
+    orientation and the same end geometry, on one uniform pitch, with unmarked
+    dummy legs at both ends of the bank. Segment *lengths* differ between
+    devices because the netlist's own values are not commensurate -- a
+    uniform-length unit tile cannot build this ladder, and drawing one that
+    pretends to would be the decorative array this bank replaces.
+    """
+    devices = lvsref.parse_passives(
+        lvsref.subckt_body(
+            (REPO_ROOT / "design" / "netlist" / "temp_core.spice").read_text(),
+            "temp_core",
+        )
+    )
+    order = lvsref.CELLS["temp_core"]["resistors"]
+    width = lvsref.to_um(devices[order[0]]["params"]["r_width"])
+    plan = []
+    for name in order:
+        device = devices[name]
+        if lvsref.to_um(device["params"]["r_width"]) != width:
+            raise SystemExit(f"{name}: the bank draws one width, not two")
+        head, tail, _bulk = device["nodes"]
+        plan.append((head, tail, lvsref.resistor_segments(
+            lvsref.to_um(device["params"]["r_length"])
+        )))
+    tallest = max(max(segments) for _h, _t, segments in plan)
+
+    col = 0
+
+    def leg_x(index: int) -> float:
+        return x0 + index * _R_PITCH
+
+    for index in range(_R_DUMMY_LEGS):
+        # Unmarked and uncontacted: a *marked* dummy would extract as a real
+        # ppolyf_u the golden netlist never asked for (klayout-tools#295's gap,
+        # met here for resistors), and a contacted unmarked one would be
+        # flagged by #288's diagnostic. Uncontacted poly is neither.
+        b.box(POLY2, leg_x(index), y0, leg_x(index) + width, y0 + tallest + 2 * _R_HEAD)
+        b.box(PPLUS, leg_x(index) - 0.2, y0 - 0.2,
+              leg_x(index) + width + 0.2, y0 + tallest + 2 * _R_HEAD + 0.2)
+        col += 1
+
+    for head, tail, segments in plan:
+        first = col
+        for length in segments:
+            _r_segment(b, leg_x(col), y0, width, length)
+            col += 1
+        last = col - 1
+        # Alternating end straps: top between an even-indexed pair, bottom
+        # between an odd-indexed pair. An even segment count therefore leaves
+        # both free ends at the *bottom*, which is what lets both terminals
+        # drop straight down to the channel without crossing the string.
+        height = segments[0] + 2.0 * _R_HEAD
+        for offset in range(len(segments) - 1):
+            y = y0 + (height - _R_HEAD / 2.0 if offset % 2 == 0 else _R_HEAD / 2.0)
+            left = leg_x(first + offset) + 0.1
+            b.box(METAL1, left, y - 0.4, leg_x(first + offset + 1) + width - 0.1, y + 0.4)
+        for net, column in ((head, first), (tail, last)):
+            x = leg_x(column) + width / 2.0
+            _m1_to_m2(b, x, y0 + _R_HEAD / 2.0)
+            track_y = channel.land_via(net, x)
+            _m2_v(b, x, track_y, y0 + _R_HEAD / 2.0)
+
+    for index in range(_R_DUMMY_LEGS):
+        b.box(POLY2, leg_x(col), y0, leg_x(col) + width, y0 + tallest + 2 * _R_HEAD)
+        b.box(PPLUS, leg_x(col) - 0.2, y0 - 0.2,
+              leg_x(col) + width + 0.2, y0 + tallest + 2 * _R_HEAD + 0.2)
+        col += 1
+        del index
+
+    return leg_x(col - 1) + width
+
+
+def _temp_core_pnp_array(b: CellBuilder, channel: _Channel, x0: float, y0: float) -> None:
+    """rank 3's vertical-PNP centroid array: ``XQ1`` at the centre of the
+    active 3x3, the eight ``XQ8`` units around it, one shared base/collector
+    ring construction, and a dummy unit cell on the whole perimeter.
+
+    Only the nine active units carry a ``DRC_BJT`` patch, and each patch is
+    scoped to its own emitter rather than blanketing the array. That is what
+    makes the extraction match the schematic: the deck derives a bipolar base
+    as ``Nwell & DRC_BJT`` and an emitter as ``Comp &`` that base, so a marker
+    covering the whole array turns the shared n+ **base ring** into a 26th
+    emitter, and marking the sixteen dummies would put sixteen devices in the
+    netlist that no golden netlist asked for.
+    """
     span = (_Q_GRID - 1) * _Q_PITCH + _Q_EMITTER
+    active = range(1, _Q_GRID - 1)
+
+    def cx(col: int) -> float:
+        return x0 + col * _Q_PITCH + _Q_EMITTER / 2.0
+
+    def cy(row: int) -> float:
+        return y0 + row * _Q_PITCH + _Q_EMITTER / 2.0
+
+    def lane(gap: int) -> float:
+        """y of the Metal2 lane in the gap above row ``gap``."""
+        return y0 + gap * _Q_PITCH + _Q_EMITTER + (_Q_PITCH - _Q_EMITTER) / 2.0
 
     for row in range(_Q_GRID):
         for col in range(_Q_GRID):
-            x, y = col * _Q_PITCH, row * _Q_PITCH
+            x, y = x0 + col * _Q_PITCH, y0 + row * _Q_PITCH
             b.box(COMP, x, y, x + _Q_EMITTER, y + _Q_EMITTER)
             b.box(PPLUS, x - 0.3, y - 0.3, x + _Q_EMITTER + 0.3, y + _Q_EMITTER + 0.3)
             steps = int(_Q_EMITTER - 1.0)
@@ -1804,22 +1976,29 @@ def _temp_core_pnp_array(b: CellBuilder) -> None:
                 for j in range(steps):
                     b.contact(x + 0.5 + i, y + 0.5 + j)
             b.box(METAL1, x + 0.2, y + 0.2, x + _Q_EMITTER - 0.2, y + _Q_EMITTER - 0.2)
+            if row in active and col in active:
+                # "BJT.3" keeps DRC_BJT 0.1 um clear of unrelated COMP; the
+                # 1 um patch margin leaves 3 um to the next unit's diffusion.
+                b.box(DRC_BJT, x - 1.0, y - 1.0, x + _Q_EMITTER + 1.0, y + _Q_EMITTER + 1.0)
 
     def ring(spec, inner: float, width: float) -> None:
-        lo, hi = -inner, span + inner
-        b.box(spec, lo, lo, hi, lo + width)
-        b.box(spec, lo, hi - width, hi, hi)
-        b.box(spec, lo, lo, lo + width, hi)
-        b.box(spec, hi - width, lo, hi, hi)
+        lo, hi = x0 - inner, x0 + span + inner
+        blo, bhi = y0 - inner, y0 + span + inner
+        b.box(spec, lo, blo, hi, blo + width)
+        b.box(spec, lo, bhi - width, hi, bhi)
+        b.box(spec, lo, blo, lo + width, bhi)
+        b.box(spec, hi - width, blo, hi, bhi)
 
     def ring_contacts(inner: float, width: float) -> None:
-        lo, hi = -inner, span + inner
+        lo, hi = x0 - inner, x0 + span + inner
+        blo, bhi = y0 - inner, y0 + span + inner
         mid = width / 2.0
-        steps = int((hi - lo) - 1.0)
-        for i in range(steps):
+        for i in range(int((hi - lo) - 1.0)):
             pos = lo + 0.5 + i
-            b.contact(pos, lo + mid)
-            b.contact(pos, hi - mid)
+            b.contact(pos, blo + mid)
+            b.contact(pos, bhi - mid)
+        for i in range(int((bhi - blo) - 1.0)):
+            pos = blo + 0.5 + i
             b.contact(lo + mid, pos)
             b.contact(hi - mid, pos)
 
@@ -1828,16 +2007,53 @@ def _temp_core_pnp_array(b: CellBuilder) -> None:
     ring(NPLUS, 4.3, 2.6)
     ring_contacts(4.0, 2.0)
     ring(METAL1, 3.8, 1.6)
-    # ... one Nwell holding the whole array and its base ring, marked as one
-    # bipolar device region (the DRM's DRC_BJT mark layer; "BJT.3" keeps it
-    # 0.1 um clear of unrelated COMP, which the collector ring is not) ...
-    b.box(NWELL, -5.5, -5.5, span + 5.5, span + 5.5)
-    b.box(DRC_BJT, -5.5, -5.5, span + 5.5, span + 5.5)
+    # ... one Nwell holding the whole array and its base ring ...
+    b.box(NWELL, x0 - 5.5, y0 - 5.5, x0 + span + 5.5, y0 + span + 5.5)
     # ... and the collector ring (p+ COMP on substrate, outside the Nwell).
     ring(COMP, 10.0, 2.0)
     ring(PPLUS, 10.3, 2.6)
     ring_contacts(10.0, 2.0)
     ring(METAL1, 9.8, 1.6)
+
+    # --- the eight XQ8 emitters, all on NC --------------------------------
+    # Every wire below stays out of lane(2), which is XQ1's only way out of
+    # the middle of the array; the two lanes NC does use are the ones just
+    # outside the active block, joined by one column in the col3/col4 gap.
+    low, high = lane(0), lane(_Q_GRID - 2)
+    join_x = x0 + (_Q_GRID - 2) * _Q_PITCH + _Q_EMITTER + (_Q_PITCH - _Q_EMITTER) / 2.0
+    nc_exit = x0 + span + 14.0
+    _m2_h(b, cx(1), nc_exit, low)
+    _m2_h(b, cx(1), join_x, high)
+    _m2_v(b, join_x, low, high)
+    for col in (1, _Q_GRID - 2):
+        _m2_v(b, cx(col), low, cy(_Q_GRID - 3))  # rows 1 and 2 of this column
+        _m2_v(b, cx(col), cy(_Q_GRID - 2), high)  # row 3
+        for row in active:
+            _m1_to_m2(b, cx(col), cy(row))
+    _m2_v(b, cx(2), low, cy(1))
+    _m2_v(b, cx(2), cy(_Q_GRID - 2), high)
+    _m1_to_m2(b, cx(2), cy(1))
+    _m1_to_m2(b, cx(2), cy(_Q_GRID - 2))
+    nc_y = channel.land_via("NC", nc_exit)
+    _m2_v(b, nc_exit, nc_y, low)
+
+    # --- XQ1, the centre unit, out through lane(2) on its own -------------
+    na_exit = x0 - _Q_GAP / 2.0
+    _m1_to_m2(b, cx(2), cy(2))
+    _m2_v(b, cx(2), cy(2), lane(2))
+    _m2_h(b, na_exit, cx(2), lane(2))
+    na_y = channel.land_via("NA", na_exit)
+    _m2_v(b, na_exit, na_y, lane(2))
+
+    # --- both rings down to VSS -------------------------------------------
+    # The deck cannot check this tie (Nwell is never joined to Contact, so the
+    # extracted base stays an anonymous net either way) -- it is drawn because
+    # it is right, and layout/README.md records that it is unchecked.
+    tie_x = x0 + span - 6.0
+    _m1_to_m2(b, tie_x, y0 - 3.0)
+    _m1_to_m2(b, tie_x, y0 - 9.0)
+    vss_y = channel.land_via("VSS", tie_x)
+    _m2_v(b, tie_x, vss_y, y0 - 3.0)
 
 
 # --------------------------------------------------------------------------- #
@@ -1964,10 +2180,14 @@ TOP_RING_W = 4.0  # guard-ring / moat COMP+Metal1 width
 TOP_RAIL_HALF = 2.0  # half-height of the VDD rail
 TOP_VSS_RAIL_HALF = 1.5  # half-height of the VSS rail (inside the ring)
 
-#: The outer perimeter guard ring, and the VDD/VSS rails it frames.
-TOP_PERIM = (-140.0, -540.0, 1094.0, 114.0)
+#: The outer perimeter guard ring, and the VDD/VSS rails it frames. The top
+#: edge moved out from y = 114 to y = 254 when #93 folded ``temp_core``'s
+#: passives into the cell: the resistor bank and the PNP array stand above the
+#: device rows, so the temp-sensor domain is ~125 um taller than it was. The
+#: POR domain below the seam is untouched, and so is every x.
+TOP_PERIM = (-140.0, -540.0, 1094.0, 254.0)
 TOP_RAIL_X0, TOP_RAIL_X1 = -134.0, 1088.0
-TOP_VDD_RAIL_Y = 100.0
+TOP_VDD_RAIL_Y = 240.0
 TOP_VSS_RAIL_Y = -538.0
 
 #: The domain-seam moat: one continuous VSS-tied p-substrate strip along the
@@ -2285,8 +2505,8 @@ def temp_por_top(b: CellBuilder) -> None:
     against ``design/netlist/temp_por_top.spice`` is what holds it there.
 
     **What is checked and what is not.** ``bash layout/run_checks.sh
-    temp_por_top`` gives DRC clean, LVS match on the MOS subset, and both
-    negative controls detected. It does **not** check the guard rings: the
+    temp_por_top`` gives DRC clean, LVS match on the drawn device set, and
+    both negative controls detected. It does **not** check the guard rings: the
     curated ``gf180mcu`` deck has no tap or well-label layer, so a ring left
     floating, tied to the wrong net, or physically broken compares clean --
     both defects were built and confirmed clean, and the tool gap is filed
@@ -2300,16 +2520,20 @@ def temp_por_top(b: CellBuilder) -> None:
     What remains a design-review claim is the same one every cell in this repo
     carries: that VSS is the right net to tie them to.
 
-    Device coverage is unchanged and still MOS-only: this cell inherits every
-    non-MOS device of all four sub-circuits (see
-    ``layout/lvs_reference.py``'s ``temp_por_top`` manifest for the list, and
-    ``layout/README.md`` -> "Known deck limits" for what that leaves unproven).
+    Device coverage is no longer MOS-only: this cell inherits ``temp_core``'s
+    PNP array and R2 gain ladder (#93) and ``por_output_chain``'s two MiM caps
+    (#92) unchanged, extraction being flat. What still is not drawn anywhere in
+    the four sub-circuits -- ``bias_core``'s PNPs/resistors/MiM caps,
+    ``por_comparator``'s sense divider, ``temp_core``'s own MiM cap -- is still
+    outside this compare too (see ``layout/lvs_reference.py``'s
+    ``temp_por_top`` manifest for the list, and ``layout/README.md`` ->
+    "Known deck limits" for what that leaves unproven).
     """
     routes = _TopRoutes(b)
 
     # --- the four sub-circuits, placed --------------------------------------
     bodies = {
-        "temp_core": _temp_core_mos,
+        "temp_core": _temp_core_body,
         "bias_core": bias_core,
         "por_comparator": por_comparator,
         "por_output_chain": por_output_chain,
@@ -2457,14 +2681,6 @@ def temp_por_top(b: CellBuilder) -> None:
     # --- build-time checks (see this function's docstring) ------------------
     routes.check()
     _top_assert_connected(b)
-
-    # --- temp_core's two non-extractable structures, as sibling top cells ---
-    # Same treatment as in temp_core.gds itself: drawn (and so DRC-checked,
-    # since klt drc checks every top cell) but outside extraction/LVS, because
-    # the curated deck models neither a poly resistor nor a vertical PNP.
-    # Drawn last: add_cell() retargets the builder at a new top cell.
-    _temp_core_r2_ladder(b)
-    _temp_core_pnp_array(b)
 
 
 def _top_assert_connected(b: CellBuilder) -> None:
