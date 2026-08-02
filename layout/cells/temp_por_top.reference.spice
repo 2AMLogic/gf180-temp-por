@@ -136,4 +136,9 @@ MD131 VSS VSS VSS vsubs nfet L=8U W=4U
 MD132 VSS VSS VSS vsubs nfet L=8U W=4U
 MD133 VDD VDD VDD xtemp.NW1 pfet L=4U W=4U
 MD134 VDD VDD VDD xtemp.NW1 pfet L=4U W=4U
+C1 xpor.XCDG.NDG xpor.XCDG.VSS 2.42e-13 cap_mim_2f0_m4m5_noshield
+C2 xpor.XCTIM.1.TIM xpor.XCTIM.1.VSS 1.568e-12 cap_mim_2f0_m4m5_noshield
+C3 xpor.XCTIM.2.TIM xpor.XCTIM.2.VSS 1.568e-12 cap_mim_2f0_m4m5_noshield
+C4 xpor.XCTIM.3.TIM xpor.XCTIM.3.VSS 1.568e-12 cap_mim_2f0_m4m5_noshield
+C5 xpor.XCTIM.4.TIM xpor.XCTIM.4.VSS 1.568e-12 cap_mim_2f0_m4m5_noshield
 .ENDS temp_por_top
