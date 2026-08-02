@@ -27,14 +27,21 @@
       "22/0",
       "30/0",
       "33/0",
-      "34/0"
+      "34/0",
+      "46/0",
+      "75/0",
+      "127/5"
     ],
     "layers_in_stream_without_rules": [
+      "31/0",
       "34/10",
-      "200/0"
+      "49/0",
+      "62/0",
+      "110/5",
+      "117/5",
+      "117/10"
     ],
     "rules_skipped": [
-      "bjt.separation.comp.1",
       "metal2.space.1",
       "metal2.width.1",
       "metal3.space.1",
@@ -42,9 +49,7 @@
       "metal5.space.1",
       "metal5.width.1",
       "metaltop.space.1",
-      "metaltop.width.1",
-      "mim.enclosing.fusetop.1",
-      "mim.space.1"
+      "metaltop.width.1"
     ]
   },
   "provenance": {
@@ -53,7 +58,7 @@
     "pdk": null,
     "deck": {
       "name": "gf180mcu",
-      "content_hash": "sha256:dcd6c84a4e9f541f47907dbc493d00758b0eeb89f2dc54d9a9d3662587acb4d8"
+      "content_hash": "sha256:90a7f0ef3c555b20964260da411d12cd76823a90693da0ca27e8166bedf0137b"
     }
   }
 }

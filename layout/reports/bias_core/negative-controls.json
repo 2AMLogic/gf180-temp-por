@@ -11,7 +11,7 @@
       "category_counts": {
         "device.body_unverified": 2,
         "device.unmatched": 1,
-        "topology": 3
+        "topology": 6
       }
     },
     {
@@ -23,17 +23,20 @@
       "category_counts": {
         "device.body_unverified": 2,
         "device.property": 5,
-        "topology": 3
+        "topology": 6
       }
     },
     {
       "corruption": "passive-param",
-      "applicable": false,
-      "detected": false,
-      "exit_code": -1,
-      "status": null,
-      "category_counts": {},
-      "why": "lvs_reference: bias_core: no passive device to corrupt"
+      "applicable": true,
+      "detected": true,
+      "exit_code": 3,
+      "status": "mismatch",
+      "category_counts": {
+        "device.body_unverified": 2,
+        "device.property": 11,
+        "topology": 9
+      }
     }
   ]
 }

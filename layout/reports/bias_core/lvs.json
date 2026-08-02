@@ -5,21 +5,21 @@
   "reference": "bias_core.reference.spice",
   "top": "bias_core",
   "status": "match",
-  "mismatch_count": 3,
+  "mismatch_count": 6,
   "category_counts": {
     "device.body_unverified": 2,
-    "topology": 1
+    "topology": 4
   },
   "counts": {
     "nets": {
-      "layout": 26,
-      "reference": 26,
-      "matched": 26
+      "layout": 54,
+      "reference": 54,
+      "matched": 54
     },
     "devices": {
-      "layout": 34,
-      "reference": 34,
-      "matched": 34
+      "layout": 70,
+      "reference": 70,
+      "matched": 70
     },
     "pins": {
       "layout": 6,
@@ -37,8 +37,8 @@
   "environment": {
     "engine": "klayout",
     "engine_version": "0.30.10",
-    "layout_sha256": "9510efb6a190fdbf9c32d363994712eaaab7eb35f1f4ec0088d73add891f1052",
-    "reference_sha256": "c06c19dee0b8683c759edc50317ce96de26115b17b88d3bf256cf63b385a1212",
+    "layout_sha256": "6d6236d05ae0cd822ebab5aa819194b3fdf709a17c9258b48b799671e2e23852",
+    "reference_sha256": "897ff2d0abdf692d8f897a5c2d9bd43ea3803fd3f2399d03b1bf8fb97c84b661",
     "extracted_netlist": null
   },
   "provenance": {
@@ -47,7 +47,7 @@
     "pdk": null,
     "deck": {
       "name": "gf180mcu",
-      "content_hash": "sha256:dcd6c84a4e9f541f47907dbc493d00758b0eeb89f2dc54d9a9d3662587acb4d8"
+      "content_hash": "sha256:90a7f0ef3c555b20964260da411d12cd76823a90693da0ca27e8166bedf0137b"
     }
   },
   "mismatches": [
@@ -80,11 +80,322 @@
     {
       "category": "topology",
       "severity": "warning",
-      "description": "device class has no counterpart on the other side, but no devices of this class were extracted either -- not a real topology mismatch",
-      "side": "layout",
-      "net": null,
+      "description": "nets were paired ambiguously; the comparer resolved it structurally (consider a hints.same_nets entry to pin this down)",
+      "side": "both",
+      "net": {
+        "layout": "$39",
+        "reference": "XCC.NZ"
+      },
       "device": null,
       "property": null
+    },
+    {
+      "category": "topology",
+      "severity": "warning",
+      "description": "nets were paired ambiguously; the comparer resolved it structurally (consider a hints.same_nets entry to pin this down)",
+      "side": "both",
+      "net": {
+        "layout": "$41",
+        "reference": "XCC.PG"
+      },
+      "device": null,
+      "property": null
+    },
+    {
+      "category": "topology",
+      "severity": "warning",
+      "description": "nets were paired ambiguously; the comparer resolved it structurally (consider a hints.same_nets entry to pin this down)",
+      "side": "both",
+      "net": {
+        "layout": "$43",
+        "reference": "XCOK.NOKX"
+      },
+      "device": null,
+      "property": null
+    },
+    {
+      "category": "topology",
+      "severity": "warning",
+      "description": "nets were paired ambiguously; the comparer resolved it structurally (consider a hints.same_nets entry to pin this down)",
+      "side": "both",
+      "net": {
+        "layout": "$44",
+        "reference": "XCOK.VDD"
+      },
+      "device": null,
+      "property": null
+    }
+  ],
+  "net_correspondence": [
+    {
+      "layout": "BIAS_OK",
+      "reference": "BIAS_OK",
+      "pin": true
+    },
+    {
+      "layout": "$24",
+      "reference": "EC",
+      "pin": false
+    },
+    {
+      "layout": "$36",
+      "reference": "ER",
+      "pin": false
+    },
+    {
+      "layout": "IBIAS",
+      "reference": "IBIAS",
+      "pin": true
+    },
+    {
+      "layout": "$17",
+      "reference": "KS1",
+      "pin": false
+    },
+    {
+      "layout": "$18",
+      "reference": "KS2",
+      "pin": false
+    },
+    {
+      "layout": "$19",
+      "reference": "KS3",
+      "pin": false
+    },
+    {
+      "layout": "$20",
+      "reference": "KS4",
+      "pin": false
+    },
+    {
+      "layout": "$10",
+      "reference": "N1",
+      "pin": false
+    },
+    {
+      "layout": "$11",
+      "reference": "N2",
+      "pin": false
+    },
+    {
+      "layout": "$35",
+      "reference": "NA",
+      "pin": false
+    },
+    {
+      "layout": "$23",
+      "reference": "NB",
+      "pin": false
+    },
+    {
+      "layout": "$6",
+      "reference": "NBG",
+      "pin": false
+    },
+    {
+      "layout": "$4",
+      "reference": "NBTOP",
+      "pin": false
+    },
+    {
+      "layout": "$21",
+      "reference": "NKG",
+      "pin": false
+    },
+    {
+      "layout": "$12",
+      "reference": "NKM",
+      "pin": false
+    },
+    {
+      "layout": "$15",
+      "reference": "NOKL",
+      "pin": false
+    },
+    {
+      "layout": "$14",
+      "reference": "NOKO",
+      "pin": false
+    },
+    {
+      "layout": "$16",
+      "reference": "NOKX",
+      "pin": false
+    },
+    {
+      "layout": "$9",
+      "reference": "NT",
+      "pin": false
+    },
+    {
+      "layout": "$38",
+      "reference": "NW1",
+      "pin": false
+    },
+    {
+      "layout": "$26",
+      "reference": "NWQ",
+      "pin": false
+    },
+    {
+      "layout": "$25",
+      "reference": "NZ",
+      "pin": false
+    },
+    {
+      "layout": "$7",
+      "reference": "PB",
+      "pin": false
+    },
+    {
+      "layout": "$3",
+      "reference": "PG",
+      "pin": false
+    },
+    {
+      "layout": "$13",
+      "reference": "TOK",
+      "pin": false
+    },
+    {
+      "layout": "VDD",
+      "reference": "VDD",
+      "pin": true
+    },
+    {
+      "layout": "VREF",
+      "reference": "VREF",
+      "pin": true
+    },
+    {
+      "layout": "VSS",
+      "reference": "VSS",
+      "pin": true
+    },
+    {
+      "layout": "vsubs",
+      "reference": "VSUBS",
+      "pin": true
+    },
+    {
+      "layout": "$39",
+      "reference": "XCC.NZ",
+      "pin": false
+    },
+    {
+      "layout": "$41",
+      "reference": "XCC.PG",
+      "pin": false
+    },
+    {
+      "layout": "$43",
+      "reference": "XCOK.NOKX",
+      "pin": false
+    },
+    {
+      "layout": "$44",
+      "reference": "XCOK.VDD",
+      "pin": false
+    },
+    {
+      "layout": "$45",
+      "reference": "XR1.1",
+      "pin": false
+    },
+    {
+      "layout": "$50",
+      "reference": "XR2.1",
+      "pin": false
+    },
+    {
+      "layout": "$30",
+      "reference": "XR2.10",
+      "pin": false
+    },
+    {
+      "layout": "$49",
+      "reference": "XR2.11",
+      "pin": false
+    },
+    {
+      "layout": "$29",
+      "reference": "XR2.12",
+      "pin": false
+    },
+    {
+      "layout": "$48",
+      "reference": "XR2.13",
+      "pin": false
+    },
+    {
+      "layout": "$28",
+      "reference": "XR2.14",
+      "pin": false
+    },
+    {
+      "layout": "$55",
+      "reference": "XR2.15",
+      "pin": false
+    },
+    {
+      "layout": "$34",
+      "reference": "XR2.2",
+      "pin": false
+    },
+    {
+      "layout": "$51",
+      "reference": "XR2.3",
+      "pin": false
+    },
+    {
+      "layout": "$33",
+      "reference": "XR2.4",
+      "pin": false
+    },
+    {
+      "layout": "$52",
+      "reference": "XR2.5",
+      "pin": false
+    },
+    {
+      "layout": "$32",
+      "reference": "XR2.6",
+      "pin": false
+    },
+    {
+      "layout": "$53",
+      "reference": "XR2.7",
+      "pin": false
+    },
+    {
+      "layout": "$31",
+      "reference": "XR2.8",
+      "pin": false
+    },
+    {
+      "layout": "$54",
+      "reference": "XR2.9",
+      "pin": false
+    },
+    {
+      "layout": "$37",
+      "reference": "XRT.1",
+      "pin": false
+    },
+    {
+      "layout": "$47",
+      "reference": "XRZ.1",
+      "pin": false
+    },
+    {
+      "layout": "$27",
+      "reference": "XRZ.2",
+      "pin": false
+    },
+    {
+      "layout": "$46",
+      "reference": "XRZ.3",
+      "pin": false
     }
   ]
 }

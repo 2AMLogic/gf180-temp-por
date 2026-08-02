@@ -496,13 +496,22 @@ What changes, and what does not:
   crossunders and their committed GDS is byte-identical. The lifted limit is
   an opportunity for the assembly level, not an obligation to redraw proven
   cells.
-  *(Superseded in one place by #92: `por_output_chain` now draws its two MiM
-  caps, whose bottom plate is `Metal4`, so that cell's GDS is no longer the
-  #72 stream. Its **signal** routing is still Metal1-only with poly
-  crossunders — the MiM is device geometry, not routing — and the other three
-  cells remain byte-identical. See `layout/README.md`.)*
-- **The matching plan is untouched.** Nothing in ranks 1–4 depended on the
-  metal count.
+  *(Superseded everywhere by #90/#91/#92/#93: `por_output_chain` now draws its
+  two MiM caps, `temp_core` its PNP array and `R2` ladder, `por_comparator` its
+  sense divider and `bias_core` its 10 vertical PNPs, 4 poly resistors and 2
+  MiM caps, so no sub-cell's GDS is the #72 stream any more. They still keep
+  **Metal1-only signal routing** with poly crossunders — the MiM stack, the
+  resistor marker layers and the bipolar device mark are device geometry, not
+  routing — except `temp_core`, the one cell that took the lifted limit up,
+  routing its new passives' terminals on Metal2 risers. The assembly's own GDS
+  is the #72 stream still, pending #97. See `layout/README.md`.)*
+- **The matching plan is untouched, and #90 added to it where the plan was
+  silent.** Nothing in ranks 1–4 depended on the metal count, and none of the
+  four ranks covers `bias_core`. Drawing that cell's bipolars made one matched
+  structure unavoidable, so it is recorded here rather than invented silently:
+  the **8:1 emitter ratio is drawn as a 3×3 common centroid**, `XQ1` at the
+  centre and `XQ8A`…`XQ8H` on the perimeter. `XQR` is not part of that ratio
+  and takes a fourth column. A `layout/tests` case asserts the centroid.
 
 No new `klayout-tools` friction issue *for the metal stack*: this is the *good*
 outcome of an already-tracked, already-fixed upstream gap reaching the local
