@@ -451,8 +451,10 @@ def _draw_guard_ring(
     """A continuous COMP+Metal1 p-substrate guard ring, contacted at 1 um.
 
     Tied to VSS by the caller abutting the VSS rail to it; no floating segment.
-    Per klayout-tools#281 the deck has no tap/well-label layer, so LVS cannot
-    confirm the tie -- that stays a design-review claim (``layout/README.md``).
+    The deck has no tap/well-label layer, so LVS cannot confirm the tie, and
+    nothing in the flow checks the ring's continuity either (filed generically
+    as klayout-tools#303) -- that stays a design-review claim for this cell
+    (``layout/README.md``).
     """
     ring = [
         (gx0, gy0, gx1, gy0 + GUARD_RING_W_UM),
@@ -1236,7 +1238,7 @@ def por_comparator(b: CellBuilder) -> None:
     # Tied to VSS by abutting the VSS rail's left end; no floating segment.
     # This cell sits on the always-on POR domain's side of the block-level
     # domain seam (layout/floorplan.md, "Guard-ring / isolation plan"), whose
-    # correctness the deck cannot check -- klayout-tools#281.
+    # correctness the deck cannot check -- klayout-tools#303.
     ring = [
         (gx0, gy0, gx1, gy0 + GUARD_RING_W_UM),
         (gx0, gy1 - GUARD_RING_W_UM, gx1, gy1),
@@ -1737,9 +1739,11 @@ def _temp_core_pnp_array(b: CellBuilder) -> None:
 # nets that must cross, and in a one-metal regime every crossing is either a
 # poly crossunder (a resistor-shaped poly shape the deck absorbs into
 # interconnect) or a break in a guard ring. Routing above Metal1 means **no
-# guard ring in this cell has a single notch in it** -- the one IBIAS
-# feedthrough crosses the domain-seam moat *over* it on Metal2/Metal3, at one
-# point, short and direct, with the moat itself unbroken end to end.
+# guard ring in this cell has a single notch in it** -- the four columns that
+# cross the domain-seam moat (IBIAS and RESETn/EN, plus the VSS and POR-domain
+# VDD risers) cross *over* it on Metal3, short and direct, none of them drawn
+# on the Metal1/COMP the moat itself is made of, so it stays unbroken end to
+# end.
 #
 # Discipline, held by the build-time checks at the bottom of ``temp_por_top``
 # rather than by convention: Metal2 runs horizontally, Metal3 vertically, one
@@ -1802,8 +1806,12 @@ TOP_TRUNK_Y = {
 
 #: Left-margin Metal3 columns, clear in x of both domains and of the seam
 #: moat's taps. ``temp_core``'s four crossing pins reach the POR domain and
-#: the rails through here rather than straight down through the seam -- only
-#: ``IBIAS`` crosses the seam, per ``layout/floorplan.md``.
+#: the rails through here rather than through either domain's footprint. All
+#: of these x's sit inside the moat's own x-span, so every column whose two
+#: endpoints straddle :data:`TOP_SEAM_Y` -- ``VSS``, ``RESETn``, ``IBIAS``,
+#: and the ``VDD_POR`` riser -- passes *over* the moat on Metal3 (``VDD``,
+#: which reaches the top rail, is the one that does not). None is drawn on
+#: Metal1/COMP, so none of them notches it.
 TOP_MARGIN_X = {
     "VSS": -48.0,
     "VDD": -52.0,
@@ -1939,9 +1947,10 @@ class _TopRoutes:
            one connected group -- so the domain-seam moat and the perimeter
            ring are *continuous*, and *are* on ``VSS`` along with the bottom
            rail, rather than being a shape that merely looks like a ring in a
-           plot. This is the guard-ring claim klayout-tools#281 says the deck
-           cannot make (no tap or well-label layer: a floating ring compares
-           clean), made here instead, at build time, from the geometry.
+           plot. This is the guard-ring claim klayout-tools#303 records the
+           deck cannot make (no tap or well-label layer, and no continuity
+           check: a floating or broken ring compares clean), made here
+           instead, at build time, from the geometry.
         """
         problems: list[str] = []
         for index, (spec, net, rect) in enumerate(self.rects):
@@ -2059,8 +2068,9 @@ def _top_guard_ring(routes: _TopRoutes, x0: float, y0: float, x1: float, y1: flo
     on ``VSS``. What distinguishes the two is topology -- a closed ring is an
     annulus (one polygon with exactly one hole), a broken one is simply
     connected -- so that is what is checked. Nothing in ``klt``'s curated
-    deck checks it: klayout-tools#281 (no tap or well-label layer) means a
-    broken *or* floating ring compares clean.
+    deck checks it: no tap or well-label layer, and no ring-continuity rule,
+    so a broken *or* floating ring compares clean on both ``klt drc`` and
+    ``klt lvs`` (filed generically as klayout-tools#303).
     """
     import klayout.db as kdb
 
@@ -2118,11 +2128,20 @@ def temp_por_top(b: CellBuilder) -> None:
       margin, the POR row through its own trunk. No domain's supply is
       daisy-chained through the other.
     - The domain-seam moat is one continuous, unbroken, VSS-tied strip along
-      the whole seam; ``IBIAS`` -- the one net the floorplan lets cross it --
-      crosses *over* it, at one point, on Metal3. ``VDD``, ``VSS`` and
-      ``RESETn``/``EN`` reach ``temp_core`` through the left margin instead,
-      well clear of the moat, because the floorplan gives the seam exactly one
-      crossing and they are not it.
+      the whole seam. Four Metal3 columns in the left margin cross *over* it,
+      all within the moat's own x-span: two signals (``IBIAS``, and
+      ``RESETn``/``EN``) and two supplies (``VSS`` down to the bottom rail,
+      and the POR domain's own ``VDD`` riser up to the top rail).
+      ``temp_core``'s ``VDD`` tap is the only left-margin column that does not
+      cross, since the top rail is on its own side of the seam. What matters
+      for isolation is not the *count* of crossings but that none of them is
+      drawn on Metal1/COMP, where the moat lives: every crossing is a Metal3
+      wire passing over an unbroken ring, so the moat needs no notch anywhere
+      -- which is what ``layout/floorplan.md``'s isolation plan asks for, and
+      what the single-metal "one feedthrough through a notch" plan only
+      approximated. ``IBIAS`` remains the only *bias* net the floorplan lets
+      cross into the temp-sensor domain (``VREF``/``BIAS_OK`` stay
+      POR-domain-internal).
 
     **DR-010's shared-``IBIAS`` contract at the layout level.**
     ``por_output_chain``'s ungated ``XMBD`` is what defines the shared
@@ -2138,9 +2157,12 @@ def temp_por_top(b: CellBuilder) -> None:
     **What is checked and what is not.** ``bash layout/run_checks.sh
     temp_por_top`` gives DRC clean, LVS match on the MOS subset, and both
     negative controls detected. It does **not** check the guard rings: the
-    curated ``gf180mcu`` deck has no tap or well-label layer
-    (klayout-tools#281), so a ring left floating or tied to the wrong net
-    compares clean. Two things stand in for that here, and both are mechanical
+    curated ``gf180mcu`` deck has no tap or well-label layer, so a ring left
+    floating, tied to the wrong net, or physically broken compares clean --
+    both defects were built and confirmed clean, and the tool gap is filed
+    generically as klayout-tools#303 (**not** #281, which is closed and whose
+    resolution, #285's ``device.body_unverified`` warning, says nothing about
+    a ring). Two things stand in for that here, and both are mechanical
     rather than a claim in prose: :func:`_top_guard_ring` cannot draw a gap
     (four overlapping rectangles, no gap parameter), and the block-time checks
     at the end of this function assert every Via1/Via2 lands inside metal on

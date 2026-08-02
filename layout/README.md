@@ -192,9 +192,10 @@ nothing for this cell, and nothing was invented here to fill the gap.
 checked one.** A continuous VSS-tied p-substrate guard ring (COMP + Metal1,
 contacted at 1 µm pitch, no floating segment) surrounds the cell; the Nwell has
 its own VDD-tied COMP strap. Per
-[klayout-tools#281](https://github.com/2AMLogic/klayout-tools/issues/281) the
-deck has no tap/well-label layer, so **a mis-tied or untied ring would compare
-clean** — this flow does not verify it, and `klt 0.1.0` does not yet emit the
+[klayout-tools#303](https://github.com/2AMLogic/klayout-tools/issues/303) the
+deck has no tap/well-label layer and no ring-continuity rule, so **a mis-tied,
+untied, or physically broken ring would compare clean** — this flow does not
+verify it, and `klt 0.1.0` does not yet emit the
 `device.body_unverified` warning that klayout-tools#285 added (the extract
 report's `warnings` array is empty).
 
@@ -275,8 +276,8 @@ edit that quietly breaks the plan fails a test rather than only a review.
 checked one** — same as `bias_core`: a continuous VSS-tied p-substrate ring
 (COMP + Metal1, contacted at 1 µm pitch, no floating segment) surrounds the
 cell and the parent Nwell has its own VDD-tied COMP strap, but per
-[klayout-tools#281](https://github.com/2AMLogic/klayout-tools/issues/281) a
-mis-tied or untied ring would compare clean. This cell sits on the always-on
+[klayout-tools#303](https://github.com/2AMLogic/klayout-tools/issues/303) a
+mis-tied, untied, or physically broken ring would compare clean. This cell sits on the always-on
 POR domain's side of the block-level domain seam (`floorplan.md`, "Guard-ring /
 isolation plan"), so that seam's correctness is exactly what review has to
 carry. `klt 0.1.0` still does not emit the `device.body_unverified` warning
@@ -372,9 +373,9 @@ checked one** — same as `bias_core`, and it matters more here because this cel
 sits on the always-on POR domain's outer edge. A continuous VSS-tied
 p-substrate guard ring (COMP + Metal1, contacted at 1 µm pitch, no floating
 segment) surrounds the cell, and the Nwell has its own VDD-tied COMP strap. Per
-[klayout-tools#281](https://github.com/2AMLogic/klayout-tools/issues/281) the
-deck has no tap/well-label layer, so **a mis-tied or untied ring would compare
-clean**; `klt 0.1.0` still does not emit the `device.body_unverified` warning
+[klayout-tools#303](https://github.com/2AMLogic/klayout-tools/issues/303) the
+deck has no tap/well-label layer and no ring-continuity rule, so **a mis-tied,
+untied, or physically broken ring would compare clean**; `klt 0.1.0` still does not emit the `device.body_unverified` warning
 klayout-tools#285 added (`extract.json`'s `warnings` array is empty).
 
 **MiM area is reserved, not stacked.** The two caps need about 3.26 × 10³ µm²
@@ -447,13 +448,28 @@ strap — nothing abuts, nothing is redrawn.
 The direct consequence, and the reason it matters here: **no guard ring in
 this cell has a notch in it.** In a single-metal regime the `IBIAS`
 feedthrough would have to break the domain-seam moat to cross it. On Metal3 it
-crosses *over* the moat, at one point, short and direct, with the moat
-continuous end to end — which is what `layout/floorplan.md`'s isolation plan
-asks for and what a notched ring only approximates.
+crosses *over* the moat instead, with the moat continuous end to end — which is
+what `layout/floorplan.md`'s isolation plan asks for and what a notched ring
+only approximates.
 
-**The check the deck cannot do.** Per klayout-tools#281 a guard ring that is
-broken, or drawn but never tied to `VSS`, is DRC-clean and LVS-match — both
-were built and confirmed clean while developing this cell. `build_cells.py`
+**What actually crosses the seam, exactly.** Four left-margin Metal3 columns
+straddle the moat's `y`, all of them inside the moat's own `x`-span: two
+signals — `IBIAS` (`x = -60`, up to `temp_core`) and `RESETn`/`EN` (`x = -56`) —
+and two supplies — `VSS` down to the bottom rail (`x = -48`, which is also the
+rings' tie net) and the POR domain's own `VDD` riser up to the top rail
+(`x = -64`). `temp_core`'s `VDD` tap (`x = -52`) is the one left-margin column
+that does not cross, because the top rail is on its side of the seam. The
+isolation claim does not rest on the *count*: it rests on **none of the four
+being drawn on Metal1/COMP**, the layers the moat is made of, so every crossing
+passes over an unbroken ring rather than through a notch in it. `IBIAS` is
+still the only *bias* net that crosses into the temp-sensor domain — `VREF` and
+`BIAS_OK` stay POR-domain-internal — which is the part of `floorplan.md`'s plan
+that is about coupling rather than about ring continuity.
+
+**The check the deck cannot do.** A guard ring that is broken, or drawn but
+never tied to `VSS`, is DRC-clean and LVS-match — both were built and confirmed
+clean while developing this cell, and the tool gap is filed generically as
+[klayout-tools#303](https://github.com/2AMLogic/klayout-tools/issues/303). `build_cells.py`
 therefore checks the geometry itself, at build time, and refuses to write the
 stream otherwise:
 
@@ -592,15 +608,20 @@ filed upstream per this repo's friction protocol.
   built and confirmed during #72: a `temp_por_top` whose seam moat is drawn but
   never tied to `VSS`, and one whose perimeter ring has a 10 µm gap in a
   segment, are each `klt drc` clean and `klt lvs` **match**.
-  Filed: [klayout-tools#281](https://github.com/2AMLogic/klayout-tools/issues/281).
-  Its follow-up #285 **is** live in this build: every `lvs.json` now carries two
-  `device.body_unverified` warnings naming how many NMOS bodies went to `vsubs`
-  and how many PMOS bodies went to an anonymous well net. That is a real signal
-  — it says the compare did not check bodies — but it is not a *tie* check, and
-  it says nothing at all about a guard ring. So ring correctness stays outside
-  the deck. `temp_por_top` answers it with build-time geometric checks instead
-  (see its section above); every other cell's ring remains a design-review
-  claim.
+  Filed: [klayout-tools#303](https://github.com/2AMLogic/klayout-tools/issues/303)
+  — that is the issue that tracks this gap, with those two defect builds as its
+  evidence.
+  The older [klayout-tools#281](https://github.com/2AMLogic/klayout-tools/issues/281)
+  (synthetic body nets) is **closed**, resolved by #285, and its curated scope
+  was narrowed to that one warning — so it does **not** track ring continuity or
+  the tie, and should not be cited for them. #285 **is** live in this build:
+  every `lvs.json` now carries two `device.body_unverified` warnings naming how
+  many NMOS bodies went to `vsubs` and how many PMOS bodies went to an anonymous
+  well net. That is a real signal — it says the compare did not check bodies —
+  but it is not a *tie* check, and it says nothing at all about a guard ring. So
+  ring correctness stays outside the deck. `temp_por_top` answers it with
+  build-time geometric checks instead (see its section above); every other
+  cell's ring remains a design-review claim.
 - **The reference netlist has to be converted, not just pointed at.** `klt lvs`
   needs plain-element SPICE (`M1 d g s b nfet L=0.5U W=1U`); `design/netlist.py`
   emits the ngspice simulation form (`XM1 d g s b nfet_03v3 L=0.5u ...`).
