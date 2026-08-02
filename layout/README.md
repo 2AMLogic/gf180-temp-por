@@ -114,6 +114,55 @@ behind #97 (`lvs_reference.FROZEN_DECK_CELLS`):
 python3 layout/lvs_reference.py --check-deck-hash
 ```
 
+Both gates run before the first per-cell check, and `run_checks.sh` is
+`set -e`, so a cell that fails one of them used to abort the whole script —
+including the cells that were current (#102). Frozen cells (below) are why that
+is no longer possible.
+
+#### Frozen cells
+
+One cell — `temp_por_top` — is deliberately held behind its own sources: its
+committed assembly stays at the #72 sub-cell set because rebuilding it against
+today's grown sub-cells is DRC-dirty at the instance boundaries, and **#97**
+owns reworking the floorplan once for all of that rather than once per sub-cell
+change. `lvs_reference.py`'s `FROZEN_CELLS` table declares that, and **both**
+`--check` paths read it (`build_cells.py` imports the module), so a freeze is
+declared once and cannot drift between the two gates:
+
+```python
+FROZEN_CELLS = {
+    "temp_por_top": {
+        "issue": "#97",              # the freeze's removal condition
+        "why": "...",                # why it is frozen, in prose
+        "gds_sha256": "...",         # the pinned committed stream
+        "reference_sha256": "...",   # the pinned committed reference
+    },
+}
+```
+
+A freeze is **not** "stop checking this cell". The committed bytes are still
+verified on every run against the digests pinned above; what is suspended is
+only the comparison against a *fresh rebuild*, which is the part #97 owns. So
+the states stay distinguishable in the log:
+
+| Committed artefact | `--check` says |
+| ------------------ | -------------- |
+| unfrozen, current | `ok <artefact>` |
+| unfrozen, source has moved | `FAIL …: committed … is stale` |
+| frozen, pinned baseline intact | `frozen <artefact> … (see #97)` |
+| frozen, baseline **changed** | `FAIL …: no longer matches the pinned frozen baseline` |
+
+Running either script *without* `--check` also skips a frozen cell (rather than
+overwriting it and quietly breaking the pin) unless it is named explicitly with
+`--cell`, which is #97's own workflow. `layout/tests/test_lvs_reference.py`'s
+`FrozenCellTest` asserts the pinned digests against the committed files, so the
+pin is enforced in CI too (stdlib only, no `klt`) — and asserts that an
+*unfrozen* stale cell still fails, so the mechanism cannot decay into a blanket
+staleness bypass.
+
+**To end a freeze**: delete its `FROZEN_CELLS` entry. Nothing else changes —
+both gates fall straight back to rebuild-and-compare.
+
 **1. DRC.**
 
 ```bash
@@ -176,6 +225,19 @@ layout/
 Reports are regenerated wholesale by `run_checks.sh` and are byte-stable across
 runs (paths are repo-relative, digests are content-based), so a re-run that
 changes nothing produces an empty `git diff` — that is the repeatability check.
+
+That byte-stability is across runs with the **same** `klt`. Every report records
+the deck it was produced against (`provenance.deck.content_hash`), and `klt`
+0.1.0's curated decks are still moving without a version bump — so the committed
+set is *heterogeneous by cell*: each cell's reports carry whatever deck was
+current when that cell last landed, and a re-run against a newer `klt`
+legitimately rewrites them (new deck hash, plus any diagnostic field the newer
+extractor emits). Re-running the whole flow to normalise that is a deliberate,
+separate act, not a side effect of touching one cell: a PR that changes one
+cell's geometry regenerates **that cell's** reports and leaves the rest alone,
+because `reports/` is append-only evidence (`CLAUDE.md`) and silently restamping
+five other cells' recorded runs with a deck they were never checked against
+would destroy exactly the provenance the directory exists to carry.
 
 ## The cells under test
 
@@ -376,6 +438,18 @@ Consequences to carry forward:
   `XRHYS`'s *other* terminal risers on their way down to the Metal2
   trunks — shorting `SNS`/`SNSB` to `VDD`. Both rails now stop just past
   their own divider terminal instead of reaching the full width.
+- That Metal2 escape's own two Poly2 landing contacts were the cell's last
+  DRC violations, and the reason this cell is the one that proved a committed
+  report can lie (#102): each net's Poly2 track *ended on* its landing
+  contact's centre x, so the Poly2 covered only the contact's west half and
+  left the east half bare — two `poly2.enclosing.contact.1` (DRM `CO.3`)
+  violations in the committed stream, under a committed `drc.json` that said
+  `clean`. The report was textually indistinguishable from a genuine clean one
+  (`status: clean`, `violation_count: 0`, empty `violations`), which is exactly
+  why nothing noticed. Both tracks now run *past* their contact by
+  `build_cells.py`'s `_poly2_landing_x1`, which derives the overhang from
+  `CO.3` and the contact size rather than from a hand-written coordinate, so
+  the enclosure cannot silently go to zero again if the track pitch moves.
 - [klayout-tools#288](https://github.com/2AMLogic/klayout-tools/issues/288)'s per-cell warning count for "poly shapes with the
   resistor-body signature but no marker layer at all" is **12** here, not
   lower than #69's baseline of 10 as originally hoped. Root cause: none

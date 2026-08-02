@@ -13,10 +13,13 @@ emit a reference the layout can never match.
 from __future__ import annotations
 
 import collections
+import contextlib
+import io
 import json
 import sys
 import tempfile
 import unittest
+import unittest.mock
 from pathlib import Path
 
 LAYOUT_DIR = Path(__file__).resolve().parents[1]
@@ -1333,6 +1336,165 @@ class DeckHashConsistencyTest(unittest.TestCase):
         # drift finding -- the per-cell checks in run_checks.sh are what
         # require reports to exist at all.
         self.assertEqual(lr.check_deck_hash_consistency(self.reports_dir), [])
+
+
+class FrozenCellTest(unittest.TestCase):
+    """``FROZEN_CELLS`` (#102) is what lets one cell's committed artefacts stay
+    behind their sources without taking the whole staleness gate down with them
+    (``layout/run_checks.sh`` runs both ``--check`` gates under ``set -e``
+    before any per-cell DRC/LVS runs, so one stale cell used to abort every
+    check in the repo).
+
+    A freeze must not degrade into "stop checking this cell". These cover the
+    part that keeps it honest: the committed bytes are still verified on every
+    run against a digest recorded in the manifest, so only the comparison
+    against a *fresh rebuild* -- the thing the tracking issue owns -- is
+    suspended."""
+
+    ARTEFACTS = (("gds", ".gds"), ("reference", ".reference.spice"))
+
+    def frozen(self, digest, artefact="reference", issue="#1"):
+        """A one-entry FROZEN_CELLS patch pinning ``artefact`` to ``digest``."""
+        return unittest.mock.patch.dict(
+            lr.FROZEN_CELLS,
+            {
+                "cell_under_test": {
+                    "issue": issue,
+                    "why": "test fixture",
+                    f"{artefact}_sha256": digest,
+                }
+            },
+            clear=True,
+        )
+
+    def test_every_frozen_cell_is_a_real_cell_in_both_manifests(self):
+        # Both --check paths read this one table, so a typo'd cell name would
+        # silently freeze nothing at all.
+        for name in lr.FROZEN_CELLS:
+            self.assertIn(name, lr.CELLS, f"{name}: not in lvs_reference.CELLS")
+            self.assertIn(name, bc.CELLS, f"{name}: not in build_cells.CELLS")
+
+    def test_every_freeze_names_a_tracking_issue_and_pins_both_artefacts(self):
+        for name, spec in lr.FROZEN_CELLS.items():
+            self.assertRegex(spec["issue"], r"^#\d+$", f"{name}: no tracking issue")
+            self.assertTrue(spec["why"].strip(), f"{name}: no stated reason")
+            for artefact, _suffix in self.ARTEFACTS:
+                self.assertRegex(
+                    spec[f"{artefact}_sha256"],
+                    r"^[0-9a-f]{64}$",
+                    f"{name}: {artefact} is not pinned to a sha256",
+                )
+
+    def test_the_pinned_digests_are_the_committed_artefacts(self):
+        # The load-bearing one, and the reason a freeze is not a bypass: this
+        # runs in CI (stdlib only, no klt) and fails the moment a frozen
+        # artefact is regenerated or edited without updating its pin.
+        for name, spec in lr.FROZEN_CELLS.items():
+            for artefact, suffix in self.ARTEFACTS:
+                path = LAYOUT_DIR / "cells" / f"{name}{suffix}"
+                verdict = lr.frozen_check(name, artefact, path)
+                self.assertIsNotNone(verdict, f"{name}: not seen as frozen")
+                self.assertTrue(verdict.ok, verdict.line)
+                self.assertIn(spec["issue"], verdict.line)
+
+    def test_an_unfrozen_cell_gets_no_verdict_at_all(self):
+        # None means "run the normal rebuild-and-compare"; a truthy verdict here
+        # would quietly excuse every cell.
+        path = LAYOUT_DIR / "cells" / f"{CELL}.reference.spice"
+        self.assertNotIn(CELL, lr.FROZEN_CELLS)
+        self.assertIsNone(lr.frozen_check(CELL, "reference", path))
+
+    def test_a_frozen_artefact_that_changed_is_a_failure(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp, "frozen.spice")
+            path.write_text("* the pinned baseline\n")
+            pinned = lr.sha256_bytes(path.read_bytes())
+            path.write_text("* somebody regenerated it\n")
+            with self.frozen(pinned, issue="#42"):
+                verdict = lr.frozen_check("cell_under_test", "reference", path)
+        self.assertFalse(verdict.ok)
+        self.assertIn("pinned frozen baseline", verdict.line)
+        self.assertIn("#42", verdict.line)
+
+    def test_a_frozen_artefact_that_is_missing_is_a_failure(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp, "absent.spice")
+            with self.frozen("0" * 64):
+                verdict = lr.frozen_check("cell_under_test", "reference", path)
+        self.assertFalse(verdict.ok)
+        self.assertIn("not committed", verdict.line)
+
+    def test_a_freeze_that_forgets_to_pin_an_artefact_raises(self):
+        # Better a loud KeyError than a freeze that checks one artefact and
+        # waves the other through.
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp, "frozen.gds")
+            path.write_text("x")
+            with self.frozen("0" * 64, artefact="reference"):
+                with self.assertRaises(KeyError):
+                    lr.frozen_check("cell_under_test", "gds", path)
+
+    def check_in_sandbox(self, name, text):
+        """``lvs_reference.py --check --cell <name>`` against a fake cells/ dir
+        holding exactly ``text`` as that cell's committed reference."""
+        with tempfile.TemporaryDirectory() as tmp:
+            cells = Path(tmp, "cells")
+            cells.mkdir()
+            (cells / f"{name}.reference.spice").write_text(text)
+            with (
+                unittest.mock.patch.object(lr, "CELLS_DIR", cells),
+                unittest.mock.patch.object(lr, "REPO_ROOT", Path(tmp)),
+                contextlib.redirect_stdout(io.StringIO()) as out,
+            ):
+                code = lr.run(check=True, only=name, corrupt=None, out=None)
+        return code, out.getvalue()
+
+    def test_check_still_fails_an_unfrozen_stale_reference(self):
+        # The regression the frozen mechanism must not cause: staleness
+        # checking stays live for every cell that is not explicitly frozen.
+        code, output = self.check_in_sandbox(CELL, "* deliberately stale\n")
+        self.assertEqual(code, 1)
+        self.assertIn("committed reference netlist is stale", output)
+
+    def test_check_passes_a_frozen_cell_whose_reference_is_stale(self):
+        stale = "* deliberately stale, and deliberately pinned\n"
+        digest = lr.sha256_bytes(stale.encode())
+        with unittest.mock.patch.dict(
+            lr.FROZEN_CELLS,
+            {CELL: {"issue": "#42", "why": "test fixture", "reference_sha256": digest}},
+        ):
+            code, output = self.check_in_sandbox(CELL, stale)
+        self.assertEqual(code, 0)
+        self.assertIn("frozen", output)
+        self.assertIn("#42", output)
+        # ... and it says "frozen", not "ok": a reader can tell the two apart.
+        self.assertNotIn("ok ", output)
+
+
+class Poly2ContactEnclosureTest(unittest.TestCase):
+    """``_poly2_landing_x1`` (#102). A Poly2 routing track that simply *ends* on
+    its landing contact's centre covers only the contact's west half -- the
+    two ``poly2.enclosing.contact.1`` violations ``por_comparator``'s committed
+    stream carried while its committed report claimed clean."""
+
+    def test_the_overhang_clears_the_drm_enclosure(self):
+        overhang = bc._poly2_landing_x1(10.0) - 10.0
+        self.assertGreaterEqual(
+            overhang, bc.CONTACT_SIDE_UM / 2.0 + bc.POLY2_CONT_ENC_UM
+        )
+
+    def test_the_overhang_matches_the_track_s_own_margin(self):
+        # A track end that overhangs by half a track width gives its contact the
+        # same margin east that the track's width already gives it north/south,
+        # so the landing looks like the rest of the track rather than a stub.
+        overhang = bc._poly2_landing_x1(3.0) - 3.0
+        self.assertGreaterEqual(overhang, bc.TRACK_W_UM / 2.0)
+
+    def test_the_enclosure_constant_is_the_drm_rule_the_deck_checks(self):
+        # klt's curated gf180mcu deck checks poly2.enclosing.contact.1 at
+        # 70 dbu; this module is stdlib-only (no klt import), so the value is
+        # transcribed and asserted against the DRM number it came from.
+        self.assertAlmostEqual(bc.POLY2_CONT_ENC_UM, 0.07)
 
 
 if __name__ == "__main__":

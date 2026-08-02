@@ -37,7 +37,7 @@
   "environment": {
     "engine": "klayout",
     "engine_version": "0.30.10",
-    "layout_sha256": "514f8c4a7b1604c448dd09e88137e9682b58e84645d7eef14a343223480e8238",
+    "layout_sha256": "45b4b14914c4e651e4488b9732988faee047047fb95887b71a126ae331815168",
     "reference_sha256": "bee586ec94d52cbc98ec0f48dfb0a3187f7e0df6e3b1d881c281639ded85c305",
     "extracted_netlist": null
   },
@@ -47,7 +47,7 @@
     "pdk": null,
     "deck": {
       "name": "gf180mcu",
-      "content_hash": "sha256:dcd6c84a4e9f541f47907dbc493d00758b0eeb89f2dc54d9a9d3662587acb4d8"
+      "content_hash": "sha256:be1a89e0f899a68c60baeeedffe1b4d76b965bd763e1b16beed1c85937872b1d"
     }
   },
   "mismatches": [
@@ -85,6 +85,98 @@
       "net": null,
       "device": null,
       "property": null
+    }
+  ],
+  "net_correspondence": [
+    {
+      "layout": "BIAS_OK",
+      "reference": "BIAS_OK",
+      "pin": true
+    },
+    {
+      "layout": "BIAS_OKB",
+      "reference": "BIAS_OKB",
+      "pin": true
+    },
+    {
+      "layout": "$5",
+      "reference": "CMPO",
+      "pin": false
+    },
+    {
+      "layout": "IBIAS",
+      "reference": "IBIAS",
+      "pin": true
+    },
+    {
+      "layout": "$7",
+      "reference": "N1",
+      "pin": false
+    },
+    {
+      "layout": "$4",
+      "reference": "NA",
+      "pin": false
+    },
+    {
+      "layout": "$12",
+      "reference": "NBG",
+      "pin": false
+    },
+    {
+      "layout": "$16",
+      "reference": "NW1",
+      "pin": false
+    },
+    {
+      "layout": "$17",
+      "reference": "NW2",
+      "pin": false
+    },
+    {
+      "layout": "POR_RAW",
+      "reference": "POR_RAW",
+      "pin": true
+    },
+    {
+      "layout": "$10",
+      "reference": "SNS",
+      "pin": false
+    },
+    {
+      "layout": "$14",
+      "reference": "SNSB",
+      "pin": false
+    },
+    {
+      "layout": "$9",
+      "reference": "TN",
+      "pin": false
+    },
+    {
+      "layout": "VDD",
+      "reference": "VDD",
+      "pin": true
+    },
+    {
+      "layout": "$3",
+      "reference": "VDDA",
+      "pin": false
+    },
+    {
+      "layout": "VREF",
+      "reference": "VREF",
+      "pin": true
+    },
+    {
+      "layout": "VSS",
+      "reference": "VSS",
+      "pin": true
+    },
+    {
+      "layout": "vsubs",
+      "reference": "VSUBS",
+      "pin": true
     }
   ]
 }
