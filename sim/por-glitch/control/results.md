@@ -8,8 +8,8 @@ Two PVT points from record `20260801-233813-32fbaa0`, same process/temp, differe
 
 | point | min `PGDG` during the 300 ns glitch | `TIM` immediately after | `RESETn` crossings of 1.65 V after the glitch | time from glitch-end to release |
 | --- | ---: | ---: | ---: | ---: |
-| `tt_27c_2.97v` | 0.4990 V | 0.9263 V | 3 | 5.076 ms |
-| `tt_27c_3.30v` | 0.4958 V | 0.9270 V | 3 | 6.106 ms |
+| `tt_27c_2.97v` | 0.4995 V | 0.9263 V | 1 | 5.079 ms |
+| `tt_27c_3.30v` | 0.4965 V | 0.9270 V | 1 | 6.109 ms |
 
 ## What the numbers say
 
@@ -32,22 +32,23 @@ Two PVT points from record `20260801-233813-32fbaa0`, same process/temp, differe
   pulse completes inside a 5.5 ms observation window and the higher-VDD
   point's does not -- record 20260801-233813-32fbaa0's 'recovers' vs.
   'stuck' split is that window effect, not two different circuit behaviours.
-- The crossing count is 3, not 2, at both points: the release edge itself
-  carries a brief extra rise/fall/rise (tens of us) on top of the main
-  transition. That is NOT a second mechanism -- it is the SAME release-edge
-  chatter sim/por-ramp-rate/control/ finds and root-causes (a marginal
-  transition inside por_output_chain's own trip detector / release-NAND /
-  XMAST keeper loop, temperature-dependent, independent of what charged
-  TIM). It shows up here because a glitch-regenerated pulse still ends with
-  TIM crossing the same trip detector the same way a cold-start or ramp
-  release does.
+- The crossing count is the read-out for issue #56's OTHER finding. Before
+  XMRLK (the release latch DR-016 adds) it was 3, not 2, at both points: the
+  regenerated pulse's own release edge carried the same shared-IBIAS release
+  chatter sim/por-ramp-rate/control/ root-causes, because a glitch-
+  regenerated pulse ends by crossing the same trip detector a cold-start
+  release does. With XMRLK it is 1 -- a single clean release rise; the
+  pulse's falling edge happens during the glitch itself, before this window
+  opens -- so this deck doubles as an independent confirmation that the
+  latch fixes the chatter on a release path the ramp-rate testbench never
+  exercises.
 
 ## Environment
 
 - PDK: gf180mcuD @ open_pdks `c6d73a35f524070e85faff4a6a9eef49553ebc2b` (/Users/rwalters/.volare/gf180mcuD, found via search_root:~/.volare)
 - ngspice: ngspice-46 : Circuit level simulation program
 - Harness: sim/harness 0.1.0 (corner sections and solver options only), python 3.14.6
-- git: `628311121f5412dd0678bc81e7a86061d226a3b3 (dirty)`
+- git: `ab3e393deb49d98629918e8d267c6ad3c26d600c (dirty)`
 - Solver options (from `../testbench/tb.json`): reltol=1e-5 abstol=1e-15 vntol=1e-9
 - `glitch_probe.spice` sha256: `c009b7081c5c5ddd5fe96ef5b347eaee972506296aeab4947b5d8ffcea86897e`
-- `design/netlist/temp_por_top.spice` sha256: `1cb191d10e6ae487649d7c8bb8746ba06c1049f5c8970cb6de7d2a60bf779bcc`
+- `design/netlist/temp_por_top.spice` sha256: `ae7021b9e44f38c5b0d14cfc73e0e2eaec23ae2f0498bfcbe09849b40f67526e`

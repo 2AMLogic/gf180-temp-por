@@ -14,87 +14,87 @@ Initial Transient Solution
 Node                                   Voltage
 ----                                   -------
 vdd                                          0
-ptat                             -4.44255e-100
-ctat                               2.93409e-62
-resetn                            -1.27493e-51
-xdut.xbias.na                     1.48654e-142
-xdut.xbias.pg                     -1.15985e-62
-xdut.xbias.nbtop                 -1.68862e-131
-xdut.vref                         8.66773e-140
-xdut.xbias.nbg                       2.091e-80
-xdut.xbias.xrt.11                -1.68862e-131
-xdut.xbias.xrt.21                -1.68862e-131
-xdut.xbias.nb                    -1.68862e-131
-xdut.xbias.xr1.11                -1.68862e-131
-xdut.xbias.xr1.21                -1.68862e-131
-xdut.xbias.ec                    -1.68862e-131
-xdut.xbias.xr2.11                 8.66773e-140
-xdut.xbias.xr2.21                 8.66778e-140
-xdut.xbias.er                     8.66778e-140
-xdut.xbias.pb                     -2.15452e-81
-xdut.ibias                         2.62521e-19
-xdut.xbias.nt                      4.04131e-67
-xdut.xbias.n1                     -5.40765e-68
-xdut.xbias.n2                     -1.28458e-65
-xdut.xbias.nz                     -1.28458e-65
-xdut.xbias.xrz.11                 -1.28458e-65
-xdut.xbias.xrz.21                 -1.28458e-65
-xdut.xbias.ks1                     3.21643e-51
-xdut.xbias.ks2                    -4.00747e-50
-xdut.xbias.ks3                     4.96082e-49
-xdut.xbias.ks4                    -6.14079e-48
-xdut.xbias.nkg                     7.60093e-47
-xdut.xbias.nkm                     2.86635e-83
-xdut.xbias.tok                     1.75084e-74
-xdut.xbias.noko                   -1.15976e-75
-xdut.xbias.nokl                   -5.63837e-73
-xdut.xbias.nokx                    3.68662e-67
-xdut.bias_ok                       1.01422e-45
-xdut.xtemp.nbg                     9.92525e-21
-xdut.xtemp.enb                   -2.33945e-280
-xdut.xtemp.pb                    -1.28727e-119
-xdut.xtemp.pcas                  -9.49264e-205
-xdut.xtemp.nt                      1.87056e-31
-xdut.xtemp.n1                      7.91549e-31
-xdut.xtemp.na                      2.93409e-62
-xdut.xtemp.n2                      9.75846e-32
-xdut.xtemp.nb                      6.33118e-90
-xdut.xtemp.pg                     -1.21078e-32
-xdut.xtemp.nz                      9.75846e-32
-xdut.xtemp.xrz.11                  9.75846e-32
-xdut.xtemp.xrz.21                  9.75846e-32
-xdut.xtemp.m1d                    -1.17254e-62
-xdut.xtemp.m2d                    -1.78875e-89
-xdut.xtemp.m3d                     4.01982e-94
-xdut.xtemp.nd                      1.03139e-47
-xdut.xtemp.nr                     -8.54958e-39
-xdut.xtemp.nc                      6.33118e-90
-xdut.xtemp.xr1.11                  6.33118e-90
-xdut.xtemp.xr1.21                  6.33118e-90
-xdut.xtemp.xr2f.11               -4.44231e-100
-xdut.xtemp.xr2f.21               -6.48111e-101
-xdut.xtemp.t5                    -6.47866e-101
-xdut.xtemp.xr2t5.11              -6.47622e-101
-xdut.xtemp.xr2t5.21              -3.19046e-101
-xdut.xtemp.t4                    -3.18802e-101
-xdut.xtemp.xr2t4.11              -3.18557e-101
-xdut.xtemp.xr2t4.21              -1.54507e-101
-xdut.xtemp.t3                    -1.54262e-101
-xdut.xtemp.xr2t3.11              -1.54018e-101
-xdut.xtemp.xr2t3.21              -7.22289e-102
-xdut.xtemp.t2                    -7.19843e-102
-xdut.xtemp.xr2t2.11              -7.17398e-102
-xdut.xtemp.xr2t2.21              -3.10887e-102
-xdut.xtemp.t1                    -3.08441e-102
-xdut.xtemp.xr2t1.11              -3.05996e-102
-xdut.xtemp.xr2t1.21              -1.05316e-102
-xdut.xtemp.t0                     -1.0287e-102
-xdut.xtemp.xr2t0.11              -1.00425e-102
-xdut.xtemp.xr2t0.21               -2.4453e-104
-xdut.xtemp.xriso.11                2.93409e-62
-xdut.xtemp.xriso.21                2.93409e-62
-xdut.xcmp.bias_okb                           0
-xdut.xcmp.nbg                      7.67565e-21
+ptat                              -2.58604e-59
+ctat                               1.51137e-33
+resetn                             1.07659e-21
+xdut.xbias.na                      2.15478e-69
+xdut.xbias.pg                     -6.45159e-40
+xdut.xbias.nbtop                  -4.37426e-66
+xdut.vref                          1.25641e-66
+xdut.xbias.nbg                     1.67502e-49
+xdut.xbias.xrt.11                 -4.37426e-66
+xdut.xbias.xrt.21                 -4.37426e-66
+xdut.xbias.nb                     -4.37426e-66
+xdut.xbias.xr1.11                 -4.37426e-66
+xdut.xbias.xr1.21                 -4.37426e-66
+xdut.xbias.ec                     -4.37426e-66
+xdut.xbias.xr2.11                  1.25641e-66
+xdut.xbias.xr2.21                  1.25642e-66
+xdut.xbias.er                      1.25642e-66
+xdut.xbias.pb                     -1.64658e-50
+xdut.ibias                         -1.1784e-22
+xdut.xbias.nt                        2.344e-44
+xdut.xbias.n1                     -3.51835e-45
+xdut.xbias.n2                     -7.34423e-43
+xdut.xbias.nz                     -7.34424e-43
+xdut.xbias.xrz.11                 -7.34424e-43
+xdut.xbias.xrz.21                 -7.34423e-43
+xdut.xbias.ks1                     2.94942e-36
+xdut.xbias.ks2                    -3.67479e-35
+xdut.xbias.ks3                     4.54899e-34
+xdut.xbias.ks4                    -5.63101e-33
+xdut.xbias.nkg                     6.96994e-32
+xdut.xbias.nkm                     2.55398e-52
+xdut.xbias.tok                     4.82702e-44
+xdut.xbias.noko                   -2.50471e-45
+xdut.xbias.nokl                   -1.55515e-42
+xdut.xbias.nokx                    3.29019e-36
+xdut.bias_ok                       7.78734e-28
+xdut.xtemp.nbg                     1.49452e-22
+xdut.xtemp.enb                   -7.01239e-224
+xdut.xtemp.pb                      2.33728e-24
+xdut.xtemp.pcas                   -5.78313e-25
+xdut.xtemp.nt                      8.18086e-19
+xdut.xtemp.n1                      1.67239e-19
+xdut.xtemp.na                      1.51137e-33
+xdut.xtemp.n2                      4.48266e-19
+xdut.xtemp.nb                      2.96256e-34
+xdut.xtemp.pg                     -1.15367e-19
+xdut.xtemp.nz                      4.48266e-19
+xdut.xtemp.xrz.11                  4.48266e-19
+xdut.xtemp.xrz.21                  4.48266e-19
+xdut.xtemp.m1d                    -6.67892e-34
+xdut.xtemp.m2d                    -1.06226e-33
+xdut.xtemp.m3d                    -2.23752e-53
+xdut.xtemp.nd                      4.93071e-23
+xdut.xtemp.nr                      6.53857e-42
+xdut.xtemp.nc                      2.96256e-34
+xdut.xtemp.xr1.11                  2.96256e-34
+xdut.xtemp.xr1.21                  2.96256e-34
+xdut.xtemp.xr2f.11                -2.58589e-59
+xdut.xtemp.xr2f.21                -3.77521e-60
+xdut.xtemp.t5                     -3.77379e-60
+xdut.xtemp.xr2t5.11               -3.77237e-60
+xdut.xtemp.xr2t5.21               -1.85771e-60
+xdut.xtemp.t4                     -1.85629e-60
+xdut.xtemp.xr2t4.11               -1.85487e-60
+xdut.xtemp.xr2t4.21               -8.99475e-61
+xdut.xtemp.t3                     -8.98051e-61
+xdut.xtemp.xr2t3.11               -8.96627e-61
+xdut.xtemp.xr2t3.21               -4.20446e-61
+xdut.xtemp.t2                     -4.19023e-61
+xdut.xtemp.xr2t2.11               -4.17599e-61
+xdut.xtemp.xr2t2.21               -1.80959e-61
+xdut.xtemp.t1                     -1.79536e-61
+xdut.xtemp.xr2t1.11               -1.78113e-61
+xdut.xtemp.xr2t1.21               -6.13002e-62
+xdut.xtemp.t0                     -5.98768e-62
+xdut.xtemp.xr2t0.11               -5.84535e-62
+xdut.xtemp.xr2t0.21               -1.42331e-63
+xdut.xtemp.xriso.11                1.51137e-33
+xdut.xtemp.xriso.21                1.51137e-33
+xdut.xcmp.bias_okb                7.18995e-123
+xdut.xcmp.nbg                       1.5073e-22
 xdut.xcmp.sns                                0
 xdut.xcmp.xrtop.11                           0
 xdut.xcmp.xrtop.21                           0
@@ -103,87 +103,57 @@ xdut.xcmp.xrbot.11                           0
 xdut.xcmp.xrbot.21                           0
 xdut.xcmp.xrhys.11                           0
 xdut.xcmp.xrhys.21                           0
-xdut.xcmp.n1                       8.99662e-79
-xdut.xcmp.tn                      -2.27726e-77
-xdut.xcmp.na                       1.46351e-77
-xdut.xcmp.cmpo                     1.40803e-77
-xdut.xcmp.vdda                      3.9332e-78
-xdut.por_raw                       7.38833e-77
-xdut.xpor.pdn                      3.82967e-21
-xdut.xpor.ndl                     -6.48934e-59
-xdut.xpor.ndgp                    -1.61405e-55
-xdut.xpor.ndg                     -1.27077e-54
-xdut.xpor.ndgn                      2.3049e-54
-xdut.xpor.pgdg                     7.04183e-40
-xdut.xpor.pgdgb                              0
-xdut.xpor.nts                      1.47851e-58
-xdut.xpor.tim                      6.96104e-57
-xdut.xpor.nd1                                0
-xdut.xpor.trip                     2.45192e-54
-xdut.xpor.rstb                     2.02643e-38
-xdut.xpor.nnand                   -7.44603e-38
-vsup#branch                        1.17005e-31
+xdut.xcmp.n1                         1.493e-40
+xdut.xcmp.tn                      -6.18262e-32
+xdut.xcmp.na                       6.43793e-32
+xdut.xcmp.cmpo                      7.6042e-32
+xdut.xcmp.vdda                     2.20741e-32
+xdut.por_raw                       8.54869e-46
+xdut.xpor.pdn                    -7.62808e-132
+xdut.xpor.ndl                     -3.93878e-37
+xdut.xpor.ndgp                    -3.18365e-36
+xdut.xpor.ndg                     -2.68226e-35
+xdut.xpor.ndgn                     4.87145e-35
+xdut.xpor.pgdg                    -5.02859e-28
+xdut.xpor.pgdgb                   -2.77159e-35
+xdut.xpor.nts                       -3.318e-35
+xdut.xpor.tim                     -1.55857e-33
+xdut.xpor.nd1                     -1.26218e-43
+xdut.xpor.trip                    -1.01985e-29
+xdut.xpor.rstb                     9.85756e-21
+xdut.xpor.nnand                   -3.51075e-20
+vsup#branch                        3.33886e-31
 
  Reference value :  0.00000e+00
- Reference value :  1.79619e-04
- Reference value :  4.03474e-04
- Reference value :  4.60395e-04
- Reference value :  4.63045e-04
- Reference value :  4.95332e-04
- Reference value :  5.03971e-04
- Reference value :  9.41609e-04
- Reference value :  9.45251e-04
- Reference value :  9.54178e-04
- Reference value :  1.82404e-03
- Reference value :  5.24404e-03
- Reference value :  8.82404e-03
- Reference value :  9.20147e-03
- Reference value :  9.20202e-03
- Reference value :  9.20350e-03
- Reference value :  9.20477e-03
- Reference value :  9.20609e-03
- Reference value :  9.22441e-03
- Reference value :  9.22456e-03
- Reference value :  9.22692e-03
- Reference value :  9.24228e-03
- Reference value :  9.24296e-03
- Reference value :  9.24385e-03
- Reference value :  9.24513e-03
- Reference value :  9.24674e-03
- Reference value :  9.52116e-03
- Reference value :  1.32012e-02
- Reference value :  1.67612e-02
- Reference value :  2.00000e-02
- Reference value :  2.00002e-02
- Reference value :  2.00002e-02
+ Reference value :  1.95682e-04
+ Reference value :  4.24171e-04
+ Reference value :  4.62986e-04
+ Reference value :  4.80131e-04
+ Reference value :  4.96243e-04
+ Reference value :  9.41311e-04
+ Reference value :  9.42487e-04
+ Reference value :  9.54152e-04
+ Reference value :  1.96786e-03
+ Reference value :  5.78786e-03
+ Reference value :  9.19118e-03
+ Reference value :  9.20665e-03
+ Reference value :  9.20944e-03
+ Reference value :  1.35246e-02
+ Reference value :  1.81046e-02
+ Reference value :  2.00001e-02
  Reference value :  2.00003e-02
  Reference value :  2.00003e-02
- Reference value :  2.00016e-02
  Reference value :  2.00022e-02
- Reference value :  2.00049e-02
- Reference value :  2.00056e-02
- Reference value :  2.18942e-02
- Reference value :  2.50568e-02
- Reference value :  2.50759e-02
- Reference value :  2.50767e-02
- Reference value :  2.50776e-02
- Reference value :  2.50789e-02
- Reference value :  2.50801e-02
- Reference value :  2.50983e-02
- Reference value :  2.50988e-02
- Reference value :  2.50992e-02
- Reference value :  2.51165e-02
- Reference value :  2.51170e-02
- Reference value :  2.51181e-02
- Reference value :  2.51194e-02
- Reference value :  2.51210e-02
- Reference value :  2.58445e-02
- Reference value :  2.92645e-02
- Reference value :  3.28045e-02
- Reference value :  3.63445e-02
- Reference value :  3.97645e-02
- Reference value :  4.32645e-02
-No. of Data Rows : 6148
+ Reference value :  2.00050e-02
+ Reference value :  2.50600e-02
+ Reference value :  2.50804e-02
+ Reference value :  2.50815e-02
+ Reference value :  2.50837e-02
+ Reference value :  2.63136e-02
+ Reference value :  3.07536e-02
+ Reference value :  3.63336e-02
+ Reference value :  4.01136e-02
+No. of Data Rows : 4770
 Note: Simulation executed from .control section 
 
 Warning: m=xx on .subckt line will override multiplier m hierarchy!
