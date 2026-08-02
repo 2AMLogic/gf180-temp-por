@@ -1,0 +1,36 @@
+* por-brownout control -- assembly dip-shape fragment (issue #55).
+*
+* Netlist FRAGMENT: no .include / .lib / .temp / .control / .end -- the
+* control runner owns those, exactly as the corner harness does for
+* ../testbench/stimulus.spice.
+*
+* This is ../testbench/stimulus.spice with the dip's two shape parameters
+* -- depth and edge duration -- lifted out of the PWL into .param, and
+* nothing else changed: same 1 ms cold start, same 20 ms settle to a
+* released state, same 1 pF + 1 Tohm PTAT/CTAT pad references, same 5 pF
+* RESETn load, same DUT. The parent deck's own numbers (dip_v = 1.0 V,
+* t_edge = 1 us, t_dwell = 50 us) are one point of this family, which is
+* what makes the sweep a control on record 20260801-233807-32fbaa0 rather
+* than a different experiment.
+*
+* Parameters the runner supplies: vdd_val, vdd_nom, temp_c (from the
+* harness, as for any deck), plus dip_v, t_edge, t_dwell (the control
+* variables) and t_dip (the dip start, held fixed at 20 ms).
+
+vsup vdd 0 PWL(
++ 0                            0
++ 1m                           {vdd_val}
++ {t_dip}                      {vdd_val}
++ {t_dip+t_edge}               {dip_v}
++ {t_dip+t_edge+t_dwell}       {dip_v}
++ {t_dip+2*t_edge+t_dwell}     {vdd_val}
++ {t_dip+2*t_edge+t_dwell+1m}  {vdd_val}
++ )
+
+Cpp ptat 0 1p
+Cpc ctat 0 1p
+Rlp ptat 0 1T
+Rlc ctat 0 1T
+Crn resetn 0 5p
+
+xdut vdd 0 ptat ctat resetn temp_por_top

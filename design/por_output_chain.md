@@ -380,6 +380,37 @@ current in the settled state. The floor record measures the end of that chain
 directly (1.70 mV worst case, ≤0.0055 × VDD), including the pathological case
 where `POR_RAW` is driven high below the comparator floor.
 
+### Confirmed against a *starved* bias, not just a dead one (#55)
+
+The floor record ramps the rail from 0 V, so the whole cell is cold together.
+Issue #55 asked the harder version of the question — the cell **released and
+warm**, then the rail collapsing to 1.0 V with `IBIAS` cut from under it — as
+part of root-causing `sim/por-brownout/`'s 0/81 result.
+`sim/por-brownout/control/results.md` § C drives `POR_RAW` low at that rail
+and sweeps the current still reaching `IBIAS`:
+
+| `IBIAS` in dip | `RESETn` reaches 0.1 × VDD at | `RESETn` at end of dwell | I sunk at the 100 mV valid-low bound |
+| --- | --- | --- | --- |
+| 500 nA (1×) | 3.70 µs | 0.000000 V | **+71.1 µA** |
+| 250 nA (0.5×) | 4.60 µs | 0.000000 V | **+71.1 µA** |
+| 50 nA (0.1×) | 6.40 µs | 0.000000 V | **+71.1 µA** |
+| **0 nA** | 7.30 µs | 0.000000 V | **+71.1 µA** |
+
+The sink current is *identical* down to zero bias, and the only thing losing
+`IBIAS` costs is ~3.6 µs of turn-on delay. That is the dead-circuit chain
+above doing exactly what it was sized to do: once `RSTB` is at VDD, `XMON`'s
+gate drive is the rail, not the bias. **This cell is therefore not the
+limiter in the `por-brownout` failure** — the decision never reaches it. See
+[DR-011](../spec/decision-records/DR-011-brownout-falling-slew-limit.md).
+
+One caveat this control did surface, and it belongs to this cell: the
+deglitch dwell is bias-starved in that state too. On the assembly with
+`POR_RAW` restored artificially at +19.6 µs into the dip, `RESETn` took until
++52.3 µs to resolve — roughly **33 µs** of deglitch against the
+[1.86–8.88 µs](#deglitch-dwell--cdg-is-bounded-on-both-sides) measured at
+nominal and half `IBIAS`. Nothing downstream should assume the published
+dwell holds while the shared core is collapsed.
+
 ## Area — flagged for #17
 
 Not a target this issue owns ([`area`](../spec/target-spec.md#area) is
