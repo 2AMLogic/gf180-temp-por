@@ -130,6 +130,18 @@ class CellBuilder:
         )
 
     def contact(self, cx: float, cy: float) -> None:
+        # Quantise the centre to the layout's own DBU grid *before* deriving
+        # the two edges: computing them straight from a `cx`/`cy` that is not
+        # already grid-exact (e.g. an `_span()`-derived centre, whose step is
+        # an arbitrary division and so is not, in general, an exact multiple
+        # of the grid) lets the two edges round independently and land 1 DBU
+        # closer together than `CONTACT_SIDE_UM` -- a `contact.width.1`
+        # violation despite every caller asking for the same fixed size
+        # (#91's sense divider first surfaced this on an unrelated,
+        # pre-existing `_span()` call it happened to shift).
+        dbu = self.layout.dbu
+        cx = round(cx / dbu) * dbu
+        cy = round(cy / dbu) * dbu
         half = CONTACT_SIDE_UM / 2.0
         self.box(CONTACT, cx - half, cy - half, cx + half, cy + half)
 
@@ -1090,18 +1102,37 @@ POR_COMPARATOR_PIN_ON_DRAIN = {"IBIAS": "XMBD", "POR_RAW": "XMI2P"}
 POR_COMPARATOR_PIN_ON_GATE = {"VREF": "XMINB"}
 
 #: The sense divider, VDD end first (``design/por_comparator.md``, "Sense
-#: divider"). Poly resistors: outside the curated deck's device coverage, so
-#: reserved rather than drawn -- see ``por_comparator``'s docstring.
+#: divider"). Poly resistors -- drawn for real as of #91: ``klt 0.1.0``'s
+#: extraction deck models a drawn ``ppolyf_u``/``ppolyf_u_1k`` high-sheet-rho
+#: poly resistor (klayout-tools#219/#222/#299), and ``por_comparator``'s
+#: docstring explains why marker geometry, not schematic model naming, is
+#: what makes each segment a real device instead of a short.
 POR_DIVIDER_RESISTORS = ("XRTOP", "XRBOT", "XRHYS")
 
-#: Poly-to-poly space between adjacent serpentine legs of the folded divider.
-#: The DRM minimum (``PL.3a``) is 0.24 um; 1.0 um is ordinary poly-resistor
-#: practice and is the assumption the reserved footprint is computed against.
+#: Poly-to-poly space between adjacent legs of a folded divider resistor's
+#: serpentine. The DRM minimum (``PL.3a``) is 0.24 um; 1.0 um is ordinary
+#: poly-resistor practice.
 DIVIDER_LEG_SPACE_UM = 1.0
-#: Standard end-of-string dummy segments: one leg at each end of the string.
-DIVIDER_DUMMY_LEGS = 2
-#: Turn + head/tail contact overhead at each end of a leg.
-DIVIDER_LEG_END_UM = 2.0
+#: Unmarked Poly2 cap length at each folded resistor's two open (contacted)
+#: ends. Kept outside the RES_MK/SAB/Resistor(62,0) body so the deck's own
+#: "terminal = Poly2 minus the recognised body" derivation
+#: (klayout_tools.decks.gf180mcu's "Drawn resistors" note) finds a real,
+#: unmarked cap there for the contact to land on, instead of more body.
+DIVIDER_CAP_UM = 0.8
+#: Horizontal gap between the divider's three independently-folded strings.
+DIVIDER_STRING_GAP_UM = 6.0
+#: Baseline y for every string's bottom (open) end -- clear of the VSS rail.
+DIVIDER_BASE_Y_UM = -3.5
+
+#: gf180mcu resistor-recognition marker layers (klayout_tools.decks.gf180mcu,
+#: "Drawn resistors"): ``RES_MK`` is the deck's own resistor-candidate marker
+#: (required for every recognised flavour); ``SAB`` (salicide block) plus
+#: ``Resistor`` together select the high-sheet-rho ``ppolyf_u_1k`` class
+#: specifically. ``Pplus`` is neither required nor excluded for that flavour
+#: (unlike the base ``ppolyf_u``), so it is deliberately not drawn here.
+SAB = (49, 0)
+RES_MK = (110, 5)
+DIVIDER_RESISTOR_MK = (62, 0)
 
 
 def _poly_resistors(source: str, subckt: str, names: tuple[str, ...]) -> dict:
@@ -1128,15 +1159,9 @@ def _poly_resistors(source: str, subckt: str, names: tuple[str, ...]) -> dict:
     return found
 
 
-def _divider_footprint() -> tuple[float, float, float, float, int]:
-    """The folded sense divider's reserved footprint, from the golden netlist.
-
-    Returns ``(width_um, height_um, drawn_length_um, leg_width_um, legs)`` for
-    an ordinary serpentine fold: same-flavor, same-width legs at a fixed pitch,
-    folded to a roughly square footprint, plus one dummy leg at each end. Area
-    is what constrains this structure, not matching -- ``layout/floorplan.md``
-    rank 4 -- so the fold is chosen for footprint and the number it produces is
-    computed here rather than asserted.
+def _divider_resistor_lengths() -> tuple[float, dict[str, float]]:
+    """``(leg_width_um, {name: r_length_um})`` for the sense divider's three
+    segments, read straight from the golden netlist.
     """
     cards = _poly_resistors(
         "por_comparator.spice", "por_comparator", POR_DIVIDER_RESISTORS
@@ -1147,41 +1172,160 @@ def _divider_footprint() -> tuple[float, float, float, float, int]:
         # cancellation this divider's accuracy rests on (design/
         # por_comparator.md, "Why the hysteresis is a resistor ratio"), and of
         # the floorplan's rank-4 plan. If the schematic ever stops agreeing,
-        # fail here rather than reserve an area for a structure that no longer
-        # matches the plan.
+        # fail here rather than draw a structure that no longer matches the
+        # plan.
         raise ValueError(f"sense divider legs are not one width: {sorted(widths)}")
     leg_w = widths.pop()
-    drawn = sum(lvsref.to_um(card["r_length"]) for card in cards.values())
+    lengths = {name: lvsref.to_um(card["r_length"]) for name, card in cards.items()}
+    return leg_w, lengths
+
+
+def _resistor_leg_plan(length_um: float, leg_w: float) -> tuple[int, float, float]:
+    """``(legs, leg_len_um, tail_extra_um)`` folding ``length_um`` of a
+    ``leg_w``-wide poly resistor into a roughly square zig-zag serpentine
+    whose drawn body AREA -- and so the resistance KLayout's native resistor
+    extractor computes (``area / width * sheet_rho``, confirmed directly
+    against ``klt`` for this exact construction) -- reconstructs
+    ``length_um`` at ``leg_w`` to within floating-point noise, not merely
+    approximately: every dimension below is chosen as an exact multiple of
+    the layout's own 1 nm grid (``DBU_UM``) so no rounding remainder can
+    accumulate across the (potentially several dozen) legs a long, thin
+    schematic resistor folds into.
+
+    All ``legs`` parallel Poly2 legs share one uniform ``leg_len_um``, joined
+    by ``legs - 1`` same-width turns that alternate top/bottom -- each turn
+    bridges only the ``DIVIDER_LEG_SPACE_UM`` gap between two adjacent legs
+    (touching, not overlapping, either leg's own footprint), contributing
+    exactly ``DIVIDER_LEG_SPACE_UM`` to the total electrical length -- except
+    the *last* leg, which is ``tail_extra_um`` taller than the rest: the one
+    place the exact-nanometre integer division below can leave a remainder
+    (at most ``legs`` nm), folded entirely into the one leg whose far end is
+    already an open (unjogged) terminal, so it costs nothing but a few
+    nanometres of that leg's own length -- not a second, misaligned turn.
+    An odd leg count keeps the string's two open ends on opposite sides
+    (see :func:`_resistor_string`), convenient for wiring one to each of two
+    different nets without doubling back.
+    """
+    nm = round(1.0 / DBU_UM)  # DBU per micrometre (1000, i.e. a 1 nm grid)
+    length_nm = round(length_um * nm)
+    space_nm = round(DIVIDER_LEG_SPACE_UM * nm)
+    cap_nm = round(DIVIDER_CAP_UM * nm)
+
+    pitch_um = leg_w + DIVIDER_LEG_SPACE_UM
+    target_leg_len_um = max(leg_w, math.sqrt(length_um * pitch_um))
+    legs = max(1, round(length_um / (target_leg_len_um + DIVIDER_LEG_SPACE_UM)))
+    if legs % 2 == 0:
+        legs += 1
+
+    # legs * leg_len + tail_extra - 2 * CAP + (legs - 1) * SPACE == length_um
+    # (see _resistor_string's marked-area accounting), solved exactly in
+    # integer nanometres so the identity holds bit-for-bit, not just to
+    # floating-point tolerance.
+    budget_nm = length_nm + 2 * cap_nm - (legs - 1) * space_nm
+    leg_len_nm = budget_nm // legs
+    tail_extra_nm = budget_nm - leg_len_nm * legs  # 0 <= tail_extra_nm < legs
+    return legs, leg_len_nm / nm, tail_extra_nm / nm
+
+
+def _resistor_string(
+    b: CellBuilder,
+    x0: float,
+    y0: float,
+    *,
+    leg_w: float,
+    legs: int,
+    leg_len: float,
+    tail_extra: float,
+) -> dict[str, tuple[float, float] | float]:
+    """Draw one folded, RES_MK/SAB/Resistor(62,0)-marked poly resistor:
+    ``legs`` parallel Poly2 legs of width ``leg_w`` at
+    ``leg_w + DIVIDER_LEG_SPACE_UM`` pitch, starting at ``(x0, y0)``, joined
+    by same-width turns alternating top/bottom (an ordinary zig-zag
+    serpentine) -- see :func:`_resistor_leg_plan` for why ``legs`` is odd,
+    every leg but the last shares one uniform ``leg_len``, and the marked
+    body's area exactly reconstructs the segment's schematic length. Each
+    leg is fully marked except a :data:`DIVIDER_CAP_UM` unmarked cap at the
+    string's two open (leg 0's bottom, the last leg's top) ends, where a
+    contact lands.
+
+    Returns ``{"a": (x, y), "b": (x, y), "x0", "y0", "x1", "y1"}``: the two
+    open ends' own contact points (for wiring) and the drawn bounding box.
+    """
     pitch = leg_w + DIVIDER_LEG_SPACE_UM
-    leg_len = math.sqrt(drawn * pitch)  # square-ish serpentine
-    legs = math.ceil(drawn / leg_len) + DIVIDER_DUMMY_LEGS
-    width = math.ceil(legs * pitch * 2.0) / 2.0
-    height = math.ceil((leg_len + 2 * DIVIDER_LEG_END_UM) * 2.0) / 2.0
-    return width, height, drawn, leg_w, legs
+    y1 = y0 + leg_len  # shared top for every leg except the last
+    x1 = x0 + (legs - 1) * pitch + leg_w
+    last_top = y1 + tail_extra
+
+    for i in range(legs):
+        lx0 = x0 + i * pitch
+        lx1 = lx0 + leg_w
+        leg_top = last_top if i == legs - 1 else y1
+        b.box(POLY2, lx0, y0, lx1, leg_top)
+        mark_y0 = y0 + DIVIDER_CAP_UM if i == 0 else y0
+        mark_y1 = leg_top - DIVIDER_CAP_UM if i == legs - 1 else leg_top
+        for spec in (SAB, RES_MK, DIVIDER_RESISTOR_MK):
+            b.box(spec, lx0, mark_y0, lx1, mark_y1)
+
+    for i in range(legs - 1):
+        lx0 = x0 + i * pitch
+        gx0, gx1 = lx0 + leg_w, lx0 + pitch
+        gy0, gy1 = (y1 - leg_w, y1) if i % 2 == 0 else (y0, y0 + leg_w)
+        b.box(POLY2, gx0, gy0, gx1, gy1)
+        for spec in (SAB, RES_MK, DIVIDER_RESISTOR_MK):
+            b.box(spec, gx0, gy0, gx1, gy1)
+
+    def terminal(cy0: float, cy1: float, cx: float) -> tuple[float, float]:
+        mid = (cy0 + cy1) / 2.0
+        b.box(METAL1, cx - leg_w / 2.0, cy0, cx + leg_w / 2.0, cy1)
+        b.contact(cx, mid)
+        return (cx, mid)
+
+    a_point = terminal(y0, y0 + DIVIDER_CAP_UM, x0 + leg_w / 2.0)
+    b_point = terminal(last_top - DIVIDER_CAP_UM, last_top, x1 - leg_w / 2.0)
+
+    return {"a": a_point, "b": b_point, "x0": x0, "y0": y0, "x1": x1, "y1": last_top}
 
 
 def por_comparator(b: CellBuilder) -> None:
-    """The MOS portion of ``por_comparator`` (``design/por_comparator.sch``).
+    """``por_comparator`` (``design/por_comparator.sch``): 18 MOS devices plus
+    the 3-segment sense divider, all drawn and all in the compare (#91).
 
-    **What is drawn, and what deliberately is not.** ``por_comparator`` has 18
-    MOS devices and three ``ppolyf_u_3k`` poly resistors -- the sense divider
-    ``XRTOP``/``XRBOT``/``XRHYS``. The curated ``gf180mcu`` extraction deck
-    recognises ``nfet``/``pfet`` and nothing else (klayout-tools#219, resistors
-    #222), so the divider cannot be extracted as devices. Drawing its poly
-    anyway would be worse than leaving it out: the deck would read a drawn
-    resistor body as plain interconnect and silently short ``VDD``-``SNS``,
-    ``SNS``-``SNSB`` and ``SNSB``-``VSS`` together -- collapsing the comparator's
-    own sense node onto the rail, which would then read as a layout bug in the
-    part that *can* be checked. So, exactly as in ``bias_core`` (#68), the
-    divider's area is **reserved** on annotation layer 200/0 (read by neither
-    deck, so it changes no DRC or LVS verdict) and its two taps ``SNS``/``SNSB``
-    are routed out to that region's edge. ``layout/README.md`` records which
-    devices that leaves outside LVS coverage.
+    **The sense divider is now drawn for real.** ``XRTOP``/``XRBOT``/``XRHYS``
+    are ``ppolyf_u_3k`` poly resistors in the schematic. ``klt 0.1.0``'s
+    extraction deck recognises a drawn, RES_MK/SAB-marked poly resistor as a
+    real two-terminal device (klayout-tools#219/#222) -- but only two flavours
+    of gf180mcu's high-sheet-rho poly family are wired: the base ``ppolyf_u``
+    (350 ohm/sq) and the PDK's own default ``ppolyf_u_1k`` (1000 ohm/sq,
+    klayout-tools#299). ``_2k``/``_3k`` remain **deliberately unmodelled**
+    (#299's "Non-goals": all three flavours are the *same* drawn geometry,
+    selected only by a build-time ``POLY_RES`` option no drawn layer
+    distinguishes, so wiring one is the PDK's own default, not a guess).
+    Filed as a fresh friction issue since the design now actually needs the
+    ``_3k`` flavour: klayout-tools#323.
 
-    The reserved rectangle is not a guess: :func:`_divider_footprint` reads
-    ``r_width``/``r_length`` for the three segments out of the golden netlist
-    and folds them at ``leg width + 1 um`` pitch into a roughly square
-    serpentine, plus one end-of-string dummy leg at each end.
+    So each segment is drawn with ``RES_MK``/``SAB``/``Resistor(62,0))`` --
+    exactly what a real ``ppolyf_u_3k`` resistor's geometry would carry too,
+    since the three flavours are geometrically identical -- and extracts as
+    the deck's ``ppolyf_u_1k`` class. ``layout/lvs_reference.py``'s
+    ``RESISTOR_CLASS`` therefore compares each segment's *drawn* W/L against
+    the deck's modelled 1000 ohm/sq, not the schematic's 3000 ohm/sq: a
+    **documented, deliberate fidelity loss**, in the same spirit as the
+    NMOS/PMOS body-net rewrites below. It is still a meaningful check for
+    *this* divider specifically: all three segments are the same poly flavour
+    and width, so the sheet-rho substitution is a common factor across all
+    three -- the check still proves each segment's drawn length (so its
+    resistance *ratio* against the other two, which is what the hysteresis
+    ratio actually depends on -- design/por_comparator.md, "Why the
+    hysteresis is a resistor ratio") is exactly what the schematic asks for.
+    What it does not prove is the *absolute* resistance at the schematic's
+    true 3000 ohm/sq corner; that remains ``sim/``'s claim, unchanged.
+
+    Each segment folds into a roughly-square zig-zag serpentine
+    (:func:`_resistor_leg_plan`/:func:`_resistor_string`) whose drawn body
+    AREA reconstructs the schematic's own ``r_length`` exactly (to
+    floating-point noise, not merely approximately -- the two functions'
+    docstrings explain why that identity is load-bearing for LVS, not
+    cosmetic), so no dimension here is retyped from the golden netlist.
 
     **The BIAS_OKB inverter is instanced, not re-drawn.** ``MENP``/``MENN``
     already exist as ``por_comparator_bias_okb_inv`` (#16's proof cell, DRC- and
@@ -1203,9 +1347,12 @@ def por_comparator(b: CellBuilder) -> None:
       so the two halves' routing differs by one 0.8 um track pitch.
     * The sense divider keeps ``W = 2 um`` (the floorplan's explicit
       conclusion; nothing here narrows it) with same-flavor, same-width legs
-      and ordinary serpentine folding for area, and standard end-of-string
-      dummy segments -- all of which is what the reserved footprint above is
-      computed from.
+      and ordinary serpentine folding for area -- exactly what
+      :func:`_resistor_leg_plan`'s fold is computed from. No end-of-string
+      dummy legs are drawn (a layout-quality nicety, not a tool limit or an
+      LVS requirement -- unlike #295's MOS matched-pair dummies, a resistor
+      leg needs no contact to serve its process-matching purpose, so this is
+      simply out of scope for this bring-up pass).
     * The load mirror ``XMLA``/``XMLB`` gets the same ordinary matched-pair
       practice (adjacent, same orientation, one well) although the floorplan
       names no plan for it.
@@ -1217,7 +1364,7 @@ def por_comparator(b: CellBuilder) -> None:
         +--- guard ring: COMP + Metal1, VSS-tied, continuous, contacts 1um ----+
         |  VDD rail (Metal1)                                                   |
         |  ..... routing channel: one Poly2 track per signal net .....         |
-        |  [ PMOS row, one Nwell ]  [ NMOS row ]  [inv] [ reserved divider ]   |
+        |  [ PMOS row, one Nwell ]  [ NMOS row ]  [inv] [ 3 folded resistors ] |
         |  Nwell tie strap (COMP in Nwell -> VDD)                              |
         |  VSS rail (Metal1) over a p-substrate tap strap (COMP)               |
         +----------------------------------------------------------------------+
@@ -1276,17 +1423,36 @@ def por_comparator(b: CellBuilder) -> None:
     inv_x, inv_y = row_x1 + 6.0, 0.0
     inv_x1 = inv_x + 2.4  # its Nwell's right edge
 
-    div_w, div_h, div_len, div_leg_w, div_legs = _divider_footprint()
-    reserved_x0 = inv_x1 + 6.0
-    reserved_x1 = reserved_x0 + div_w
-    reserved_y0 = -3.5
-    reserved_y1 = reserved_y0 + div_h
+    # --- sense divider: 3 independently-folded, RES_MK/SAB/Resistor(62,0)
+    # marked poly resistors (#91), side by side starting past the inverter.
+    div_leg_w, div_lengths = _divider_resistor_lengths()
+    div_terms: dict[str, dict] = {}
+    cursor_x = inv_x1 + 6.0
+    for name in POR_DIVIDER_RESISTORS:
+        legs, leg_len, tail_extra = _resistor_leg_plan(div_lengths[name], div_leg_w)
+        div_terms[name] = _resistor_string(
+            b,
+            cursor_x,
+            DIVIDER_BASE_Y_UM,
+            leg_w=div_leg_w,
+            legs=legs,
+            leg_len=leg_len,
+            tail_extra=tail_extra,
+        )
+        cursor_x = div_terms[name]["x1"] + DIVIDER_STRING_GAP_UM
+    div_x1 = max(term["x1"] for term in div_terms.values())
+    div_y1 = max(term["y1"] for term in div_terms.values())
 
     clear = GUARD_RING_CLEAR_UM + GUARD_RING_W_UM
     gx0 = p_x0 - 1.0 - clear
-    gx1 = reserved_x1 + clear
-    gy0 = vss_y0 - clear
-    gy1 = max(vdd_y1, reserved_y1) + clear
+    # div_x1/div_y1 carry the divider's own exact-nanometre fractional
+    # remainder (see _resistor_leg_plan); round the guard ring's outer edges
+    # that derive from them up to the nearest 0.5 um (same snapping
+    # convention the old reserved-footprint helper used) so the guard ring's
+    # own `_span`-placed contacts land on round, DBU-safe centres.
+    gx1 = math.ceil((div_x1 + clear) * 2.0) / 2.0
+    gy0 = min(vss_y0, DIVIDER_BASE_Y_UM) - clear
+    gy1 = math.ceil((max(vdd_y1, div_y1) + clear) * 2.0) / 2.0
 
     def riser(x_centre: float, net: str, y_low: float, y_high: float) -> None:
         """One Metal1 riser from a device terminal to its rail or track."""
@@ -1326,12 +1492,12 @@ def por_comparator(b: CellBuilder) -> None:
         riser(gate_cx, tile["g"], width + 0.55, width + 0.95)
 
     # --- Poly2 routing channel ---------------------------------------------
-    # Two tracks run further right than the device row: the pair the sense
-    # divider taps (out to the reserved region), and the two nets the instanced
-    # inverter drives/receives (out to its own risers).
+    # Every track reaches only as far as the device row / inverter needs (the
+    # default `row_x1 + 1.0` fallback below); SNS/SNSB deliberately do NOT
+    # reach the divider on Poly2 -- see the Metal2 escape immediately after
+    # this loop for why and what replaces it. The instanced inverter's two
+    # nets still get their own short custom reach.
     track_x1 = {
-        "SNS": reserved_x0 + 3.0,
-        "SNSB": reserved_x0 + 3.0,
         "BIAS_OK": inv_x - 2.6,
         "BIAS_OKB": inv_x + 1.8,
     }
@@ -1339,6 +1505,45 @@ def por_comparator(b: CellBuilder) -> None:
         y = track_y[net]
         half_w = TRACK_W_UM / 2.0
         b.box(POLY2, p_x0 - 1.0, y - half_w, track_x1.get(net, row_x1 + 1.0), y + half_w)
+
+    # --- SNS/SNSB: escape onto Metal2 before the divider, not through it ---
+    # A Poly2 track spanning the whole divider width (the first cut at this)
+    # physically crosses every leg-to-leg gap of all three folded resistor
+    # strings, filling each gap with unmarked-but-touching Poly2 and bridging
+    # every leg of a string to its neighbours -- a real short, and why
+    # extraction saw each string as "one resistor shape" touched by dozens of
+    # spurious contacts (#91 debugging). Two Metal1 vertical risers per net
+    # (one per resistor terminal, drawn below in "sense divider wiring")
+    # cannot be joined by a single Metal1 trunk either: the far terminal's
+    # riser for one net and the near terminal's riser for the *other* net
+    # both pass through the same track-height band at different x, and a
+    # Metal1 trunk long enough to join its own two terminals would cross
+    # them -- a same-layer short between SNS and SNSB. Metal2 has no such
+    # conflict: nothing else in this cell draws on it, and crossing over a
+    # Metal1 riser on a different layer with no via is not a connection.
+    def _via1_pad(cx: float, cy: float) -> None:
+        b.via(VIA1, cx, cy)
+        pad = 0.25
+        b.box(METAL2, cx - pad, cy - pad, cx + pad, cy + pad)
+
+    div_trunk_x0 = row_x1 + 1.0
+    for net in ("SNS", "SNSB"):
+        y = track_y[net]
+        # One contact where the (now-short) Poly2 track ends, up through a
+        # Metal1 landing pad and a Via1, onto Metal2.
+        b.contact(div_trunk_x0, y)
+        b.box(
+            METAL1,
+            div_trunk_x0 - RISER_W_UM / 2.0,
+            y - RISER_W_UM / 2.0,
+            div_trunk_x0 + RISER_W_UM / 2.0,
+            y + RISER_W_UM / 2.0,
+        )
+        _via1_pad(div_trunk_x0, y)
+        # The Metal2 trunk itself, all the way across the divider region.
+        # Each resistor terminal's own Metal1 riser (below) meets it with its
+        # own Via1, not by touching this trunk's Metal1 predecessor.
+        b.box(METAL2, div_trunk_x0, y - TRACK_W_UM / 2.0, div_x1, y + TRACK_W_UM / 2.0)
 
     # --- Nwell, and its tie strap ------------------------------------------
     b.box(NWELL, p_x0 - 1.0, -2.6, p_x1 + 1.0, max_pw + 1.5)
@@ -1365,8 +1570,19 @@ def por_comparator(b: CellBuilder) -> None:
     b.contact(inv_x - 3.0, track_y["BIAS_OK"])
 
     # --- supply rails -------------------------------------------------------
-    b.box(METAL1, gx0 + 2.5, vdd_y0, inv_x1 + 2.0, vdd_y1)
-    b.box(METAL1, gx0 + 1.0, vss_y0, inv_x1 + 2.0, vss_y1)
+    # Each rail reaches only as far as its own divider terminal needs (XRTOP's
+    # VDD end / XRHYS's VSS end), NOT all the way to div_x1. A rail spanning
+    # the full divider width would cross the *other* two nets' own SNS/SNSB
+    # risers -- XRBOT's and XRHYS's far ("b") terminals are well above the
+    # rails' own Y-band and travel down through it on their way to the
+    # SNS/SNSB Metal2 trunk (see the Metal2 escape above) -- and a Metal1
+    # rail is a real short wherever a Metal1 riser passes through its Y-band,
+    # regardless of x. This was a real bug here (#91 debugging): both rails
+    # used to reach div_x1 and shorted SNS and SNSB to VDD. Stopping each
+    # rail just past its own terminal, and nowhere near x=378/434 (XRBOT's
+    # and XRHYS's SNS/SNSB risers), removes the crossing entirely.
+    b.box(METAL1, gx0 + 2.5, vdd_y0, div_terms["XRTOP"]["x1"] + 1.0, vdd_y1)
+    b.box(METAL1, gx0 + 1.0, vss_y0, div_terms["XRHYS"]["a"][0] + 2.0, vss_y1)
     b.box(COMP, gx0 + 2.3, vss_y0, inv_x1 + 1.7, vss_y1)
     for x in _span(gx0 + 2.8, inv_x1 + 1.2, TAP_PITCH_UM):
         b.contact(x, (vss_y0 + vss_y1) / 2.0)
@@ -1395,8 +1611,45 @@ def por_comparator(b: CellBuilder) -> None:
         b.contact(gx0 + half, y)
         b.contact(gx1 - half, y)
 
-    # --- reserved sense-divider region (annotation only) --------------------
-    b.box(RESERVED, reserved_x0, reserved_y0, reserved_x1, reserved_y1)
+    # --- sense divider wiring: VDD -[XRTOP]- SNS -[XRBOT]- SNSB -[XRHYS]- VSS
+    # (design/netlist/por_comparator.spice's own node order for each card).
+    # Each resistor's third (bulk) node needs no drawn connection at all: the
+    # deck's bulk_to_substrate resistor extractor ties it to the same
+    # synthetic substrate net every NMOS body already lands on (confirmed
+    # directly against klt -- see layout/lvs_reference.py's RESISTOR_CLASS).
+    divider_ends = {
+        "XRTOP": ("SNS", "VDD"),
+        "XRBOT": ("SNSB", "SNS"),
+        "XRHYS": ("VSS", "SNSB"),
+    }
+    for name, (net_a, net_b) in divider_ends.items():
+        for net, point in ((net_a, div_terms[name]["a"]), (net_b, div_terms[name]["b"])):
+            cx, cy = point
+            via_needed = net not in ("VDD", "VSS")
+            if net == "VDD":
+                y_to = vdd_y1
+            elif net == "VSS":
+                y_to = vss_y0
+            else:
+                y_to = track_y[net]
+            y_lo, y_hi = sorted((cy, y_to))
+            # A Via1 (not a Poly2 contact -- see the Metal2 escape above)
+            # needs the riser's own Metal1 to extend slightly past the via,
+            # same enclosure margin `riser()` uses for its Poly2 contacts.
+            if via_needed:
+                if y_to >= cy:
+                    y_hi += 0.2
+                else:
+                    y_lo -= 0.2
+            b.box(
+                METAL1,
+                cx - RISER_W_UM / 2.0,
+                y_lo,
+                cx + RISER_W_UM / 2.0,
+                y_hi,
+            )
+            if via_needed:
+                _via1_pad(cx, y_to)
 
     # --- pins ---------------------------------------------------------------
     b.label("VDD", row_x1, (vdd_y0 + vdd_y1) / 2.0)

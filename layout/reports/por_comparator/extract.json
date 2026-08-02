@@ -5,23 +5,18 @@
   "top": "por_comparator",
   "dbu_um": 0.001,
   "netlist_path": "layout/reports/por_comparator/extracted.spice",
-  "netlist_sha256": "c75327b527eacbf9d93a52238b535ff2696ea377c1b15dc891f212a7e204c911",
+  "netlist_sha256": "6bb7c546bf0cae8b8657b84ac3175d3b1bb86dde4ee8653fd3650bedb0947766",
   "status": "extracted",
-  "device_count": 18,
+  "device_count": 21,
   "net_count": 18,
   "pin_count": 8,
   "device_counts": {
     "nfet": 12,
-    "pfet": 6
+    "pfet": 6,
+    "ppolyf_u_1k": 3
   },
   "dummy_devices_dropped": 0,
-  "ignored_layers": [
-    {
-      "layer": 200,
-      "datatype": 0,
-      "shapes": 1
-    }
-  ],
+  "ignored_layers": [],
   "device_classes": [
     "nfet",
     "pfet",
@@ -93,7 +88,7 @@
         "s": "VDD",
         "g": "$5",
         "d": "$7",
-        "b": "$17"
+        "b": "$16"
       },
       "params": {
         "l_um": 0.5,
@@ -107,7 +102,7 @@
         "s": "VDD",
         "g": "$7",
         "d": "POR_RAW",
-        "b": "$17"
+        "b": "$16"
       },
       "params": {
         "l_um": 0.5,
@@ -121,7 +116,7 @@
         "s": "$3",
         "g": "$4",
         "d": "$4",
-        "b": "$17"
+        "b": "$16"
       },
       "params": {
         "l_um": 1.0,
@@ -135,7 +130,7 @@
         "s": "$3",
         "g": "$4",
         "d": "$5",
-        "b": "$17"
+        "b": "$16"
       },
       "params": {
         "l_um": 1.0,
@@ -149,7 +144,7 @@
         "s": "VDD",
         "g": "BIAS_OKB",
         "d": "$3",
-        "b": "$17"
+        "b": "$16"
       },
       "params": {
         "l_um": 0.5,
@@ -163,11 +158,26 @@
         "s": "VDD",
         "g": "BIAS_OK",
         "d": "BIAS_OKB",
-        "b": "$16"
+        "b": "$17"
       },
       "params": {
         "l_um": 0.5,
         "w_um": 2.0
+      }
+    },
+    {
+      "name": "$19",
+      "class": "ppolyf_u_1k",
+      "nets": {
+        "a": "$10",
+        "b": "VDD",
+        "w": "vsubs"
+      },
+      "params": {
+        "r_ohm": 3948720.0,
+        "l_um": 7897.44,
+        "w_um": 2.0,
+        "area_um2": 15794.88
       }
     },
     {
@@ -182,6 +192,36 @@
       "params": {
         "l_um": 1.0,
         "w_um": 1.0
+      }
+    },
+    {
+      "name": "$20",
+      "class": "ppolyf_u_1k",
+      "nets": {
+        "a": "$14",
+        "b": "$10",
+        "w": "vsubs"
+      },
+      "params": {
+        "r_ohm": 3384615.0,
+        "l_um": 6769.23,
+        "w_um": 2.0,
+        "area_um2": 13538.46
+      }
+    },
+    {
+      "name": "$21",
+      "class": "ppolyf_u_1k",
+      "nets": {
+        "a": "VSS",
+        "b": "$14",
+        "w": "vsubs"
+      },
+      "params": {
+        "r_ohm": 387500.0,
+        "l_um": 775.0,
+        "w_um": 2.0,
+        "area_um2": 1550.0
       }
     },
     {
@@ -287,7 +327,7 @@
     {
       "name": "$10",
       "pin": false,
-      "device_count": 1
+      "device_count": 3
     },
     {
       "name": "$12",
@@ -297,17 +337,17 @@
     {
       "name": "$14",
       "pin": false,
-      "device_count": 1
+      "device_count": 3
     },
     {
       "name": "$16",
       "pin": false,
-      "device_count": 1
+      "device_count": 5
     },
     {
       "name": "$17",
       "pin": false,
-      "device_count": 5
+      "device_count": 1
     },
     {
       "name": "$3",
@@ -357,7 +397,7 @@
     {
       "name": "VDD",
       "pin": true,
-      "device_count": 4
+      "device_count": 5
     },
     {
       "name": "VREF",
@@ -367,16 +407,16 @@
     {
       "name": "VSS",
       "pin": true,
-      "device_count": 9
+      "device_count": 10
     },
     {
       "name": "vsubs",
       "pin": true,
-      "device_count": 12
+      "device_count": 15
     }
   ],
   "warnings": [
-    "10 poly-layer shapes not part of any recognised nfet/pfet gate touch contact at 2+ separate points (the resistor-body signature) and carry no resistor-marker layer at all; this deck may not model the device class drawn here, and its terminals have been absorbed into ordinary interconnect as an unintended short -- see docs/cli/extract.md's 'Known limitation: unmodelled device geometry'.",
+    "12 poly-layer shapes not part of any recognised nfet/pfet gate touch contact at 2+ separate points (the resistor-body signature) and carry no resistor-marker layer at all; this deck may not model the device class drawn here, and its terminals have been absorbed into ordinary interconnect as an unintended short -- see docs/cli/extract.md's 'Known limitation: unmodelled device geometry'.",
     "promoted 2 net(s) to top-level pins from label(s) found only below the top cell (inside instanced sub-cells): BIAS_OK, BIAS_OKB -- these are internal nodes once instanced; pass top_cell_pins_only (--top-cell-pins) to keep them internal (issue #291)"
   ],
   "black_box_regions": [],

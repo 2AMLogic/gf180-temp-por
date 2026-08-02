@@ -12,17 +12,22 @@ interactive KLayout session, no netgen/magic.
 > interleaved fingers, plus 6 edge dummies). #72 assembles all four into
 > **`temp_por_top`** — with the domain-seam moat, the perimeter guard ring and
 > the `VDD`/`VSS` rails. #92 then drew `por_output_chain`'s **2 MiM caps** (5
-> drawn units) as the first non-MOS devices in the block. #93 folded
+> drawn units) as the first non-MOS devices in the block, and #93 folded
 > `temp_core`'s PNP array and `R2` gain ladder into the extracted cell as real
 > `bjt`/`ppolyf_u` devices (**114** drawn, up from 55), retiring the sibling
-> top cells that used to hold them. `temp_por_top` now inherits all of it:
-> **198** devices, **131** nets, and the ratified 5-pad pinout. Every cell is
-> DRC-clean and LVS-clean against the schematic-derived netlist with every
-> applicable negative control detected (three per cell where a cell draws a
-> resistor or a bipolar: topology, device-param, and passive-param).
-> No cell is the *whole* cell. `bias_core`'s 10 vertical PNPs, 4 poly resistors
-> and 2 MiM caps; `por_comparator`'s 3-segment sense divider; `temp_core`'s own
-> MiM cap — all still outside what the curated deck can extract, all
+> top cells that used to hold them. #91 then drew `por_comparator`'s
+> 3-segment sense divider as real `ppolyf_u_1k`-class poly resistors (**21**
+> drawn, up from 18) — `por_comparator` and `por_output_chain` are now whole
+> cells at the *cell* level, the first two to get there. `temp_por_top`'s own
+> committed assembly still predates all three of #91/#92/#93: **198**
+> devices, **131** nets, and the ratified 5-pad pinout, unchanged by any of
+> them; see #97. Every cell under test is DRC-clean and LVS-clean against the
+> schematic-derived netlist with every applicable negative control detected
+> (three per cell where a cell draws a resistor or a bipolar: topology,
+> device-param, and passive-param).
+> No cell but `por_comparator` and `por_output_chain` is the *whole* cell yet.
+> `bias_core`'s 10 vertical PNPs, 4 poly resistors and 2 MiM caps; `temp_core`'s
+> own MiM cap — all still outside what the curated deck can extract, all
 > deliberately not drawn *into the extracted cell*, and all inherited unchanged
 > by `temp_por_top`, which therefore cannot be LVS'd whole either (see
 > [The cells under test](#the-cells-under-test) and
@@ -214,42 +219,89 @@ Recorded result (`layout/reports/bias_core/`):
 | negative control `topology` | detected (exit 3; `device.unmatched` 1, `topology` 2) |
 | negative control `device-param` | detected (exit 3; `device.property` 5, `topology` 2) |
 
-### `por_comparator` — the POR threshold comparator (#69)
+### `por_comparator` — the POR threshold comparator (#69, sense divider #91)
 
-`design/por_comparator.sch`'s 18 MOS devices, drawn from
-`design/netlist/por_comparator.spice`. 313.0 × 230.2 µm, 1489 polygons, two
-cells (it instances the proof cell below).
+`design/por_comparator.sch`'s 21 devices, drawn from
+`design/netlist/por_comparator.spice`. 445.0 × 164.7 µm, two cells (it
+instances the proof cell below).
 
-**What a clean run here covers, and what it does not.** `por_comparator` has 21
-devices. 18 are MOS and are drawn, extracted and compared. The other **3 are
-not drawn at all**:
-
-| Not drawn | Devices | Why |
-| --- | --- | --- |
-| Sense divider | `XRTOP`, `XRBOT`, `XRHYS` (3 × `ppolyf_u_3k`) | deck extracts `nfet`/`pfet` only — [klayout-tools#219](https://github.com/2AMLogic/klayout-tools/issues/219), resistor sub-issue [#222](https://github.com/2AMLogic/klayout-tools/issues/222) |
-
-Same reasoning as `bias_core` above, and here it bites the cell's most
-important net: a drawn poly resistor body extracts as ordinary interconnect, so
-drawing the string would short `VDD`–`SNS`, `SNS`–`SNSB` and `SNSB`–`VSS`
-together — collapsing the comparator's own sense node onto the rail. The
-divider's area is therefore **reserved** on annotation layer 200/0 (read by
-neither deck) and its two taps are routed out to that region's edge.
+**All 21 devices are now drawn, extracted and compared.** 18 are MOS. The
+other 3 are the sense divider `XRTOP`/`XRBOT`/`XRHYS` (schematic
+`ppolyf_u_3k` poly resistors) — reserved as a blank floorplan rectangle
+through #69, and drawn for real as of #91: `klt 0.1.0`'s extraction deck
+recognises a drawn, `RES_MK`/`SAB`-marked poly resistor as a real
+two-terminal device ([klayout-tools#219](https://github.com/2AMLogic/klayout-tools/issues/219)/[#222](https://github.com/2AMLogic/klayout-tools/issues/222)), but only
+two flavors of gf180mcu's high-sheet-rho poly family are wired: the base
+`ppolyf_u` (350 ohm/sq) and the PDK's own default `ppolyf_u_1k` (1000
+ohm/sq, [klayout-tools#299](https://github.com/2AMLogic/klayout-tools/issues/299)). `_2k`/`_3k` are not — filed as
+[klayout-tools#323](https://github.com/2AMLogic/klayout-tools/issues/323) since this design specifically needs `_3k`. So each
+segment is drawn with `RES_MK`/`SAB`/`Resistor(62,0)` — exactly what a real
+`ppolyf_u_3k` resistor's geometry would carry too, since the three flavors
+are geometrically identical — and extracts as the deck's `ppolyf_u_1k`
+class. `layout/lvs_reference.py`'s reference cards therefore compare each
+segment's *drawn* length against the deck's modelled 1000 ohm/sq, not the
+schematic's 3000 ohm/sq: a **documented, deliberate fidelity loss**, in the
+same spirit as the NMOS/PMOS body-net rewrites below. It is still a
+meaningful check for *this* divider specifically: all three segments are
+the same poly flavor and width, so the sheet-rho substitution is a common
+factor across all three — the check still proves each segment's drawn
+length (so its resistance *ratio* against the other two, which is what the
+hysteresis ratio actually depends on — `design/por_comparator.md`, "Why the
+hysteresis is a resistor ratio") is exactly what the schematic asks for.
+What it does not prove is the *absolute* resistance at the schematic's true
+3000 ohm/sq corner; that remains `sim/`'s claim, unchanged.
 
 Consequences to carry forward:
 
-- `SNS` and `SNSB` appear with **one** MOS terminal each (`XMINA`'s gate,
-  `XMHSW`'s drain); their other connections are to devices that are not drawn.
-- Nothing here says `RTOP/RBOT` is 1.16667, that V_hys is 150 mV, or that the
-  three segments match. Those are `sim/`'s claims, unchanged.
-- The reserved rectangle is **222.0 × 219.5 µm = 0.0487 mm²**, computed by
-  `build_cells.py`'s `_divider_footprint()` from the golden netlist's own
-  `r_width`/`r_length` (15 441.67 µm of 2 µm-wide poly) folded at a 3 µm
-  serpentine pitch into 72 active legs plus one end-of-string dummy leg at each
-  end. That is the same order as the ≈0.045 mm² `design/por_comparator.md`
-  flagged for #17, now derived rather than estimated. The cell's 313 × 230 µm
-  bounding box is **not** an area claim for the block: two thirds of it is the
-  reserved divider and most of the rest is whitespace beside a 30 µm-tall
-  device row, which the top-level assembly (#72) is where packing happens.
+- `SNS` and `SNSB` now have **two** terminals each — one MOS (`XMINA`'s
+  gate, `XMHSW`'s drain) and one resistor terminal — correcting a stale
+  claim from #69 that each had only one (#82's curation of #91 found
+  `SNS`/`SNSB` no longer matched that description at all).
+- Nothing here says `RTOP/RBOT` is 1.16667, that V_hys is 150 mV, or that
+  the three segments match to the schematic's absolute values. Those remain
+  `sim/`'s claims.
+- Each segment folds into a roughly-square zig-zag serpentine
+  (`build_cells.py`'s `_resistor_leg_plan`/`_resistor_string`) whose drawn
+  body AREA reconstructs the schematic's own `r_length` exactly (to
+  floating-point noise), so no dimension is retyped from the golden
+  netlist. The three strings sit side by side past the device row; the
+  cell's footprint grew from #69's 313 × 230 µm placeholder-rectangle
+  bounding box to 445 × 165 µm as a direct result of drawing real (rather
+  than reserved) geometry.
+- Routing `SNS`/`SNSB` out to the divider crosses Metal2, not Poly2: a
+  Poly2 track spanning the whole divider width would physically cross
+  every leg-to-leg gap of all three folded strings, filling each gap with
+  unmarked-but-touching Poly2 and bridging every leg together — a real
+  short, and the actual root cause of the "resistor shape ignored"
+  extraction warnings hit while debugging #91 (the Poly2 track's own
+  contacts land within 2, not 20+, distinct clusters once the crossing is
+  removed). The two nets instead escape onto Metal2 just past the device
+  row (one contact + Via1 each) and cross the divider on that layer, which
+  cannot short to the resistor bodies no matter what it passes over. The
+  `VDD`/`VSS` supply rails were a second instance of the same class of bug:
+  extending either rail's Metal1 all the way to the divider's right edge
+  (so `XRTOP`'s `VDD` end and `XRHYS`'s `VSS` end could each reach it with
+  a plain riser) meant the rail's own Y-band crossed `XRBOT`'s and
+  `XRHYS`'s *other* terminal risers on their way down to the Metal2
+  trunks — shorting `SNS`/`SNSB` to `VDD`. Both rails now stop just past
+  their own divider terminal instead of reaching the full width.
+- [klayout-tools#288](https://github.com/2AMLogic/klayout-tools/issues/288)'s per-cell warning count for "poly shapes with the
+  resistor-body signature but no marker layer at all" is **12** here, not
+  lower than #69's baseline of 10 as originally hoped. Root cause: none
+  of the 12 are divider geometry — the divider's own marked legs
+  contribute *zero* to this count now (down from all of them, since they
+  used to be undrawn and so not a factor at all). All 12 are the cell's
+  ordinary multi-fanout Poly2 routing tracks (`TN`, `NA`, `CMPO`, `VDDA`,
+  `N1`, `POR_RAW`, `NBG`, `IBIAS`, `BIAS_OK`, `BIAS_OKB`, and now `SNS` and
+  `SNSB`), which this heuristic cannot distinguish from a resistor body —
+  any unmarked Poly2 net touching 2+ separate contacts trips it, resistor
+  or not (10 of these tracks already did on #69's committed cell, unrelated
+  to the divider; `SNS`/`SNSB` are the two newly added, each because the
+  Metal2 escape above gives them a second contact — the one at the
+  MOS-gate/drain end they always had, plus the new one where the track
+  meets its Via1). A real fix would need the deck to distinguish "this
+  candidate is already accounted for by a recognised resistor a few
+  microns away" from "this is genuinely unmodelled" — out of scope here.
 
 **The `BIAS_OKB` inverter is instanced, not re-drawn.** `MENP`/`MENN` already
 exist as `por_comparator_bias_okb_inv` below, so this cell places one instance
@@ -270,10 +322,11 @@ adjacent, same orientation, identical drawn geometry, one substrate context, no
 finger splitting and no interleaving, with their gate nets (`SNS`/`VREF`) on
 adjacent routing tracks and their drain nets (`NA`/`CMPO`) on the next adjacent
 pair, so the two halves' routing differs by one 0.8 µm track pitch; the divider
-keeps **W = 2 µm** with same-flavor same-width legs, ordinary serpentine folding
-for area, and standard end-of-string dummies. The load mirror `XMLA`/`XMLB`
-gets the same ordinary matched-pair treatment although the floorplan names no
-plan for it. `layout/tests/test_lvs_reference.py`'s
+keeps **W = 2 µm** with same-flavor same-width legs and ordinary serpentine
+folding for area — no end-of-string dummy legs, a layout-quality nicety out
+of scope for this bring-up pass rather than a tool limit or LVS requirement.
+The load mirror `XMLA`/`XMLB` gets the same ordinary matched-pair treatment
+although the floorplan names no plan for it. `layout/tests/test_lvs_reference.py`'s
 `PorComparatorMatchingPlanTest` asserts each of those properties, so a later
 edit that quietly breaks the plan fails a test rather than only a review.
 
@@ -286,17 +339,27 @@ mis-tied, untied, or physically broken ring would compare clean. This cell sits 
 POR domain's side of the block-level domain seam (`floorplan.md`, "Guard-ring /
 isolation plan"), so that seam's correctness is exactly what review has to
 carry. `klt 0.1.0` still does not emit the `device.body_unverified` warning
-klayout-tools#285 added — the extract report's `warnings` array is empty.
+klayout-tools#285 added as an extract-time warning — it still only surfaces
+as an LVS mismatch category (see the recorded result below).
+
+**`temp_por_top` needs its own follow-up pass.** Drawing the divider for real
+grew this cell's footprint well beyond #69's placeholder rectangle, which
+invalidates `temp_por_top`'s existing instance placement (confirmed: a
+`temp_por_top` rebuilt against this change alone is DRC-dirty at the
+`por_comparator`/neighbor-cell boundary). `temp_por_top`'s own committed
+GDS is intentionally left untouched by this change — see #97, which waits
+for #90/#92/#93 to land too before re-deriving the floorplan once, rather
+than reworking it four times.
 
 Recorded result (`layout/reports/por_comparator/`):
 
 | Check | Result |
 | ----- | ------ |
 | `klt drc --deck gf180mcu` | clean — 0 violations |
-| `klt extract --deck gf180mcu` | 18 devices (12 nfet, 6 pfet), 18 nets, 8 pins |
-| `klt lvs` | **match** — 18/18 devices, 18/18 nets, 8/8 pins, 0 mismatches |
-| negative control `topology` | detected (exit 3; `device.unmatched` 1, `topology` 1) |
-| negative control `device-param` | detected (exit 3; `device.property` 5, `topology` 1) |
+| `klt extract --deck gf180mcu` | 21 devices (12 nfet, 6 pfet, 3 ppolyf_u_1k), 18 nets, 8 pins |
+| `klt lvs` | **match** — 21/21 devices, 18/18 nets, 8/8 pins |
+| negative control `topology` | detected (exit 3; `device.unmatched` 1, `topology` 2) |
+| negative control `device-param` | detected (exit 3; `device.property` 5, `topology` 2) |
 
 ### `por_output_chain` — the reset output chain (#70, MiM caps added by #92)
 
@@ -640,14 +703,17 @@ and the only one left, is that `VSS` is the right net to tie the rings to.
 **Coverage.** Most non-MOS devices of the four sub-circuits are still outside
 this compare — `bias_core`'s `XQ1`/`XQ8A..H`/`XQR` PNPs, `XR1`/`XR2`/`XRT`/`XRZ`
 resistors and `XCC`/`XCOK` MiM caps; `por_comparator`'s `XRTOP`/`XRBOT`/`XRHYS`
-divider; `temp_core`'s own `XCC` MiM cap. Two exceptions, both inherited
-unchanged because extraction is flat: `por_output_chain`'s `XCDG`/`XCTIM` (#92
-drew them — 5 `cap_mim_2f0_m4m5_noshield` units, with the same
+divider (drawn and LVS-checked at the *cell* level as of #91, but not yet
+reflected here — this `temp_por_top` GDS predates that change; see #97);
+`temp_core`'s own `XCC` MiM cap. Two exceptions, both inherited unchanged
+because extraction is flat: `por_output_chain`'s `XCDG`/`XCTIM` (#92 drew
+them — 5 `cap_mim_2f0_m4m5_noshield` units, with the same
 isolated-plate-net caveat that cell's section records), and `temp_core`'s own
 PNP array and `R2` gain ladder (#93 folded them in — 9 `bjt` + 50 `ppolyf_u`
 real devices, retiring the sibling top cells that used to hold them outside
 this compare entirely). So the 198 devices below are the MOS subset **plus one
-cell's MiM caps plus one cell's resistors and bipolars**.
+cell's MiM caps plus one cell's resistors and bipolars** — not yet
+`por_comparator`'s 3 divider resistors.
 
 Recorded result (`layout/reports/temp_por_top/`):
 
@@ -704,9 +770,12 @@ filed upstream per this repo's friction protocol.
   and nothing else in the version this flow was brought up on, so a cell
   containing poly resistors, MiM caps, or vertical bipolars cannot be LVS'd
   whole. That is why the proof cell is an all-MOS one and why `bias_core`'s
-  16 non-MOS devices and `por_comparator`'s 3-segment sense divider are **not
-  drawn** rather than drawn-and-ignored — a drawn poly resistor body extracts as
-  interconnect and shorts its own terminal nets.
+  16 non-MOS devices are **not drawn** rather than drawn-and-ignored — a
+  drawn poly resistor body extracts as interconnect and shorts its own
+  terminal nets. `por_output_chain`'s 2 MiM caps and `por_comparator`'s
+  3-segment sense divider were in the same boat through #70/#69; they are
+  drawn for real as of #92/#91 (see their own sections above) — the first
+  of this block's non-MOS devices to cross out of this bullet.
   **Re-checked at `klt 0.1.0` for #72** — and this has moved. The installed
   deck now *declares* `['nfet', 'pfet', 'bjt', 'cap_mim_2f0_m4m5_noshield',
   'resistor']` (every `lvs.json` records it), so
@@ -730,38 +799,51 @@ filed upstream per this repo's friction protocol.
   [klayout-tools#315](https://github.com/2AMLogic/klayout-tools/issues/315) —
   the deck models exactly one of the PDK's MiM stack variants, so a schematic
   instantiating the other (`..._m3m4_...`) has to be drawn as the modelled one.
-  **#93 closed the second of it for `temp_core`**: its `R2` gain ladder and its
-  rank-3 PNP array are now drawn with `SAB`/`RES_MK` and `DRC_BJT` markers and
-  extract as 50 `ppolyf_u` + 9 `bjt` real devices instead of sitting outside
-  the compare in retired sibling top cells (see `temp_core`'s own section
-  above for the marker geometry and the fold-back decision). The remaining
-  cells (`bias_core`, `por_comparator`) are still MOS-only in the compare;
-  `temp_core`'s own MiM cap `XCC` is still not drawn, for the same two
-  reasons `por_output_chain`'s substitution above states (wrong MiM stack
-  variant, unconnectable plate nets).
+  **#91 and #93 closed the second, for two of the three remaining cells.**
+  #91: `por_comparator` now draws its 3-segment sense divider for real
+  (`RES_MK`/`SAB`/`Resistor(62,0)` over `Poly2`), extracting as 3
+  `ppolyf_u_1k` devices instead of reserved floor area — with its own
+  residual tool gap, [klayout-tools#323](https://github.com/2AMLogic/klayout-tools/issues/323)
+  (the deck wires only the base and `_1k` sheet-rho flavors, not the
+  schematic's `_3k`). #93: `temp_core`'s `R2` gain ladder and its rank-3 PNP
+  array are now drawn with `SAB`/`RES_MK` and `DRC_BJT` markers and extract
+  as 50 `ppolyf_u` + 9 `bjt` real devices instead of sitting outside the
+  compare in retired sibling top cells (see `temp_core`'s own section above
+  for the marker geometry and the fold-back decision). The remaining cell,
+  `bias_core`, is still MOS-only in the compare; `temp_core`'s own MiM cap
+  `XCC` is still not drawn, for the same two reasons `por_output_chain`'s
+  substitution above states (wrong MiM stack variant, unconnectable plate
+  nets).
   The *silence* has moved too, in the right direction:
   [klayout-tools#288](https://github.com/2AMLogic/klayout-tools/issues/288) is
   live in this build — every cell's `extract.json` now carries a warning naming
   the count of poly shapes with "the resistor-body signature" that were
-  absorbed into interconnect (19 in `bias_core`, 10 in `por_comparator`, 16 in
-  `por_output_chain`, 110 in `temp_core`, 155 in `temp_por_top` = the sum). The
-  failure mode is now a wrong netlist *with a warning*, which is what was asked
-  for.
-  **These counts are `Poly2` routing tracks, not undrawn devices**, and #92 and
-  #93 both confirmed it by *not* moving the count while drawing new devices:
+  absorbed into interconnect (19 in `bias_core`, 12 in `por_comparator`, 16 in
+  `por_output_chain`, 110 in `temp_core`, 155 in `temp_por_top` = the sum, at
+  #72's original bring-up -- `temp_por_top`'s own count still reflects that,
+  not `por_comparator`'s post-#91 12; see #97). The failure mode is now a
+  wrong netlist *with a warning*, which is what was asked for.
+  **These counts are mostly `Poly2` routing tracks, not undrawn devices**,
+  and #91/#92/#93 each confirmed it, from three different directions. #92:
   `por_output_chain`'s count is **16 before and 16 after** drawing its MiM
-  caps (16 is exactly the number of horizontal Poly2 signal tracks the cell
-  routes on, `POR_OUTPUT_CHAIN_TRACKS`), and `temp_core`'s is **110 before and
-  110 after** folding in its resistor bank and PNP array — because that
-  geometry reaches the routing channel on Metal2 risers rather than poly
-  crossunders precisely so it draws no *new* poly shape the heuristic could
-  flag (`temp_core`'s own section above). Each of the 110 is a poly run
-  contacted at both ends and touching no recognised gate, i.e. the heuristic's
-  stated signature, so it flags the routing scheme rather than a missing
-  device. The warning is a *poly* diagnostic; neither MiM geometry nor
-  Metal2-routed passives can move it in either direction. Drawing
-  `bias_core`'s and `por_comparator`'s remaining poly resistors on poly
-  crossunders is what would.
+  caps — 16 is exactly the number of horizontal Poly2 signal tracks the cell
+  routes on (`POR_OUTPUT_CHAIN_TRACKS`), each a poly run contacted at both
+  ends and touching no recognised gate, i.e. the heuristic's stated
+  signature, so it flags the routing scheme rather than a missing device;
+  MiM geometry cannot move it in either direction. #93: `temp_core`'s is
+  **110 before and 110 after** folding in its resistor bank and PNP array --
+  because that geometry reaches the routing channel on Metal2 risers rather
+  than poly crossunders precisely so it draws no *new* poly shape the
+  heuristic could flag (`temp_core`'s own section above); same signature,
+  same non-effect. #91: `por_comparator`'s count moved from **10 to 12**
+  drawing its divider -- but *up*, not down, and none of the 12 is divider
+  geometry (the divider's own marked legs contribute zero); two of its own
+  pre-existing routing tracks (`SNS`, `SNSB`) newly trip the heuristic
+  because reaching the divider on Metal2 (see that section) gives each of
+  them a second contact where none existed before. The warning is a *poly*
+  diagnostic; neither MiM geometry nor Metal2-routed passives can move it in
+  either direction. Drawing `bias_core`'s remaining poly resistors and
+  bipolars on poly crossunders is what would move the rest of this sum.
 - **There is no dummy-device concept**, so matched-pair *dummy edges* cannot be
   drawn on any cell that must also LVS: a drawn dummy MOS extracts as a real
   device the schematic-derived reference does not have. The cells here
@@ -769,12 +851,13 @@ filed upstream per this repo's friction protocol.
   dummies — a layout decision made by a tool limit, which is exactly the kind
   of thing this repo exists to surface. Filed by #70:
   [klayout-tools#295](https://github.com/2AMLogic/klayout-tools/issues/295).
-- **There is no annotation-layer contract**, so the reserved regions in
-  `bias_core` (passives/bipolars) and `por_comparator` (the sense divider) sit
-  on a layer (200/0) chosen because no
+- **There is no annotation-layer contract**, so the reserved region in
+  `bias_core` (passives/bipolars) sits on a layer (200/0) chosen because no
   deck reads it today, not because any deck promises not to.
-  `por_output_chain`'s reservation is gone — #92 replaced it with drawn MiM, and
-  that cell's `extract.json` now reports an empty `ignored_layers`. Filed:
+  `por_output_chain`'s and `por_comparator`'s reservations are both gone now
+  — #92 and #91 replaced them with drawn MiM caps and a drawn divider
+  respectively, and `por_output_chain`'s `extract.json` reports an empty
+  `ignored_layers` as a result. Filed:
   [klayout-tools#289](https://github.com/2AMLogic/klayout-tools/issues/289).
   Re-check after a `klt` upgrade: if `klt drc`'s or `klt extract`'s layer set
   ever grows to include it, the reports move and `run_checks.sh` says so.

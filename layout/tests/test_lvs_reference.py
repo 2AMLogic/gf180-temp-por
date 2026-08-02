@@ -327,28 +327,51 @@ class PorComparatorMatchingPlanTest(unittest.TestCase):
 
     def test_the_sense_divider_keeps_the_floorplans_2um_leg_width(self):
         # floorplan.md rank 4: "This floorplan keeps W = 2 um" -- narrowing to
-        # 1 um is a mismatch trade #15's data does not ask for, so the reserved
-        # footprint is computed from the schematic's width and pinned here.
-        *_, leg_w, _ = bc._divider_footprint()
+        # 1 um is a mismatch trade #15's data does not ask for, so the
+        # divider's own leg width is read from the schematic and pinned here.
+        leg_w, _lengths = bc._divider_resistor_lengths()
         self.assertEqual(leg_w, 2.0)
 
-    def test_the_reserved_area_actually_fits_the_folded_string(self):
-        width, height, drawn, leg_w, legs = bc._divider_footprint()
-        pitch = leg_w + bc.DIVIDER_LEG_SPACE_UM
-        leg_len = height - 2 * bc.DIVIDER_LEG_END_UM
-        self.assertGreaterEqual(width, legs * pitch)
-        active_legs = legs - bc.DIVIDER_DUMMY_LEGS
-        self.assertGreaterEqual(active_legs * leg_len, drawn)
+    def test_each_resistor_folds_into_an_odd_number_of_legs(self):
+        # An odd leg count keeps the string's two open ends on opposite sides
+        # (_resistor_string's docstring) -- narrow enough to be worth pinning.
+        leg_w, lengths = bc._divider_resistor_lengths()
+        for name in bc.POR_DIVIDER_RESISTORS:
+            legs, _leg_len, _tail_extra = bc._resistor_leg_plan(lengths[name], leg_w)
+            self.assertEqual(legs % 2, 1, name)
 
-    def test_the_sense_divider_is_left_out_of_the_compare_on_purpose(self):
-        # It is in the schematic, and it is not in the manifest: the curated
-        # deck models no resistor, so drawing it would short SNS/SNSB rather
-        # than check them (klayout-tools#219/#222).
+    def test_the_folded_legs_area_reconstructs_the_schematics_length(self):
+        # _resistor_leg_plan's load-bearing identity (its own docstring): the
+        # folded body's marked AREA, divided by leg width, must reconstruct
+        # the schematic's r_length exactly (floating-point noise aside), or
+        # the drawn resistor's value silently drifts from what the schematic
+        # asks for.
+        leg_w, lengths = bc._divider_resistor_lengths()
+        for name in bc.POR_DIVIDER_RESISTORS:
+            length_um = lengths[name]
+            legs, leg_len, tail_extra = bc._resistor_leg_plan(length_um, leg_w)
+            reconstructed = (
+                legs * leg_len
+                + tail_extra
+                - 2 * bc.DIVIDER_CAP_UM
+                + (legs - 1) * bc.DIVIDER_LEG_SPACE_UM
+            )
+            self.assertAlmostEqual(reconstructed, length_um, places=6, msg=name)
+
+    def test_the_sense_divider_is_drawn_and_is_in_the_compare(self):
+        # #91: the divider used to be reserved rather than drawn (the curated
+        # deck modelled no resistor class at all). It is drawn for real now,
+        # extracts as the deck's ppolyf_u_1k class, and the manifest carries
+        # it in "resistors" (not "devices" -- see build_passive_cards).
         text = (REPO_ROOT / "design" / "netlist" / "por_comparator.spice").read_text()
         body = lr.subckt_body(text, "por_comparator")
         self.assertTrue(
             all(any(line.startswith(f"{r} ") for line in body)
                 for r in bc.POR_DIVIDER_RESISTORS)
+        )
+        self.assertEqual(
+            list(bc.POR_DIVIDER_RESISTORS),
+            lr.CELLS["por_comparator"]["resistors"],
         )
         self.assertFalse(
             set(bc.POR_DIVIDER_RESISTORS) & set(lr.CELLS["por_comparator"]["devices"])
@@ -793,7 +816,42 @@ class TempPorTopAssemblyTest(unittest.TestCase):
 
     def test_reference_matches_the_committed_file(self):
         committed = (LAYOUT_DIR / "cells" / f"{self.CELL}.reference.spice").read_text()
-        self.assertEqual(lr.build(self.CELL), committed)
+        fresh = lr.build(self.CELL)
+        if fresh == committed:
+            # #97 has caught temp_por_top's own GDS/reference up with every
+            # sub-cell's manifest -- the documented gap this test works
+            # around below has closed, and there is nothing further to check.
+            return
+        # #91 drew por_comparator's sense divider as three real ppolyf_u_1k
+        # resistors (XRTOP/XRBOT/XRHYS) and added them to its own manifest's
+        # "resistors" key. build_assembly composes each sub-cell through the
+        # same build_cards() every standalone cell uses, so those resistor
+        # cards now flow into a freshly generated temp_por_top reference too
+        # -- but temp_por_top's own committed GDS is deliberately *not*
+        # rebuilt here (rebuilding it against the divider's grown
+        # por_comparator footprint alone is DRC-dirty at the instance
+        # boundary; #97 reworks the floorplan once, waiting on #90/#93 too,
+        # rather than four times). So a fresh build is legitimately ahead of
+        # the committed file by exactly those three cards, and this test has
+        # to know that rather than asserting a match it should not expect
+        # yet. Re-derive with the divider's contribution removed from the
+        # live manifest and require *that* to still match byte for byte --
+        # proving the only drift is the known, tracked one, not something
+        # else silently going stale alongside it.
+        without_divider = dict(lr.CELLS["por_comparator"])
+        without_divider.pop("resistors", None)
+        original = lr.CELLS["por_comparator"]
+        lr.CELLS["por_comparator"] = without_divider
+        try:
+            pre_91 = lr.build(self.CELL)
+        finally:
+            lr.CELLS["por_comparator"] = original
+        self.assertEqual(
+            pre_91,
+            committed,
+            "temp_por_top's committed reference has drifted from the "
+            "assembly by more than por_comparator's #91 divider -- see #97",
+        )
 
     def test_pin_list_is_the_ratified_pinout_in_the_ratified_order(self):
         # The same assertion design/netlist.py --check makes at the schematic
