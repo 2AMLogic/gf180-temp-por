@@ -10,7 +10,9 @@ interactive KLayout session, no netgen/magic.
 > controls detected. That is the deliverable of #16 — a working flow that the
 > floorplan (#17) and post-layout verification (#18) inherit instead of
 > rediscovering. It is **not** a claim about the block's layout, which does not
-> exist yet.
+> exist yet. #17's floorplan sketch and matching plan — the ranked,
+> #15-data-driven common-centroid/interdigitation/guard-ring plan this flow's
+> cells will eventually implement — is [`layout/floorplan.md`](floorplan.md).
 
 ## Run it
 
