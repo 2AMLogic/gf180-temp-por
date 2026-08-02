@@ -17,9 +17,9 @@
       "matched": 30
     },
     "devices": {
-      "layout": 32,
-      "reference": 32,
-      "matched": 32
+      "layout": 33,
+      "reference": 33,
+      "matched": 33
     },
     "pins": {
       "layout": 6,
@@ -37,8 +37,8 @@
   "environment": {
     "engine": "klayout",
     "engine_version": "0.30.10",
-    "layout_sha256": "74f27fdcc94c2266032a5873e4db58211c1fdd4b0f5c6d63705e60f56be03ad0",
-    "reference_sha256": "5fdc736d7b294f92926db277e750c0ac3708095608b7ed441c5775cf809fae59",
+    "layout_sha256": "475c7feaa83591e14d63e5e4971859225920e7971396552a0a32fcd18cfa3c29",
+    "reference_sha256": "9df73647b08d158da7934f17c46ee402c49651e85dc6306fbc6cd9f27cfb104c",
     "extracted_netlist": null
   },
   "provenance": {
@@ -54,7 +54,7 @@
     {
       "category": "device.body_unverified",
       "severity": "warning",
-      "description": "13 NMOS device body terminal(s) were compared against the 'vsubs' deck-synthesized substrate net, not a real schematic net -- this deck draws no distinct NMOS substrate/tap layer (see docs/cli/extract.md, \"Coverage\")",
+      "description": "14 NMOS device body terminal(s) were compared against the 'vsubs' deck-synthesized substrate net, not a real schematic net -- this deck draws no distinct NMOS substrate/tap layer (see docs/cli/extract.md, \"Coverage\")",
       "side": "layout",
       "net": null,
       "device": {
@@ -95,7 +95,7 @@
       "description": "nets were paired ambiguously; the comparer resolved it structurally (consider a hints.same_nets entry to pin this down)",
       "side": "both",
       "net": {
-        "layout": "$22",
+        "layout": "$21",
         "reference": "XCDG.VSS"
       },
       "device": null,
@@ -107,7 +107,7 @@
       "description": "nets were paired ambiguously; the comparer resolved it structurally (consider a hints.same_nets entry to pin this down)",
       "side": "both",
       "net": {
-        "layout": "$24",
+        "layout": "$23",
         "reference": "XCTIM.1.TIM"
       },
       "device": null,
@@ -119,8 +119,8 @@
       "description": "nets were paired ambiguously; the comparer resolved it structurally (consider a hints.same_nets entry to pin this down)",
       "side": "both",
       "net": {
-        "layout": "$25",
-        "reference": "XCTIM.1.VSS"
+        "layout": "$24",
+        "reference": "XCTIM.2.TIM"
       },
       "device": null,
       "property": null
@@ -131,8 +131,8 @@
       "description": "nets were paired ambiguously; the comparer resolved it structurally (consider a hints.same_nets entry to pin this down)",
       "side": "both",
       "net": {
-        "layout": "$27",
-        "reference": "XCTIM.2.TIM"
+        "layout": "$26",
+        "reference": "XCTIM.1.VSS"
       },
       "device": null,
       "property": null
@@ -155,7 +155,7 @@
       "description": "nets were paired ambiguously; the comparer resolved it structurally (consider a hints.same_nets entry to pin this down)",
       "side": "both",
       "net": {
-        "layout": "$30",
+        "layout": "$29",
         "reference": "XCTIM.3.TIM"
       },
       "device": null,
@@ -179,7 +179,7 @@
       "description": "nets were paired ambiguously; the comparer resolved it structurally (consider a hints.same_nets entry to pin this down)",
       "side": "both",
       "net": {
-        "layout": "$33",
+        "layout": "$32",
         "reference": "XCTIM.4.TIM"
       },
       "device": null,

@@ -8,7 +8,8 @@ interactive KLayout session, no netgen/magic.
 > see it.**
 > #16 brought the flow up on one two-device proof cell. #68 added `bias_core`
 > (**34** MOS devices), #69 `por_comparator` (**18**), #70 `por_output_chain`
-> (**28** after issue #56's release latch) and #71 `temp_core` (**55** drawn: 39 schematic MOS split into
+> (**28**, after issue #56's release latch) and #71 `temp_core` (**55** drawn:
+> 39 schematic MOS split into
 > interleaved fingers, plus 6 edge dummies). #72 assembles all four into
 > **`temp_por_top`** — with the domain-seam moat, the perimeter guard ring and
 > the `VDD`/`VSS` rails. #92 then drew `por_output_chain`'s **2 MiM caps** (5
@@ -19,9 +20,11 @@ interactive KLayout session, no netgen/magic.
 > 3-segment sense divider as real `ppolyf_u_1k`-class poly resistors (**21**
 > drawn, up from 18) — `por_comparator` and `por_output_chain` are now whole
 > cells at the *cell* level, the first two to get there. `temp_por_top`'s own
-> committed assembly still predates all three of #91/#92/#93: **198**
-> devices, **131** nets, and the ratified 5-pad pinout, unchanged by any of
-> them; see #97. Every cell under test is DRC-clean and LVS-clean against the
+> committed assembly still predates #91 — and now issue #56's release latch
+> too: **198** devices, **131** nets, and the ratified 5-pad pinout, unchanged
+> by either; see #97, which is what unfreezes it (rebuilding the assembly
+> before then DRCs dirty — see the `temp_por_top` section).
+> Every cell under test is DRC-clean and LVS-clean against the
 > schematic-derived netlist with every applicable negative control detected
 > (three per cell where a cell draws a resistor or a bipolar: topology,
 > device-param, and passive-param).
@@ -714,17 +717,30 @@ them — 5 `cap_mim_2f0_m4m5_noshield` units, with the same
 isolated-plate-net caveat that cell's section records), and `temp_core`'s own
 PNP array and `R2` gain ladder (#93 folded them in — 9 `bjt` + 50 `ppolyf_u`
 real devices, retiring the sibling top cells that used to hold them outside
-this compare entirely). So the 199 devices below are the MOS subset **plus one
+this compare entirely). So the 198 devices below are the MOS subset **plus one
 cell's MiM caps plus one cell's resistors and bipolars** — not yet
 `por_comparator`'s 3 divider resistors.
 
-Recorded result (`layout/reports/temp_por_top/`):
+**`XMRLK` is not in this assembly either, and deliberately so.** Issue #56's
+release latch is the 28th MOS of `por_output_chain` and is drawn, extracted and
+LVS-matched *in that cell* (section above). It is **not** in the committed
+`temp_por_top` GDS/reference below, for the same reason `por_comparator`'s
+divider is not: this assembly is frozen behind #97. Regenerating it against
+today's `build_cells.py` is not a no-op — the grown sub-cell footprints collide
+at the instance boundary, and the rebuilt stream DRCs **dirty** (82 violations:
+`contact.space.1` ×79, `contact.width.1` ×2, `poly2.enclosing.contact.1` ×1),
+which is precisely the placement re-derivation #97 exists to do and is blocked
+on #90/#93. `temp_por_top`'s committed artifacts are therefore left byte-for-byte
+as `main` has them; #97 picks up `XMRLK` along with the rest when it reassembles.
+
+Recorded result (`layout/reports/temp_por_top/`) — unchanged from `main`, i.e.
+still the pre-#91/#56 assembly:
 
 | Check | Result |
 | ----- | ------ |
 | `klt drc --deck gf180mcu` | clean — 0 violations (Metal2/Metal3 rules now exercised, not skipped; `mim.*` too since #92) |
-| `klt extract --deck gf180mcu --top-cell-pins` | 199 devices (71 nfet, 64 pfet, 50 `ppolyf_u`, 9 `bjt`, 5 `cap_mim_2f0_m4m5_noshield`), 131 nets, 6 pins |
-| `klt lvs` | **match** — 199/199 devices, 131/131 nets, 6/6 pins, 0 errors (2 `device.body_unverified` warnings) |
+| `klt extract --deck gf180mcu --top-cell-pins` | 198 devices (70 nfet, 64 pfet, 50 `ppolyf_u`, 9 `bjt`, 5 `cap_mim_2f0_m4m5_noshield`), 131 nets, 6 pins |
+| `klt lvs` | **match** — 198/198 devices, 131/131 nets, 6/6 pins, 0 errors (2 `device.body_unverified` warnings) |
 | negative control `topology` | detected (exit 3; `device.unmatched` 1, `topology` 12) |
 | negative control `device-param` | detected (exit 3; `device.property` 5, `topology` 12) |
 | negative control `passive-param` | detected (exit 3; `device.property` 11, `topology` 15) |

@@ -93,15 +93,42 @@ cat >"$REPORTS/environment.json" <<EOF
 EOF
 
 # --- staleness gates ---------------------------------------------------------
+#
+# The gate is scoped to the cells actually being checked. A whole-repo run
+# (no cell argument) still gates on every cell, so nothing is relaxed; but a
+# single-cell run is no longer blocked by an unrelated cell's known staleness.
+# That matters while #97 is open: `temp_por_top`'s committed assembly is
+# deliberately frozen behind the sub-cell device work, so an unscoped gate
+# makes it impossible to check any *other* cell with this script.
+
+stale_gate() {
+  local scope=("$@")
+  if [ "${#scope[@]}" -gt 0 ]; then
+    local cell
+    for cell in "${scope[@]}"; do
+      if [ -n "$KLAYOUT_PY" ]; then
+        $KLAYOUT_PY layout/build_cells.py --check --cell "$cell"
+      fi
+      python3 layout/lvs_reference.py --check --cell "$cell"
+    done
+  else
+    if [ -n "$KLAYOUT_PY" ]; then
+      $KLAYOUT_PY layout/build_cells.py --check
+    fi
+    python3 layout/lvs_reference.py --check
+  fi
+}
 
 info "==> checking committed sources are current"
-if [ -n "$KLAYOUT_PY" ]; then
-  $KLAYOUT_PY layout/build_cells.py --check
-else
+if [ -z "$KLAYOUT_PY" ]; then
   red "no interpreter with the klayout module -- skipping the GDS staleness check"
   red "(install it, or run: uv run --with klayout python3 layout/build_cells.py --check)"
 fi
-python3 layout/lvs_reference.py --check
+if [ "$#" -gt 0 ]; then
+  stale_gate "$@"
+else
+  stale_gate
+fi
 
 # --- per-cell checks ---------------------------------------------------------
 
