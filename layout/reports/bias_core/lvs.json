@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "engine": "klayout",
+  "layout": "bias_core.gds",
+  "reference": "bias_core.reference.spice",
+  "top": "bias_core",
+  "status": "match",
+  "mismatch_count": 0,
+  "category_counts": {},
+  "counts": {
+    "nets": {
+      "layout": 26,
+      "reference": 26,
+      "matched": 26
+    },
+    "devices": {
+      "layout": 34,
+      "reference": 34,
+      "matched": 34
+    },
+    "pins": {
+      "layout": 6,
+      "reference": 6,
+      "matched": 6
+    }
+  },
+  "environment": {
+    "engine": "klayout",
+    "engine_version": "0.30.10",
+    "layout_sha256": "9510efb6a190fdbf9c32d363994712eaaab7eb35f1f4ec0088d73add891f1052",
+    "reference_sha256": "c06c19dee0b8683c759edc50317ce96de26115b17b88d3bf256cf63b385a1212",
+    "extracted_netlist": null
+  },
+  "mismatches": []
+}

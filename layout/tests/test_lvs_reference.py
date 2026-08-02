@@ -20,6 +20,7 @@ LAYOUT_DIR = Path(__file__).resolve().parents[1]
 REPO_ROOT = LAYOUT_DIR.parent
 sys.path.insert(0, str(LAYOUT_DIR))
 
+import build_cells as bc  # noqa: E402  (klayout is imported lazily, per-cell)
 import lvs_reference as lr  # noqa: E402
 
 CELL = "por_comparator_bias_okb_inv"
@@ -134,6 +135,73 @@ class ControlTest(unittest.TestCase):
     def test_unknown_corruption_is_an_error(self):
         with self.assertRaises(lr.ReferenceError):
             lr.build(CELL, corrupt="vibes")
+
+
+class BiasCoreManifestTest(unittest.TestCase):
+    """``bias_core`` is the first manifest entry with unlabelled internal nets
+    and a multi-device well, and the first big enough for the negative controls
+    to degrade quietly. These check the properties that make it honest."""
+
+    CELL = "bias_core"
+
+    def test_reference_matches_the_committed_file(self):
+        committed = (LAYOUT_DIR / "cells" / f"{self.CELL}.reference.spice").read_text()
+        self.assertEqual(lr.build(self.CELL), committed)
+
+    def test_every_mos_device_in_the_schematic_is_in_the_manifest(self):
+        # The non-MOS devices (PNPs, poly resistors, MiM caps) are outside the
+        # curated deck's coverage and are deliberately absent; every device it
+        # *can* model must be present, or the layout is being compared against
+        # a quietly reduced circuit.
+        golden = (REPO_ROOT / "design" / "netlist" / "bias_core.spice").read_text()
+        modelled = set(lr.parse_devices(lr.subckt_body(golden, "bias_core")))
+        self.assertEqual(modelled, set(lr.CELLS[self.CELL]["devices"]))
+
+    def test_topology_control_has_two_different_sources_to_work_with(self):
+        # The control re-ties devices[0]'s source to devices[1]'s. If they
+        # already agreed, the "corrupted" reference would equal the clean one
+        # and run_checks.sh's control would pass while controlling nothing.
+        golden = (REPO_ROOT / "design" / "netlist" / "bias_core.spice").read_text()
+        devices = lr.parse_devices(lr.subckt_body(golden, "bias_core"))
+        first, second = lr.CELLS[self.CELL]["devices"][:2]
+        self.assertNotEqual(
+            devices[first]["nodes"][2], devices[second]["nodes"][2]
+        )
+        self.assertNotEqual(
+            lr.build(self.CELL), lr.build(self.CELL, corrupt="topology")
+        )
+
+    def test_every_pfet_is_assigned_to_the_one_drawn_well(self):
+        spec = lr.CELLS[self.CELL]
+        golden = (REPO_ROOT / "design" / "netlist" / "bias_core.spice").read_text()
+        devices = lr.parse_devices(lr.subckt_body(golden, "bias_core"))
+        pfets = {n for n in spec["devices"] if devices[n]["model"] == "pfet_03v3"}
+        self.assertEqual(pfets, set(spec["wells"]["NW1"]))
+
+    def test_the_drawn_row_and_the_reference_cover_the_same_devices(self):
+        # A device drawn but not referenced (or vice versa) is exactly the
+        # asymmetry a clean LVS would have to catch; catch it here instead,
+        # without needing klayout or klt.
+        drawn = set(bc.BIAS_CORE_PMOS) | set(bc.BIAS_CORE_NMOS)
+        self.assertEqual(drawn, set(lr.CELLS[self.CELL]["devices"]))
+        self.assertEqual(
+            set(bc.BIAS_CORE_PMOS), set(lr.CELLS[self.CELL]["wells"]["NW1"])
+        )
+
+    def test_every_net_the_layout_routes_is_a_net_the_reference_declares(self):
+        spec = lr.CELLS[self.CELL]
+        declared = set(spec["ports"]) | set(spec["internal"])
+        routed = set(bc.BIAS_CORE_TRACKS) | {"VDD", "VSS"}
+        self.assertEqual(routed | {lr.SUBSTRATE_NET}, declared)
+
+    def test_internal_nets_are_declared_not_inferred(self):
+        # Dropping an internal net from the manifest must be an error, not a
+        # silently-accepted reference the layout can never match.
+        spec = dict(lr.CELLS[self.CELL])
+        self.addCleanup(lr.CELLS.__setitem__, self.CELL, lr.CELLS[self.CELL])
+        lr.CELLS[self.CELL] = {**spec, "internal": spec["internal"][1:]}
+        with self.assertRaises(lr.ReferenceError):
+            lr.build(self.CELL)
 
 
 class GuardTest(unittest.TestCase):

@@ -66,8 +66,17 @@ DEVICE_CLASS = {
 #:
 #: ``devices`` is in emission order and fixes ``M1``, ``M2``, ... numbering.
 #: ``ports`` must match the layout's own extracted pin set (a labelled Metal1
-#: net becomes a pin; the substrate net is always one). ``wells`` groups the
-#: PMOS devices that share one drawn Nwell onto one body net.
+#: net becomes a pin; the substrate net is always one). ``internal`` declares
+#: the cell's remaining nets -- unlabelled in the layout, so anonymous in the
+#: extracted netlist and matched by topology alone, but still spelled out here
+#: so the undeclared-net guard below stays a real check rather than a rubber
+#: stamp. ``wells`` groups the PMOS devices that share one drawn Nwell onto one
+#: body net.
+#:
+#: ``devices[0]`` and ``devices[1]`` must not share a source net: the
+#: ``topology`` negative control re-ties the first device's source to the
+#: second's, and if they already agree the "corrupted" reference is identical
+#: to the clean one and the control silently stops controlling anything.
 CELLS = {
     "por_comparator_bias_okb_inv": {
         "source": "por_comparator.spice",
@@ -77,6 +86,98 @@ CELLS = {
         "devices": ["XMENN", "XMENP"],
         "ports": ["BIAS_OK", "BIAS_OKB", "VDD", "VSS", SUBSTRATE_NET],
         "wells": {"NW1": ["XMENP"]},
+    },
+    "bias_core": {
+        "source": "bias_core.spice",
+        "subckt": "bias_core",
+        # Every MOS device in design/bias_core.sch -- 16 pfet + 18 nfet. The
+        # cell's other 16 devices (10 vertical PNPs XQ1/XQ8A..H/XQR, 4 poly
+        # resistors XR1/XR2/XRT/XRZ, 2 MiM caps XCC/XCOK) are outside the
+        # curated gf180mcu deck's device coverage (klayout-tools#219/#222) and
+        # are not drawn; see layout/build_cells.py's bias_core docstring and
+        # layout/README.md for what that leaves unproven.
+        "devices": [
+            # XMBN/XMP1 lead so the topology control has two different sources
+            # to work with (see the note above CELLS).
+            "XMBN",
+            "XMP1",
+            "XMP2",
+            "XMP3",
+            "XMPBN",
+            "XMBP",
+            "XMPIB",
+            "XMPT",
+            "XMI1",
+            "XMI2",
+            "XMS2P",
+            "XKA",
+            "XMPOK",
+            "XMOKA",
+            "XMOKB",
+            "XMOK2P",
+            "XMO1P",
+            "XMBN2",
+            "XML1",
+            "XML2",
+            "XMS2N",
+            "XKS0",
+            "XKS1",
+            "XKS2",
+            "XKS3",
+            "XKS4",
+            "XKAN",
+            "XKPD",
+            "XKICK",
+            "XMOL1",
+            "XMOL2",
+            "XMOKC",
+            "XMOK2",
+            "XMO1N",
+        ],
+        "ports": ["BIAS_OK", "IBIAS", "VDD", "VREF", "VSS", SUBSTRATE_NET],
+        "internal": [
+            "PG",
+            "PB",
+            "NBG",
+            "NA",
+            "NB",
+            "NBTOP",
+            "NT",
+            "N1",
+            "N2",
+            "NKM",
+            "NKG",
+            "KS1",
+            "KS2",
+            "KS3",
+            "KS4",
+            "TOK",
+            "NOKO",
+            "NOKL",
+            "NOKX",
+        ],
+        # One drawn Nwell holds the whole PMOS row, so every pfet body lands on
+        # the same anonymous well net.
+        "wells": {
+            "NW1": [
+                "XMP1",
+                "XMP2",
+                "XMP3",
+                "XMPBN",
+                "XMBP",
+                "XMPIB",
+                "XMPT",
+                "XMI1",
+                "XMI2",
+                "XMS2P",
+                "XKA",
+                "XMPOK",
+                "XMOKA",
+                "XMOKB",
+                "XMOK2P",
+                "XMO1P",
+            ]
+        },
     },
 }
 
@@ -176,7 +277,9 @@ def build(cell: str, corrupt: str | None = None) -> str:
             well_of[member] = well
 
     ports = list(spec["ports"])
-    known_nets = set(ports) | set(spec.get("wells", {}))
+    known_nets = (
+        set(ports) | set(spec.get("wells", {})) | set(spec.get("internal", []))
+    )
 
     cards: list[tuple[str, str, list[str], float, float]] = []
     for index, name in enumerate(spec["devices"], start=1):

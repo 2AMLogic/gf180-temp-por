@@ -972,9 +972,34 @@ matters because `por_comparator` already flagged the same pressure:
   evidence rests on characterised ground. The width decision belongs with
   #17's floorplan and #15's mismatch data.
 
+## Layout — partially drawn (#68)
+
+The MOS portion of this cell is drawn and verified:
+[`layout/cells/bias_core.gds`](../layout/cells/bias_core.gds), with the
+recorded DRC/extract/LVS reports under
+[`layout/reports/bias_core/`](../layout/reports/bias_core/). All **34** MOS
+devices in the table above are present, DRC-clean against `klt`'s curated
+`gf180mcu` deck, and LVS-clean (34/34 devices, 26/26 nets, 6/6 pins) against a
+reference derived mechanically from `design/netlist/bias_core.spice` — so every
+`W`/`L` in this document that belongs to a MOS device is now compared against
+drawn polygons rather than only simulated.
+
+**Nothing above about the passive and bipolar devices is checked by that run.**
+The 10 vertical PNPs (`XQ1`, `XQ8A..H`, `XQR`), the 4 poly resistors (`R1`,
+`R2`, `RT`, `RZ`) and the 2 MiM caps (`CC`, `COK`) are outside the deck's
+device coverage (klayout-tools#219/#222) and are deliberately **not drawn** —
+their area is reserved in the layout as a floorplan rectangle instead. So the
+8:1 emitter ratio, the `R2/R1` = 11.726 ratio and the `RT` 5 % tap remain
+schematic-and-simulation claims only, and the poly area flagged in
+[Area](#area--flagged-for-17) is a computed figure, not a drawn one.
+[`layout/README.md`](../layout/README.md) § "The cells under test" states the
+full boundary; the guard ring and well ties drawn there are a design-review
+claim, not a checked one (klayout-tools#281).
+
 ## Reproducing the evidence
 
 ```bash
+bash layout/run_checks.sh bias_core          # DRC/LVS on the drawn MOS portion
 python3 design/netlist.py --check            # schematic <-> committed netlist
 python3 sim/build_tb.py --check              # netlist <-> testbench fragment
 python3 sim/run_corners.py bias-core-designer-check -j 8 --timeout 900
@@ -1018,5 +1043,6 @@ overwrite the committed ones.
 | Deglitch, the ≥1 ms one-shot, push-pull drive, the below-floor `RESETn` pull-down | `por_output_chain`, #12 |
 | Re-costing `por-iq` or `por-ramp-rate` | a new decision record through #1 — still open |
 | The `IBIAS` interface change | **done**: [DR-010](../spec/decision-records/DR-010-shared-ibias-disabled-consumer-contract.md), issue #41 |
-| Layout, matching strategy, measured area | #17 |
+| Matching strategy for the whole block, measured area | #17 |
+| Drawing the PNPs, poly resistors and MiM caps — blocked on the extraction deck growing non-MOS device coverage (klayout-tools#219/#222) | see [Layout](#layout--partially-drawn-68) |
 | ~~`BIAS_OK` transient cross-check, root-cause and fix~~ | **done**: #46 — root-caused to the testbench's `gmin` aid, re-founded on a quasi-static transient, 81/81 PASS, no schematic change. See [Resolved](#resolved-the-bias_ok-quasi-static-failure-was-a-testbench-artefact-issues-43-46). |
