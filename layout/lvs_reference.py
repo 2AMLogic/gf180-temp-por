@@ -87,6 +87,71 @@ CELLS = {
         "ports": ["BIAS_OK", "BIAS_OKB", "VDD", "VSS", SUBSTRATE_NET],
         "wells": {"NW1": ["XMENP"]},
     },
+    "por_comparator": {
+        "source": "por_comparator.spice",
+        "subckt": "por_comparator",
+        # Every MOS device in design/por_comparator.sch -- 6 pfet + 12 nfet.
+        # XMENN/XMENP lead so the topology control has two different sources to
+        # work with (see the note above CELLS); they are also the pair the
+        # por_comparator_bias_okb_inv sub-cell instance contributes, so the
+        # control's defect lands inside the instanced geometry rather than in
+        # the parent row.
+        #
+        # The cell's other three devices -- the sense divider XRTOP/XRBOT/XRHYS
+        # (ppolyf_u_3k poly resistors) -- are outside the curated gf180mcu
+        # deck's device coverage (klayout-tools#219, resistors #222) and are not
+        # drawn; layout/build_cells.py's por_comparator docstring says why
+        # drawing them anyway would be worse than leaving them out, and
+        # layout/README.md records what that leaves unproven.
+        "devices": [
+            "XMENN",
+            "XMENP",
+            "XMLA",
+            "XMLB",
+            "XMENSRC",
+            "XMI1P",
+            "XMI2P",
+            "XMINA",
+            "XMINB",
+            "XMTAIL",
+            "XMBD",
+            "XMPASS",
+            "XMDNB",
+            "XMDIB",
+            "XMHSW",
+            "XMDCMPO",
+            "XMI1N",
+            "XMI2N",
+        ],
+        "ports": [
+            "BIAS_OK",
+            # BIAS_OKB is an internal node of the schematic, but the reused
+            # por_comparator_bias_okb_inv sub-cell carries its own Metal1
+            # "BIAS_OKB" label, which flattens into this cell and names the net
+            # -- and a named top-level net becomes a pin. Declared here so the
+            # compare stays exact rather than being papered over by deleting a
+            # label from the already-proven sub-cell.
+            "BIAS_OKB",
+            "IBIAS",
+            "POR_RAW",
+            "VDD",
+            "VREF",
+            "VSS",
+            SUBSTRATE_NET,
+        ],
+        # SNS and SNSB are the sense divider's taps. With XRTOP/XRBOT/XRHYS
+        # outside the deck's device coverage, each keeps exactly one device
+        # terminal in the MOS-only subset (XMINA's gate, XMHSW's drain) -- the
+        # layout draws a routing track for each, ending at the reserved divider
+        # region, so the compare still has two distinct nets to match.
+        "internal": ["NBG", "SNS", "SNSB", "N1", "TN", "NA", "CMPO", "VDDA"],
+        # Two drawn Nwells: one holds the parent cell's whole PMOS row, the
+        # other is the one inside the instanced por_comparator_bias_okb_inv.
+        "wells": {
+            "NW1": ["XMLA", "XMLB", "XMENSRC", "XMI1P", "XMI2P"],
+            "NW2": ["XMENP"],
+        },
+    },
     "bias_core": {
         "source": "bias_core.spice",
         "subckt": "bias_core",

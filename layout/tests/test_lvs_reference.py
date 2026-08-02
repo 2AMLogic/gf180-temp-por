@@ -204,6 +204,139 @@ class BiasCoreManifestTest(unittest.TestCase):
             lr.build(self.CELL)
 
 
+class PorComparatorManifestTest(unittest.TestCase):
+    """``por_comparator`` is the first manifest entry whose layout instances
+    another cell, and the first with two drawn wells. These check the
+    properties that make its clean compare honest."""
+
+    CELL = "por_comparator"
+    SOURCE = "por_comparator.spice"
+
+    def golden(self):
+        text = (REPO_ROOT / "design" / "netlist" / self.SOURCE).read_text()
+        return lr.parse_devices(lr.subckt_body(text, "por_comparator"))
+
+    def test_reference_matches_the_committed_file(self):
+        committed = (LAYOUT_DIR / "cells" / f"{self.CELL}.reference.spice").read_text()
+        self.assertEqual(lr.build(self.CELL), committed)
+
+    def test_every_mos_device_in_the_schematic_is_in_the_manifest(self):
+        # The sense divider (poly resistors) is outside the curated deck's
+        # coverage and deliberately absent; every device it *can* model must be
+        # present, or the layout is being compared against a quietly reduced
+        # circuit.
+        self.assertEqual(set(self.golden()), set(lr.CELLS[self.CELL]["devices"]))
+
+    def test_topology_control_has_two_different_sources_to_work_with(self):
+        devices = self.golden()
+        first, second = lr.CELLS[self.CELL]["devices"][:2]
+        self.assertNotEqual(devices[first]["nodes"][2], devices[second]["nodes"][2])
+        self.assertNotEqual(
+            lr.build(self.CELL), lr.build(self.CELL, corrupt="topology")
+        )
+
+    def test_every_pfet_is_assigned_to_one_of_the_two_drawn_wells(self):
+        spec = lr.CELLS[self.CELL]
+        devices = self.golden()
+        pfets = {n for n in spec["devices"] if devices[n]["model"] == "pfet_03v3"}
+        assigned = {name for members in spec["wells"].values() for name in members}
+        self.assertEqual(pfets, assigned)
+        # NW2 is the well inside the instanced por_comparator_bias_okb_inv --
+        # separate from the parent row's NW1 because the instance is placed
+        # clear of it, so the reference has to carry two body nets, not one.
+        self.assertEqual(spec["wells"]["NW2"], ["XMENP"])
+
+    def test_the_drawn_cell_and_the_reference_cover_the_same_devices(self):
+        # A device drawn but not referenced (or vice versa) is exactly the
+        # asymmetry a clean LVS would have to catch; catch it here instead,
+        # without needing klayout or klt. The instanced sub-cell's two devices
+        # count as drawn.
+        instanced = set(lr.CELLS["por_comparator_bias_okb_inv"]["devices"])
+        drawn = set(bc.POR_COMPARATOR_PMOS) | set(bc.POR_COMPARATOR_NMOS) | instanced
+        self.assertEqual(drawn, set(lr.CELLS[self.CELL]["devices"]))
+
+    def test_every_net_the_layout_routes_is_a_net_the_reference_declares(self):
+        spec = lr.CELLS[self.CELL]
+        declared = set(spec["ports"]) | set(spec["internal"])
+        routed = set(bc.POR_COMPARATOR_TRACKS) | {"VDD", "VSS"}
+        self.assertEqual(routed | {lr.SUBSTRATE_NET}, declared)
+
+    def test_bias_okb_is_a_pin_because_the_instanced_sub_cell_labels_it(self):
+        # Not cosmetic: the sub-cell is reused as-is, labels included, so the
+        # flattened parent has a *named* BIAS_OKB net and KLayout turns every
+        # named top-level net into a pin. The manifest must agree or the pin
+        # counts differ and the compare fails.
+        self.assertIn("BIAS_OKB", lr.CELLS[self.CELL]["ports"])
+        self.assertIn("BIAS_OKB", lr.CELLS["por_comparator_bias_okb_inv"]["ports"])
+
+
+class PorComparatorMatchingPlanTest(unittest.TestCase):
+    """``layout/floorplan.md`` rank 4, encoded as checks.
+
+    The rank-4 plan is a *de-prioritization* (standard practice, not
+    common-centroid) justified by #15's measured yield, so its content is
+    entirely "these devices are adjacent, identical and same-width". That is
+    cheap to state in prose and just as cheap to lose in a later edit -- so it
+    is asserted here instead of only being claimed in a PR description.
+    """
+
+    def golden(self):
+        text = (REPO_ROOT / "design" / "netlist" / "por_comparator.spice").read_text()
+        return lr.parse_devices(lr.subckt_body(text, "por_comparator"))
+
+    def test_the_input_pair_is_drawn_side_by_side(self):
+        row = bc.POR_COMPARATOR_NMOS
+        self.assertEqual(abs(row.index("XMINA") - row.index("XMINB")), 1)
+
+    def test_the_input_pair_is_geometrically_identical(self):
+        devices = self.golden()
+        for param in ("l", "w"):
+            self.assertEqual(
+                devices["XMINA"]["params"][param], devices["XMINB"]["params"][param]
+            )
+
+    def test_the_input_pairs_gate_and_drain_nets_share_adjacent_tracks(self):
+        # "short and symmetric routing from SNS and VREF": adjacent tracks put
+        # the two halves' gate runs one track pitch apart, and the same for the
+        # two drains.
+        tracks = bc.POR_COMPARATOR_TRACKS
+        self.assertEqual(abs(tracks.index("SNS") - tracks.index("VREF")), 1)
+        self.assertEqual(abs(tracks.index("NA") - tracks.index("CMPO")), 1)
+
+    def test_the_load_mirror_pair_is_drawn_side_by_side(self):
+        row = bc.POR_COMPARATOR_PMOS
+        self.assertEqual(abs(row.index("XMLA") - row.index("XMLB")), 1)
+
+    def test_the_sense_divider_keeps_the_floorplans_2um_leg_width(self):
+        # floorplan.md rank 4: "This floorplan keeps W = 2 um" -- narrowing to
+        # 1 um is a mismatch trade #15's data does not ask for, so the reserved
+        # footprint is computed from the schematic's width and pinned here.
+        *_, leg_w, _ = bc._divider_footprint()
+        self.assertEqual(leg_w, 2.0)
+
+    def test_the_reserved_area_actually_fits_the_folded_string(self):
+        width, height, drawn, leg_w, legs = bc._divider_footprint()
+        pitch = leg_w + bc.DIVIDER_LEG_SPACE_UM
+        leg_len = height - 2 * bc.DIVIDER_LEG_END_UM
+        self.assertGreaterEqual(width, legs * pitch)
+        active_legs = legs - bc.DIVIDER_DUMMY_LEGS
+        self.assertGreaterEqual(active_legs * leg_len, drawn)
+
+    def test_the_sense_divider_is_left_out_of_the_compare_on_purpose(self):
+        # It is in the schematic, and it is not in the manifest: the curated
+        # deck models no resistor, so drawing it would short SNS/SNSB rather
+        # than check them (klayout-tools#219/#222).
+        text = (REPO_ROOT / "design" / "netlist" / "por_comparator.spice").read_text()
+        body = lr.subckt_body(text, "por_comparator")
+        self.assertTrue(
+            all(any(line.startswith(f"{r} ") for line in body)
+                for r in bc.POR_DIVIDER_RESISTORS)
+        )
+        self.assertFalse(
+            set(bc.POR_DIVIDER_RESISTORS) & set(lr.CELLS["por_comparator"]["devices"])
+        )
+
+
 class GuardTest(unittest.TestCase):
     """The guards exist so a bad manifest fails loudly instead of emitting a
     reference the layout can never match (which reads as a layout bug)."""

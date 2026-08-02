@@ -497,9 +497,49 @@ this record rests on characterised ground. The width decision belongs with
 #17's floorplan and #15's mismatch data, and re-ratioing the string is not
 required to change it.
 
+## Layout — partially drawn (#69)
+
+The MOS portion of this cell is drawn and verified:
+[`layout/cells/por_comparator.gds`](../layout/cells/por_comparator.gds), with
+the recorded DRC/extract/LVS reports under
+[`layout/reports/por_comparator/`](../layout/reports/por_comparator/). All
+**18** MOS devices in the tables above are present, DRC-clean against `klt`'s
+curated `gf180mcu` deck, and LVS-clean (18/18 devices, 18/18 nets, 8/8 pins)
+against a reference derived mechanically from
+`design/netlist/por_comparator.spice` — so every `W`/`L` in this document that
+belongs to a MOS device is now compared against drawn polygons rather than only
+simulated. The `BIAS_OKB` inverter is the already-verified
+`por_comparator_bias_okb_inv` cell, instanced rather than re-drawn.
+
+**Nothing above about the sense divider is checked by that run.** `RTOP`,
+`RBOT` and `RHYS` are `ppolyf_u_3k` poly resistors, outside the deck's device
+coverage (klayout-tools#219/#222), and are deliberately **not drawn** — drawing
+their bodies would extract as interconnect and short `SNS`/`SNSB` onto the
+rails, which is worse than leaving them out. So the `RTOP/RBOT` = 1.16667
+ratio, the 23.70 MΩ string and V_hys itself remain schematic-and-simulation
+claims only. Their area is reserved in the layout as a floorplan rectangle
+instead, and that rectangle is where the estimate below turns into a number:
+
+- **222.0 × 219.5 µm = 0.0487 mm²**, folded from this document's own
+  15 441.67 µm of drawn 2 µm-wide poly at a 3 µm serpentine pitch (72 active
+  legs plus one end-of-string dummy at each end), computed by
+  `layout/build_cells.py` from the golden netlist rather than retyped. That
+  confirms the "of order 0.045 mm²" estimate in [Area](#area--flagged-for-17)
+  to within ~8 %, and confirms it as the block's single largest area item.
+- `W = 2 µm` is kept, per `layout/floorplan.md`'s rank-4 conclusion. The
+  quadratic-in-width lever described above is therefore still unspent.
+
+The matching plan actually drawn is `layout/floorplan.md`'s rank 4 as
+floorplanned — standard practice, not common-centroid, for both `MINA`/`MINB`
+and the divider, on #15's measured 100 % yield. The guard ring and well ties
+drawn there are a design-review claim, not a checked one
+(klayout-tools#281); [`layout/README.md`](../layout/README.md) § "The cells
+under test" states the full boundary.
+
 ## Reproducing the evidence
 
 ```bash
+bash layout/run_checks.sh por_comparator     # DRC/LVS on the drawn MOS portion
 python3 design/netlist.py --check            # schematic ↔ committed netlist
 python3 sim/build_tb.py --check              # netlist ↔ testbench fragment
 python3 sim/run_corners.py por-comparator-designer-check -j 8
@@ -516,4 +556,5 @@ not overwrite `20260801-015413-5dfccf2`.
 | The real `VREF` / `IBIAS` / `BIAS_OK` sources and their startup ordering | `bias_core`, #11 |
 | Ramp-rate envelope, brownout re-assertion, reset-pulse interaction on a real bring-up sequence | POR testbench suite, #14 |
 | ~~Monte Carlo mismatch on the three `[3σ]` threshold rows~~ — **done**, `sim/por-threshold-mc/` record `20260802-083749-3b9b414`; all three pass | ~~#15~~ |
-| Layout, matching strategy, measured area | #17 |
+| Matching strategy for the whole block, measured area | #17 |
+| Drawing the sense divider — blocked on the extraction deck growing non-MOS device coverage (klayout-tools#219/#222) | see [Layout](#layout--partially-drawn-69) |

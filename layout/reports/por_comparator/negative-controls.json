@@ -1,0 +1,26 @@
+{
+  "cell": "por_comparator",
+  "all_controls_detected": true,
+  "controls": [
+    {
+      "corruption": "topology",
+      "detected": true,
+      "exit_code": 3,
+      "status": "mismatch",
+      "category_counts": {
+        "device.unmatched": 1,
+        "topology": 1
+      }
+    },
+    {
+      "corruption": "device-param",
+      "detected": true,
+      "exit_code": 3,
+      "status": "mismatch",
+      "category_counts": {
+        "device.property": 5,
+        "topology": 1
+      }
+    }
+  ]
+}

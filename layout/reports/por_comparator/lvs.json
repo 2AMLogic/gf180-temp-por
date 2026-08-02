@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "engine": "klayout",
+  "layout": "por_comparator.gds",
+  "reference": "por_comparator.reference.spice",
+  "top": "por_comparator",
+  "status": "match",
+  "mismatch_count": 0,
+  "category_counts": {},
+  "counts": {
+    "nets": {
+      "layout": 18,
+      "reference": 18,
+      "matched": 18
+    },
+    "devices": {
+      "layout": 18,
+      "reference": 18,
+      "matched": 18
+    },
+    "pins": {
+      "layout": 8,
+      "reference": 8,
+      "matched": 8
+    }
+  },
+  "environment": {
+    "engine": "klayout",
+    "engine_version": "0.30.10",
+    "layout_sha256": "fbd8b47ead55fe618ca7ae35a08ba14e6e832075015705659a77ee60bd2d99f8",
+    "reference_sha256": "8195604df4c91877225509724512604380c3d249a1f7f4c44096093daf8b6a01",
+    "extracted_netlist": null
+  },
+  "mismatches": []
+}
