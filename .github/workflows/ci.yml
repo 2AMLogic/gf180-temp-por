@@ -88,10 +88,35 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install ngspice and xschem
+      - name: Install ngspice
         run: |
           sudo apt-get update
-          sudo apt-get install -y ngspice xschem
+          sudo apt-get install -y ngspice
+
+      - name: Build and install xschem 3.4.7 from source (#89)
+        # Ubuntu 24.04's apt package (xschem 3.4.4-1) has a top_is_subckt
+        # regression: it fails to wrap the top-of-invocation cell as an
+        # active .subckt (emits a double-comment-prefixed **.subckt/**.ends
+        # instead), even though design/xschemrc sets top_is_subckt 1. Every
+        # sub-cell hits the same bug when netlisted on its own, since each is
+        # the "top of invocation" for its own xschem run. xschem 3.4.7 does
+        # not have this defect and reproduces design/netlist/*.spice
+        # byte-for-byte -- see design/README.md's Requirements note and
+        # issue #89 for the full root cause. Building from source keeps CI
+        # pinned to a known-good version instead of following whatever
+        # xschem apt ships next.
+        run: |
+          sudo apt-get install -y build-essential libcairo2-dev libx11-dev \
+            libxpm-dev tcl8.6-dev tk8.6-dev
+          curl -sL https://github.com/StefanSchippers/xschem/archive/refs/tags/3.4.7.tar.gz \
+            -o /tmp/xschem-3.4.7.tar.gz
+          tar xzf /tmp/xschem-3.4.7.tar.gz -C /tmp
+          (cd /tmp/xschem-3.4.7 && ./configure && make -j"$(nproc)" && sudo make install)
+          xschem --version | grep -q 'XSCHEM V3.4.7' || {
+            echo "expected xschem 3.4.7, got:" >&2
+            xschem --version >&2
+            exit 1
+          }
 
       - name: Install the gf180mcu PDK (volare)
         run: |
