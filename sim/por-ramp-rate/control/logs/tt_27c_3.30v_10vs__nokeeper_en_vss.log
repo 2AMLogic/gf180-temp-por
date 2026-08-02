@@ -126,13 +126,12 @@ vsup#branch                        2.48451e-30
 
  Reference value :  0.00000e+00
  Reference value :  9.91810e-02
- Reference value :  1.00261e-01
+ Reference value :  1.00259e-01
  Reference value :  1.00278e-01
- Reference value :  2.29788e-01
+ Reference value :  2.37788e-01
  Reference value :  2.59175e-01
  Reference value :  2.59189e-01
- Reference value :  2.66479e-01
- Reference value :  2.82965e-01
+ Reference value :  2.66503e-01
 No. of Data Rows : 565
 Note: Simulation executed from .control section 
 

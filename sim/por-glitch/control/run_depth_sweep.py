@@ -192,10 +192,16 @@ def parse_trace(text: str) -> list[tuple[float, ...]]:
 
 
 def git_describe() -> str:
-    def _git(*args: str) -> str:
-        return subprocess.run(
+    def _git(*args: str, strip: bool = True) -> str:
+        out = subprocess.run(
             ["git", *args], cwd=REPO_ROOT, capture_output=True, text=True, check=False
-        ).stdout.strip()
+        ).stdout
+        # `git status --porcelain` encodes the status in the FIRST TWO COLUMNS,
+        # and an unstaged modification leaves column 1 blank -- so stripping
+        # here would shift the first line's path left by one character and make
+        # the "is this one of my own outputs" filter below miss it, reporting a
+        # clean tree as dirty. Only strip when the caller wants a bare value.
+        return out.strip() if strip else out
 
     generated = tuple(
         str((CONTROL_DIR / n).relative_to(REPO_ROOT))
@@ -203,7 +209,7 @@ def git_describe() -> str:
     )
     other = [
         line
-        for line in _git("status", "--porcelain").splitlines()
+        for line in _git("status", "--porcelain", strip=False).splitlines()
         if not line[3:].strip('"').startswith(generated)
     ]
     state = "dirty" if other else "clean apart from this experiment's own outputs"

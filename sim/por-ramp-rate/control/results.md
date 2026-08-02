@@ -97,7 +97,7 @@ Sampled 20 us before the first `RESETn` release edge and 300 us after it. `VDD` 
 - PDK: gf180mcuD @ open_pdks `c6d73a35f524070e85faff4a6a9eef49553ebc2b` (/Users/rwalters/.volare/gf180mcuD, found via search_root:~/.volare)
 - ngspice: ngspice-46 : Circuit level simulation program
 - Harness: sim/harness 0.1.0 (corner sections and solver options only), python 3.14.6
-- git: `ab3e393deb49d98629918e8d267c6ad3c26d600c (dirty)`
+- git: `4915a66cdb3069225c369a61251c7c3b6503bc60 (dirty)`
 - Solver options (from `../testbench/tb.json`): reltol=1e-4 abstol=1e-13 vntol=1e-8 method=gear
 - `chatter_probe.spice` sha256: `48309acc242c20afeebff7da7fcde40a2c563948077f9b13bd7cd0e08f06ea11`
 - `design/netlist/temp_por_top.spice` sha256: `ae7021b9e44f38c5b0d14cfc73e0e2eaec23ae2f0498bfcbe09849b40f67526e`

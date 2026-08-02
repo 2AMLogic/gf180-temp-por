@@ -125,16 +125,15 @@ xdut.xpor.nnand                   -3.51075e-20
 vsup#branch                        3.33886e-31
 
  Reference value :  0.00000e+00
- Reference value :  9.40600e-02
- Reference value :  1.00278e-01
- Reference value :  1.00293e-01
- Reference value :  1.04132e-01
- Reference value :  2.59172e-01
- Reference value :  2.59184e-01
- Reference value :  2.59197e-01
- Reference value :  2.66395e-01
+ Reference value :  1.00130e-01
+ Reference value :  1.00285e-01
+ Reference value :  1.00301e-01
+ Reference value :  2.59081e-01
+ Reference value :  2.59182e-01
+ Reference value :  2.63114e-01
+ Reference value :  2.66499e-01
  Reference value :  2.66518e-01
- Reference value :  2.66520e-01
+ Reference value :  2.66521e-01
  Reference value :  2.66522e-01
 No. of Data Rows : 803
 Note: Simulation executed from .control section 
