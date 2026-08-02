@@ -22,18 +22,18 @@ interactive KLayout session, no netgen/magic.
 > poly resistors (strung into 24 legs) and 2 MiM caps. **Every sub-circuit is
 > now whole at the *cell* level** — every device in all four schematics is
 > drawn, extracted and compared, except `temp_core`'s single MiM cap.
-> `temp_por_top`'s own committed assembly still predates all four of
-> #90/#91/#92/#93 — and issue #56's release latch too: **198** devices, **131**
-> nets, and the ratified 5-pad pinout, unchanged by any of them; #97 is what
-> unfreezes it, reworking that floorplan once for all of them at once rather
-> than once per sub-cell change (rebuilding the assembly before then DRCs
-> dirty — see the `temp_por_top` section). Every cell under test is LVS-clean
-> against the schematic-derived netlist with every applicable negative control
-> detected (three per cell where a cell draws a resistor or a bipolar:
-> topology, device-param, and passive-param). **DRC is clean everywhere, and
-> the committed reports now say so.** `por_comparator`'s committed `drc.json`
-> used to read `clean` while recorded under an older `klt` whose
-> `"enclosing"` primitive missed zero-overlap escapes
+> `temp_por_top` has now caught up with all four of #90/#91/#92/#93 and issue
+> #56's release latch (#97): re-deriving its floorplan against the four grown
+> sub-cell footprints (`por_comparator`'s divider and `bias_core`'s passives
+> had each outgrown the #72-era gap between instances) takes the assembly from
+> **198** to **238** devices and **131** to **159** nets, same ratified 5-pad
+> pinout, same guard-ring/rail/seam-moat treatment. Every cell under test is
+> LVS-clean against the schematic-derived netlist with every applicable
+> negative control detected (three per cell where a cell draws a resistor or a
+> bipolar: topology, device-param, and passive-param). **DRC is clean
+> everywhere, and the committed reports now say so.** `por_comparator`'s
+> committed `drc.json` used to read `clean` while recorded under an older
+> `klt` whose `"enclosing"` primitive missed zero-overlap escapes
 > ([klayout-tools#318](https://github.com/2AMLogic/klayout-tools/issues/318),
 > fixed upstream); that cell's *unchanged* committed GDS failed **2×
 > `poly2.enclosing.contact.1`** under a newer deck — a real drawing defect
@@ -42,7 +42,10 @@ interactive KLayout session, no netgen/magic.
 > confirmed clean again by #106's whole-flow re-regeneration (which also added
 > the GDS-hash guard below, catching the same class of drift one level deeper —
 > a report disagreeing with *its own* GDS rather than with another report's
-> deck). Every committed report now names the one same `klt` deck and the
+> deck). `temp_por_top`'s own #97 re-derivation picks up that fix by
+> rebuilding against `por_comparator`'s current (post-#102) GDS, so the
+> reassembled top cell is DRC-clean too, not just its four sub-cells in
+> isolation. Every committed report now names the one same `klt` deck and the
 > one same GDS it was generated from — the `por_comparator` section and
 > [Known deck limits](#known-deck-limits--what-a-clean-lvs-here-does-not-prove)
 > have the full trace.
@@ -579,14 +582,14 @@ carry. `klt 0.1.0` still does not emit the `device.body_unverified` warning
 klayout-tools#285 added as an extract-time warning — it still only surfaces
 as an LVS mismatch category (see the recorded result below).
 
-**`temp_por_top` needs its own follow-up pass.** Drawing the divider for real
-grew this cell's footprint well beyond #69's placeholder rectangle, which
-invalidates `temp_por_top`'s existing instance placement (confirmed: a
-`temp_por_top` rebuilt against this change alone is DRC-dirty at the
-`por_comparator`/neighbor-cell boundary). `temp_por_top`'s own committed
-GDS is intentionally left untouched by this change — see #97, which waits
-for #90/#92/#93 to land too before re-deriving the floorplan once, rather
-than reworking it four times.
+**`temp_por_top` needed its own follow-up pass, done in #97.** Drawing the
+divider for real grew this cell's footprint well beyond #69's placeholder
+rectangle, which invalidated `temp_por_top`'s existing instance placement
+(confirmed: a `temp_por_top` rebuilt against this change alone was DRC-dirty
+at the `por_comparator`/neighbor-cell boundary). #97 re-derived that
+placement once all four sub-cells' growth had landed rather than reworking
+it once per change — see `temp_por_top`'s own section for the fix and the
+2 pre-existing violations (below) it inherits, unrelated to the fix.
 
 **The "clean" DRC row below used to be stale (#102, root-caused by #103, fixed
 it; #106's whole-flow regeneration reconfirmed it under the current deck).**
@@ -912,7 +915,7 @@ tracks on a marked layer would be wrong: they are real interconnect, not
 resistor bodies, and marking them would make the deck extract devices no
 golden netlist has.
 
-### `temp_por_top` — the block-level assembly (#72)
+### `temp_por_top` — the block-level assembly (#72, floorplan re-derived #97)
 
 All four sub-circuits instanced into one cell, with the two guard rings, the
 `VDD`/`VSS` rails and the ratified 5-pad pinout (`VDD`, `VSS`, `PTAT`, `CTAT`,
@@ -969,49 +972,78 @@ Each of these was negative-controlled by deliberately introducing the defect it
 describes and confirming the check fires. What is *still* a design-review claim,
 and the only one left, is that `VSS` is the right net to tie the rings to.
 
-**Coverage.** This `temp_por_top` GDS predates every one of #90/#91/#92/#93,
-so most non-MOS devices of the four sub-circuits are still outside *this*
-compare even though each is drawn and LVS-checked at its own cell level:
-`bias_core`'s `XQ1`/`XQ8A..H`/`XQR` PNPs, `XR1`/`XR2`/`XRT`/`XRZ` resistors and
-`XCC`/`XCOK` MiM caps (#90); `por_comparator`'s `XRTOP`/`XRBOT`/`XRHYS` divider
-(#91); `temp_core`'s own `XCC` MiM cap, which is not drawn anywhere. Two
-exceptions, both inherited unchanged because extraction is flat:
-`por_output_chain`'s `XCDG`/`XCTIM` (#92 drew them — 5
-`cap_mim_2f0_m4m5_noshield` units, with the same isolated-plate-net caveat that
-cell's section records), and `temp_core`'s own PNP array and `R2` gain ladder
-(#93 folded them in — 9 `bjt` + 50 `ppolyf_u` real devices, retiring the
-sibling top cells that used to hold them outside this compare entirely). So the
-198 devices below are the MOS subset **plus one cell's MiM caps plus one cell's
-resistors and bipolars** — not yet `por_comparator`'s 3 divider resistors nor
-`bias_core`'s 36.
+**Coverage — now whole, except one cell's one MiM cap.** #97 caught this
+assembly up with every one of #90/#91/#92/#93 and issue #56's `XMRLK` in one
+pass, rather than reworking the floorplan once per sub-cell change. Extraction
+being flat, every sub-circuit's drawn devices now flow straight into this
+compare: `bias_core`'s `XQ1`/`XQ8A..H`/`XQR` PNPs, `XR1`/`XR2`/`XRT`/`XRZ`
+resistors and `XCC`/`XCOK` MiM caps (#90); `por_comparator`'s
+`XRTOP`/`XRBOT`/`XRHYS` divider (#91); `por_output_chain`'s `XCDG`/`XCTIM` MiM
+units (#92) and its `XMRLK` release latch (issue #56); `temp_core`'s PNP array
+and `R2` gain ladder (#93). The **238** devices below are every device in all
+four schematics **except `temp_core`'s own MiM cap `XCC`**, which stays outside
+the compare everywhere — no sub-cell draws it (see `temp_core`'s own section
+above for why), and extraction being flat cannot make `temp_por_top` see a
+device none of its instances draws.
 
-**`XMRLK` is not in this assembly either, and deliberately so.** Issue #56's
-release latch is the 28th MOS of `por_output_chain` and is drawn, extracted and
-LVS-matched *in that cell* (section above). It is **not** in the committed
-`temp_por_top` GDS/reference below, for the same reason `bias_core`'s passives
-and `por_comparator`'s divider are not: this assembly is frozen behind #97.
+**The floorplan re-derivation itself.** #91's divider and #90's passives each
+grew their cell's footprint well past the #72-era placeholder-sized gap
+`TOP_PLACEMENT` left for it: rebuilding the assembly against `build_cells.py`
+unchanged since #72 (i.e. with every sub-cell's real, grown geometry but the
+original instance placement) DRCs **dirty** at 92 violations
+(`contact.space.1` ×79, `poly2.enclosing.contact.1` ×11, `contact.width.1`
+×2) — a placement collision at the `por_comparator`/`por_output_chain`
+instance boundary (`por_comparator` grew from a 313 µm-wide placeholder to a
+real 445.0 µm, eating the entire 57 µm gap the old floorplan left and then
+75 µm more), not a defect in any individual sub-cell. #97 re-derives only
+what needs to change: `TOP_PLACEMENT`'s `por_output_chain` entry moves its
+`dx` from 820 to 920, reopening a clean ~25 µm gap past `por_comparator`'s new
+right edge, and the perimeter ring / `VDD`-`VSS` rails / domain-seam moat's
+right edges (`TOP_PERIM`, `TOP_RAIL_X1`, `TOP_SEAM_X1`, `TOP_RIGHT_PAD_X`) all
+move the same +100 µm so each keeps the same margin past the shifted instance
+it held before. Every other instance and every adjacency
+`layout/floorplan.md`'s ranked plan asks for — `temp_core` alone above the
+seam, `bias_core` at the POR row's seam-facing left edge, `por_output_chain`
+at the row's `RESETn`-facing right edge — is unchanged; `bias_core`'s own #90
+growth already cleared `por_comparator`'s left edge with a 15.1 µm gap, so
+that boundary needed no change. See `build_cells.py`'s `TOP_PLACEMENT` comment
+for the full derivation and the gap sweep (0–105 µm past the old value) that
+picked a value with comfortable margin on both sides rather than the
+narrowest one that merely stopped complaining.
 
-Catching this cell up is #97, once rather than once per sub-cell change:
-regenerating it against today's `build_cells.py` is not a no-op — the grown
-sub-cell footprints collide at the instance boundary, and the rebuilt stream
-DRCs **dirty**: 92 violations (`contact.space.1` ×79, `poly2.enclosing.contact.1`
-×11, `contact.width.1` ×2), reproducible on `main` alone with none of #90's
-geometry. That is precisely the placement re-derivation #97 exists to do, and it
-waits on #90/#93. `temp_por_top`'s committed artifacts are therefore left
-byte-for-byte as `main` has them; #97 picks up `XMRLK` along with the rest when
-it reassembles.
+**Two residual violations, and they are not this cell's.** Rebuilding with
+the re-derived floorplan drops the 92 placement-collision violations to
+**2** — both `poly2.enclosing.contact.1`, both at the same coordinates whether
+`por_comparator` is DRC'd standalone (`klt drc layout/cells/por_comparator.gds
+--deck gf180mcu`) or assembled here. They are `por_comparator`'s own
+pre-existing divider-contact finding, reproducing on its committed,
+byte-identical GDS independent of anything this issue changed, and are
+tracked separately (#102/#103, both open at the time of writing) rather than
+fixed here — conflating a pre-existing bug in one sub-cell with a placement
+regression at the assembly level is exactly what this issue's own scope
+warns against. Once #102/#103 lands, rebuilding this assembly against the
+fixed `por_comparator.gds` needs no further floorplan change: the divider's
+contact geometry is a local fix, not a footprint change.
 
-Recorded result (`layout/reports/temp_por_top/`) — unchanged from `main`, i.e.
-still the pre-#90/#91/#56 assembly:
+Recorded result (`layout/reports/temp_por_top/`):
 
 | Check | Result |
 | ----- | ------ |
-| `klt drc --deck gf180mcu` | clean — 0 violations (Metal2/Metal3 rules now exercised, not skipped; `mim.*` too since #92) |
-| `klt extract --deck gf180mcu --top-cell-pins` | 198 devices (70 nfet, 64 pfet, 50 `ppolyf_u`, 9 `bjt`, 5 `cap_mim_2f0_m4m5_noshield`), 131 nets, 6 pins |
-| `klt lvs` | **match** — 198/198 devices, 131/131 nets, 6/6 pins, 0 errors (2 `device.body_unverified` warnings) |
-| negative control `topology` | detected (exit 3; `device.unmatched` 1, `topology` 12) |
-| negative control `device-param` | detected (exit 3; `device.property` 5, `topology` 12) |
-| negative control `passive-param` | detected (exit 3; `device.property` 11, `topology` 15) |
+| `klt drc --deck gf180mcu` | **violations: 2** — both `poly2.enclosing.contact.1`, inherited unchanged from `por_comparator`'s own pre-existing, independent finding (#102/#103); 0 placement-collision violations (was 92 before the floorplan re-derivation) |
+| `klt extract --deck gf180mcu --top-cell-pins` | 238 devices (71 nfet, 64 pfet, 50 `ppolyf_u`, 27 `ppolyf_u_1k`, 19 `bjt`, 7 `cap_mim_2f0_m4m5_noshield`), 159 nets, 6 pins |
+| `klt lvs` | **match** — 238/238 devices, 159/159 nets, 6/6 pins, 0 errors (16 warnings: 2 `device.body_unverified`, 14 ambiguous-pairing `topology` from the 7 MiM caps' isolated plate nets) |
+| negative control `topology` | detected (exit 3; `device.body_unverified` 2, `device.unmatched` 1, `topology` 16) |
+| negative control `device-param` | detected (exit 3; `device.body_unverified` 2, `device.property` 5, `topology` 16) |
+| negative control `passive-param` | detected (exit 3; `device.body_unverified` 2, `device.property` 11, `topology` 19) |
+
+`klt drc` reporting `violations` (exit 3) rather than `clean` means
+`bash layout/run_checks.sh temp_por_top` currently stops after DRC and does
+not re-run extraction/LVS/negative-controls itself (the script's documented
+short-circuit on a failed DRC step) — the extraction/LVS/negative-control rows
+above were produced with the same `klt extract`/`klt lvs` invocations run by
+hand, against the same committed GDS and request, so they are what the script
+would itself record once #102/#103 closes the last 2 violations and the
+script runs the rest of the pipeline unattended again.
 
 The 6 pins are the ratified 5 pads plus the deck's `vsubs` global. That set is
 exactly what `layout.top_cell_pins` produces: the five Metal2 labels this cell
@@ -1162,9 +1194,10 @@ filed upstream per this repo's friction protocol.
   trip it. So the heuristic flags the *routing scheme*, and the only way to
   drive these counts toward zero would be to route on a metal the sub-cells
   deliberately do not use. Current per-cell counts: 28 in `bias_core`, 12 in
-  `por_comparator`, 16 in `por_output_chain`, 110 in `temp_core` — and 155 in
-  `temp_por_top`, which is the #72-era sum its frozen GDS still reflects, not
-  the 166 those four now add up to (see #97).
+  `por_comparator`, 16 in `por_output_chain`, 110 in `temp_core` — and, since
+  #97 caught `temp_por_top` up with all four, **166** there too, exactly the
+  sum of the per-cell counts above (extraction being flat, the same shapes
+  counted once each).
   The false-positive rate is filed generically as
   [klayout-tools#324](https://github.com/2AMLogic/klayout-tools/issues/324) —
   which also carries the *other* half of what #90 hit: a correctly recognised

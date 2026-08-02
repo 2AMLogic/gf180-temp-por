@@ -10,9 +10,8 @@
       "status": "mismatch",
       "category_counts": {
         "device.body_unverified": 2,
-        "device.unmatched": 41,
-        "net.merged": 28,
-        "topology": 11
+        "device.unmatched": 1,
+        "topology": 16
       }
     },
     {
@@ -24,9 +23,7 @@
       "category_counts": {
         "device.body_unverified": 2,
         "device.property": 5,
-        "device.unmatched": 40,
-        "net.merged": 28,
-        "topology": 11
+        "topology": 16
       }
     },
     {
@@ -37,9 +34,8 @@
       "status": "mismatch",
       "category_counts": {
         "device.body_unverified": 2,
-        "device.unmatched": 40,
-        "net.merged": 28,
-        "topology": 11
+        "device.property": 11,
+        "topology": 19
       }
     }
   ]

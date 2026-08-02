@@ -5,21 +5,21 @@
   "reference": "temp_por_top.reference.spice",
   "top": "temp_por_top",
   "status": "match",
-  "mismatch_count": 12,
+  "mismatch_count": 16,
   "category_counts": {
     "device.body_unverified": 2,
-    "topology": 10
+    "topology": 14
   },
   "counts": {
     "nets": {
-      "layout": 131,
-      "reference": 131,
-      "matched": 131
+      "layout": 159,
+      "reference": 159,
+      "matched": 159
     },
     "devices": {
-      "layout": 198,
-      "reference": 198,
-      "matched": 198
+      "layout": 238,
+      "reference": 238,
+      "matched": 238
     },
     "pins": {
       "layout": 6,
@@ -37,8 +37,8 @@
   "environment": {
     "engine": "klayout",
     "engine_version": "0.30.10",
-    "layout_sha256": "44978656f38fd30f2968ded8ef6519344fa0271027f856af48c6c5d62040aed9",
-    "reference_sha256": "fd2dc1d1b5e19118045d5a76dc07ea4287d3344446414bb8ef45df00f95440f7",
+    "layout_sha256": "6c8b1fcb34b1bd510896232fc15b23c4e28fa9fb6dca2fda5452453db115f9c8",
+    "reference_sha256": "6ef65dc0cb891d69622f783872889fae3131a2eecd08c87da4f61ccdaaf76761",
     "extracted_netlist": null
   },
   "provenance": {
@@ -48,14 +48,13 @@
     "deck": {
       "name": "gf180mcu",
       "content_hash": "sha256:be1a89e0f899a68c60baeeedffe1b4d76b965bd763e1b16beed1c85937872b1d"
-    },
-    "input": null
+    }
   },
   "mismatches": [
     {
       "category": "device.body_unverified",
       "severity": "warning",
-      "description": "70 NMOS device body terminal(s) were compared against the 'vsubs' deck-synthesized substrate net, not a real schematic net -- this deck draws no distinct NMOS substrate/tap layer (see docs/cli/extract.md, \"Coverage\")",
+      "description": "71 NMOS device body terminal(s) were compared against the 'vsubs' deck-synthesized substrate net, not a real schematic net -- this deck draws no distinct NMOS substrate/tap layer (see docs/cli/extract.md, \"Coverage\")",
       "side": "layout",
       "net": null,
       "device": {
@@ -84,7 +83,7 @@
       "description": "nets were paired ambiguously; the comparer resolved it structurally (consider a hints.same_nets entry to pin this down)",
       "side": "both",
       "net": {
-        "layout": "$52",
+        "layout": "$65",
         "reference": "XPOR.XCTIM.1.TIM"
       },
       "device": null,
@@ -96,7 +95,7 @@
       "description": "nets were paired ambiguously; the comparer resolved it structurally (consider a hints.same_nets entry to pin this down)",
       "side": "both",
       "net": {
-        "layout": "$53",
+        "layout": "$66",
         "reference": "XPOR.XCTIM.2.TIM"
       },
       "device": null,
@@ -108,7 +107,7 @@
       "description": "nets were paired ambiguously; the comparer resolved it structurally (consider a hints.same_nets entry to pin this down)",
       "side": "both",
       "net": {
-        "layout": "$54",
+        "layout": "$67",
         "reference": "XPOR.XCDG.NDG"
       },
       "device": null,
@@ -120,7 +119,7 @@
       "description": "nets were paired ambiguously; the comparer resolved it structurally (consider a hints.same_nets entry to pin this down)",
       "side": "both",
       "net": {
-        "layout": "$55",
+        "layout": "$69",
         "reference": "XPOR.XCDG.VSS"
       },
       "device": null,
@@ -132,7 +131,31 @@
       "description": "nets were paired ambiguously; the comparer resolved it structurally (consider a hints.same_nets entry to pin this down)",
       "side": "both",
       "net": {
-        "layout": "$57",
+        "layout": "$70",
+        "reference": "XBIAS.XCC.NZ"
+      },
+      "device": null,
+      "property": null
+    },
+    {
+      "category": "topology",
+      "severity": "warning",
+      "description": "nets were paired ambiguously; the comparer resolved it structurally (consider a hints.same_nets entry to pin this down)",
+      "side": "both",
+      "net": {
+        "layout": "$71",
+        "reference": "XBIAS.XCOK.NOKX"
+      },
+      "device": null,
+      "property": null
+    },
+    {
+      "category": "topology",
+      "severity": "warning",
+      "description": "nets were paired ambiguously; the comparer resolved it structurally (consider a hints.same_nets entry to pin this down)",
+      "side": "both",
+      "net": {
+        "layout": "$72",
         "reference": "XPOR.XCTIM.3.TIM"
       },
       "device": null,
@@ -144,7 +167,7 @@
       "description": "nets were paired ambiguously; the comparer resolved it structurally (consider a hints.same_nets entry to pin this down)",
       "side": "both",
       "net": {
-        "layout": "$58",
+        "layout": "$73",
         "reference": "XPOR.XCTIM.4.TIM"
       },
       "device": null,
@@ -156,7 +179,7 @@
       "description": "nets were paired ambiguously; the comparer resolved it structurally (consider a hints.same_nets entry to pin this down)",
       "side": "both",
       "net": {
-        "layout": "$59",
+        "layout": "$74",
         "reference": "XPOR.XCTIM.2.VSS"
       },
       "device": null,
@@ -168,7 +191,7 @@
       "description": "nets were paired ambiguously; the comparer resolved it structurally (consider a hints.same_nets entry to pin this down)",
       "side": "both",
       "net": {
-        "layout": "$60",
+        "layout": "$75",
         "reference": "XPOR.XCTIM.1.VSS"
       },
       "device": null,
@@ -180,7 +203,31 @@
       "description": "nets were paired ambiguously; the comparer resolved it structurally (consider a hints.same_nets entry to pin this down)",
       "side": "both",
       "net": {
-        "layout": "$61",
+        "layout": "$76",
+        "reference": "XBIAS.XCOK.VDD"
+      },
+      "device": null,
+      "property": null
+    },
+    {
+      "category": "topology",
+      "severity": "warning",
+      "description": "nets were paired ambiguously; the comparer resolved it structurally (consider a hints.same_nets entry to pin this down)",
+      "side": "both",
+      "net": {
+        "layout": "$77",
+        "reference": "XBIAS.XCC.PG"
+      },
+      "device": null,
+      "property": null
+    },
+    {
+      "category": "topology",
+      "severity": "warning",
+      "description": "nets were paired ambiguously; the comparer resolved it structurally (consider a hints.same_nets entry to pin this down)",
+      "side": "both",
+      "net": {
+        "layout": "$78",
         "reference": "XPOR.XCTIM.4.VSS"
       },
       "device": null,
@@ -192,7 +239,7 @@
       "description": "nets were paired ambiguously; the comparer resolved it structurally (consider a hints.same_nets entry to pin this down)",
       "side": "both",
       "net": {
-        "layout": "$62",
+        "layout": "$79",
         "reference": "XPOR.XCTIM.3.VSS"
       },
       "device": null,
@@ -251,92 +298,112 @@
       "pin": true
     },
     {
-      "layout": "$29",
+      "layout": "$45",
+      "reference": "XBIAS.EC",
+      "pin": false
+    },
+    {
+      "layout": "$64",
+      "reference": "XBIAS.ER",
+      "pin": false
+    },
+    {
+      "layout": "$41",
       "reference": "XBIAS.KS1",
       "pin": false
     },
     {
-      "layout": "$30",
+      "layout": "$42",
       "reference": "XBIAS.KS2",
       "pin": false
     },
     {
-      "layout": "$31",
+      "layout": "$43",
       "reference": "XBIAS.KS3",
       "pin": false
     },
     {
-      "layout": "$32",
+      "layout": "$44",
       "reference": "XBIAS.KS4",
       "pin": false
     },
     {
-      "layout": "$22",
+      "layout": "$12",
       "reference": "XBIAS.N1",
       "pin": false
     },
     {
-      "layout": "$23",
+      "layout": "$13",
       "reference": "XBIAS.N2",
       "pin": false
     },
     {
-      "layout": "$17",
+      "layout": "$63",
       "reference": "XBIAS.NA",
       "pin": false
     },
     {
-      "layout": "$8",
+      "layout": "$18",
       "reference": "XBIAS.NB",
       "pin": false
     },
     {
-      "layout": "$19",
+      "layout": "$8",
       "reference": "XBIAS.NBG",
       "pin": false
     },
     {
-      "layout": "$18",
+      "layout": "$7",
       "reference": "XBIAS.NBTOP",
       "pin": false
     },
     {
-      "layout": "$33",
+      "layout": "$17",
       "reference": "XBIAS.NKG",
       "pin": false
     },
     {
-      "layout": "$24",
+      "layout": "$39",
       "reference": "XBIAS.NKM",
       "pin": false
     },
     {
-      "layout": "$27",
+      "layout": "$16",
       "reference": "XBIAS.NOKL",
       "pin": false
     },
     {
-      "layout": "$26",
+      "layout": "$15",
       "reference": "XBIAS.NOKO",
       "pin": false
     },
     {
-      "layout": "$28",
+      "layout": "$40",
       "reference": "XBIAS.NOKX",
       "pin": false
     },
     {
-      "layout": "$21",
+      "layout": "$11",
       "reference": "XBIAS.NT",
       "pin": false
     },
     {
-      "layout": "$56",
+      "layout": "$68",
       "reference": "XBIAS.NW1",
       "pin": false
     },
     {
-      "layout": "$7",
+      "layout": "$52",
+      "reference": "XBIAS.NWQ",
+      "pin": false
+    },
+    {
+      "layout": "$46",
+      "reference": "XBIAS.NZ",
+      "pin": false
+    },
+    {
+      "layout": "$9",
       "reference": "XBIAS.PB",
       "pin": false
     },
@@ -346,8 +413,128 @@
       "pin": false
     },
     {
-      "layout": "$25",
+      "layout": "$14",
       "reference": "XBIAS.TOK",
+      "pin": false
+    },
+    {
+      "layout": "$70",
+      "reference": "XBIAS.XCC.NZ",
+      "pin": false
+    },
+    {
+      "layout": "$77",
+      "reference": "XBIAS.XCC.PG",
+      "pin": false
+    },
+    {
+      "layout": "$71",
+      "reference": "XBIAS.XCOK.NOKX",
+      "pin": false
+    },
+    {
+      "layout": "$76",
+      "reference": "XBIAS.XCOK.VDD",
+      "pin": false
+    },
+    {
+      "layout": "$82",
+      "reference": "XBIAS.XR1.1",
+      "pin": false
+    },
+    {
+      "layout": "$85",
+      "reference": "XBIAS.XR2.1",
+      "pin": false
+    },
+    {
+      "layout": "$58",
+      "reference": "XBIAS.XR2.10",
+      "pin": false
+    },
+    {
+      "layout": "$84",
+      "reference": "XBIAS.XR2.11",
+      "pin": false
+    },
+    {
+      "layout": "$59",
+      "reference": "XBIAS.XR2.12",
+      "pin": false
+    },
+    {
+      "layout": "$83",
+      "reference": "XBIAS.XR2.13",
+      "pin": false
+    },
+    {
+      "layout": "$60",
+      "reference": "XBIAS.XR2.14",
+      "pin": false
+    },
+    {
+      "layout": "$90",
+      "reference": "XBIAS.XR2.15",
+      "pin": false
+    },
+    {
+      "layout": "$54",
+      "reference": "XBIAS.XR2.2",
+      "pin": false
+    },
+    {
+      "layout": "$86",
+      "reference": "XBIAS.XR2.3",
+      "pin": false
+    },
+    {
+      "layout": "$55",
+      "reference": "XBIAS.XR2.4",
+      "pin": false
+    },
+    {
+      "layout": "$87",
+      "reference": "XBIAS.XR2.5",
+      "pin": false
+    },
+    {
+      "layout": "$56",
+      "reference": "XBIAS.XR2.6",
+      "pin": false
+    },
+    {
+      "layout": "$88",
+      "reference": "XBIAS.XR2.7",
+      "pin": false
+    },
+    {
+      "layout": "$57",
+      "reference": "XBIAS.XR2.8",
+      "pin": false
+    },
+    {
+      "layout": "$89",
+      "reference": "XBIAS.XR2.9",
+      "pin": false
+    },
+    {
+      "layout": "$62",
+      "reference": "XBIAS.XRT.1",
+      "pin": false
+    },
+    {
+      "layout": "$80",
+      "reference": "XBIAS.XRZ.1",
+      "pin": false
+    },
+    {
+      "layout": "$61",
+      "reference": "XBIAS.XRZ.2",
+      "pin": false
+    },
+    {
+      "layout": "$81",
+      "reference": "XBIAS.XRZ.3",
       "pin": false
     },
     {
@@ -356,172 +543,172 @@
       "pin": false
     },
     {
-      "layout": "$36",
+      "layout": "$21",
       "reference": "XCMP.CMPO",
       "pin": false
     },
     {
-      "layout": "$37",
+      "layout": "$23",
       "reference": "XCMP.N1",
       "pin": false
     },
     {
-      "layout": "$35",
+      "layout": "$20",
       "reference": "XCMP.NA",
       "pin": false
     },
     {
-      "layout": "$11",
+      "layout": "$26",
       "reference": "XCMP.NBG",
       "pin": false
     },
     {
-      "layout": "$50",
+      "layout": "$51",
       "reference": "XCMP.NW1",
       "pin": false
     },
     {
-      "layout": "$49",
+      "layout": "$50",
       "reference": "XCMP.NW2",
       "pin": false
     },
     {
-      "layout": "$10",
+      "layout": "$25",
       "reference": "XCMP.SNS",
       "pin": false
     },
     {
-      "layout": "$39",
+      "layout": "$27",
       "reference": "XCMP.SNSB",
       "pin": false
     },
     {
-      "layout": "$38",
+      "layout": "$24",
       "reference": "XCMP.TN",
       "pin": false
     },
     {
-      "layout": "$34",
+      "layout": "$19",
       "reference": "XCMP.VDDA",
       "pin": false
     },
     {
-      "layout": "$15",
+      "layout": "$33",
       "reference": "XPOR.ND1",
       "pin": false
     },
     {
-      "layout": "$41",
+      "layout": "$47",
       "reference": "XPOR.NDG",
       "pin": false
     },
     {
-      "layout": "$40",
+      "layout": "$30",
       "reference": "XPOR.NDGN",
       "pin": false
     },
     {
-      "layout": "$46",
+      "layout": "$35",
       "reference": "XPOR.NDGP",
       "pin": false
     },
     {
-      "layout": "$13",
+      "layout": "$29",
       "reference": "XPOR.NDL",
       "pin": false
     },
     {
-      "layout": "$45",
+      "layout": "$34",
       "reference": "XPOR.NNAND",
       "pin": false
     },
     {
-      "layout": "$16",
+      "layout": "$36",
       "reference": "XPOR.NTS",
       "pin": false
     },
     {
-      "layout": "$51",
+      "layout": "$53",
       "reference": "XPOR.NW1",
       "pin": false
     },
     {
-      "layout": "$12",
+      "layout": "$28",
       "reference": "XPOR.PDN",
       "pin": false
     },
     {
-      "layout": "$42",
+      "layout": "$31",
       "reference": "XPOR.PGDG",
       "pin": false
     },
     {
-      "layout": "$14",
+      "layout": "$32",
       "reference": "XPOR.PGDGB",
       "pin": false
     },
     {
-      "layout": "$47",
+      "layout": "$37",
       "reference": "XPOR.RSTB",
       "pin": false
     },
     {
-      "layout": "$43",
+      "layout": "$48",
       "reference": "XPOR.TIM",
       "pin": false
     },
     {
-      "layout": "$44",
+      "layout": "$49",
       "reference": "XPOR.TRIP",
       "pin": false
     },
     {
-      "layout": "$54",
+      "layout": "$67",
       "reference": "XPOR.XCDG.NDG",
       "pin": false
     },
     {
-      "layout": "$55",
+      "layout": "$69",
       "reference": "XPOR.XCDG.VSS",
       "pin": false
     },
     {
-      "layout": "$52",
+      "layout": "$65",
       "reference": "XPOR.XCTIM.1.TIM",
       "pin": false
     },
     {
-      "layout": "$60",
+      "layout": "$75",
       "reference": "XPOR.XCTIM.1.VSS",
       "pin": false
     },
     {
-      "layout": "$53",
+      "layout": "$66",
       "reference": "XPOR.XCTIM.2.TIM",
       "pin": false
     },
     {
-      "layout": "$59",
+      "layout": "$74",
       "reference": "XPOR.XCTIM.2.VSS",
       "pin": false
     },
     {
-      "layout": "$57",
+      "layout": "$72",
       "reference": "XPOR.XCTIM.3.TIM",
       "pin": false
     },
     {
-      "layout": "$62",
+      "layout": "$79",
       "reference": "XPOR.XCTIM.3.VSS",
       "pin": false
     },
     {
-      "layout": "$58",
+      "layout": "$73",
       "reference": "XPOR.XCTIM.4.TIM",
       "pin": false
     },
     {
-      "layout": "$61",
+      "layout": "$78",
       "reference": "XPOR.XCTIM.4.VSS",
       "pin": false
     },
@@ -591,17 +778,17 @@
       "pin": false
     },
     {
-      "layout": "$87",
+      "layout": "$115",
       "reference": "XTEMP.NW1",
       "pin": false
     },
     {
-      "layout": "$86",
+      "layout": "$114",
       "reference": "XTEMP.NW2",
       "pin": false
     },
     {
-      "layout": "$111",
+      "layout": "$139",
       "reference": "XTEMP.NWQ",
       "pin": false
     },
@@ -656,202 +843,202 @@
       "pin": false
     },
     {
-      "layout": "$128",
+      "layout": "$156",
       "reference": "XTEMP.XR1.1",
       "pin": false
     },
     {
-      "layout": "$134",
+      "layout": "$162",
       "reference": "XTEMP.XR2F.1",
       "pin": false
     },
     {
-      "layout": "$96",
+      "layout": "$124",
       "reference": "XTEMP.XR2F.10",
       "pin": false
     },
     {
-      "layout": "$139",
+      "layout": "$167",
       "reference": "XTEMP.XR2F.11",
       "pin": false
     },
     {
-      "layout": "$97",
+      "layout": "$125",
       "reference": "XTEMP.XR2F.12",
       "pin": false
     },
     {
-      "layout": "$140",
+      "layout": "$168",
       "reference": "XTEMP.XR2F.13",
       "pin": false
     },
     {
-      "layout": "$98",
+      "layout": "$126",
       "reference": "XTEMP.XR2F.14",
       "pin": false
     },
     {
-      "layout": "$141",
+      "layout": "$169",
       "reference": "XTEMP.XR2F.15",
       "pin": false
     },
     {
-      "layout": "$99",
+      "layout": "$127",
       "reference": "XTEMP.XR2F.16",
       "pin": false
     },
     {
-      "layout": "$142",
+      "layout": "$170",
       "reference": "XTEMP.XR2F.17",
       "pin": false
     },
     {
-      "layout": "$100",
+      "layout": "$128",
       "reference": "XTEMP.XR2F.18",
       "pin": false
     },
     {
-      "layout": "$143",
+      "layout": "$171",
       "reference": "XTEMP.XR2F.19",
       "pin": false
     },
     {
-      "layout": "$92",
+      "layout": "$120",
       "reference": "XTEMP.XR2F.2",
       "pin": false
     },
     {
-      "layout": "$101",
+      "layout": "$129",
       "reference": "XTEMP.XR2F.20",
       "pin": false
     },
     {
-      "layout": "$144",
+      "layout": "$172",
       "reference": "XTEMP.XR2F.21",
       "pin": false
     },
     {
-      "layout": "$102",
+      "layout": "$130",
       "reference": "XTEMP.XR2F.22",
       "pin": false
     },
     {
-      "layout": "$145",
+      "layout": "$173",
       "reference": "XTEMP.XR2F.23",
       "pin": false
     },
     {
-      "layout": "$135",
+      "layout": "$163",
       "reference": "XTEMP.XR2F.3",
       "pin": false
     },
     {
-      "layout": "$93",
+      "layout": "$121",
       "reference": "XTEMP.XR2F.4",
       "pin": false
     },
     {
-      "layout": "$136",
+      "layout": "$164",
       "reference": "XTEMP.XR2F.5",
       "pin": false
     },
     {
-      "layout": "$94",
+      "layout": "$122",
       "reference": "XTEMP.XR2F.6",
       "pin": false
     },
     {
-      "layout": "$137",
+      "layout": "$165",
       "reference": "XTEMP.XR2F.7",
       "pin": false
     },
     {
-      "layout": "$95",
+      "layout": "$123",
       "reference": "XTEMP.XR2F.8",
       "pin": false
     },
     {
-      "layout": "$138",
+      "layout": "$166",
       "reference": "XTEMP.XR2F.9",
       "pin": false
     },
     {
-      "layout": "$108",
+      "layout": "$136",
       "reference": "XTEMP.XR2T0.1",
       "pin": false
     },
     {
-      "layout": "$109",
+      "layout": "$137",
       "reference": "XTEMP.XR2T1.1",
       "pin": false
     },
     {
-      "layout": "$114",
+      "layout": "$142",
       "reference": "XTEMP.XR2T2.1",
       "pin": false
     },
     {
-      "layout": "$118",
+      "layout": "$146",
       "reference": "XTEMP.XR2T3.1",
       "pin": false
     },
     {
-      "layout": "$127",
+      "layout": "$155",
       "reference": "XTEMP.XR2T4.1",
       "pin": false
     },
     {
-      "layout": "$146",
+      "layout": "$174",
       "reference": "XTEMP.XR2T5.1",
       "pin": false
     },
     {
-      "layout": "$126",
+      "layout": "$154",
       "reference": "XTEMP.XRISO.1",
       "pin": false
     },
     {
-      "layout": "$129",
+      "layout": "$157",
       "reference": "XTEMP.XRZ.1",
       "pin": false
     },
     {
-      "layout": "$88",
+      "layout": "$116",
       "reference": "XTEMP.XRZ.2",
       "pin": false
     },
     {
-      "layout": "$130",
+      "layout": "$158",
       "reference": "XTEMP.XRZ.3",
       "pin": false
     },
     {
-      "layout": "$89",
+      "layout": "$117",
       "reference": "XTEMP.XRZ.4",
       "pin": false
     },
     {
-      "layout": "$131",
+      "layout": "$159",
       "reference": "XTEMP.XRZ.5",
       "pin": false
     },
     {
-      "layout": "$90",
+      "layout": "$118",
       "reference": "XTEMP.XRZ.6",
       "pin": false
     },
     {
-      "layout": "$132",
+      "layout": "$160",
       "reference": "XTEMP.XRZ.7",
       "pin": false
     },
     {
-      "layout": "$91",
+      "layout": "$119",
       "reference": "XTEMP.XRZ.8",
       "pin": false
     },
     {
-      "layout": "$133",
+      "layout": "$161",
       "reference": "XTEMP.XRZ.9",
       "pin": false
     }
