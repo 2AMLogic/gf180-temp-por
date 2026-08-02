@@ -144,6 +144,14 @@ Rules, so this never becomes a back door around the record convention:
   variants are composed from the same fragment in the same process, and the
   script reads corner sections and solver options from the harness and from
   the experiment's own `testbench/tb.json` rather than restating them.
+- **One `control/` may hold more than one control.** When a second, distinct
+  question arises about the same experiment, it gets its own fragment, its own
+  `run_*.py` and its own `*_results.md` beside the first rather than being
+  folded into it — otherwise the "one variable per run" property is lost and
+  the earlier control's numbers stop being reproducible on their own.
+  `sim/por-glitch/control/` is the first instance: `run_glitch_probe.py`
+  (*why* does the block respond to this glitch — DR-014) and
+  `run_depth_sweep.py` (*which* glitches does it respond to at all — DR-017).
 - **Re-running a control overwrites its outputs.** That is the opposite of
   the append-only rule and is precisely why a control is not a record: it
   makes no claim, so there is nothing to preserve, and it is cheap enough to

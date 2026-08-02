@@ -826,20 +826,36 @@ and the true dynamic mechanism is an open item.
 
 `sim/por-ramp-rate/records/20260802-000004-32fbaa0.md`'s full-assembly sweep
 also measures `RESETn` **chattering** (crossing its release threshold more
-than once) at 60 of 81 points, at all four tested rates including the two
-slow ones (1 V/s, 10 V/s) where this section's slew-rate argument does not
-apply. It was an open question whether that is this window operating at
-smaller scale on a slow ramp, or a distinct effect. **It is distinct, and it
-is not owned by this cell.** `sim/por-ramp-rate/control/` traces the release
-path on a slow ramp and finds `VREF`/`BIAS_OK`/`POR_RAW` each cross their
-threshold once, cleanly, well before `RESETn` starts toggling — this cell is
-settled throughout the chatter window. The chatter itself lives entirely
-inside `por_output_chain`'s trip detector / release-NAND / `XMAST` keeper
-loop and is ramp-rate independent (same window width a decade apart in
-rate) but temperature-dependent, the opposite signature from this section's
-slew-limited mechanism. See
-[`design/por_output_chain.md`, "The release-edge chatter"](por_output_chain.md#the-release-edge-chatter--a-marginal-transition-in-the-trip-detector-not-the-starved-loop-window)
-for the full root-cause.
+than once) at up to 60 of 81 points per rate, at all four tested rates
+including the two slow ones (1 V/s, 10 V/s) where this section's slew-rate
+argument does not apply. It was an open question whether that is this window
+operating at smaller scale on a slow ramp, or a distinct effect. **It is
+distinct, and it is not owned by this cell.** `sim/por-ramp-rate/control/`
+traces the release path on a slow ramp and finds `VREF`/`BIAS_OK`/`POR_RAW`
+each cross their threshold once, cleanly, well before `RESETn` starts
+toggling — this cell is settled throughout the chatter window, and the
+mechanism is ramp-rate independent (same window width a decade apart in
+rate), the opposite signature from this section's slew-limited one.
+
+**What it actually is** (
+[DR-016](../spec/decision-records/DR-016-por-ramp-rate-chatter-release-latch.md),
+superseding DR-015's narrower localisation): a relaxation loop through the
+**shared `IBIAS` node**. `RESETn`'s release enables `temp_core`, whose mirror
+diode joins the shared node and steps it down by ~34 mV; `por_output_chain`'s
+nA starve references follow, walking its trip detector's decision point back
+until `RESETn` re-asserts — which disables `temp_core` again. Cutting the
+`RESETn` → `temp_core.EN` → `IBIAS` path in a control arm removes the chatter
+without any device in `por_output_chain` changing. Fixed by a release latch
+(`XMRLK`) inside `por_output_chain`; see
+[`design/por_output_chain.md`, "The release-edge chatter"](por_output_chain.md#the-release-edge-chatter--a-relaxation-loop-through-the-shared-ibias-node-not-a-local-instability).
+
+**This cell is implicated only as the shared node's owner, not as the
+defect.** The ~34 mV step is the correct, expected behaviour of a sub-µA
+mirror reference when a third diode load is switched onto it — the arithmetic
+in [Why it cannot be fixed inside this cell's Iq budget](#why-it-cannot-be-fixed-inside-this-cells-iq-budget)
+applies equally to any proposal to stiffen the node so the step goes away.
+The defence belongs downstream, in whichever consumer's decision the step can
+walk back.
 
 ### Why it cannot be fixed inside this cell's Iq budget
 
@@ -1023,15 +1039,32 @@ requirement and had been failing):
 | `por_raw_shared_droop_mv` | pinned low | **≤ 0.005 mV** from the rail |
 
 And on the **full four-cell assembly** — `sim/temp-por-top-release/`, record
-`20260801-074334-8b7e57f`, which is also the first corner record taken on
-`temp_por_top` as a whole:
+`20260802-205904-bdc077d` (re-run on the post-#56 assembly;
+`20260801-074334-8b7e57f`, the first corner record taken on `temp_por_top` as
+a whole, measured it before `XMRLK`):
 
 | | Result, 81 points |
 | --- | --- |
 | `RESETn` releases | **at every point**, 5.61–16.95 ms |
 | `PTAT` after release | **1.003–1.716 V** — the sensor really is enabled |
 | shared `IBIAS`, reset asserted | 0.507–0.821 V |
+| shared `IBIAS`, reset **released** | 0.460–0.793 V — **lower at every point** |
 | `iq_por_ua` vs. [`por-iq`](../spec/target-spec.md#por-iq) < 1 µA | **0.657–2.385 µA — FAILS at 54 of 81 points** |
+
+The released row is not a rounding difference and it is not new data — it has
+been in this record since the row was added — but issue #56 is what gave it a
+meaning. Releasing `RESETn` **enables `temp_core`**, whose mirror diode joins
+this node, so the same source current splits one more way and the node's
+operating point steps **down** by tens of millivolts (−36 mV on the means
+here; −34.4 mV measured directly at `tt`/27 °C in
+`sim/por-ramp-rate/control/`). Every nA-biased decision hanging off this node
+moves with that step. That is the **dynamic** half of
+[DR-010](../spec/decision-records/DR-010-shared-ibias-disabled-consumer-contract.md)'s
+shared-node contract, added by
+[DR-016](../spec/decision-records/DR-016-por-ramp-rate-chatter-release-latch.md):
+DR-010 required a disabled consumer to present high impedance; DR-016 adds
+that *switching* a consumer moves the node, and that a downstream decision the
+node can walk back must be latched rather than left standing.
 
 That last row is the *other* conflict this document already owns (see
 [Iq apportionment](#iq-apportionment)), now measured on the real assembly

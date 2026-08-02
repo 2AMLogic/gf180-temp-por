@@ -1,0 +1,433 @@
+#!/usr/bin/env python3
+"""Depth-and-duration sweep control for sim/por-glitch/ (issue #56, DR-017).
+
+    python3 sim/por-glitch/control/run_depth_sweep.py
+
+``sim/por-glitch/``'s testbench applies one glitch shape: 300 ns total, down
+to 0.2 V. It is 0/81 PASS, and DR-014 root-causes that to a mechanism with no
+dependence on the deglitch dwell the 300 ns was chosen against. Issue #56's
+third acceptance question is whether 0.2 V is therefore the right
+*representative* depth at all.
+
+This sweeps both axes, one variable per run, on the real four-cell assembly:
+
+    DEPTH     glitch floor 0.2 V -> near-rail, at the testbench's own 300 ns.
+    DURATION  0.2 V floor held from tens of ns to tens of us, spanning both
+              sides of por_output_chain's 1.86-8.88 us characterized dwell.
+
+and writes, alongside ``run_glitch_probe.py``'s outputs in the same
+directories:
+
+    decks/sweep_<run>.spice   the exact deck as run
+    logs/sweep_<run>.log      raw ngspice output, verbatim
+    traces/sweep_<run>.csv    the full v(t) trace ngspice wrote via wrdata
+    depth_results.md          the response table, generated from those traces
+
+It is NOT a recorded PVT result: a two-axis sweep at two PVT points is a
+mechanism characterisation, not the corner-grid evidence for the por-glitch
+claim, which remains sim/por-glitch/records/. See sim/README.md, "Control
+experiments".
+
+Stdlib only, no virtualenv required.
+"""
+
+from __future__ import annotations
+
+import concurrent.futures
+import hashlib
+import json
+import os
+import subprocess
+import sys
+import textwrap
+from pathlib import Path
+
+CONTROL_DIR = Path(__file__).resolve().parent
+EXPERIMENT_DIR = CONTROL_DIR.parent
+REPO_ROOT = CONTROL_DIR.parents[2]
+
+sys.path.insert(0, str(REPO_ROOT / "sim"))
+
+from harness import HARNESS_VERSION, corners as corners_mod, runner  # noqa: E402
+from harness.pdk import PdkNotFound, find_pdk  # noqa: E402
+
+FRAGMENT = CONTROL_DIR / "depth_sweep.spice"
+DUT_NETLIST = REPO_ROOT / "design" / "netlist" / "temp_por_top.spice"
+MANIFEST = EXPERIMENT_DIR / "testbench" / "tb.json"
+
+GLITCH_START_S = 20.0e-3
+EDGE_S = 100e-9  # the testbench's own fall/rise time; held fixed on both axes
+STOP_S = 0.030  # 10 ms of post-glitch observation -- twice the shortest measured
+#               regenerated pulse, so an assert cannot hide inside it
+HALF_RAIL_THRESH = 1.65
+
+# (point_id, corner, temp_c, vdd)
+POINTS: list[tuple[str, str, float, float]] = [
+    ("tt_27c_3.30v", "tt", 27.0, 3.30),
+    ("ss_125c_2.97v", "ss", 125.0, 2.97),
+]
+
+#: DEPTH axis -- rail floor in volts, at the testbench's own 300 ns total
+#: (100 ns fall / 100 ns hold / 100 ns rise). 0.2 V is the testbench's choice;
+#: the rest walk up toward the rail. The 0.35/0.5/0.65 V steps resolve the
+#: boundary a first pass located between 0.2 and 0.8 V. 2.4 V brackets
+#: VPOR-uparrow,min (2.47 V) from below and 2.8 V sits above it, so the sweep
+#: crosses the comparator's own threshold as well as the logic's.
+DEPTHS_V = (0.2, 0.35, 0.5, 0.65, 0.8, 1.4, 2.0, 2.4, 2.8)
+
+#: The two circuit arms, exactly as sim/por-ramp-rate/control/ defines them:
+#: the committed netlist, and the same netlist with issue #56's XMRLK release
+#: latch deleted by an asserted single-line edit. Carrying both here answers a
+#: question the depth axis raises on its own -- a glitch can drag the one-shot
+#: capacitor TIM below its trip point without collapsing the rail, and whether
+#: that alone re-asserts RESETn is precisely what XMRLK changes.
+KEEPER_HEAD = "XMRLK ND1 RESETn VSS VSS nfet_03v3"
+ARMS = ("asbuilt", "nokeeper")
+
+#: DURATION axis -- how long the 0.2 V floor is held, in seconds. 100 ns is
+#: the testbench's own hold. 3 us and 30 us sit inside and beyond
+#: por_output_chain's characterized deglitch dwell (1.86-8.88 us), which is
+#: the comparison the testbench's "well under the dwell" framing rests on.
+HOLDS_S = (10e-9, 100e-9, 1e-6, 3e-6, 30e-6)
+
+def arm_netlist(arm: str) -> str:
+    """The committed top netlist, with this arm's one-line edit applied."""
+    text = DUT_NETLIST.read_text()
+    if arm == "nokeeper":
+        lines = text.splitlines(keepends=True)
+        idx = [i for i, ln in enumerate(lines) if ln.startswith(KEEPER_HEAD)]
+        if len(idx) != 1:
+            raise SystemExit(
+                f"expected exactly one '{KEEPER_HEAD}...' line in {DUT_NETLIST}, found {len(idx)}"
+            )
+        i = idx[0]
+        end = i + 1
+        while end < len(lines) and lines[end].startswith("+"):
+            end += 1
+        del lines[i:end]
+        text = "".join(lines)
+    return text
+
+
+PROBES: list[tuple[str, str]] = [
+    ("v(vdd)", "VDD"),
+    ("v(xdut.por_raw)", "POR_RAW"),
+    ("v(xdut.xpor.pgdg)", "PGDG"),
+    ("v(xdut.vref)", "VREF"),
+    ("v(resetn)", "RESETn"),
+    ("v(xdut.xpor.tim)", "TIM"),
+]
+
+
+def sha256(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def compose_deck(
+    pdk,
+    corner_name: str,
+    temp_c: float,
+    vdd: float,
+    glitch_v: float,
+    hold_s: float,
+    options: list[str],
+    deck_dir: Path,
+    trace_name: str,
+    dut_rel: str,
+    arm: str,
+) -> str:
+    corner = corners_mod.CORNERS[corner_name]
+    t_fall = GLITCH_START_S + EDGE_S
+    t_hold = t_fall + hold_s
+    t_rise = t_hold + EDGE_S
+    lines = [
+        f"* por-glitch depth/duration sweep @ {corner_name} / {temp_c:g} C / {vdd:g} V"
+        f" / floor {glitch_v:g} V / hold {hold_s * 1e9:g} ns / arm={arm}"
+        " -- GENERATED by run_depth_sweep.py, do not edit",
+        f"* pdk={pdk.variant}@{pdk.version}",
+        "",
+        f".param vdd_val={vdd!r}",
+        f".param glitch_v={glitch_v!r}",
+        f".param t_fall={t_fall!r}",
+        f".param t_hold={t_hold!r}",
+        f".param t_rise={t_rise!r}",
+        f".param stop_s={STOP_S!r}",
+        "",
+        f'.include "{pdk.design_include}"',
+    ]
+    lines += [f'.lib "{pdk.model_lib}" {section}' for section in corner.sections]
+    lines += ["", f".temp {temp_c!r}"]
+    lines += [f".options {option}" for option in options]
+    lines += [
+        "",
+        f'.include "{os.path.relpath(FRAGMENT, deck_dir)}"',
+        f'.include "{dut_rel}"',
+        "",
+        ".tran 20u {stop_s}",
+        "",
+        ".control",
+        "set numdgt=10",
+        "set noaskquit",
+        "run",
+        f"wrdata {trace_name} " + " ".join(expr for expr, _ in PROBES),
+        ".endc",
+        ".end",
+        "",
+    ]
+    return "\n".join(lines)
+
+
+def parse_trace(text: str) -> list[tuple[float, ...]]:
+    rows: list[tuple[float, ...]] = []
+    for line in text.splitlines():
+        parts = line.split()
+        if len(parts) != 2 * len(PROBES):
+            continue
+        try:
+            vals = [float(x) for x in parts]
+        except ValueError:
+            continue
+        rows.append((vals[0],) + tuple(vals[1 + 2 * i] for i in range(len(PROBES))))
+    return rows
+
+
+def git_describe() -> str:
+    def _git(*args: str, strip: bool = True) -> str:
+        out = subprocess.run(
+            ["git", *args], cwd=REPO_ROOT, capture_output=True, text=True, check=False
+        ).stdout
+        # `git status --porcelain` encodes the status in the FIRST TWO COLUMNS,
+        # and an unstaged modification leaves column 1 blank -- so stripping
+        # here would shift the first line's path left by one character and make
+        # the "is this one of my own outputs" filter below miss it, reporting a
+        # clean tree as dirty. Only strip when the caller wants a bare value.
+        return out.strip() if strip else out
+
+    generated = tuple(
+        str((CONTROL_DIR / n).relative_to(REPO_ROOT))
+        for n in ("results.md", "depth_results.md", "decks", "logs", "traces")
+    )
+    other = [
+        line
+        for line in _git("status", "--porcelain", strip=False).splitlines()
+        if not line[3:].strip('"').startswith(generated)
+    ]
+    state = "dirty" if other else "clean apart from this experiment's own outputs"
+    return f"{_git('rev-parse', 'HEAD')} ({state})"
+
+
+def run_one(args) -> tuple[str, dict]:
+    (pdk, options, deck_dir, log_dir, trace_dir, run_id, corner_name, temp_c, vdd, glitch_v,
+     hold_s, arm, dut_rel) = args
+    trace_name = f"{run_id}.csv"
+    deck_path = deck_dir / f"sweep_{run_id}.spice"
+    deck_path.write_text(
+        compose_deck(
+            pdk, corner_name, temp_c, vdd, glitch_v, hold_s, options, deck_dir, trace_name,
+            dut_rel, arm,
+        )
+    )
+    proc = subprocess.run(
+        ["ngspice", "-b", deck_path.name],
+        capture_output=True,
+        text=True,
+        cwd=deck_dir,
+        check=False,
+        timeout=3600,
+    )
+    (log_dir / f"sweep_{run_id}.log").write_text(proc.stdout + "\n" + proc.stderr)
+    raw = deck_dir / trace_name
+    if not raw.exists():
+        raise SystemExit(f"{run_id}: ngspice produced no {trace_name}\n{proc.stdout}\n{proc.stderr}")
+    text = raw.read_text()
+    (trace_dir / f"sweep_{run_id}.csv").write_text(text)
+    raw.unlink()
+    rows = parse_trace(text)
+    if not rows:
+        raise SystemExit(f"{run_id}: could not parse any rows from {trace_name}")
+
+    col = {label: i + 1 for i, (_, label) in enumerate(PROBES)}
+    t_rise = GLITCH_START_S + EDGE_S + hold_s + EDGE_S
+    in_glitch = [r for r in rows if GLITCH_START_S <= r[0] <= t_rise + 1e-6]
+    after = [r for r in rows if r[0] >= t_rise + 100e-6]
+    pgdg_min = min((r[col["PGDG"]] for r in in_glitch), default=float("nan"))
+    porraw_min = min((r[col["POR_RAW"]] for r in in_glitch), default=float("nan"))
+    tim_after = next((r[col["TIM"]] for r in rows if r[0] >= t_rise), float("nan"))
+    tim_before = next(
+        (r[col["TIM"]] for r in reversed(rows) if r[0] <= GLITCH_START_S - 1e-6), float("nan")
+    )
+    resetn_min_after = min((r[col["RESETn"]] for r in after), default=float("nan"))
+    resetn_end = rows[-1][col["RESETn"]]
+    return run_id, {
+        "arm": arm,
+        "point": f"{corner_name}_{temp_c:g}c_{vdd:g}v",
+        "glitch_v": glitch_v,
+        "hold_s": hold_s,
+        "pgdg_min": pgdg_min,
+        "porraw_min": porraw_min,
+        "tim_before": tim_before,
+        "tim_after": tim_after,
+        "resetn_min_after": resetn_min_after,
+        "resetn_end": resetn_end,
+        "asserted": bool(resetn_min_after < HALF_RAIL_THRESH),
+    }
+
+
+def main() -> int:
+    try:
+        pdk = find_pdk()
+        ngspice_version = runner.ngspice_version()
+    except (PdkNotFound, runner.NgspiceMissing) as exc:
+        print(exc, file=sys.stderr)
+        return 3
+
+    options = list(json.loads(MANIFEST.read_text()).get("options", []))
+    deck_dir = CONTROL_DIR / "decks"
+    log_dir = CONTROL_DIR / "logs"
+    trace_dir = CONTROL_DIR / "traces"
+    for d in (deck_dir, log_dir, trace_dir):
+        d.mkdir(exist_ok=True)
+    for stale in list(deck_dir.glob("sweep_*.spice")) + list(log_dir.glob("sweep_*.log")):
+        stale.unlink()
+
+    jobs = []
+    order: list[tuple[str, str, str, str]] = []  # (axis, arm, point_id, run_id)
+    for arm in ARMS:
+        dut_path = deck_dir / f"sweep_dut_{arm}.spice"
+        dut_path.write_text(arm_netlist(arm))
+        for point_id, corner_name, temp_c, vdd in POINTS:
+            for depth in DEPTHS_V:
+                run_id = f"{point_id}_d{depth:g}v__{arm}"
+                order.append(("depth", arm, point_id, run_id))
+                jobs.append((pdk, options, deck_dir, log_dir, trace_dir, run_id, corner_name,
+                             temp_c, vdd, depth, 100e-9, arm, dut_path.name))
+            for hold in HOLDS_S:
+                run_id = f"{point_id}_h{hold * 1e9:g}ns__{arm}"
+                order.append(("duration", arm, point_id, run_id))
+                jobs.append((pdk, options, deck_dir, log_dir, trace_dir, run_id, corner_name,
+                             temp_c, vdd, 0.2, hold, arm, dut_path.name))
+
+    results: dict[str, dict] = {}
+    workers = min(6, max(1, (os.cpu_count() or 4) // 2))
+    with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as pool:
+        for run_id, summary in pool.map(run_one, jobs):
+            results[run_id] = summary
+            print(
+                f"{run_id}: floor={summary['glitch_v']:g} V hold={summary['hold_s'] * 1e9:g} ns "
+                f"-> RESETn min after = {summary['resetn_min_after']:.3f} V "
+                f"({'ASSERTED' if summary['asserted'] else 'no assert'})"
+            )
+
+    def table(axis: str, arm: str, point_id: str) -> list[str]:
+        out = []
+        for a, m, p, run_id in order:
+            if a != axis or m != arm or p != point_id:
+                continue
+            s = results[run_id]
+            key = f"{s['glitch_v']:g} V" if axis == "depth" else f"{s['hold_s'] * 1e9:g} ns"
+            out.append(
+                f"| {key} | {s['pgdg_min']:.3f} V | {s['porraw_min']:.3f} V | "
+                f"{s['tim_before']:.3f} -> {s['tim_after']:.3f} V | "
+                f"{s['resetn_min_after']:.3f} V | "
+                f"{'**assert**' if s['asserted'] else 'no assert'} |"
+            )
+        return out
+
+    n_assert = sum(1 for s in results.values() if s["asserted"])
+    findings = [
+        textwrap.fill(t, width=76, initial_indent="- ", subsequent_indent="  ")
+        for t in (
+            f"{n_assert} of {len(results)} sweep runs regenerate a reset pulse. The "
+            "tables above are what DR-017 is decided on; read the boundary off them "
+            "rather than from this prose, which is generated from the same numbers.",
+            "The DEPTH axis is the answer to issue #56's third question. Where the "
+            "block stops responding, it stops because the rail never got far enough "
+            "below the logic's own switching point for PGDG to fall -- not because a "
+            "300 ns event is 'well under the deglitch dwell'. The dwell (CDG, 242 fF "
+            "on NDG) is on POR_RAW's input side and is not in this path at all.",
+            "The DURATION axis is the direct test of DR-014's strongest claim -- that "
+            "the dwell provides zero protection against a VDD-level disturbance of any "
+            "duration. If the response is identical from 10 ns to 30 us, i.e. across "
+            "por_output_chain's whole characterized 1.86-8.88 us dwell, then the "
+            "testbench's '300 ns is well under the dwell' framing was never a testable "
+            "premise on this axis and the duration is not what needs choosing.",
+            "TIM before -> after is the mechanism read-out: the one-shot capacitor is "
+            "parked near its trip point while RESETn is released, and reads ~0 V "
+            "immediately after any glitch that fired XMDIS. A run where TIM survives "
+            "the glitch is a run where the rail never took PGDG down with it.",
+        )
+    ]
+
+    lines = [
+        "# por-glitch depth / duration sweep -- generated, do not edit",
+        "",
+        "Generated by `sim/por-glitch/control/run_depth_sweep.py`. Re-run it to "
+        "regenerate this file, the `sweep_*` decks under `decks/`, the raw ngspice logs "
+        "under `logs/` and the traces under `traces/`. The numbers quoted in "
+        "`design/por_output_chain.md` and "
+        "`spec/decision-records/DR-017-por-glitch-representative-depth.md` are "
+        "transcribed from here, and from nowhere else.",
+        "",
+        "Companion to `results.md` (the internal-node mechanism probe). That one asks "
+        "*why* the block responds to `sim/por-glitch/`'s glitch; this one asks *which "
+        "glitches it responds to at all*, on two axes, one variable per run:",
+        "",
+        "- **depth** — rail floor from 0.2 V (the testbench's own choice) toward the "
+        "rail, at the testbench's own 300 ns total duration;",
+        "- **duration** — the 0.2 V floor held from 10 ns to 30 us, spanning both sides "
+        "of `por_output_chain`'s characterized 1.86–8.88 µs deglitch dwell.",
+        "",
+        "Each axis is run in two **arms**, the same two "
+        "`sim/por-ramp-rate/control/` defines: `asbuilt` (the committed netlist) and "
+        "`nokeeper` (the same netlist with issue #56's `XMRLK` release latch removed by "
+        "an asserted single-line edit — the circuit record "
+        "`20260801-233813-32fbaa0` measured). Each arm's exact DUT is committed as "
+        "`decks/sweep_dut_<arm>.spice`.",
+        "",
+        f"Both at two PVT points, each run held {STOP_S * 1e3:g} ms so a regenerated "
+        "reset pulse (≥1 ms ratified, 4.2–17.0 ms measured) cannot hide in the "
+        "post-glitch window. \"assert\" below means `RESETn` fell below "
+        f"{HALF_RAIL_THRESH} V at any time from 100 µs after the rail recovered to the "
+        "end of the run.",
+        "",
+    ]
+    for axis, title, header in (
+        ("depth", "Depth axis (300 ns total, floor swept)", "glitch floor"),
+        ("duration", "Duration axis (0.2 V floor, hold swept)", "hold at 0.2 V"),
+    ):
+        lines += [f"## {title}", ""]
+        for point_id, corner_name, temp_c, vdd in POINTS:
+            for arm in ARMS:
+                lines += [
+                    f"### `{point_id}` -- arm `{arm}`",
+                    "",
+                    f"| {header} | min `PGDG` | min `POR_RAW` | `TIM` before -> after | "
+                    "min `RESETn` after | verdict |",
+                    "| --- | ---: | ---: | ---: | ---: | --- |",
+                    *table(axis, arm, point_id),
+                    "",
+                ]
+
+    lines += [
+        "## What the numbers say",
+        "",
+        *findings,
+        "",
+        "## Environment",
+        "",
+        f"- PDK: {pdk.variant} @ open_pdks `{pdk.version}` ({pdk.path}, found via {pdk.source})",
+        f"- ngspice: {ngspice_version}",
+        f"- Harness: sim/harness {HARNESS_VERSION} (corner sections and solver options only), python {sys.version.split()[0]}",
+        f"- git: `{git_describe()}`",
+        f"- Solver options (from `../testbench/tb.json`): {' '.join(options)}",
+        f"- `depth_sweep.spice` sha256: `{sha256(FRAGMENT)}`",
+        f"- `design/netlist/temp_por_top.spice` sha256: `{sha256(DUT_NETLIST)}`",
+        "",
+    ]
+    (CONTROL_DIR / "depth_results.md").write_text("\n".join(lines))
+    print(f"wrote {(CONTROL_DIR / 'depth_results.md').relative_to(REPO_ROOT)}")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

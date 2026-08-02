@@ -18,9 +18,9 @@ evidence run, not from an estimate:
 
 | Evidence | What it substantiates |
 | --- | --- |
-| [`sim/por-output-chain-pulse/`](../sim/por-output-chain-pulse/) — record `20260801-031819-fce635f` | [`por-reset-pulse`](../spec/target-spec.md#por-reset-pulse) ≥1 ms at nominal **and 3× IBIAS**, the deasserted level (push-pull, [`por-drive`](../spec/target-spec.md#por-drive)), no early release, and this cell's own share of [`por-iq`](../spec/target-spec.md#por-iq) in both the asserted and released states |
-| [`sim/por-output-chain-deglitch/`](../sim/por-output-chain-deglitch/) — record `20260801-032128-309621f` | the deglitch **dwell time** ([`por-brownout`](../spec/target-spec.md#por-brownout)'s `[TBD-#12]`) at nominal **and half** IBIAS, capture of a *qualifying* 10 µs dip, regeneration of the full pulse after it, and the no-early/no-double-pulse chatter edge case |
-| [`sim/por-output-chain-floor/`](../sim/por-output-chain-floor/) — record `20260801-032940-d59d7c4` | [`por-reset-valid-floor`](../spec/target-spec.md#por-reset-valid-floor) against a slow 0 V → VDD ramp, with `POR_RAW` held low **and** driven to the rail, plus [`por-polarity`](../spec/target-spec.md#por-polarity) (degrades to *asserted* near 0 V) |
+| [`sim/por-output-chain-pulse/`](../sim/por-output-chain-pulse/) — record `20260802-205904-bdc077d` (re-run on the post-#56 cell; `20260801-031819-fce635f` measured it before `XMRLK`) | [`por-reset-pulse`](../spec/target-spec.md#por-reset-pulse) ≥1 ms at nominal **and 3× IBIAS**, the deasserted level (push-pull, [`por-drive`](../spec/target-spec.md#por-drive)), no early release, and this cell's own share of [`por-iq`](../spec/target-spec.md#por-iq) in both the asserted and released states |
+| [`sim/por-output-chain-deglitch/`](../sim/por-output-chain-deglitch/) — record `20260802-205904-bdc077d` (re-run on the post-#56 cell; `20260801-032128-309621f` measured it before `XMRLK`) | the deglitch **dwell time** ([`por-brownout`](../spec/target-spec.md#por-brownout)'s `[TBD-#12]`) at nominal **and half** IBIAS, capture of a *qualifying* 10 µs dip, regeneration of the full pulse after it, and the no-early/no-double-pulse chatter edge case |
+| [`sim/por-output-chain-floor/`](../sim/por-output-chain-floor/) — record `20260802-205904-bdc077d` (re-run on the post-#56 cell; `20260801-032940-d59d7c4` measured it before `XMRLK`) | [`por-reset-valid-floor`](../spec/target-spec.md#por-reset-valid-floor) against a slow 0 V → VDD ramp, with `POR_RAW` held low **and** driven to the rail, plus [`por-polarity`](../spec/target-spec.md#por-polarity) (degrades to *asserted* near 0 V) |
 
 All three are **81-point PVT grids** (9 process corners × −40/27/125 °C ×
 2.97/3.30/3.63 V), the full matrix CLAUDE.md mandates, and all three are
@@ -126,13 +126,16 @@ state (`RESETn` high ⇒ V_gs = 0).
 | `XMDANT` | 0.5 µm / 10 µm | 2.5 nA sink for stage A |
 | `XMDBNI` | 1 µm / 1 µm | trip stage B input NMOS |
 | `XMDBPT` | 0.5 µm / 10 µm | 2.5 nA source for stage B |
+| `XMRLK` | 1 µm / 1 µm | **release latch** — holds `ND1` at `VSS` once `RESETn` is high (issue #56) |
 | `XMNAP1`, `XMNAP2` | 4 µm / 0.5 µm | release-NAND parallel pull-ups |
 | `XMNAN1`, `XMNAN2` | 2 µm / 0.5 µm | release-NAND series pull-down stack |
 | `XMAST` | 0.5 µm / 10 µm | startup-assist keeper on `RSTB` |
 | `XMOP` | 1 µm / 1 µm | output pull-up |
 | `XMON` | 10 µm / 0.5 µm | output pull-down — **20:1 in W/L against `XMOP`** |
 
-Three of these are load-bearing enough to justify their own section.
+Four of these are load-bearing enough to justify their own section — the last
+one, `XMRLK`, was added by issue #56 and is written up in
+[The release-edge chatter](#the-release-edge-chatter--a-relaxation-loop-through-the-shared-ibias-node-not-a-local-instability).
 
 ### The one-shot is a current-starved ramp, and its trip is `VDD − V_sg`
 
@@ -222,13 +225,13 @@ asks for down there. Only **geometry** does, which is why the output pair is
 
 | Row | Requirement | Measured (81-point grid) | Binding point | Verdict |
 | --- | --- | --- | --- | --- |
-| [`por-reset-pulse`](../spec/target-spec.md#por-reset-pulse) | ≥1 ms, no maximum | **4.215 … 7.752 ms** at nominal `IBIAS`; **1.579 … 2.822 ms** at 3× `IBIAS` | min at **FF / −40 °C / 2.97 V** | **PASS** — 4.2× margin at nominal, 1.58× with a 3× `IBIAS` error |
+| [`por-reset-pulse`](../spec/target-spec.md#por-reset-pulse) | ≥1 ms, no maximum | **4.217 … 7.755 ms** at nominal `IBIAS`; **1.580 … 2.823 ms** at 3× `IBIAS` | min at **FF / −40 °C / 2.97 V** | **PASS** — 4.2× margin at nominal, 1.58× with a 3× `IBIAS` error |
 | [`por-brownout`](../spec/target-spec.md#por-brownout) `[TBD-#12]` | deglitch dwell ≤ 10 µs | **1.86 … 4.58 µs** at nominal `IBIAS`; **3.61 … 8.88 µs** at half | max at **SS / −40 °C / 3.63 V** (as the row predicts) | **PASS** — the published dwell is **4.58 µs worst-case**, 2.2× under `T_dip,min` |
 | [`por-brownout`](../spec/target-spec.md#por-brownout) | a qualifying 10 µs dip re-asserts and regenerates the full pulse | `RESETn` back to a valid low in **1.84 … 4.57 µs** end-to-end; stays asserted for the rest of the run | — | **PASS** |
-| [`por-reset-valid-floor`](../spec/target-spec.md#por-reset-valid-floor) | `V(RESETn) ≤ min(0.1 × VDD, 0.3 V)` for all VDD ≥ 0 | max ratio **0.0055 × VDD**; max absolute **1.70 mV** | ratio at **SF / +125 °C**, absolute at **SS / −40 °C** | **PASS** — 18× under the ratio limit, 176× under the absolute one |
-| [`por-polarity`](../spec/target-spec.md#por-polarity) | active low, degrades to *asserted* near 0 V | held ≤1.70 mV through the whole 0 V → VDD ramp, with `POR_RAW` low **and** driven to the rail | — | **PASS** |
-| [`por-drive`](../spec/target-spec.md#por-drive) | push-pull, both states driven | deasserted level = **full rail** (2.96999 / 3.29999 / 3.62999 V into 5 pF) | — | **PASS** |
-| [`por-iq`](../spec/target-spec.md#por-iq) | shared <1 µA | this cell's own draw **24.96 … 31.58 nA** asserted, 19.47 … 25.41 nA released | max at **FF / +125 °C / 3.63 V** | **PASS** — see [Iq budget](#iq-budget) |
+| [`por-reset-valid-floor`](../spec/target-spec.md#por-reset-valid-floor) | `V(RESETn) ≤ min(0.1 × VDD, 0.3 V)` for all VDD ≥ 0 | max ratio **0.0055 × VDD**; max absolute **1.74 mV** | ratio at **SF / +125 °C**, absolute at **SS / −40 °C** | **PASS** — 18× under the ratio limit, 172× under the absolute one |
+| [`por-polarity`](../spec/target-spec.md#por-polarity) | active low, degrades to *asserted* near 0 V | held ≤1.74 mV through the whole 0 V → VDD ramp, with `POR_RAW` low **and** driven to the rail | — | **PASS** |
+| [`por-drive`](../spec/target-spec.md#por-drive) | push-pull, both states driven | deasserted level = **full rail** (2.96999 … 3.63 V into 5 pF, i.e. the rail itself at every corner) | — | **PASS** |
+| [`por-iq`](../spec/target-spec.md#por-iq) | shared <1 µA | this cell's own draw **24.96 … 31.63 nA** asserted, 19.47 … 25.41 nA released | max at **FF / +125 °C / 3.63 V** | **PASS** — see [Iq budget](#iq-budget) |
 
 ### The `RESETn` measurement load — `[TBD-#8/#12]`, now finalized
 
@@ -246,7 +249,7 @@ now measured rather than asserted:
   external pull-up is outside the specified interface (`por-drive`: no
   external pull-up in the specified interface).
 
-### The achieved valid-low floor is 1.70 mV, not exactly 0 V
+### The achieved valid-low floor is 1.74 mV, not exactly 0 V
 
 `por-reset-valid-floor` targets 0 V with an acceptance fallback of ≤0.4 V
 "if #12 demonstrates 0 V is unreachable, with the achieved floor stated". The
@@ -256,7 +259,7 @@ the *specified* criterion (`≤ min(0.1 × VDD, 0.3 V)`) is met outright, with
 18× margin on the ratio, so the ≤0.4 V fallback is not invoked. The achieved
 floor, stated as the row requires:
 
-- **Absolute**: `V(RESETn) ≤ 1.70 mV` at every point of a 0 V → VDD ramp, all
+- **Absolute**: `V(RESETn) ≤ 1.74 mV` at every point of a 0 V → VDD ramp, all
   81 corners (worst at SS / −40 °C).
 - **Relative**: `V(RESETn)/VDD ≤ 0.0055` for VDD ≥ 1 mV (worst at
   SF / +125 °C). Restricted to VDD < 100 mV — where the on/off ratio has
@@ -281,9 +284,9 @@ deglitch function". The deglitch record applies three 1 µs `POR_RAW` glitches
 | Observable | Requirement | Measured |
 | --- | --- | --- |
 | `PGDG` during sub-dwell chatter | must not move | ≥ 2.941 V (i.e. within ~30 mV of the rail at every corner) |
-| `RESETn` during chatter, pulse still running | no **early release** | ≤ 5.03 nV |
+| `RESETn` during chatter, pulse still running | no **early release** | ≤ 5.20 nV |
 | `RESETn` after release, same chatter | no spurious **re-assertion** | ≥ 2.96999 V |
-| pulse width measured through the chatter | neither truncated nor **restarted** | 4.215 … 7.751 ms — the same distribution as the un-chattered pulse |
+| pulse width measured through the chatter | neither truncated nor **restarted** | 4.217 … 7.754 ms — the same distribution as the un-chattered pulse |
 
 The last row is the real discriminator, and it is why the check is two-sided
 rather than a bare `≥1 ms`: a glitch that *did* get through would have reset
@@ -302,69 +305,147 @@ level testbenches could not see.
 
 ## Two new findings from #14's assembly-level sweeps (issue #56)
 
-`sim/por-ramp-rate/` (record `20260802-000004-32fbaa0`, 20/81 PASS) and
+`sim/por-ramp-rate/` (record `20260802-000004-32fbaa0`, 21/81 PASS) and
 `sim/por-glitch/` (record `20260801-233813-32fbaa0`, 0/81 PASS) each surfaced
 a full-assembly defect this cell's own cell-level records do not — both
 root-caused here, with a committed, re-runnable control experiment behind
 each claim (`sim/README.md`, "Control experiments").
 
-### The release-edge chatter — a marginal transition in the trip detector, not the starved-loop window
+**They resolve differently, and the difference is the point.** The first is a
+real, fixable defect: one device (`XMRLK`) closes it, and the full 81-point ×
+4-rate grid re-run backs that — record
+[`20260802-205904-bdc077d`](../sim/por-ramp-rate/records/20260802-205904-bdc077d.md),
+**81/81 PASS, `chatter_* = 0` at every corner and every rate**. The second
+cannot be fixed by sizing anything in this cell at all — its mechanism has no
+dependence on the deglitch dwell it was framed against, and its re-run with
+`XMRLK` in place is **bit-for-bit the same 0/81**
+([`20260802-205904-bdc077d`](../sim/por-glitch/records/20260802-205904-bdc077d.md)),
+which is the intended outcome: the latch was not aimed at it. What #56 *did*
+settle about `por-glitch` is where the `VDD`-glitch immunity boundary actually
+is — see [below](#but-there-is-a-vdd-glitch-immunity-boundary-and-it-is-05065-v).
+
+### The release-edge chatter — a relaxation loop through the shared `IBIAS` node, not a local instability
 
 `por-ramp-rate`'s chatter (`RESETn` toggling more than once at the release
-edge, up to 109.6 µs against a ≤1 ns bound, 60/81 points) was hypothesised in
-#56 to be either `design/bias_core.md`'s starved-loop mechanism operating at
-a smaller scale on slow ramps, or a distinct effect. It is the latter, and it
-lives entirely in this cell, not in `bias_core` or `por_comparator`.
+edge, up to 109.6 µs against a ≤1 ns bound, at up to 60 of 81 points per
+rate) was hypothesised in #56 to be either `design/bias_core.md`'s
+starved-loop mechanism operating at a smaller scale on slow ramps, or a
+distinct effect. It is a third thing: **`RESETn`'s own release moves the
+shared `IBIAS` node, and this cell's release decision is a function of that
+node.** The loop is real positive feedback and it leaves `por_output_chain`
+entirely.
 
-`sim/por-ramp-rate/control/run_chatter_probe.py` traces every node on the
-release path — `POR_RAW`, `PGDG`, `VREF`, `BIAS_OK`, `TIM`, `TRIP`, `RSTB`,
-`RESETn` — at three PVT + rate points picked to isolate the variables:
+`sim/por-ramp-rate/control/run_chatter_probe.py` runs three PVT + rate points
+in **four arms**, each one asserted single-line edit away from the committed
+`design/netlist/temp_por_top.spice`, tracing the release path *and* the
+shared-bias nodes behind it. The arms are what make it a root cause rather
+than a correlation:
 
-| Point | Rate | `RESETn` crossings of 1.0 V | Other nodes |
+| Arm | Edit vs. the committed netlist | `RESETn` crossings @ `tt_27c_3.30v` (10 V/s, 1 V/s) | @ `tt_-40c_3.30v` |
 | --- | --- | --- | --- |
-| `tt_27c_3.30v` | 10 V/s | 3 (36.85 µs window) | `POR_RAW`/`PGDG`/`VREF`/`BIAS_OK`/`TIM` cross **once**; `TRIP`/`RSTB` cross **3×/4×**, same window |
-| `tt_-40c_3.30v` | 10 V/s | 1 (clean) | every node crosses once |
-| `tt_27c_3.30v` | 1 V/s (a decade slower) | 3 (36.32 µs window) | same pattern as the 10 V/s point |
+| `asbuilt` | none (`XMRLK` present) | 1, 1 | 1 |
+| `nokeeper` | `XMRLK` deleted — the circuit the record measured | **3 (36.85 µs), 3 (36.32 µs)** | 1 |
+| `nokeeper_en_vdd` | `XMRLK` deleted **and** `temp_core.EN` tied to `VDD` | 1, 1 | 1 |
+| `nokeeper_en_vss` | `XMRLK` deleted **and** `temp_core.EN` tied to `VSS` | 1, 1 | 1 |
 
-Three things fall out of that table, all load-bearing:
+**The mechanism, in the order the trace shows it.** At the top level
+(`design/netlist/temp_por_top.spice`) `temp_core`'s `EN` pin **is** `RESETn`
+— the sensor is held disabled while reset is asserted, per DR-010. So:
 
-- **`bias_core` and `por_comparator` are firmly settled before the chatter
-  window opens** — `VREF`, `BIAS_OK` and `POR_RAW` each cross their threshold
-  once, well before `RESETn` starts toggling. The chatter is entirely
-  downstream of them, inside this cell's own trip detector (`XMDAPI` /
-  `XMDANT` / `XMDBNI` / `XMDBPT` → `TRIP`), the release NAND, and the
-  `XMAST` keeper loop on `RSTB` — `TRIP` and `RSTB` toggle in lock-step with
-  `RESETn`, same count, same window, at every chattering point.
-- **It is ramp-rate independent.** The 10 V/s and 1 V/s points at the same
-  corner chatter with near-identical window widths (36.85 vs. 36.32 µs).
-  `design/bias_core.md`'s starved-loop window is a slew-rate-limited effect
-  — the amplifier cannot track `dVDD/dt` — and would scale with the ramp
-  rate; this does not, because `TIM`'s approach to the trip detector's
-  decision point is set by its own `~2.5 nA / 6.27 pF` time constant *after*
-  `PGDG` has already asserted, not by how fast `VDD` is still moving at that
-  point. That is also why the corner-grid record itself shows comparable
-  chatter magnitudes across all four tested rates at a given corner (e.g.
-  `tt_27c`: 35–42 µs at every rate) rather than the fast-endpoint-only
-  pattern the starved-loop window produces.
-- **It is temperature-dependent, consistent with the trip detector's own
-  construction.** `tt`/−40 °C settles in one clean transition at the same
-  rate and `VDD` that chatters at `tt`/27 °C. The trip detector is
-  deliberately **"two nA-limited current comparators"** (see
-  [The one-shot is a current-starved ramp](#the-one-shot-is-a-current-starved-ramp-and-its-trip-is-vdd--v_sg)
-  above) — exactly the kind of weak-inversion, exponentially
-  temperature-sensitive stage that sits closest to a marginal, regenerative
-  decision point at higher temperature, and furthest from one in the cold.
+1. `RESETn` releases. `temp_core` enables, and its `XMBD` mirror diode joins
+   the shared `IBIAS` node alongside this cell's and `por_comparator`'s. The
+   same source current now splits more ways, so the node steps **down**:
+   **−34.4 mV** at `tt`/27 °C, **−28.0 mV** at `tt`/−40 °C, measured across a
+   window in which `VDD` itself moves only **+3.2 mV**. It is a step in the
+   shared bias, not a rail artefact.
+2. This cell's own starve references follow it: `NDL` drops **−25.5 mV**
+   (27 °C). In weak inversion that is most of a decade — the nA sink
+   `XMDANT`, which is what sets `ND1`'s balance point against `XMDAPI`, is
+   roughly halved.
+3. `ND1` therefore drifts back **up** after the release: **28.3 mV → 569 mV**
+   inside 300 µs at `tt`/27 °C. At ~0.55 V `XMDBNI` re-conducts, `TRIP`
+   collapses from the rail, the release NAND takes `RSTB` back high and
+   `RESETn` **re-asserts**.
+4. Which disables `temp_core` again, restores `IBIAS`, restores `NDL`, lets
+   `ND1` fall and `TRIP` recover — and the cycle repeats. A relaxation
+   oscillator with a period set by the nA/fF constants of `ND1` and `TRIP`,
+   which is why the measured windows are tens of microseconds and contain
+   2–6 edges.
 
-**Conclusion.** This is a real defect in `por_output_chain`'s own trip
-detector / release-NAND / `XMAST` loop — most likely a stability margin the
-NAND-and-keeper's deliberately weak, nA-class devices do not carry at every
-corner, not an inherent architecture-level tension between two ratified
-rows the way the starved-loop window is. Fixing it (wider/faster trip-stage
-devices, more decisive `RSTB` drive, or decoupling `XMAST`'s feedback path)
-is real analog sizing work that needs its own stability analysis and a fresh
-81-point re-verification across all four rates — genuinely possible, but
-outside a root-cause pass's safe scope; see #56's PR for the hand-off. Full
-evidence: [`sim/por-ramp-rate/control/results.md`](../sim/por-ramp-rate/control/results.md).
+Everything the record shows follows from that, including the two features
+that made it look like something else:
+
+- **Ramp-rate independence.** The 10 V/s and 1 V/s points at the same corner
+  chatter with near-identical windows (36.85 vs. 36.32 µs), a decade apart.
+  Nothing in the loop above involves `dVDD/dt` — the trigger is a *load step*
+  on the shared node, and the period is set by `ND1`'s own nA/fF drift, so
+  `design/bias_core.md`'s slew-limited starved-loop window is ruled out (as
+  is any comparator-threshold-noise story: `VREF`, `BIAS_OK` and `POR_RAW`
+  each cross their threshold exactly once, well before the window opens, in
+  every arm).
+- **Temperature dependence.** The `IBIAS` step is *smaller* in the cold
+  (−28.0 vs. −34.4 mV) **and** `ND1`'s post-release drift stops short:
+  peak **425.7 mV** at −40 °C versus **569.0 mV** at 27 °C, against an
+  `XMDBNI` conduction point that is *higher* in the cold. The cold corner
+  simply never closes the loop. That is the whole −40 °C/27 °C split in the
+  record, and it needed no appeal to "exponentially temperature-sensitive
+  weak-inversion margin" in the abstract.
+
+**The two `nokeeper_en_*` arms are the proof.** They change exactly one
+thing — `temp_core`'s `EN` is tied to a rail instead of to `RESETn`, so the
+output can no longer modulate the shared-node load — and the chatter vanishes
+at every point. It vanishes in **both** directions, permanently enabled and
+permanently disabled, which also rules out "temp_core enabled is just a
+harder operating point". If the chatter were an instability inside this
+cell's trip detector, neither tie could have touched it.
+
+#### The fix: `XMRLK`, a release latch on `ND1`
+
+The circuit's real defect is that **the release decision was never final**.
+`XMAST` latches the *asserted* state (`RESETn` low holds `RSTB` high
+independently of `TRIP`/`PGDG`) but there was no counterpart on the released
+side, so `TRIP` had to keep winning an nA-scale comparison forever, against a
+bias the release itself had just moved. `XMRLK` — one nfet, 1 µm / 1 µm,
+`ND1` → `VSS`, gate `RESETn` — closes it symmetrically: once `RESETn` is
+high, `ND1` is held at `VSS`, `TRIP` stays at the rail, and the release is
+one-way regardless of where the nA balance drifts afterwards.
+
+Three properties make it safe rather than merely effective:
+
+- **It cannot latch prematurely.** `RSTB` = NAND(`TRIP`, `PGDG`), so `PGDG`
+  low pins `RSTB` high and `RESETn` low *regardless of `TRIP`* — the latch
+  can only arm after the deglitched rail is already good, which is after the
+  one-shot has genuinely expired. The below-floor default (`ND1` pinned high,
+  `TRIP` pinned low, `RESETn` asserted) is untouched, because `RESETn` low
+  means `XMRLK` is off.
+- **Re-arming after a brownout is unaffected.** `PGDG` falls → `RSTB` rises →
+  `RESETn` falls → `XMRLK` opens, all before `ND1` has to move. `XMDIS`
+  discharges `TIM` into an undisturbed trip detector exactly as before.
+- **It costs no static current.** In the released state it sinks the same
+  `XMDAPI` subthreshold leg `XMDANT` was already sinking (a few hundred pA
+  with `TIM` parked at ~`VDD` − 0.58 V); it adds no crowbar path, and in the
+  asserted state it is off. Sizing is the same 1 µm / 1 µm as `XMDBNI` — it
+  only has to beat that sub-nA leg, three decades of margin.
+
+**Verified, not argued**: `sim/por-ramp-rate/records/` re-runs the full
+81-point PVT grid at all four ratified rates with `XMRLK` in place. Full
+mechanism evidence:
+[`sim/por-ramp-rate/control/results.md`](../sim/por-ramp-rate/control/results.md).
+Decision record: [DR-016](../spec/decision-records/DR-016-por-ramp-rate-chatter-release-latch.md),
+which supersedes DR-015's "recorded, not fixed — and localised to this cell's
+trip detector" framing.
+
+#### What this says beyond `por-ramp-rate`
+
+DR-010 established the shared-`IBIAS` contract as a *static* one: a disabled
+consumer must present high impedance so the node is not clamped. This finding
+adds a **dynamic** clause that no cell-level testbench could have surfaced —
+**enabling or disabling a consumer steps the shared node's operating point by
+tens of millivolts, and every nA-biased decision hanging off that node moves
+with it.** Any future consumer gated on `RESETn` (or on anything else that a
+consumer's own output controls) inherits the same loop. The general defence
+is the one taken here: a decision that the shared node can walk back must be
+latched, not left as a standing analog comparison.
 
 ### Why the deglitch dwell cannot reject a VDD-level glitch
 
@@ -408,10 +489,13 @@ collapse. The real mechanism is simpler and is entirely inside this cell:
    reset, not merely disturbed.
 3. `RESETn` then regenerates a complete, freshly-timed reset pulse from that
    discharged `TIM` — one low, then release, **5.08–6.11 ms** later at these
-   two points (and the release edge itself carries the same tens-of-µs
-   3-crossing chatter [above](#the-release-edge-chatter--a-marginal-transition-in-the-trip-detector-not-the-starved-loop-window),
-   since it is the same trip detector doing the same thing regardless of
-   what charged `TIM`). The pulse **width scales with `VDD`**
+   two points. (Before `XMRLK` landed, that release edge carried the same
+   tens-of-µs 3-crossing chatter
+   [above](#the-release-edge-chatter--a-relaxation-loop-through-the-shared-ibias-node-not-a-local-instability),
+   since it is the same trip detector doing the same thing regardless of what
+   charged `TIM`; it is now a single clean crossing, which makes this deck an
+   independent confirmation of that fix on a release path `por-ramp-rate`
+   never exercises.) The pulse **width scales with `VDD`**
    (`design/por_output_chain.md`'s own "trip is `VDD − V_sg`" finding: a
    higher rail needs a bigger swing on `TIM` before it trips), which is
    exactly why record `20260801-233813-32fbaa0`'s lower-`VDD` corners
@@ -424,20 +508,63 @@ collapse. The real mechanism is simpler and is entirely inside this cell:
 dwell (`CDG`, 1.86–8.88 µs) bounds how long a `POR_RAW`-only disturbance
 takes to reach `PGDG` *while `VDD` itself holds steady* — that is the
 mechanism [Deglitch dwell](#deglitch-dwell--cdg-is-bounded-on-both-sides)
-above measures and it is correct on its own terms. It provides **zero**
-protection against a disturbance on `VDD` itself, of *any* depth or
-duration, because `PGDG`'s `VDD`-referenced inverters have no time constant
-on that path at all — there is nothing for a longer or shorter glitch to be
-compared against. `por-glitch`'s own 300 ns choice ("well under" the dwell)
-was never testable by this filter in the first place; "well under" only has
-meaning for a `POR_RAW`-side disturbance. Rejecting a `VDD`-level glitch
-would need a genuinely new element (e.g. a locally-reserved, rail-independent
-hold on `XMDIS`'s trigger, or an entirely separate rail-collapse detector) —
-real new circuit topology, not a resize of `CDG` — so this is handed to a
-decision record rather than fixed here; see
+above measures and it is correct on its own terms. It provides **no**
+protection against a disturbance on `VDD` itself, because `PGDG`'s
+`VDD`-referenced inverters have no time constant on that path at all — there
+is nothing for a longer or shorter glitch to be compared against. Rejecting a
+`VDD`-level glitch by *filtering* would need a genuinely new element (e.g. a
+locally-reserved, rail-independent hold on `XMDIS`'s trigger, or an entirely
+separate rail-collapse detector) — real new circuit topology, not a resize of
+`CDG`; see
 [DR-014](../spec/decision-records/DR-014-por-glitch-vdd-level-immunity.md).
-Full evidence:
+Full mechanism evidence:
 [`sim/por-glitch/control/results.md`](../sim/por-glitch/control/results.md).
+
+### But there *is* a `VDD`-glitch immunity boundary, and it is 0.5–0.65 V
+
+DR-014's mechanism argument came with a stronger claim than the two points
+behind it could carry: that the block is unprotected against a `VDD`
+disturbance "of *any* depth or duration". A two-axis sweep
+(`sim/por-glitch/control/run_depth_sweep.py`, 56 runs, two PVT points, two
+circuit arms) measures it. **The duration half is confirmed exactly; the
+depth half is not.**
+
+| 300 ns glitch, rail floor | with `XMRLK` (as drawn) | without `XMRLK` (pre-#56) |
+| --- | --- | --- |
+| 0.2 V (`por-glitch`'s own choice) … 0.5 V | reset regenerates | reset regenerates |
+| **0.65 V** … 1.4 V | **`RESETn` never moves** | reset regenerates |
+| 2.0 V … 2.8 V | `RESETn` never moves | `RESETn` never moves |
+
+Both PVT points swept — `tt`/27 °C/3.30 V and `ss`/125 °C/2.97 V — give the
+identical boundary in each arm. On the **duration** axis (0.2 V floor held
+from 10 ns to 30 µs, spanning and overshooting the whole 1.86–8.88 µs dwell),
+every run regenerates a pulse in both arms: three decades of duration, no
+dependence, which is the dwell's absence from this path measured rather than
+argued.
+
+Two things fall out:
+
+- **`XMRLK` buys more than a volt of rail floor**, as a side effect of making
+  the release one-way. Without it, a glitch merely dragging `TIM` below its
+  trip point re-asserts reset — a 300 ns dip to 1.4 V does it, a dip that
+  never takes the rail near `VPOR↓` and that no spec row asks this block to
+  respond to. With it, `TIM` can be disturbed freely; only a rail collapse
+  deep enough to deassert `POR_RAW` *and* take `RESETn`'s own supply with it
+  gets through.
+- **0.2 V is not a representative glitch depth.** It is roughly 3× below the
+  measured boundary and below the level at which this cell's push-pull output
+  still has a supply to hold high with, so `por-glitch`'s 0/81 measures the
+  rail collapsing rather than a deglitch decision. Above the boundary the
+  dwell is visibly doing its designed job — at `ss`/125 °C with a 0.65 V
+  floor, `POR_RAW` touches −23 mV for 100 ns and `RESETn` never moves.
+
+Whether `por-glitch`'s check should therefore be re-cut at a depth above the
+boundary, and whether "must never move" should become "must regenerate
+exactly one correctly-shaped pulse", is a spec judgment on a ratified row and
+belongs to #1 — recorded, with the number that judgment needs, in
+[DR-017](../spec/decision-records/DR-017-por-glitch-representative-depth.md).
+The testbench is left exactly as written and its 0/81 stands. Full evidence:
+[`sim/por-glitch/control/depth_results.md`](../sim/por-glitch/control/depth_results.md).
 
 ## Iq budget
 
@@ -462,7 +589,7 @@ At the binding corner **FF / +125 °C / 3.63 V**:
 | Idealised `IBIAS` reference (bias_core's branch) | 500 nA | charged **once** to `por-iq` by rule 1; already inside #10's recorded `iq_run_ua` |
 | **Running total against `por-iq`** | **~824 nA** | **~176 nA left** for `bias_core`'s own overhead |
 
-Across the whole grid this cell's asserted-state draw is **24.96 … 31.58 nA**
+Across the whole grid this cell's asserted-state draw is **24.96 … 31.63 nA**
 — about **3 %** of the shared budget, and about 6 % of what is left after
 #10's share.
 
@@ -488,7 +615,7 @@ the target in the direction that can fail it:
 
 | Record | Stress DUT | Why that direction | Result |
 | --- | --- | --- | --- |
-| pulse | **3× nominal** (1.5 µA) | more current ⇒ *faster* timer ⇒ shorter pulse ⇒ threatens the ≥1 ms floor | ≥ **1.579 ms** at every point |
+| pulse | **3× nominal** (1.5 µA) | more current ⇒ *faster* timer ⇒ shorter pulse ⇒ threatens the ≥1 ms floor | ≥ **1.580 ms** at every point |
 | deglitch | **0.5× nominal** (0.25 µA) | less current ⇒ *slower* filter ⇒ longer dwell ⇒ threatens the ≤10 µs ceiling | ≤ **8.88 µs** at every point |
 
 So the cell as drawn is proven over an `IBIAS` envelope of **0.5× … 3×
@@ -525,7 +652,7 @@ with the bias core dead. The chain of dead-circuit defaults:
 Every one of those steps is a *ratio* of geometries, not a bias condition,
 which is what makes it work at 10 mV of rail. None of them carries static
 current in the settled state. The floor record measures the end of that chain
-directly (1.70 mV worst case, ≤0.0055 × VDD), including the pathological case
+directly (1.74 mV worst case, ≤0.0055 × VDD), including the pathological case
 where `POR_RAW` is driven high below the comparator floor.
 
 ### Confirmed against a *starved* bias, not just a dead one (#55)
@@ -583,8 +710,12 @@ python3 sim/build_tb.py --check              # netlist ↔ testbench fragments
 python3 sim/run_corners.py por-output-chain-pulse    -j 8
 python3 sim/run_corners.py por-output-chain-deglitch -j 8
 python3 sim/run_corners.py por-output-chain-floor    -j 8
+python3 sim/run_corners.py por-ramp-rate              -j 8   # assembly, all four rates
+python3 sim/run_corners.py por-glitch                -j 8   # assembly, VDD glitch
 python3 sim/por-ramp-rate/control/run_chatter_probe.py   # issue #56, release-edge chatter
-python3 sim/por-glitch/control/run_glitch_probe.py       # issue #56, VDD-level glitch
+python3 sim/por-glitch/control/run_glitch_probe.py       # issue #56, VDD-glitch mechanism
+python3 sim/por-glitch/control/run_depth_sweep.py        # issue #56, VDD-glitch depth/duration
+bash layout/run_checks.sh por_output_chain               # DRC/LVS incl. XMRLK
 ```
 
 Each `run_corners.py` invocation mints a **new** record id; `sim/` is

@@ -20,56 +20,58 @@ M$4 \$11 POR_RAW \$10 vsubs nfet L=0.5U W=1U AS=0.8P AD=0.8P PS=3.6U PD=3.6U
 M$5 \$13 \$5 VSS vsubs nfet L=1U W=1U AS=0.8P AD=0.8P PS=3.6U PD=3.6U
 * device instance $6 r0 *1 87.7,0.5 nfet
 M$6 \$14 \$6 VSS vsubs nfet L=1U W=1U AS=0.8P AD=0.8P PS=3.6U PD=3.6U
-* device instance $7 r0 *1 40,1 nfet
-M$7 \$3 \$3 VSS vsubs nfet L=10U W=2U AS=1.6P AD=1.6P PS=5.6U PD=5.6U
-* device instance $8 r0 *1 63.55,1 nfet
-M$8 \$12 \$11 VSS vsubs nfet L=0.5U W=2U AS=1.6P AD=1.6P PS=5.6U PD=5.6U
-* device instance $9 r0 *1 91.05,1 nfet
-M$9 \$17 \$14 \$15 vsubs nfet L=0.5U W=2U AS=1.6P AD=1.6P PS=5.6U PD=5.6U
-* device instance $10 r0 *1 94.15,1 nfet
-M$10 \$15 \$12 VSS vsubs nfet L=0.5U W=2U AS=1.6P AD=1.6P PS=5.6U PD=5.6U
-* device instance $11 r0 *1 2.8,2 nfet
-M$11 IBIAS IBIAS VSS vsubs nfet L=4U W=4U AS=3.2P AD=3.2P PS=9.6U PD=9.6U
-* device instance $12 r0 *1 52.6,5 nfet
-M$12 \$10 \$3 VSS vsubs nfet L=10U W=10U AS=8P AD=8P PS=21.6U PD=21.6U
-* device instance $13 r0 *1 208.65,5 nfet
-M$13 RESETn \$17 VSS vsubs nfet L=0.5U W=10U AS=8P AD=8P PS=21.6U PD=21.6U
-* device instance $14 r0 *1 143.8,0.25 pfet
-M$14 \$8 \$2 VDD \$19 pfet L=10U W=0.5U AS=0.4P AD=0.4P PS=2.6U PD=2.6U
-* device instance $15 r0 *1 156.4,0.25 pfet
-M$15 \$14 \$2 VDD \$19 pfet L=10U W=0.5U AS=0.4P AD=0.4P PS=2.6U PD=2.6U
-* device instance $16 r0 *1 168.1,0.25 pfet
-M$16 \$12 \$11 VDD \$19 pfet L=2U W=0.5U AS=0.4P AD=0.4P PS=2.6U PD=2.6U
-* device instance $17 r0 *1 193.2,0.25 pfet
-M$17 \$17 RESETn VDD \$19 pfet L=10U W=0.5U AS=0.4P AD=0.4P PS=2.6U PD=2.6U
-* device instance $18 r0 *1 164.25,0.5 pfet
-M$18 \$11 POR_RAW \$16 \$19 pfet L=0.5U W=1U AS=0.8P AD=0.8P PS=3.6U PD=3.6U
-* device instance $19 r0 *1 201.3,0.5 pfet
-M$19 RESETn \$17 VDD \$19 pfet L=1U W=1U AS=0.8P AD=0.8P PS=3.6U PD=3.6U
-* device instance $20 r0 *1 106,1 pfet
-M$20 \$2 \$2 VDD \$19 pfet L=10U W=2U AS=1.6P AD=1.6P PS=5.6U PD=5.6U
-* device instance $21 r0 *1 118.6,1 pfet
-M$21 \$3 \$2 VDD \$19 pfet L=10U W=2U AS=1.6P AD=1.6P PS=5.6U PD=5.6U
-* device instance $22 r0 *1 171.95,1 pfet
-M$22 \$5 \$12 VDD \$19 pfet L=0.5U W=2U AS=1.6P AD=1.6P PS=5.6U PD=5.6U
-* device instance $23 r0 *1 175.3,1 pfet
-M$23 \$13 \$5 \$8 \$19 pfet L=1U W=2U AS=1.6P AD=1.6P PS=5.6U PD=5.6U
+* device instance $7 r0 *1 91.3,0.5 nfet
+M$7 \$6 RESETn VSS vsubs nfet L=1U W=1U AS=0.8P AD=0.8P PS=3.6U PD=3.6U
+* device instance $8 r0 *1 40,1 nfet
+M$8 \$3 \$3 VSS vsubs nfet L=10U W=2U AS=1.6P AD=1.6P PS=5.6U PD=5.6U
+* device instance $9 r0 *1 63.55,1 nfet
+M$9 \$12 \$11 VSS vsubs nfet L=0.5U W=2U AS=1.6P AD=1.6P PS=5.6U PD=5.6U
+* device instance $10 r0 *1 94.65,1 nfet
+M$10 \$17 \$14 \$15 vsubs nfet L=0.5U W=2U AS=1.6P AD=1.6P PS=5.6U PD=5.6U
+* device instance $11 r0 *1 97.75,1 nfet
+M$11 \$15 \$12 VSS vsubs nfet L=0.5U W=2U AS=1.6P AD=1.6P PS=5.6U PD=5.6U
+* device instance $12 r0 *1 2.8,2 nfet
+M$12 IBIAS IBIAS VSS vsubs nfet L=4U W=4U AS=3.2P AD=3.2P PS=9.6U PD=9.6U
+* device instance $13 r0 *1 52.6,5 nfet
+M$13 \$10 \$3 VSS vsubs nfet L=10U W=10U AS=8P AD=8P PS=21.6U PD=21.6U
+* device instance $14 r0 *1 212.25,5 nfet
+M$14 RESETn \$17 VSS vsubs nfet L=0.5U W=10U AS=8P AD=8P PS=21.6U PD=21.6U
+* device instance $15 r0 *1 147.4,0.25 pfet
+M$15 \$8 \$2 VDD \$19 pfet L=10U W=0.5U AS=0.4P AD=0.4P PS=2.6U PD=2.6U
+* device instance $16 r0 *1 160,0.25 pfet
+M$16 \$14 \$2 VDD \$19 pfet L=10U W=0.5U AS=0.4P AD=0.4P PS=2.6U PD=2.6U
+* device instance $17 r0 *1 171.7,0.25 pfet
+M$17 \$12 \$11 VDD \$19 pfet L=2U W=0.5U AS=0.4P AD=0.4P PS=2.6U PD=2.6U
+* device instance $18 r0 *1 196.8,0.25 pfet
+M$18 \$17 RESETn VDD \$19 pfet L=10U W=0.5U AS=0.4P AD=0.4P PS=2.6U PD=2.6U
+* device instance $19 r0 *1 167.85,0.5 pfet
+M$19 \$11 POR_RAW \$16 \$19 pfet L=0.5U W=1U AS=0.8P AD=0.8P PS=3.6U PD=3.6U
+* device instance $20 r0 *1 204.9,0.5 pfet
+M$20 RESETn \$17 VDD \$19 pfet L=1U W=1U AS=0.8P AD=0.8P PS=3.6U PD=3.6U
+* device instance $21 r0 *1 109.6,1 pfet
+M$21 \$2 \$2 VDD \$19 pfet L=10U W=2U AS=1.6P AD=1.6P PS=5.6U PD=5.6U
+* device instance $22 r0 *1 122.2,1 pfet
+M$22 \$3 \$2 VDD \$19 pfet L=10U W=2U AS=1.6P AD=1.6P PS=5.6U PD=5.6U
+* device instance $23 r0 *1 175.55,1 pfet
+M$23 \$5 \$12 VDD \$19 pfet L=0.5U W=2U AS=1.6P AD=1.6P PS=5.6U PD=5.6U
 * device instance $24 r0 *1 178.9,1 pfet
-M$24 \$6 \$13 VDD \$19 pfet L=1U W=2U AS=1.6P AD=1.6P PS=5.6U PD=5.6U
-* device instance $25 r0 *1 182.25,2 pfet
-M$25 \$17 \$14 VDD \$19 pfet L=0.5U W=4U AS=3.2P AD=3.2P PS=9.6U PD=9.6U
-* device instance $26 r0 *1 185.35,2 pfet
-M$26 \$17 \$12 VDD \$19 pfet L=0.5U W=4U AS=3.2P AD=3.2P PS=9.6U PD=9.6U
-* device instance $27 r0 *1 131.2,5 pfet
-M$27 \$16 \$2 VDD \$19 pfet L=10U W=10U AS=8P AD=8P PS=21.6U PD=21.6U
-* device instance $28 r0 *1 68.8,37.7 cap_mim_2f0_m4m5_noshield
-C$28 \$22 \$20 2.42e-13 cap_mim_2f0_m4m5_noshield
-* device instance $29 r0 *1 15.7,46.2 cap_mim_2f0_m4m5_noshield
-C$29 \$24 \$25 1.568e-12 cap_mim_2f0_m4m5_noshield
-* device instance $30 r0 *1 46.5,46.2 cap_mim_2f0_m4m5_noshield
-C$30 \$27 \$28 1.568e-12 cap_mim_2f0_m4m5_noshield
-* device instance $31 r0 *1 15.7,77 cap_mim_2f0_m4m5_noshield
-C$31 \$30 \$31 1.568e-12 cap_mim_2f0_m4m5_noshield
-* device instance $32 r0 *1 46.5,77 cap_mim_2f0_m4m5_noshield
-C$32 \$33 \$34 1.568e-12 cap_mim_2f0_m4m5_noshield
+M$24 \$13 \$5 \$8 \$19 pfet L=1U W=2U AS=1.6P AD=1.6P PS=5.6U PD=5.6U
+* device instance $25 r0 *1 182.5,1 pfet
+M$25 \$6 \$13 VDD \$19 pfet L=1U W=2U AS=1.6P AD=1.6P PS=5.6U PD=5.6U
+* device instance $26 r0 *1 185.85,2 pfet
+M$26 \$17 \$14 VDD \$19 pfet L=0.5U W=4U AS=3.2P AD=3.2P PS=9.6U PD=9.6U
+* device instance $27 r0 *1 188.95,2 pfet
+M$27 \$17 \$12 VDD \$19 pfet L=0.5U W=4U AS=3.2P AD=3.2P PS=9.6U PD=9.6U
+* device instance $28 r0 *1 134.8,5 pfet
+M$28 \$16 \$2 VDD \$19 pfet L=10U W=10U AS=8P AD=8P PS=21.6U PD=21.6U
+* device instance $29 r0 *1 68.8,37.7 cap_mim_2f0_m4m5_noshield
+C$29 \$21 \$20 2.42e-13 cap_mim_2f0_m4m5_noshield
+* device instance $30 r0 *1 15.7,46.2 cap_mim_2f0_m4m5_noshield
+C$30 \$26 \$23 1.568e-12 cap_mim_2f0_m4m5_noshield
+* device instance $31 r0 *1 46.5,46.2 cap_mim_2f0_m4m5_noshield
+C$31 \$28 \$24 1.568e-12 cap_mim_2f0_m4m5_noshield
+* device instance $32 r0 *1 15.7,77 cap_mim_2f0_m4m5_noshield
+C$32 \$29 \$31 1.568e-12 cap_mim_2f0_m4m5_noshield
+* device instance $33 r0 *1 46.5,77 cap_mim_2f0_m4m5_noshield
+C$33 \$32 \$34 1.568e-12 cap_mim_2f0_m4m5_noshield
 .ENDS por_output_chain

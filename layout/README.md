@@ -8,7 +8,8 @@ interactive KLayout session, no netgen/magic.
 > see it.**
 > #16 brought the flow up on one two-device proof cell. #68 added `bias_core`
 > (**34** MOS devices), #69 `por_comparator` (**18**), #70 `por_output_chain`
-> (**27**) and #71 `temp_core` (**55** drawn: 39 schematic MOS split into
+> (**28**, after issue #56's release latch) and #71 `temp_core` (**55** drawn:
+> 39 schematic MOS split into
 > interleaved fingers, plus 6 edge dummies). #72 assembles all four into
 > **`temp_por_top`** — with the domain-seam moat, the perimeter guard ring and
 > the `VDD`/`VSS` rails. #92 then drew `por_output_chain`'s **2 MiM caps** (5
@@ -19,9 +20,11 @@ interactive KLayout session, no netgen/magic.
 > 3-segment sense divider as real `ppolyf_u_1k`-class poly resistors (**21**
 > drawn, up from 18) — `por_comparator` and `por_output_chain` are now whole
 > cells at the *cell* level, the first two to get there. `temp_por_top`'s own
-> committed assembly still predates all three of #91/#92/#93: **198**
-> devices, **131** nets, and the ratified 5-pad pinout, unchanged by any of
-> them; see #97. Every cell under test is DRC-clean and LVS-clean against the
+> committed assembly still predates #91 — and now issue #56's release latch
+> too: **198** devices, **131** nets, and the ratified 5-pad pinout, unchanged
+> by either; see #97, which is what unfreezes it (rebuilding the assembly
+> before then DRCs dirty — see the `temp_por_top` section).
+> Every cell under test is DRC-clean and LVS-clean against the
 > schematic-derived netlist with every applicable negative control detected
 > (three per cell where a cell draws a resistor or a bipolar: topology,
 > device-param, and passive-param).
@@ -363,13 +366,16 @@ Recorded result (`layout/reports/por_comparator/`):
 
 ### `por_output_chain` — the reset output chain (#70, MiM caps added by #92)
 
-`design/por_output_chain.sch`'s 27 MOS devices **and both of its MiM caps**,
-drawn from `design/netlist/por_output_chain.spice`. 221.7 × 105.9 µm, 1473
-polygons.
+`design/por_output_chain.sch`'s 28 MOS devices **and both of its MiM caps**,
+drawn from `design/netlist/por_output_chain.spice`. 225.3 × 105.9 µm, 1493
+polygons. The 28th MOS, `XMRLK`, is the release latch issue #56 added
+([DR-016](../spec/decision-records/DR-016-por-ramp-rate-chatter-release-latch.md));
+it is placed beside `XMDBNI`, whose gate net (`ND1`) and drawn geometry it
+shares.
 
-**What a clean run here covers, and what it does not.** The cell has 29
-schematic devices and all 29 are drawn: 27 MOS (14 pfet, 13 nfet), plus `XCDG`
-(11 × 11 µm) and `XCTIM` (4 × 28 × 28 µm). The extraction sees **32** devices,
+**What a clean run here covers, and what it does not.** The cell has 30
+schematic devices and all 30 are drawn: 28 MOS (14 pfet, 14 nfet), plus `XCDG`
+(11 × 11 µm) and `XCTIM` (4 × 28 × 28 µm). The extraction sees **33** devices,
 because `XCTIM`'s `m=4` draws as four units and the curated deck models no
 multiplier — the same treatment `temp_core`'s multi-finger MOS get.
 
@@ -378,7 +384,7 @@ class. What each half of the compare now answers for:
 
 | Device | Drawn as | What LVS proves | What it does not |
 | --- | --- | --- | --- |
-| 27 MOS | Comp/Poly2/Contact/Metal1 | count, sizing, signal-net topology | body ties (see below) |
+| 28 MOS | Comp/Poly2/Contact/Metal1 | count, sizing, signal-net topology | body ties (see below) |
 | 5 MiM units | `FuseTop` + `CAP_MK` + `MIM_L_MK` over `Metal4` | count, **plate area → capacitance** (242 fF and 4 × 1.568 pF, from the golden `c_width`/`c_length`) | what either plate is connected to |
 
 The connectivity gap is the deck's, not the drawing's: `klt` registers a
@@ -499,8 +505,8 @@ Recorded result (`layout/reports/por_output_chain/`):
 | Check | Result |
 | ----- | ------ |
 | `klt drc --deck gf180mcu` | clean — 0 violations (`mim.space.1` / `mim.enclosing.fusetop.1` now exercised) |
-| `klt extract --deck gf180mcu` | 32 devices (13 nfet, 14 pfet, 5 `cap_mim_2f0_m4m5_noshield`), 30 nets, 6 pins |
-| `klt lvs` | **match** — 32/32 devices, 30/30 nets, 6/6 pins, 0 errors (13 warnings: 2 `device.body_unverified`, 11 ambiguous-pairing `topology`) |
+| `klt extract --deck gf180mcu` | 33 devices (14 nfet, 14 pfet, 5 `cap_mim_2f0_m4m5_noshield`), 30 nets, 6 pins |
+| `klt lvs` | **match** — 33/33 devices, 30/30 nets, 6/6 pins, 0 errors (13 warnings: 2 `device.body_unverified`, 11 ambiguous-pairing `topology`) |
 | negative control `topology` | detected (exit 3; `device.unmatched` 1, `topology` 12) |
 | negative control `device-param` | detected (exit 3; `device.property` 5, `topology` 12) |
 
@@ -715,7 +721,20 @@ this compare entirely). So the 198 devices below are the MOS subset **plus one
 cell's MiM caps plus one cell's resistors and bipolars** — not yet
 `por_comparator`'s 3 divider resistors.
 
-Recorded result (`layout/reports/temp_por_top/`):
+**`XMRLK` is not in this assembly either, and deliberately so.** Issue #56's
+release latch is the 28th MOS of `por_output_chain` and is drawn, extracted and
+LVS-matched *in that cell* (section above). It is **not** in the committed
+`temp_por_top` GDS/reference below, for the same reason `por_comparator`'s
+divider is not: this assembly is frozen behind #97. Regenerating it against
+today's `build_cells.py` is not a no-op — the grown sub-cell footprints collide
+at the instance boundary, and the rebuilt stream DRCs **dirty** (82 violations:
+`contact.space.1` ×79, `contact.width.1` ×2, `poly2.enclosing.contact.1` ×1),
+which is precisely the placement re-derivation #97 exists to do and is blocked
+on #90/#93. `temp_por_top`'s committed artifacts are therefore left byte-for-byte
+as `main` has them; #97 picks up `XMRLK` along with the rest when it reassembles.
+
+Recorded result (`layout/reports/temp_por_top/`) — unchanged from `main`, i.e.
+still the pre-#91/#56 assembly:
 
 | Check | Result |
 | ----- | ------ |

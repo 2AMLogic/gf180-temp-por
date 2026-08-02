@@ -822,35 +822,56 @@ class TempPorTopAssemblyTest(unittest.TestCase):
             # sub-cell's manifest -- the documented gap this test works
             # around below has closed, and there is nothing further to check.
             return
-        # #91 drew por_comparator's sense divider as three real ppolyf_u_1k
-        # resistors (XRTOP/XRBOT/XRHYS) and added them to its own manifest's
-        # "resistors" key. build_assembly composes each sub-cell through the
-        # same build_cards() every standalone cell uses, so those resistor
-        # cards now flow into a freshly generated temp_por_top reference too
-        # -- but temp_por_top's own committed GDS is deliberately *not*
-        # rebuilt here (rebuilding it against the divider's grown
-        # por_comparator footprint alone is DRC-dirty at the instance
-        # boundary; #97 reworks the floorplan once, waiting on #90/#93 too,
-        # rather than four times). So a fresh build is legitimately ahead of
-        # the committed file by exactly those three cards, and this test has
-        # to know that rather than asserting a match it should not expect
-        # yet. Re-derive with the divider's contribution removed from the
-        # live manifest and require *that* to still match byte for byte --
-        # proving the only drift is the known, tracked one, not something
-        # else silently going stale alongside it.
+        # Two tracked, deliberate sources of drift, both waiting on #97:
+        #
+        #   1. #91 drew por_comparator's sense divider as three real
+        #      ppolyf_u_1k resistors (XRTOP/XRBOT/XRHYS) and added them to
+        #      that cell's manifest under "resistors".
+        #   2. Issue #56 added XMRLK, por_output_chain's release latch, as the
+        #      28th MOS of that cell's manifest.
+        #
+        # build_assembly composes each sub-cell through the same build_cards()
+        # every standalone cell uses, so both flow into a freshly generated
+        # temp_por_top reference -- but temp_por_top's own committed GDS is
+        # deliberately *not* rebuilt for either (rebuilding it against the
+        # grown sub-cell footprints is DRC-dirty at the instance boundary:
+        # 82 violations, contact.space.1 x79. #97 reworks the floorplan once,
+        # waiting on #90/#93 too, rather than once per sub-cell change). So a
+        # fresh build is legitimately ahead of the committed file by exactly
+        # those three resistor cards and that one MOS card, and this test has
+        # to know that rather than asserting a match it should not expect yet.
+        # Re-derive with both contributions removed from the live manifests
+        # and require *that* to still match byte for byte -- proving the only
+        # drift is the known, tracked one, not something else silently going
+        # stale alongside it.
         without_divider = dict(lr.CELLS["por_comparator"])
         without_divider.pop("resistors", None)
-        original = lr.CELLS["por_comparator"]
-        lr.CELLS["por_comparator"] = without_divider
-        try:
-            pre_91 = lr.build(self.CELL)
-        finally:
-            lr.CELLS["por_comparator"] = original
+        without_latch = dict(lr.CELLS["por_output_chain"])
+        without_latch["devices"] = [
+            name for name in without_latch["devices"] if name != "XMRLK"
+        ]
         self.assertEqual(
-            pre_91,
+            len(without_latch["devices"]),
+            len(lr.CELLS["por_output_chain"]["devices"]) - 1,
+            "XMRLK is no longer in por_output_chain's manifest -- this "
+            "work-around is stale and should be revisited",
+        )
+        originals = {
+            "por_comparator": lr.CELLS["por_comparator"],
+            "por_output_chain": lr.CELLS["por_output_chain"],
+        }
+        lr.CELLS["por_comparator"] = without_divider
+        lr.CELLS["por_output_chain"] = without_latch
+        try:
+            pre_freeze = lr.build(self.CELL)
+        finally:
+            lr.CELLS.update(originals)
+        self.assertEqual(
+            pre_freeze,
             committed,
             "temp_por_top's committed reference has drifted from the "
-            "assembly by more than por_comparator's #91 divider -- see #97",
+            "assembly by more than por_comparator's #91 divider and issue "
+            "#56's XMRLK release latch -- see #97",
         )
 
     def test_pin_list_is_the_ratified_pinout_in_the_ratified_order(self):

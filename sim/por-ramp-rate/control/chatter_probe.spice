@@ -1,8 +1,9 @@
 * por-ramp-rate / release-chatter control -- stimulus half of the control deck.
 *
-* The other half is design/netlist/temp_por_top.spice, included by
-* run_chatter_probe.py to produce the composed decks under decks/. Edit THIS
-* file (or the schematic), never a composed deck.
+* The other half is a per-arm copy of design/netlist/temp_por_top.spice,
+* written to decks/dut_<arm>.spice by run_chatter_probe.py and included by the
+* composed decks under decks/. Edit THIS file (or the schematic), never a
+* composed deck and never a generated dut_*.spice.
 *
 * Netlist FRAGMENT: no .include / .lib / .temp / .options / .control / .end --
 * run_chatter_probe.py owns those. Parameters it supplies: vdd_val, stop_s
@@ -13,18 +14,19 @@
 * WHAT THIS DECK IS FOR
 *
 * This is the one-variable-per-run control experiment behind issue #56's
-* por-ramp-rate chatter finding (record 20260802-000004-32fbaa0, 20/81 PASS):
-* RESETn crosses its release threshold more than once at 60/81 points, at ALL
-* FOUR tested ramp rates including the two slow ones where
+* por-ramp-rate chatter finding (record 20260802-000004-32fbaa0, 21/81 PASS):
+* RESETn crosses its release threshold more than once at up to 60/81 points
+* per rate, at ALL FOUR tested ramp rates including the two slow ones where
 * design/bias_core.md's "starved-loop window" (a slew-rate-limited effect
 * specific to the fast 1 V/us ratified limit) does not apply.
 *
-* ONE DUT, ONE RATE per run (unlike ../testbench/stimulus.spice's four DUTs
-* sharing one transient), with every node on the release path traced instead
-* of only RESETn -- POR_RAW, PGDG, VREF, BIAS_OK (to rule bias_core and
-* por_comparator in or out), and TIM/TRIP/RSTB (por_output_chain's one-shot
-* timer, its trip detector, and the release NAND's output) -- to find which
-* stage actually multiply-toggles.
+* ONE DUT, ONE RATE, ONE ARM per run (unlike ../testbench/stimulus.spice's
+* four DUTs sharing one transient), with every node on the release path traced
+* instead of only RESETn -- POR_RAW, PGDG, VREF, BIAS_OK (to rule bias_core
+* and por_comparator in or out), TIM/ND1/TRIP/RSTB (por_output_chain's
+* one-shot timer, both trip-detector stages, and the release NAND's output),
+* and IBIAS/PDN/NDL (the SHARED bias node and the two starve references it
+* sets, which is where the mechanism actually turned out to live).
 *
 * Re-run with:
 *

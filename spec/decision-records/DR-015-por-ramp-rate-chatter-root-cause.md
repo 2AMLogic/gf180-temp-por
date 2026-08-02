@@ -1,16 +1,29 @@
 # DR-015: `por-ramp-rate` release-edge chatter is root-caused to `por_output_chain`'s trip detector, not the starved-loop window — recorded, not fixed
 
-- **Status**: proposed
+- **Status**: superseded by [DR-016](DR-016-por-ramp-rate-chatter-release-latch.md)
 - **Date**: 2026-08-02
 - **Decided by**: Loom Builder agent, issue #56
+
+> **Superseded (same issue, next increment).** This record's negative results
+> stand — the chatter is *not* `design/bias_core.md`'s starved-loop window, it
+> is ramp-rate independent and temperature-dependent, and `bias_core` /
+> `por_comparator` are settled before the window opens. Its **positive**
+> claim does not: the chatter does not "originate entirely inside
+> `por_output_chain`'s trip detector". A loop-break control
+> (`sim/por-ramp-rate/control/`, arms `nokeeper_en_vdd` / `nokeeper_en_vss`)
+> shows the oscillation closes through `RESETn` → `temp_core`'s `EN` → the
+> **shared `IBIAS` node** → this cell's starve bias, and disappears when that
+> path is cut without any device in `por_output_chain` changing. DR-016
+> records the corrected mechanism and the one-device fix. Read this record
+> for what was excluded; read DR-016 for what it is.
 
 ## Context
 
 `sim/por-ramp-rate/records/20260802-000004-32fbaa0.md` (81-point PVT grid,
 full four-cell assembly, all four ratified test rates) measures `RESETn`
-chattering — crossing its 1.0 V release threshold more than once — at 61 of
-81 points, up to 109.6 µs against a ≤1 ns bound. 20/81 PASS. Chatter is
-worst at 27 °C/125 °C, near-zero at −40 °C, and — the detail that opened
+chattering — crossing its 1.0 V release threshold more than once — at up to
+60 of 81 points per rate, up to 109.6 µs against a ≤1 ns bound. 21/81 PASS.
+Chatter is worst at 27 °C/125 °C, near-zero at −40 °C, and — the detail that opened
 issue #56 — occurs at **all four tested rates**, including the two slow
 ones (1 V/s, 10 V/s) where `design/bias_core.md`'s already-tracked
 "starved-loop window" (a slew-rate-limited effect specific to the fast
@@ -107,7 +120,7 @@ ratified. No target-spec value is added, removed, or relaxed by this record.
 - **No design or testbench change lands with this record.** Every device in
   `design/por_output_chain.sch` is untouched; `design/netlist/
   por_output_chain.spice` is byte-identical.
-- **`sim/por-ramp-rate/`'s 20/81 result stands as the open evidence** for a
+- **`sim/por-ramp-rate/`'s 21/81 result stands as the open evidence** for a
   real, fixable defect — not an architecture-level tension needing a spec
   re-cost, and not a testbench artefact.
 - **`design/bias_core.md`'s starved-loop window section is corrected** to
