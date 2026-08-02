@@ -27,10 +27,22 @@ interactive KLayout session, no netgen/magic.
 > nets, and the ratified 5-pad pinout, unchanged by any of them; #97 is what
 > unfreezes it, reworking that floorplan once for all of them at once rather
 > than once per sub-cell change (rebuilding the assembly before then DRCs
-> dirty — see the `temp_por_top` section). Every cell under test is DRC-clean
-> and LVS-clean against the schematic-derived netlist with every applicable
-> negative control detected (three per cell where a cell draws a resistor or a
-> bipolar: topology, device-param, and passive-param).
+> dirty — see the `temp_por_top` section). Every cell under test is LVS-clean
+> against the schematic-derived netlist with every applicable negative control
+> detected (three per cell where a cell draws a resistor or a bipolar:
+> topology, device-param, and passive-param). **DRC is *not* currently clean
+> everywhere, and the committed reports do not yet say so.** `por_comparator`'s
+> committed `drc.json` reads `clean`, but it was recorded under an older `klt`
+> whose `"enclosing"` primitive missed zero-overlap escapes
+> ([klayout-tools#318](https://github.com/2AMLogic/klayout-tools/issues/318),
+> fixed upstream); that cell's *unchanged* committed GDS fails **2×
+> `poly2.enclosing.contact.1`** under the current deck — a real drawing defect
+> that was always there, fixed by #102, root-caused by #103 (which also added
+> the deck-hash guard that catches this class of stale-report drift). Until
+> #102 lands, treat every "clean" DRC row in this file as *as-recorded*, not as
+> a current verdict; the `por_comparator` section and
+> [Known deck limits](#known-deck-limits--what-a-clean-lvs-here-does-not-prove)
+> have the full trace.
 > `temp_core`'s own MiM cap is the one device still outside what the curated
 > deck can extract, deliberately not drawn *into the extracted cell*, and
 > inherited unchanged by `temp_por_top`, which therefore cannot be LVS'd whole
