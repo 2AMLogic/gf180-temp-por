@@ -55,6 +55,12 @@ FRAGMENTS: dict[str, tuple[str, tuple[str, ...]]] = {
     "por-ramp-rate": ("tb_por_ramp_rate.spice", ("temp_por_top",)),
     "por-brownout": ("tb_por_brownout.spice", ("temp_por_top",)),
     "por-glitch": ("tb_por_glitch.spice", ("temp_por_top",)),
+    # #60's falling-slew boundary characterization: same 1.0 V / 50 us
+    # qualifying dip as por-brownout, with the falling EDGE duration as the
+    # one variable. testbench/stimulus.spice is regenerated per rung by
+    # testbench/gen_rung.py (see sim/por-brownout-slew/testbench/README.md);
+    # each rung's netlist snapshot freezes the exact fragment that ran.
+    "por-brownout-slew": ("tb_por_brownout_slew.spice", ("temp_por_top",)),
     # #15's Monte Carlo local-mismatch testbenches -- cell-level idealised-bias
     # DUTs (same cells temp-core-designer-check / por-comparator-designer-check
     # use), not the full four-cell assembly: mismatch is a property of these

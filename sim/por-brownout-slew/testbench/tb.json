@@ -1,0 +1,83 @@
+{
+  "name": "por-brownout-slew",
+  "description": "Falling-slew boundary rung 'k-slew-3.40mvus': same 1.0 V / 50 us qualifying dip as sim/por-brownout/, falling slew = 3.4 mV/us, held constant across the 81-point grid (edge duration computed per-point from that point's own vdd_val -- see gen_rung.py). Issue #60 / DR-011 decision 2.",
+  "claim": "spec/target-spec.md#por-brownout clause (c) -- dVDD/dt|fall,max characterization, rung 'k-slew-3.40mvus' (3.4 mV/us): does RESETn reach the spec's own valid-low ratio bound DURING the dip at this falling slew rate, across the full 81-point grid? DR-011 decision 2 requires this full-grid characterization before the clause may be ratified. Deterministic corners only (design.ngspice sets sw_stat_mismatch=0); mismatch is #15's job.",
+  "netlist": "tb_por_brownout_slew.spice",
+  "nominal_supply_v": 3.3,
+  "supply_tolerance": 0.1,
+  "temperatures_c": [
+    -40,
+    27,
+    125
+  ],
+  "corners": [
+    "full"
+  ],
+  "options": [
+    "reltol=1e-4",
+    "abstol=1e-13",
+    "vntol=1e-8",
+    "method=gear"
+  ],
+  "analyses": [
+    "tran 20u 21.6571m",
+    "meas tran vrst_pre find v(resetn) at=19.9m",
+    "let bok_r = v(xdut.bias_ok)/(v(vdd)+0.001)",
+    "let rst_r = v(resetn)/(v(vdd)+0.001)",
+    "let praw_r = v(xdut.por_raw)/(v(vdd)+0.001)",
+    "meas tran rst_r_min_overall min rst_r from=20m to=21.6571m",
+    "meas tran vdd_settled find v(vdd) at=19.9m",
+    "if vdd_settled > 3.465",
+    "  meas tran bok_r_min min bok_r from=20m to=20.8235m",
+    "  meas tran rst_r_min min rst_r from=20m to=20.8235m",
+    "  meas tran praw_r_min min praw_r from=20m to=20.8235m",
+    "  meas tran vrst_floor find v(resetn) at=20.8185m",
+    "  meas tran vdd_dip find v(vdd) at=20.7985m",
+    "else",
+    "if vdd_settled > 3.135",
+    "  meas tran bok_r_min min bok_r from=20m to=20.7265m",
+    "  meas tran rst_r_min min rst_r from=20m to=20.7265m",
+    "  meas tran praw_r_min min praw_r from=20m to=20.7265m",
+    "  meas tran vrst_floor find v(resetn) at=20.7215m",
+    "  meas tran vdd_dip find v(vdd) at=20.7015m",
+    "else",
+    "  meas tran bok_r_min min bok_r from=20m to=20.6294m",
+    "  meas tran rst_r_min min rst_r from=20m to=20.6294m",
+    "  meas tran praw_r_min min praw_r from=20m to=20.6294m",
+    "  meas tran vrst_floor find v(resetn) at=20.6244m",
+    "  meas tran vdd_dip find v(vdd) at=20.6044m",
+    "end",
+    "end"
+  ],
+  "measure": {
+    "resetn_pre_dip_v": "vrst_pre",
+    "vdd_dip_v": "vdd_dip",
+    "bias_ok_ratio_min_in_dip": "bok_r_min",
+    "resetn_ratio_min_in_dip": "rst_r_min",
+    "por_raw_ratio_min_in_dip": "praw_r_min",
+    "resetn_ratio_min_overall": "rst_r_min_overall",
+    "resetn_floor_in_dip_mv": "vrst_floor*1e3"
+  },
+  "checks": {
+    "resetn_pre_dip_v": {
+      "min": 2.8,
+      "description": "sanity: RESETn is released before the dip starts."
+    },
+    "vdd_dip_v": {
+      "max": 1.05,
+      "description": "sanity: the dip actually reached its programmed depth (1 V, below VPOR-downarrow,min = 2.22 V at every corner)."
+    },
+    "bias_ok_ratio_min_in_dip": {
+      "max": 0.5,
+      "description": "THE CHEAP DISCRIMINATOR (curator #60 notes): BIAS_OK/VDD must resolve toward 0 during the dip, not ride the rail near 1.0 (a false valid, DR-011's starved-loop-window signature)."
+    },
+    "resetn_ratio_min_in_dip": {
+      "max": 0.1,
+      "description": "THE #60 CLAIM ITSELF: RESETn/VDD must reach the spec's own valid-low ratio bound (<=0.1xVDD, spec/target-spec.md#por-reset-valid-floor) DURING the dip (measured over each supply corner's own exact literal window, selected by a settled-VDD branch -- see gen_rung.py) at this falling slew rate. PASS at every corner is the falling-slew-boundary ratification criterion."
+    },
+    "resetn_ratio_min_overall": {
+      "max": 0.15,
+      "description": "sanity/attribution: RESETn must EVENTUALLY reach a near-valid-low ratio somewhere in dip+recovery-edge+margin, whether or not it did so during the dip itself -- confirms a failing rung is a recovery-edge reassert (DR-011), not a testbench that never resets at all."
+    }
+  }
+}

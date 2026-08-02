@@ -719,7 +719,7 @@ number that matters for [`por-brownout`](../spec/target-spec.md#por-brownout):
 | Direction | Boundary (correct behaviour at or below) | Source |
 | --- | --- | --- |
 | Rising (`por-ramp-rate`) | **0.36 V/µs** | `sim/bias-core-designer-check/`, 81 points |
-| Falling (`por-brownout`) | between **7.67 and 11.50 mV/µs** | `sim/por-brownout/control/`, 1 point (`tt`/27 °C/3.30 V) |
+| Falling (`por-brownout`) | **3.40 mV/µs**, binds at `ss`/−40 °C/2.97 V (FAIL confirmed from 3.4795 mV/µs) | `sim/por-brownout-slew/`, full 81-point grid (#60) |
 
 The ~31× asymmetry is expected rather than surprising: on a rising rail the
 loop is driven toward *more* current and recovers by settling down onto its
@@ -741,11 +741,19 @@ Two consequences worth stating plainly:
   500× `T_dip,min` — the loop never recovers while the rail stays down, so
   reset still never asserts. Only the *recovery* edge restarts it.
 
-The boundary above is a **one-corner** number and is not fit to ratify
+The boundary above was originally a **one-corner** number, not fit to ratify
 against; [DR-011](../spec/decision-records/DR-011-brownout-falling-slew-limit.md)
-records it as `[TBD-#60]` pending an 81-point characterization. The
-"why it cannot be fixed inside this cell's Iq budget" arithmetic below
-applies unchanged — it is the same detector that would be needed.
+recorded it as `[TBD-#60]` pending an 81-point characterization. #60's full
+grid (`sim/por-brownout-slew/`) has since supplied that characterization:
+the boundary binds at `ss`/−40 °C/2.97 V, PASS at every one of 81 corners
+confirmed at 3.40 mV/µs and FAIL (that same corner, and its 3.30/3.63 V
+siblings) confirmed from 3.4795 mV/µs — a knife-edge, non-monotonic
+transition rather than a single clean threshold (see
+`sim/por-brownout-slew/records/*-boundary.md`), so the ratified bound sits on
+the safe side of the whole transition band rather than at a bisected
+midpoint. The "why it cannot be fixed inside this cell's Iq budget"
+arithmetic below applies unchanged — it is the same detector that would be
+needed.
 
 ### Why it cannot be fixed inside this cell's Iq budget
 
