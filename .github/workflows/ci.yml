@@ -24,6 +24,12 @@ name: CI
 #   - sim/selftest.sh end-to-end PVT smoke   -> checks (auto-skips without a
 #                                               PDK) AND re-asserted with
 #                                               --require-pdk in pdk-checks
+#   - layout/tests/* (unittest, no PDK/klt)  -> checks, dedicated step (issue
+#                                               #64); package.json's "test"
+#                                               script runs the same suite by
+#                                               hand but CI does not invoke
+#                                               npm, so it is also run here
+#                                               directly.
 #   - design/netlist.py --check              -> pdk-checks (needs xschem + PDK)
 #   - "any pytest under sim/"                -> none exists; sim/tests/ is
 #                                               unittest-based, exercised by
@@ -67,6 +73,9 @@ jobs:
 
       - name: sim/selftest.sh (harness unit tests; PVT smoke auto-skips without a PDK)
         run: bash sim/selftest.sh
+
+      - name: layout/tests (lvs_reference.py transform unit tests, no PDK/klt)
+        run: python3 -m unittest discover -s layout/tests -t layout/tests
 
   pdk-checks:
     name: pdk-checks (netlist export + full PVT smoke)
