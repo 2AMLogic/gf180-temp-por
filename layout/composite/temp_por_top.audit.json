@@ -10,31 +10,79 @@
   ],
   "counts": {
     "mos_devices_from_layout": 134,
-    "spliced_devices_from_schematic": 41,
+    "mim_caps_from_layout": 5,
+    "spliced_devices_from_schematic": 39,
     "nets_total": 76,
     "nets_from_layout": 71,
     "nets_schematic_only": 5,
     "reference_devices": 134,
-    "extracted_nets": 78
+    "extracted_nets": 88
   },
   "parasitics": {
     "nets_with_parasitics": 71,
-    "nets_in_extraction": 78,
-    "coverage_pct": 91.03,
+    "nets_in_extraction": 88,
+    "coverage_pct": 80.68,
     "r_cards": 71,
     "c_cards": 71,
-    "total_resistance_ohm": 250147.3613,
-    "total_capacitance_ff": 4767.4906,
+    "total_resistance_ohm": 250147.1908,
+    "total_capacitance_ff": 4767.0447,
     "extracted_nets_without_parasitics": [
       "$49 -> VDD",
       "$50 -> VDD",
       "$51 -> VDD",
-      "$52 -> VDD",
-      "$76 -> xtemp__NT",
-      "$77 -> VDD",
+      "$55 -> VDD",
+      "$91 -> xtemp__NT",
+      "$92 -> VDD",
       "vsubs -> VSS"
     ]
   },
+  "mim_caps_from_layout": [
+    {
+      "name": "C__135",
+      "nodes": [
+        "xpor__NDG",
+        "VSS"
+      ],
+      "value_f": 2.42e-13,
+      "model": "cap_mim_2f0_m4m5_noshield"
+    },
+    {
+      "name": "C__136",
+      "nodes": [
+        "xpor__TIM",
+        "VSS"
+      ],
+      "value_f": 1.568e-12,
+      "model": "cap_mim_2f0_m4m5_noshield"
+    },
+    {
+      "name": "C__137",
+      "nodes": [
+        "xpor__TIM",
+        "VSS"
+      ],
+      "value_f": 1.568e-12,
+      "model": "cap_mim_2f0_m4m5_noshield"
+    },
+    {
+      "name": "C__138",
+      "nodes": [
+        "xpor__TIM",
+        "VSS"
+      ],
+      "value_f": 1.568e-12,
+      "model": "cap_mim_2f0_m4m5_noshield"
+    },
+    {
+      "name": "C__139",
+      "nodes": [
+        "xpor__TIM",
+        "VSS"
+      ],
+      "value_f": 1.568e-12,
+      "model": "cap_mim_2f0_m4m5_noshield"
+    }
+  ],
   "spliced_devices": [
     {
       "name": "XQ1_xbias",
@@ -223,24 +271,6 @@
       ],
       "model": "ppolyf_u_3k",
       "origin": "xcmp (por_comparator)"
-    },
-    {
-      "name": "XCDG_xpor",
-      "nodes": [
-        "xpor__NDG",
-        "VSS"
-      ],
-      "model": "cap_mim_2f0_m3m4_noshield",
-      "origin": "xpor (por_output_chain)"
-    },
-    {
-      "name": "XCTIM_xpor",
-      "nodes": [
-        "xpor__TIM",
-        "VSS"
-      ],
-      "model": "cap_mim_2f0_m3m4_noshield",
-      "origin": "xpor (por_output_chain)"
     },
     {
       "name": "XCC_xtemp",
@@ -565,8 +595,8 @@
         "$49",
         "$50",
         "$51",
-        "$52",
-        "$77",
+        "$55",
+        "$92",
         "VDD"
       ],
       "reference_nets": [
@@ -627,9 +657,9 @@
       "labelled_in_layout": true,
       "origin": "layout",
       "mos_terminals": 133,
-      "spliced_terminals": 59,
-      "parasitic_r_ohm": 3249.111,
-      "parasitic_c_ff": 1475.0563,
+      "spliced_terminals": 57,
+      "parasitic_r_ohm": 3248.9405,
+      "parasitic_c_ff": 1474.6104,
       "is_pin": true
     },
     {
@@ -1209,7 +1239,7 @@
       "labelled_in_layout": false,
       "origin": "layout",
       "mos_terminals": 4,
-      "spliced_terminals": 1,
+      "spliced_terminals": 0,
       "parasitic_r_ohm": 4004.4196,
       "parasitic_c_ff": 38.0628,
       "is_pin": false
@@ -1389,7 +1419,7 @@
       "labelled_in_layout": false,
       "origin": "layout",
       "mos_terminals": 3,
-      "spliced_terminals": 1,
+      "spliced_terminals": 0,
       "parasitic_r_ohm": 3937.7776,
       "parasitic_c_ff": 36.691,
       "is_pin": false
@@ -1628,7 +1658,7 @@
       "net": "xtemp__NT",
       "extracted_net": null,
       "extracted_nets": [
-        "$76",
+        "$91",
         "NT"
       ],
       "reference_nets": [

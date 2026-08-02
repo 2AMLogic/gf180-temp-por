@@ -10,46 +10,75 @@
   ],
   "counts": {
     "mos_devices_from_layout": 27,
-    "spliced_devices_from_schematic": 2,
+    "mim_caps_from_layout": 5,
+    "spliced_devices_from_schematic": 0,
     "nets_total": 18,
     "nets_from_layout": 18,
     "nets_schematic_only": 0,
     "reference_devices": 27,
-    "extracted_nets": 20
+    "extracted_nets": 30
   },
   "parasitics": {
     "nets_with_parasitics": 18,
-    "nets_in_extraction": 20,
-    "coverage_pct": 90.0,
+    "nets_in_extraction": 30,
+    "coverage_pct": 60.0,
     "r_cards": 18,
     "c_cards": 18,
-    "total_resistance_ohm": 65203.309,
-    "total_capacitance_ff": 813.8728,
+    "total_resistance_ohm": 65203.0984,
+    "total_capacitance_ff": 813.4269,
     "extracted_nets_without_parasitics": [
       "$19 -> VDD",
       "vsubs -> VSS"
     ]
   },
-  "spliced_devices": [
+  "mim_caps_from_layout": [
     {
-      "name": "XCDG",
+      "name": "C__28",
       "nodes": [
         "NDG",
         "VSS"
       ],
-      "model": "cap_mim_2f0_m3m4_noshield",
-      "origin": "por_output_chain"
+      "value_f": 2.42e-13,
+      "model": "cap_mim_2f0_m4m5_noshield"
     },
     {
-      "name": "XCTIM",
+      "name": "C__29",
       "nodes": [
         "TIM",
         "VSS"
       ],
-      "model": "cap_mim_2f0_m3m4_noshield",
-      "origin": "por_output_chain"
+      "value_f": 1.568e-12,
+      "model": "cap_mim_2f0_m4m5_noshield"
+    },
+    {
+      "name": "C__30",
+      "nodes": [
+        "TIM",
+        "VSS"
+      ],
+      "value_f": 1.568e-12,
+      "model": "cap_mim_2f0_m4m5_noshield"
+    },
+    {
+      "name": "C__31",
+      "nodes": [
+        "TIM",
+        "VSS"
+      ],
+      "value_f": 1.568e-12,
+      "model": "cap_mim_2f0_m4m5_noshield"
+    },
+    {
+      "name": "C__32",
+      "nodes": [
+        "TIM",
+        "VSS"
+      ],
+      "value_f": 1.568e-12,
+      "model": "cap_mim_2f0_m4m5_noshield"
     }
   ],
+  "spliced_devices": [],
   "schematic_only_nets": [],
   "nets": [
     {
@@ -101,7 +130,7 @@
       "labelled_in_layout": false,
       "origin": "layout",
       "mos_terminals": 4,
-      "spliced_terminals": 1,
+      "spliced_terminals": 0,
       "parasitic_r_ohm": 4004.4196,
       "parasitic_c_ff": 38.0628,
       "is_pin": false
@@ -317,7 +346,7 @@
       "labelled_in_layout": false,
       "origin": "layout",
       "mos_terminals": 3,
-      "spliced_terminals": 1,
+      "spliced_terminals": 0,
       "parasitic_r_ohm": 3937.7776,
       "parasitic_c_ff": 36.691,
       "is_pin": false
@@ -379,15 +408,15 @@
       "labelled_in_layout": true,
       "origin": "layout",
       "mos_terminals": 24,
-      "spliced_terminals": 2,
-      "parasitic_r_ohm": 65.6263,
-      "parasitic_c_ff": 111.4622,
+      "spliced_terminals": 0,
+      "parasitic_r_ohm": 65.4157,
+      "parasitic_c_ff": 111.0163,
       "is_pin": true
     }
   ],
   "readme_claims": [
     {
-      "claim": "omitting the two MiM caps costs no net: NDG and TIM each carry MOS terminals as well as a cap terminal, so every schematic net still exists on both sides of the compare",
+      "claim": "NDG and TIM each carry MOS terminals as well as a cap terminal; the two MiM caps are drawn for real (klayout-tools#314/#315) and extract as their own isolated-plate devices (Netlist.caps), so every schematic net still exists on both sides of the compare via the MOS terminal alone",
       "holds": true,
       "findings": [
         "NDG: extracted as $11, 4 MOS terminal(s), unlabelled",

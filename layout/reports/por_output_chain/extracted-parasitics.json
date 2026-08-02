@@ -5,23 +5,18 @@
   "top": "por_output_chain",
   "dbu_um": 0.001,
   "netlist_path": "layout/reports/por_output_chain/extracted-parasitics.spice",
-  "netlist_sha256": "905a5e624a3020b16ce823b7a068d0aa32aeb33bc82abe0e1da269291eab03fc",
+  "netlist_sha256": "7e5cd2fc897176361bac383c7e46c2b8bfbb661de342da130a82425643b21afa",
   "status": "extracted",
-  "device_count": 27,
-  "net_count": 20,
+  "device_count": 32,
+  "net_count": 30,
   "pin_count": 6,
   "device_counts": {
+    "cap_mim_2f0_m4m5_noshield": 5,
     "nfet": 13,
     "pfet": 14
   },
   "dummy_devices_dropped": 0,
-  "ignored_layers": [
-    {
-      "layer": 200,
-      "datatype": 0,
-      "shapes": 1
-    }
-  ],
+  "ignored_layers": [],
   "device_classes": [
     "nfet",
     "pfet",
@@ -311,6 +306,30 @@
       }
     },
     {
+      "name": "$28",
+      "class": "cap_mim_2f0_m4m5_noshield",
+      "nets": {
+        "a": "$22",
+        "b": "$20"
+      },
+      "params": {
+        "c_f": 2.42e-13,
+        "area_um2": 121.0
+      }
+    },
+    {
+      "name": "$29",
+      "class": "cap_mim_2f0_m4m5_noshield",
+      "nets": {
+        "a": "$24",
+        "b": "$25"
+      },
+      "params": {
+        "c_f": 1.568e-12,
+        "area_um2": 784.0
+      }
+    },
+    {
       "name": "$3",
       "class": "nfet",
       "nets": {
@@ -322,6 +341,42 @@
       "params": {
         "l_um": 10.0,
         "w_um": 0.5
+      }
+    },
+    {
+      "name": "$30",
+      "class": "cap_mim_2f0_m4m5_noshield",
+      "nets": {
+        "a": "$27",
+        "b": "$28"
+      },
+      "params": {
+        "c_f": 1.568e-12,
+        "area_um2": 784.0
+      }
+    },
+    {
+      "name": "$31",
+      "class": "cap_mim_2f0_m4m5_noshield",
+      "nets": {
+        "a": "$30",
+        "b": "$31"
+      },
+      "params": {
+        "c_f": 1.568e-12,
+        "area_um2": 784.0
+      }
+    },
+    {
+      "name": "$32",
+      "class": "cap_mim_2f0_m4m5_noshield",
+      "nets": {
+        "a": "$33",
+        "b": "$34"
+      },
+      "params": {
+        "c_f": 1.568e-12,
+        "area_um2": 784.0
       }
     },
     {
@@ -461,9 +516,59 @@
       "device_count": 7
     },
     {
+      "name": "$20",
+      "pin": false,
+      "device_count": 1
+    },
+    {
+      "name": "$22",
+      "pin": false,
+      "device_count": 1
+    },
+    {
+      "name": "$24",
+      "pin": false,
+      "device_count": 1
+    },
+    {
+      "name": "$25",
+      "pin": false,
+      "device_count": 1
+    },
+    {
+      "name": "$27",
+      "pin": false,
+      "device_count": 1
+    },
+    {
+      "name": "$28",
+      "pin": false,
+      "device_count": 1
+    },
+    {
       "name": "$3",
       "pin": false,
       "device_count": 5
+    },
+    {
+      "name": "$30",
+      "pin": false,
+      "device_count": 1
+    },
+    {
+      "name": "$31",
+      "pin": false,
+      "device_count": 1
+    },
+    {
+      "name": "$33",
+      "pin": false,
+      "device_count": 1
+    },
+    {
+      "name": "$34",
+      "pin": false,
+      "device_count": 1
     },
     {
       "name": "$5",
@@ -528,8 +633,8 @@
   "parasitics": {
     "r_count": 18,
     "c_count": 18,
-    "total_resistance_ohm": 65203.309,
-    "total_capacitance_ff": 813.872811,
+    "total_resistance_ohm": 65203.0984,
+    "total_capacitance_ff": 813.426908,
     "nets": [
       {
         "net": "$10",
@@ -635,8 +740,8 @@
       },
       {
         "net": "VSS",
-        "resistance_ohm": 65.6263,
-        "capacitance_ff": 111.462228,
+        "resistance_ohm": 65.4157,
+        "capacitance_ff": 111.016325,
         "internal_node": "VSS__par"
       }
     ]

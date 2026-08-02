@@ -296,6 +296,31 @@ XM__133 xtemp__PG RESETn VDD VDD pfet_03v3 L=0.5u W=4u nf=1 ad=3.2p as=3.2p pd=9
 * device instance $134 r0 *1 523.35,-396 pfet
 XM__134 xcmp__BIAS_OKB BIAS_OK VDD VDD pfet_03v3 L=0.5u W=2u nf=1 ad=1.6p as=1p pd=5.6u ps=5u m=1
 
+* ---- MiM cap devices: extracted from the layout ----
+* Real drawn devices (klayout-tools#314/#315), not spliced from the
+* schematic. `klt` cannot route a capacitor plate onto a net (same
+* limitation `layout/lvs_reference.py` documents for the LVS
+* reference), so the extraction's own plate nodes are isolated --
+* leaving them that way would carry no capacitive loading on the
+* real net at all, so the two plates are wired to the schematic's
+* own nets instead, by value (composite_netlist.cap_plate_pairs;
+* a capacitor is non-polarized, so which plate is which is not
+* observable and does not matter electrically). Bare value, no
+* trailing model name: unlike the LVS reference (a device-CLASS
+* comparison klt's own SPICE reader needs), this is a netlist
+* ngspice simulates, and a trailing token after the value is a
+* parameter ngspice expects to parse, not a class tag.
+* cap_mim_2f0_m4m5_noshield, m=1
+C__135 xpor__NDG VSS 2.42e-13
+* cap_mim_2f0_m4m5_noshield, m=1
+C__136 xpor__TIM VSS 1.568e-12
+* cap_mim_2f0_m4m5_noshield, m=1
+C__137 xpor__TIM VSS 1.568e-12
+* cap_mim_2f0_m4m5_noshield, m=1
+C__138 xpor__TIM VSS 1.568e-12
+* cap_mim_2f0_m4m5_noshield, m=1
+C__139 xpor__TIM VSS 1.568e-12
+
 * ---- interconnect parasitics: extracted from the layout ----
 * One series R + one lumped C to substrate per net, from the deck's
 * curated sheet-resistance / capacitance table (klt extract
@@ -440,8 +465,8 @@ Rpar_VDD VDD VDD__par 11430
 Cpar_VDD VDD__par VSS 3.3777e-13
 Rpar_VREF VREF VREF__par 5992.96
 Cpar_VREF VREF__par VSS 5.29876e-14
-Rpar_VSS VSS VSS__par 3249.11
-Cpar_VSS VSS__par VSS 1.47506e-12
+Rpar_VSS VSS VSS__par 3248.94
+Cpar_VSS VSS__par VSS 1.47461e-12
 
 * ---- non-MOS devices: IDEAL, verbatim from the schematic ----
 * Nodes introduced by these devices alone (they exist in no
@@ -484,10 +509,6 @@ XRTOP_xcmp xcmp__SNS VDD VSS ppolyf_u_3k r_width=2u r_length=7897.44u m=1
 XRBOT_xcmp xcmp__SNSB xcmp__SNS VSS ppolyf_u_3k r_width=2u r_length=6769.23u m=1
 * from xcmp (por_comparator)
 XRHYS_xcmp VSS xcmp__SNSB VSS ppolyf_u_3k r_width=2u r_length=775.0u m=1
-* from xpor (por_output_chain)
-XCDG_xpor xpor__NDG VSS cap_mim_2f0_m3m4_noshield c_width=11u c_length=11u m=1
-* from xpor (por_output_chain)
-XCTIM_xpor xpor__TIM VSS cap_mim_2f0_m3m4_noshield c_width=28u c_length=28u m=4
 * from xtemp (temp_core)
 XCC_xtemp xtemp__PG xtemp__NZ cap_mim_2f0_m3m4_noshield c_width=12u c_length=12u m=1
 * from xtemp (temp_core)

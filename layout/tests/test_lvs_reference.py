@@ -62,8 +62,26 @@ class ParsingTest(unittest.TestCase):
         body = [
             "XR1 a b c ppolyf_u_3k r_width=2u r_length=10u m=1",
             "XM1 d g s b nfet_03v3 L=1u W=2u",
+            "XC1 p n cap_mim_2f0_m3m4_noshield c_width=1u c_length=2u m=1",
         ]
         self.assertEqual(list(lr.parse_devices(body)), ["XM1"])
+
+    def test_cap_cards_are_parsed_separately_from_mos_and_resistors(self):
+        # parse_capacitors is the mirror image: only the one MiM model the deck
+        # declares a class for, never a resistor and never a MOS.
+        body = [
+            "XR1 a b c ppolyf_u_3k r_width=2u r_length=10u m=1",
+            "XM1 d g s b nfet_03v3 L=1u W=2u",
+            "XC1 p n cap_mim_2f0_m3m4_noshield c_width=1u c_length=2u m=4",
+        ]
+        caps = lr.parse_capacitors(body)
+        self.assertEqual(list(caps), ["XC1"])
+        self.assertEqual(caps["XC1"]["nodes"], ["p", "n"])
+        self.assertEqual(lr.cap_units(caps["XC1"]), 4)
+
+    def test_a_fractional_cap_multiplier_is_an_error_not_a_rounding(self):
+        with self.assertRaises(lr.ReferenceError):
+            lr.cap_units({"params": {"m": "1.5"}})
 
 
 class BuildTest(unittest.TestCase):
@@ -355,31 +373,80 @@ class PorOutputChainManifestTest(unittest.TestCase):
         committed = (LAYOUT_DIR / "cells" / f"{self.CELL}.reference.spice").read_text()
         self.assertEqual(lr.build(self.CELL), committed)
 
+    def caps(self):
+        text = (REPO_ROOT / "design" / "netlist" / self.SOURCE).read_text()
+        return lr.parse_capacitors(lr.subckt_body(text, self.CELL))
+
     def test_every_mos_device_in_the_schematic_is_in_the_manifest(self):
-        # The two MiM caps (XCDG, XCTIM) are outside the curated deck's device
-        # coverage and are deliberately absent; every device it *can* model
-        # must be present, or the layout is being compared against a quietly
-        # reduced circuit.
+        # Every MOS the deck can model must be present, or the layout is being
+        # compared against a quietly reduced circuit. The MiM caps live in the
+        # manifest's own `caps` field, not here.
         self.assertEqual(set(self.golden()), set(lr.CELLS[self.CELL]["devices"]))
 
-    def test_the_omitted_mim_caps_cost_no_net(self):
-        # bias_core's undrawn passives delete three nets from both sides of the
-        # compare. Here they delete none: both cap nodes carry MOS terminals
-        # too, so the compare still covers every net in the schematic. If a
-        # future schematic edit ever made an undrawn device the sole owner of a
-        # node, this fails rather than silently narrowing what LVS answers for.
-        text = (REPO_ROOT / "design" / "netlist" / self.SOURCE).read_text()
-        body = lr.subckt_body(text, self.CELL)
-        modelled = self.golden()
-        self.assertNotIn("XCDG", modelled)  # the caps really are skipped
-        self.assertNotIn("XCTIM", modelled)
+    def test_every_mim_cap_in_the_schematic_is_drawn_and_compared(self):
+        # #92: no cap is left out of either the drawn cell or the reference.
+        self.assertEqual(set(self.caps()), set(lr.CELLS[self.CELL]["caps"]))
+        self.assertEqual(set(self.caps()), set(bc.POC_MIM_ARRAYS))
 
-        mos_nets = {net for d in modelled.values() for net in d["nodes"]}
-        cap_nets = set()
-        for line in body:
-            fields = line.split()
-            if fields[0] in ("XCDG", "XCTIM"):
-                cap_nets.update(fields[1:3])
+    def test_each_cap_is_drawn_as_many_times_as_its_multiplier_says(self):
+        # The deck models no `m` multiplier, so m=4 has to be four drawn plates
+        # and four reference cards. A drawn array that disagreed with the
+        # golden `m=` would fail LVS on device count; this says so first.
+        caps = self.caps()
+        for name, (columns, rows) in bc.POC_MIM_ARRAYS.items():
+            self.assertEqual(columns * rows, lr.cap_units(caps[name]))
+        cards = lr.build_cap_cards(self.CELL)
+        self.assertEqual(len(cards), sum(lr.cap_units(c) for c in caps.values()))
+
+    def test_cap_value_comes_from_the_golden_plate_size_not_a_typed_number(self):
+        # The extracted capacitance is the drawn plates' overlap area times the
+        # deck's 2.0 fF/um^2, and the drawn plate size is the golden card's own
+        # c_width/c_length -- so the reference has to be derived from the same
+        # two numbers or it is only ever agreeing with itself.
+        caps = self.caps()
+        for _prefix, _klass, _nodes, value_f in lr.build_cap_cards(self.CELL):
+            self.assertIn(value_f, {
+                lr.to_um(cap["params"]["c_width"])
+                * lr.to_um(cap["params"]["c_length"])
+                * lr.MIM_AREA_CAP_F_UM2
+                for cap in caps.values()
+            })
+        self.assertIn("2.42e-13", lr.build(self.CELL))  # XCDG, 11 x 11 um
+
+    def test_cap_cards_carry_the_decks_own_device_class_name(self):
+        # Without the class name KLayout's SPICE reader builds a generic CAP
+        # class and every cap compares as an unmatched device -- a class
+        # mismatch that reads like a missing device, not like a naming slip.
+        klass = lr.CAP_CLASS["cap_mim_2f0_m3m4_noshield"]
+        for line in lr.build(self.CELL).splitlines():
+            if line.startswith("C"):
+                self.assertTrue(line.endswith(f" {klass}"), line)
+
+    def test_cap_plate_nets_are_isolated_per_drawn_unit(self):
+        # klt cannot connect a recognised capacitor's plates to anything (see
+        # cap_plate_nets), so each drawn unit's two plates must be their own
+        # nets -- sharing one would describe a layout the deck cannot produce
+        # and would fail LVS on net count.
+        plates = [
+            net
+            for _prefix, _klass, nodes, _value in lr.build_cap_cards(self.CELL)
+            for net in nodes
+        ]
+        self.assertEqual(len(plates), len(set(plates)))
+        declared = set(lr.CELLS[self.CELL]["ports"]) | set(
+            lr.CELLS[self.CELL]["internal"]
+        )
+        self.assertFalse(set(plates) & declared)
+
+    def test_the_caps_own_no_net_by_themselves(self):
+        # bias_core's undrawn passives delete three nets from both sides of the
+        # compare. Here the caps delete none: both cap nodes carry MOS terminals
+        # too, so the compare still covers every net in the schematic with all
+        # of its MOS connections -- which is what keeps the plate-connectivity
+        # gap above from narrowing what LVS answers for. If a future schematic
+        # edit ever made a cap the sole owner of a node, this fails loudly.
+        mos_nets = {net for d in self.golden().values() for net in d["nodes"]}
+        cap_nets = {net for cap in self.caps().values() for net in cap["nodes"]}
         self.assertEqual(cap_nets, {"NDG", "TIM", "VSS"})
         self.assertTrue(cap_nets <= mos_nets, cap_nets - mos_nets)
 
@@ -453,6 +520,46 @@ class PorOutputChainManifestTest(unittest.TestCase):
         declared = set(spec["ports"]) | set(spec["internal"])
         routed = set(bc.POR_OUTPUT_CHAIN_TRACKS) | {"VDD", "VSS"}
         self.assertEqual(routed | {lr.SUBSTRATE_NET}, declared)
+
+    def test_the_drawn_mim_plates_are_the_golden_plate_sizes(self):
+        # Plate area *is* the capacitance, so a plate drawn at a size the
+        # golden netlist does not name is a wrong capacitor that DRC would
+        # happily pass. _mim_block reads c_width/c_length; this pins it.
+        caps = self.caps()
+        plates, _x1, _y1 = bc._mim_block(caps, bc.POC_MIM_ARRAYS, 0.0, 0.0)
+        for name, _x, _y, width, height in plates:
+            self.assertEqual(width, lr.to_um(caps[name]["params"]["c_width"]))
+            self.assertEqual(height, lr.to_um(caps[name]["params"]["c_length"]))
+
+    def test_the_drawn_mim_plates_hold_the_drm_spacing_and_enclosure(self):
+        # MIMTM.1 (1.2 um bottom-plate space) and MIMTM.3 (0.6 um bottom-plate
+        # enclosure of the top plate) are the two rules klt's deck checks. DRC
+        # is the real gate; this fails first and by name if a future array
+        # shape packs the plates tighter than the DRM allows.
+        self.assertGreaterEqual(bc.MIM_SPACE_UM, 1.2)
+        self.assertGreaterEqual(bc.MIM_ENCLOSURE_UM, 0.6)
+        edge = bc.MIM_ENCLOSURE_UM
+        plates, _x1, _y1 = bc._mim_block(self.caps(), bc.POC_MIM_ARRAYS, 0.0, 0.0)
+        bottoms = [
+            (x - edge, y - edge, x + w + edge, y + h + edge)
+            for _name, x, y, w, h in plates
+        ]
+        for index, first in enumerate(bottoms):
+            for second in bottoms[index + 1 :]:
+                gap_x = max(first[0] - second[2], second[0] - first[2])
+                gap_y = max(first[1] - second[3], second[1] - first[3])
+                # rounded to the stream's own 1 nm database unit -- the grid
+                # the geometry is actually written on, so this compares what
+                # DRC will see rather than an accumulated float.
+                self.assertGreaterEqual(
+                    round(max(gap_x, gap_y), 3), bc.MIM_SPACE_UM, (first, second)
+                )
+
+    def test_the_mim_array_must_agree_with_the_golden_multiplier(self):
+        # A 2x2 array for an m=4 cap is right; anything else is a silently
+        # wrong device count, so _mim_block refuses rather than drawing it.
+        with self.assertRaises(ValueError):
+            bc._mim_block(self.caps(), {"XCTIM": (2, 3)}, 0.0, 0.0)
 
     def test_pin_labels_land_on_a_terminal_of_that_net(self):
         # A label only becomes an extracted pin inside a Metal1 shape on its

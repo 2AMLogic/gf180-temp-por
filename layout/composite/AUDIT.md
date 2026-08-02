@@ -28,8 +28,8 @@ what parasitic R/C the extractor hung on it.
 | `bias_core` | 34 | 16 | 27 | 24 | 3 | 24/26 (92.31 %) | 106876 | 1498.6 |
 | `temp_core` | 55 | 20 | 29 | 27 | 2 | 27/30 (90.0 %) | 59745 | 1087.3 |
 | `por_comparator` | 18 | 3 | 15 | 15 | 0 | 15/18 (83.33 %) | 18446 | 376.7 |
-| `por_output_chain` | 27 | 2 | 18 | 18 | 0 | 18/20 (90.0 %) | 65203 | 813.9 |
-| `temp_por_top` | 134 | 41 | 76 | 71 | 5 | 71/78 (91.03 %) | 250147 | 4767.5 |
+| `por_output_chain` | 27 | 0 | 18 | 18 | 0 | 18/30 (60.0 %) | 65203 | 813.4 |
+| `temp_por_top` | 134 | 39 | 76 | 71 | 5 | 71/88 (80.68 %) | 250147 | 4767.0 |
 
 The *nets with parasitics* column is the [klayout-tools#283](https://github.com/2AMLogic/klayout-tools/issues/283) sanity check: that issue was a silent **zero** on unlabelled nets. A
 future regression to zero — or a coverage number that quietly collapses —
@@ -217,7 +217,7 @@ Ports: `VDD`, `VSS`, `IBIAS`, `POR_RAW`, `RESETn`
 
 | verdict | claim | as measured |
 | --- | --- | --- |
-| holds | omitting the two MiM caps costs no net: NDG and TIM each carry MOS terminals as well as a cap terminal, so every schematic net still exists on both sides of the compare | NDG: extracted as $11, 4 MOS terminal(s), unlabelled; TIM: extracted as $13, 3 MOS terminal(s), unlabelled |
+| holds | NDG and TIM each carry MOS terminals as well as a cap terminal; the two MiM caps are drawn for real (klayout-tools#314/#315) and extract as their own isolated-plate devices (Netlist.caps), so every schematic net still exists on both sides of the compare via the MOS terminal alone | NDG: extracted as $11, 4 MOS terminal(s), unlabelled; TIM: extracted as $13, 3 MOS terminal(s), unlabelled |
 
 ### Nets
 
@@ -225,7 +225,7 @@ Ports: `VDD`, `VSS`, `IBIAS`, `POR_RAW`, `RESETn`
 | --- | --- | --- | --- | --- | --- | --- |
 | `IBIAS` *(pin)* | layout (MOS + parasitics) | `IBIAS` (labelled) | 3 | 0 | 4334.0 | 44.76 |
 | `ND1` | layout (MOS + parasitics) | `$6` | 3 | 0 | 3938.5 | 37.00 |
-| `NDG` | layout (MOS + parasitics) | `$11` | 4 | 1 | 4004.4 | 38.06 |
+| `NDG` | layout (MOS + parasitics) | `$11` | 4 | 0 | 4004.4 | 38.06 |
 | `NDGN` | layout (MOS + parasitics) | `$10` | 2 | 0 | 3871.4 | 33.74 |
 | `NDGP` | layout (MOS + parasitics) | `$16` | 2 | 0 | 3871.0 | 33.60 |
 | `NDL` | layout (MOS + parasitics) | `$3` | 5 | 0 | 4397.9 | 46.85 |
@@ -237,17 +237,15 @@ Ports: `VDD`, `VSS`, `IBIAS`, `POR_RAW`, `RESETn`
 | `POR_RAW` *(pin)* | layout (MOS + parasitics) | `POR_RAW` (labelled) | 2 | 0 | 3981.6 | 33.83 |
 | `RESETn` *(pin)* | layout (MOS + parasitics) | `RESETn` (labelled) | 3 | 0 | 4035.8 | 41.11 |
 | `RSTB` | layout (MOS + parasitics) | `$17` | 6 | 0 | 4010.5 | 43.73 |
-| `TIM` | layout (MOS + parasitics) | `$13` | 3 | 1 | 3937.8 | 36.69 |
+| `TIM` | layout (MOS + parasitics) | `$13` | 3 | 0 | 3937.8 | 36.69 |
 | `TRIP` | layout (MOS + parasitics) | `$14` | 4 | 0 | 3994.5 | 38.96 |
 | `VDD` *(pin)* | layout (MOS + parasitics) | `$19`, `VDD` (labelled) + body `NW1` | 26 | 0 | 79.6 | 68.59 |
-| `VSS` *(pin)* | layout (MOS + parasitics) | `VSS`, `vsubs` (labelled) + body `vsubs` | 24 | 2 | 65.6 | 111.46 |
+| `VSS` *(pin)* | layout (MOS + parasitics) | `VSS`, `vsubs` (labelled) + body `vsubs` | 24 | 0 | 65.4 | 111.02 |
 
 ### Spliced-in (ideal) devices
 
 | device | model | nodes | from |
 | --- | --- | --- | --- |
-| `XCDG` | `cap_mim_2f0_m3m4_noshield` | `NDG`, `VSS` | por_output_chain |
-| `XCTIM` | `cap_mim_2f0_m3m4_noshield` | `TIM`, `VSS` | por_output_chain |
 
 ## `temp_por_top` — the block-level assembly (#72)
 
@@ -270,9 +268,9 @@ Ports: `VDD`, `VSS`, `PTAT`, `CTAT`, `RESETn`
 | `POR_RAW` | layout (MOS + parasitics) | `POR_RAW` (labelled) | 4 | 0 | 5256.9 | 47.22 |
 | `PTAT` *(pin)* | layout (MOS + parasitics) | `PTAT` (labelled) | 3 | 1 | 847.1 | 30.56 |
 | `RESETn` *(pin)* | layout (MOS + parasitics) | `EN|RESETn` (labelled) | 7 | 0 | 5439.9 | 74.27 |
-| `VDD` *(pin)* | layout (MOS + parasitics) | `$49`, `$50`, `$51`, `$52`, `$77`, `VDD` (labelled) + body `xbias.NW1`, `xcmp.NW1`, `xcmp.NW2`, `xpor.NW1`, `xtemp.NW1` | 109 | 2 | 11430.0 | 337.77 |
+| `VDD` *(pin)* | layout (MOS + parasitics) | `$49`, `$50`, `$51`, `$55`, `$92`, `VDD` (labelled) + body `xbias.NW1`, `xcmp.NW1`, `xcmp.NW2`, `xpor.NW1`, `xtemp.NW1` | 109 | 2 | 11430.0 | 337.77 |
 | `VREF` | layout (MOS + parasitics) | `VREF` (labelled) | 2 | 1 | 5993.0 | 52.99 |
-| `VSS` *(pin)* | layout (MOS + parasitics) | `VSS`, `vsubs` (labelled) + body `vsubs` | 133 | 59 | 3249.1 | 1475.06 |
+| `VSS` *(pin)* | layout (MOS + parasitics) | `VSS`, `vsubs` (labelled) + body `vsubs` | 133 | 57 | 3248.9 | 1474.61 |
 | `xbias__EC` | **schematic only (ideal)** | — | 0 | 9 | — | — |
 | `xbias__ER` | **schematic only (ideal)** | — | 0 | 2 | — | — |
 | `xbias__KS1` | layout (MOS + parasitics) | `$29` | 3 | 0 | 4818.9 | 54.33 |
@@ -305,7 +303,7 @@ Ports: `VDD`, `VSS`, `PTAT`, `CTAT`, `RESETn`
 | `xcmp__TN` | layout (MOS + parasitics) | `$38` | 3 | 0 | 1261.1 | 13.59 |
 | `xcmp__VDDA` | layout (MOS + parasitics) | `$34` | 3 | 0 | 1263.8 | 14.68 |
 | `xpor__ND1` | layout (MOS + parasitics) | `$15` | 3 | 0 | 3938.5 | 37.00 |
-| `xpor__NDG` | layout (MOS + parasitics) | `$41` | 4 | 1 | 4004.4 | 38.06 |
+| `xpor__NDG` | layout (MOS + parasitics) | `$41` | 4 | 0 | 4004.4 | 38.06 |
 | `xpor__NDGN` | layout (MOS + parasitics) | `$40` | 2 | 0 | 3871.4 | 33.74 |
 | `xpor__NDGP` | layout (MOS + parasitics) | `$46` | 2 | 0 | 3871.0 | 33.60 |
 | `xpor__NDL` | layout (MOS + parasitics) | `$13` | 5 | 0 | 4397.9 | 46.85 |
@@ -315,7 +313,7 @@ Ports: `VDD`, `VSS`, `PTAT`, `CTAT`, `RESETn`
 | `xpor__PGDG` | layout (MOS + parasitics) | `$42` | 6 | 0 | 4123.7 | 41.82 |
 | `xpor__PGDGB` | layout (MOS + parasitics) | `$14` | 4 | 0 | 4001.2 | 38.42 |
 | `xpor__RSTB` | layout (MOS + parasitics) | `$47` | 6 | 0 | 4010.5 | 43.73 |
-| `xpor__TIM` | layout (MOS + parasitics) | `$43` | 3 | 1 | 3937.8 | 36.69 |
+| `xpor__TIM` | layout (MOS + parasitics) | `$43` | 3 | 0 | 3937.8 | 36.69 |
 | `xpor__TRIP` | layout (MOS + parasitics) | `$44` | 4 | 0 | 3994.5 | 38.96 |
 | `xtemp__ENB` | layout (MOS + parasitics) | `ENB` (labelled) | 8 | 0 | 1686.1 | 36.15 |
 | `xtemp__M1D` | layout (MOS + parasitics) | `M1D` (labelled) | 4 | 0 | 1180.6 | 25.43 |
@@ -329,7 +327,7 @@ Ports: `VDD`, `VSS`, `PTAT`, `CTAT`, `RESETn`
 | `xtemp__NC` | **schematic only (ideal)** | — | 0 | 9 | — | — |
 | `xtemp__ND` | layout (MOS + parasitics) | `ND` (labelled) | 4 | 0 | 1476.2 | 34.48 |
 | `xtemp__NR` | layout (MOS + parasitics) | `NR` (labelled) | 4 | 0 | 1658.5 | 35.11 |
-| `xtemp__NT` | layout (MOS + parasitics) | `$76`, `NT` (labelled) + body `xtemp.NW2` | 18 | 0 | 5050.6 | 75.72 |
+| `xtemp__NT` | layout (MOS + parasitics) | `$91`, `NT` (labelled) + body `xtemp.NW2` | 18 | 0 | 5050.6 | 75.72 |
 | `xtemp__NZ` | **schematic only (ideal)** | — | 0 | 2 | — | — |
 | `xtemp__PB` | layout (MOS + parasitics) | `PB` (labelled) | 6 | 0 | 3354.4 | 45.70 |
 | `xtemp__PCAS` | layout (MOS + parasitics) | `PCAS` (labelled) | 9 | 0 | 4257.8 | 51.43 |
@@ -364,8 +362,6 @@ Ports: `VDD`, `VSS`, `PTAT`, `CTAT`, `RESETn`
 | `XRTOP_xcmp` | `ppolyf_u_3k` | `xcmp__SNS`, `VDD`, `VSS` | xcmp (por_comparator) |
 | `XRBOT_xcmp` | `ppolyf_u_3k` | `xcmp__SNSB`, `xcmp__SNS`, `VSS` | xcmp (por_comparator) |
 | `XRHYS_xcmp` | `ppolyf_u_3k` | `VSS`, `xcmp__SNSB`, `VSS` | xcmp (por_comparator) |
-| `XCDG_xpor` | `cap_mim_2f0_m3m4_noshield` | `xpor__NDG`, `VSS` | xpor (por_output_chain) |
-| `XCTIM_xpor` | `cap_mim_2f0_m3m4_noshield` | `xpor__TIM`, `VSS` | xpor (por_output_chain) |
 | `XCC_xtemp` | `cap_mim_2f0_m3m4_noshield` | `xtemp__PG`, `xtemp__NZ` | xtemp (temp_core) |
 | `XRZ_xtemp` | `ppolyf_u` | `xtemp__NZ`, `xtemp__N2`, `VSS` | xtemp (temp_core) |
 | `XQ1_xtemp` | `pnp_10p00x10p00` | `VSS`, `VSS`, `xtemp__NA` | xtemp (temp_core) |

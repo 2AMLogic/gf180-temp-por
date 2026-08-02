@@ -105,10 +105,27 @@ python3 design/netlist.py --check    # verify committed netlists are current
 python3 design/netlist.py --cell bias_core -v
 ```
 
-Requirements: `xschem` on `PATH` and the gf180mcu PDK installed. PDK discovery
-is delegated to `sim/harness/pdk.py` — the same resolver the corner runner uses
-— so `python3 sim/run_corners.py --check-env` diagnoses a missing PDK for both.
-No PDK path is ever baked into a netlist or into this directory.
+Requirements: **`xschem` >= 3.4.7** on `PATH`, plus the gf180mcu PDK installed.
+PDK discovery is delegated to `sim/harness/pdk.py` — the same resolver the
+corner runner uses — so `python3 sim/run_corners.py --check-env` diagnoses a
+missing PDK for both. No PDK path is ever baked into a netlist or into this
+directory.
+
+> **Why the version floor:** Ubuntu 24.04's apt package (xschem 3.4.4-1) has a
+> `top_is_subckt` regression — it fails to wrap the top-of-invocation cell as
+> an active `.subckt`, instead emitting a double-comment-prefixed
+> `**.subckt`/`**.ends` pair, even though `design/xschemrc` sets
+> `top_is_subckt 1`. Every cell hits this when netlisted on its own (each is
+> the "top of invocation" for its own xschem run), which is exactly what
+> `netlist.py` does per cell — so `--check` fails on an unaffected schematic
+> with `.subckt <cell> not found in its own netlist` (issue #89). xschem 3.4.7
+> does not have this defect and reproduces `design/netlist/*.spice`
+> byte-for-byte; there is no known-good newer apt/PPA package as of this
+> writing, so CI (`.github/workflows/ci.yml`'s `pdk-checks` job) builds 3.4.7
+> from source rather than relying on the distro package. If your local
+> `xschem --version` is older than 3.4.7, do the same: download a
+> [3.4.7+ release tarball](https://github.com/StefanSchippers/xschem/releases),
+> then `./configure && make && sudo make install`.
 
 Under the hood, per cell:
 

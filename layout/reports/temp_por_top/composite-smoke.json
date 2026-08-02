@@ -27,7 +27,7 @@
   "converged": true,
   "measurements": {
     "iq_ua": 10.42229,
-    "t_release_ms": 10.25589,
+    "t_release_ms": 10.14598,
     "vctat_v": 0.6533479,
     "vibias_v": 0.6333102,
     "vptat_v": 1.292477,
@@ -106,9 +106,9 @@
     },
     {
       "measurement": "t_release_ms",
-      "composite": 10.25589,
+      "composite": 10.14598,
       "schematic_control": 10.06441,
-      "delta_pct": 1.903,
+      "delta_pct": 0.81,
       "min": 0.5,
       "max": 19.0,
       "pass": true,

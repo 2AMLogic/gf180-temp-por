@@ -19,10 +19,10 @@
   ],
   "converged": true,
   "measurements": {
-    "iq_ua": 0.521708109,
+    "iq_ua": 0.52170809,
     "vibias_v": 0.69936333,
     "vresetn_v": 3.29999995,
-    "vtim_v": 3.299958288
+    "vtim_v": 3.299958535
   },
   "schematic_control_measurements": {
     "iq_ua": 0.521708145,
@@ -53,9 +53,9 @@
     },
     {
       "measurement": "vtim_v",
-      "composite": 3.2999582884,
+      "composite": 3.2999585353,
       "schematic_control": 3.2999583034,
-      "delta_pct": -0.0,
+      "delta_pct": 0.0,
       "min": -0.05,
       "max": 3.4,
       "pass": true,
@@ -63,7 +63,7 @@
     },
     {
       "measurement": "iq_ua",
-      "composite": 0.52170810941,
+      "composite": 0.52170808972,
       "schematic_control": 0.52170814498,
       "delta_pct": -0.0,
       "min": 0.05,

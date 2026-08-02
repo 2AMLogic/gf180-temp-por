@@ -11,6 +11,7 @@
   ],
   "counts": {
     "mos_devices_from_layout": 55,
+    "mim_caps_from_layout": 0,
     "spliced_devices_from_schematic": 20,
     "nets_total": 29,
     "nets_from_layout": 27,
@@ -32,6 +33,7 @@
       "vsubs -> VSS"
     ]
   },
+  "mim_caps_from_layout": [],
   "spliced_devices": [
     {
       "name": "XCC",

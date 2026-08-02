@@ -39,8 +39,8 @@ should therefore be timing/edge claims, not DC ones.
 | `bias_core` | `op` | yes | `vref_v` +0.00 %, `vibias_v` +0.00 %, `vbias_ok_v` +0.00 %, `iq_ua` +0.00 % |
 | `temp_core` | `op` | yes | `vptat_v` +0.00 %, `vctat_v` +0.00 %, `vibias_v` -0.00 %, `iq_ua` +0.03 % |
 | `por_comparator` | `op` | yes | `vpor_raw_v` +0.00 %, `vsns_v` +0.00 %, `vsnsb_v` -0.00 %, `iq_ua` -0.00 % |
-| `por_output_chain` | `op` | yes | `vresetn_v` +0.00 %, `vibias_v` -0.00 %, `vtim_v` -0.00 %, `iq_ua` -0.00 % |
-| `temp_por_top` | `tran 10u 20m` | yes | `vresetn_v` +0.00 %, `vptat_v` +0.00 %, `vctat_v` +0.00 %, `vibias_v` -0.00 %, `vref_v` +0.00 %, `iq_ua` +0.04 %, `t_release_ms` +1.90 % |
+| `por_output_chain` | `op` | yes | `vresetn_v` +0.00 %, `vibias_v` -0.00 %, `vtim_v` +0.00 %, `iq_ua` -0.00 % |
+| `temp_por_top` | `tran 10u 20m` | yes | `vresetn_v` +0.00 %, `vptat_v` +0.00 %, `vctat_v` +0.00 %, `vibias_v` -0.00 %, `vref_v` +0.00 %, `iq_ua` +0.04 %, `t_release_ms` +0.81 % |
 
 ## Operating points and sanity windows
 
@@ -60,7 +60,7 @@ should therefore be timing/edge claims, not DC ones.
 | `por_comparator` | `iq_ua` | 0.69695 | 0.69695 | -0.00 % | [0.05, 50.0] | pass |
 | `por_output_chain` | `vresetn_v` | 3.3 | 3.3 | +0.00 % | [2.5, 3.4] | pass |
 | `por_output_chain` | `vibias_v` | 0.699363 | 0.699364 | -0.00 % | [0.2, 1.2] | pass |
-| `por_output_chain` | `vtim_v` | 3.29996 | 3.29996 | -0.00 % | [-0.05, 3.4] | pass |
+| `por_output_chain` | `vtim_v` | 3.29996 | 3.29996 | +0.00 % | [-0.05, 3.4] | pass |
 | `por_output_chain` | `iq_ua` | 0.521708 | 0.521708 | -0.00 % | [0.05, 50.0] | pass |
 | `temp_por_top` | `vresetn_v` | 3.3 | 3.3 | +0.00 % | [2.5, 3.4] | pass |
 | `temp_por_top` | `vptat_v` | 1.29248 | 1.29247 | +0.00 % | [0.5, 2.5] | pass |
@@ -68,4 +68,4 @@ should therefore be timing/edge claims, not DC ones.
 | `temp_por_top` | `vibias_v` | 0.63331 | 0.63331 | -0.00 % | [0.2, 1.2] | pass |
 | `temp_por_top` | `vref_v` | 1.19935 | 1.19935 | +0.00 % | [0.8, 1.6] | pass |
 | `temp_por_top` | `iq_ua` | 10.4223 | 10.4185 | +0.04 % | [0.5, 300.0] | pass |
-| `temp_por_top` | `t_release_ms` | 10.2559 | 10.0644 | +1.90 % | [0.5, 19.0] | pass |
+| `temp_por_top` | `t_release_ms` | 10.146 | 10.0644 | +0.81 % | [0.5, 19.0] | pass |

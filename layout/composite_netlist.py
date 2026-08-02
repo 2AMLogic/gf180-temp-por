@@ -11,21 +11,25 @@ stdlib only; no PDK, no klayout, no ngspice. ``--extract`` shells out to
 
 What a composite netlist is, and what it is not
 -----------------------------------------------
-``klt extract`` on every cell under ``layout/cells/`` yields a **MOS-only**
-netlist: the curated ``gf180mcu`` deck now *declares* ``bjt`` / ``resistor`` /
-``cap_mim_*`` device classes, but none of the drawn cells carry the marker
-geometry those classes need, so this block's vertical PNPs, poly resistors and
-MiM caps are still not in any extraction (``layout/README.md`` -> "Known deck
-limits"). ``klt extract --parasitics`` can only ever hang first-order R/C on
-the nets that exist in that MOS-only graph.
+``klt extract`` on every cell under ``layout/cells/`` yields a netlist that is
+mostly **MOS-only**: the curated ``gf180mcu`` deck now *declares* ``bjt`` /
+``resistor`` / ``cap_mim_*`` device classes, but only ``por_output_chain``
+(and ``temp_por_top``, which inherits its geometry) draws the MiM marker
+geometry those classes need (klayout-tools#314/#315) -- its two MiM caps
+extract as real devices, with isolated plate nodes (see ``Netlist.caps``
+below). Every other non-MOS device -- the vertical PNPs, poly resistors, and
+``temp_core``'s own MiM cap -- is still not in any extraction
+(``layout/README.md`` -> "Known deck limits"). ``klt extract --parasitics``
+can only ever hang first-order R/C on the nets that exist in the MOS-only
+graph.
 
 So "re-run the suite on the extracted netlist" is not a thing that can be done
 literally. What *can* be done, and is what this script builds, is a
 **composite**:
 
-* every MOS device and every parasitic R/C **from the layout**
-  (``layout/reports/<cell>/extracted-parasitics.spice``), and
-* every non-MOS device **verbatim from the golden schematic export**
+* every MOS device, every drawn MiM cap, and every parasitic R/C **from the
+  layout** (``layout/reports/<cell>/extracted-parasitics.spice``), and
+* every other non-MOS device **verbatim from the golden schematic export**
   (``design/netlist/<cell>.spice``), spliced onto the nets the extraction and
   the schematic are proven to share.
 
@@ -254,9 +258,11 @@ CELLS: dict[str, dict] = {
         "note": "the MOS portion of the reset output chain (#70)",
         "readme": [
             {
-                "claim": "omitting the two MiM caps costs no net: NDG and TIM each "
-                "carry MOS terminals as well as a cap terminal, so every schematic "
-                "net still exists on both sides of the compare",
+                "claim": "NDG and TIM each carry MOS terminals as well as a cap "
+                "terminal; the two MiM caps are drawn for real (klayout-tools"
+                "#314/#315) and extract as their own isolated-plate devices "
+                "(Netlist.caps), so every schematic net still exists on both "
+                "sides of the compare via the MOS terminal alone",
                 "nets": ["NDG", "TIM"],
                 "extracted": True,
             }
@@ -445,11 +451,24 @@ class Device:
 class Netlist:
     """A parsed MOS-plus-parasitics SPICE netlist."""
 
-    def __init__(self, name, ports, devices, parasitics=None):
+    def __init__(self, name, ports, devices, parasitics=None, caps=None):
         self.name = name
         self.ports = list(ports)
         self.devices = list(devices)
         self.parasitics = list(parasitics or [])  # (letter, name, n1, n2, value)
+        # Real MiM-cap DEVICE cards from an extraction where the cell's caps
+        # are drawn (`lvs_reference.CELLS[cell]["caps"]`), as opposed to the
+        # interconnect R/C in `parasitics`: (name, node_a, node_b, value_f,
+        # klass). `klt` cannot route a capacitor plate onto a net (the same
+        # "Known limitation" `lvs_reference.cap_plate_nets` documents), so
+        # each plate node is its own isolated net -- never touched by a MOS
+        # device -- and is therefore not part of the net-correspondence
+        # graph; see `cap_nets`.
+        self.caps = list(caps or [])
+
+    @property
+    def cap_nets(self) -> set[str]:
+        return {node for _name, node_a, node_b, _value, _klass in self.caps for node in (node_a, node_b)}
 
     @property
     def nets(self) -> list[str]:
@@ -461,21 +480,31 @@ class Netlist:
             for node in (node_a, node_b):
                 if not node.endswith(PARASITIC_SUFFIX):
                     seen.setdefault(node, None)
+        for node in self.cap_nets:
+            seen.setdefault(node, None)
         for port in self.ports:
             seen.setdefault(port, None)
         return list(seen)
 
     def terminals(self) -> dict[str, list[tuple[int, str]]]:
-        """net -> [(device index, terminal role)]; d/s share the role ``sd``."""
+        """net -> [(device index, terminal role)]; d/s share the role ``sd``.
+
+        Built from MOS device terminals alone -- not seeded from
+        :attr:`nets` -- so an isolated net that no MOS device touches (a
+        drawn MiM cap's plate; see :attr:`cap_nets`) is simply absent from
+        the graph the net-correspondence solver searches, rather than
+        appearing as a spurious zero-terminal node with no counterpart on
+        the reference side.
+        """
         roles = ("sd", "g", "sd", "b")
-        table: dict[str, list[tuple[int, str]]] = {net: [] for net in self.nets}
+        table: dict[str, list[tuple[int, str]]] = {}
         for index, device in enumerate(self.devices):
             for node, role in zip(device.nodes, roles):
                 table.setdefault(node, []).append((index, role))
         return table
 
     def mos_terminal_counts(self) -> dict[str, int]:
-        counts = {net: 0 for net in self.nets}
+        counts: dict[str, int] = {}
         for device in self.devices:
             for node in device.nodes:
                 counts[node] = counts.get(node, 0) + 1
@@ -487,6 +516,7 @@ def parse_extracted(path: Path) -> Netlist:
     ports: list[str] = []
     devices: list[Device] = []
     parasitics: list[tuple[str, str, str, str, float]] = []
+    caps: list[tuple[str, str, str, float, str]] = []
     name = path.stem
     for line, pending_comment in _cards(path.read_text()):
         upper = line.upper()
@@ -517,6 +547,21 @@ def parse_extracted(path: Path) -> Netlist:
                     comment=pending_comment,
                 )
             )
+        elif head[0] in "Cc" and len(fields) == 5:
+            # A real MiM-cap DEVICE card (2 nodes, a value, and the deck's
+            # class name), from a cell whose caps are drawn -- see
+            # `Netlist.caps`. An interconnect-parasitic C card (below) never
+            # carries a class name, so the field count alone distinguishes
+            # them without needing the manifest here.
+            caps.append(
+                (
+                    head[1:],
+                    _unescape(fields[1]),
+                    _unescape(fields[2]),
+                    float(fields[3]),
+                    fields[4],
+                )
+            )
         elif head[0] in "RrCc":
             parasitics.append(
                 (
@@ -529,11 +574,21 @@ def parse_extracted(path: Path) -> Netlist:
             )
         else:
             raise CompositeError(f"{path}: unexpected card {line!r}")
-    return Netlist(name, ports, devices, parasitics)
+    return Netlist(name, ports, devices, parasitics, caps)
 
 
 def parse_reference(path: Path) -> Netlist:
-    """Parse a ``layout/lvs_reference.py`` output (plain-element MOS only)."""
+    """Parse a ``layout/lvs_reference.py`` output (plain-element MOS only).
+
+    A cell with drawn (real) MiM caps -- ``lvs_reference.build_cap_cards`` --
+    trails its ``.reference.spice`` with ``C<n> ...`` cards after the MOS
+    ``M``/``MD`` ones. Those caps are already in the extracted half for a
+    drawn cell (``extracted.parasitics``, misfiled as an interconnect
+    parasitic but numerically correct -- see :func:`_non_mos_cards`'s
+    ``drawn_caps``), so this parser -- MOS devices only, same as ``klt``'s own
+    curated deck -- skips them rather than mis-reading a 5-field cap card as
+    a 4-terminal MOS one.
+    """
     ports: list[str] = []
     devices: list[Device] = []
     name = path.stem
@@ -547,6 +602,8 @@ def parse_reference(path: Path) -> Netlist:
         if upper.startswith(".ENDS"):
             continue
         fields = line.split()
+        if fields[0].upper().startswith("C"):
+            continue
         params = {}
         for field in fields[6:]:
             key, _, value = field.partition("=")
@@ -712,10 +769,19 @@ def pin_correspondence(extracted: Netlist, reference: Netlist) -> dict[str, str]
 def verify_correspondence(
     extracted: Netlist, reference: Netlist, mapping: dict[str, str]
 ) -> None:
-    """Prove the mapping, rather than trusting the solver that produced it."""
-    if len(mapping) != len(extracted.nets):
+    """Prove the mapping, rather than trusting the solver that produced it.
+
+    A drawn MiM cap's isolated plate nets (:attr:`Netlist.cap_nets`) are
+    real extracted nets but touch no MOS device, so they never enter the
+    net-correspondence graph (:meth:`Netlist.terminals`) and are excluded
+    from the count here too -- they are emitted directly from their own
+    extracted node names (see ``build_cell``), not through this mapping.
+    """
+    solved_nets = set(extracted.nets) - extracted.cap_nets
+    if set(mapping) != solved_nets:
         raise CompositeError(
-            f"mapping covers {len(mapping)} of {len(extracted.nets)} extracted nets"
+            f"mapping covers {len(mapping)} of {len(solved_nets)} extracted "
+            "nets needing correspondence"
         )
     if len(set(mapping.values())) != len(mapping):
         raise CompositeError("mapping is not injective -- two nets would be shorted")
@@ -796,13 +862,25 @@ def check_every_golden_device_is_accounted_for(cell: str) -> None:
         check(spec)
 
 
-def _non_mos_cards(cell_source: str, subckt: str) -> list[tuple[str, list[str], str]]:
-    """(name, nodes, trailing text) for every non-MOS card in a golden subckt."""
+def _non_mos_cards(
+    cell_source: str, subckt: str, drawn_caps: frozenset[str] = frozenset()
+) -> list[tuple[str, list[str], str]]:
+    """(name, nodes, trailing text) for every non-MOS card in a golden subckt.
+
+    ``drawn_caps`` is a manifest's own ``caps`` list (``lvs_reference.CELLS``):
+    the golden MiM cards that a *drawn* cell now instantiates for real
+    (klayout-tools#314/#315; ``lvs_reference.build_cap_cards``). Those are
+    already in the extracted half via ``extracted-parasitics.spice`` -- they
+    are excluded here, not spliced, or the composite netlist would carry the
+    same capacitor twice: once real, once ideal.
+    """
     text = (NETLIST_DIR / cell_source).read_text()
     cards: list[tuple[str, list[str], str]] = []
     for line in ref.subckt_body(text, subckt):
         fields = line.split()
         if not fields[0].upper().startswith("X"):
+            continue
+        if fields[0] in drawn_caps:
             continue
         # The MOS cards are the ones lvs_reference knows how to convert; every
         # other X card is a device this deck cannot extract.
@@ -876,6 +954,97 @@ def body_aliases(cell: str) -> dict[str, str]:
     return aliases
 
 
+def cap_plate_pairs(cell: str) -> dict[float, tuple[str, str]]:
+    """Drawn-cap value -> the (real net, real net) its two plates stand for.
+
+    Same situation as :func:`body_aliases`, for the other place ``klt``
+    cannot see a connection it is physically there: a capacitor's plates
+    extract as their own isolated, self-connected nodes (``klt``'s
+    ``CapacitorDevice`` "Known limitation"; also why
+    ``lvs_reference.cap_plate_nets`` names the LVS reference's plate nodes
+    ``XCDG.NDG`` rather than ``NDG``). A composite netlist cannot leave a
+    drawn cap floating -- it would carry no capacitive loading on the real
+    net at all, defeating the entire point of drawing it -- so this restores
+    the schematic's own two nets for each drawn cap, keyed by value.
+
+    Keyed by value rather than by instance because that is all the
+    extraction can tell two identical parallel units apart by: their plate
+    nodes are isolated, so nothing in ``extracted-parasitics.spice``
+    distinguishes ``XCTIM``'s unit 1 from unit 3 either (the reference's own
+    ``.N`` unit numbering is arbitrary for the same reason). A capacitor is
+    non-polarized, so within one value class every unit tying the same net
+    pair is electrically interchangeable; two golden caps sharing a value
+    but wiring different net pairs is refused rather than guessed at.
+    """
+
+    def golden_pairs(spec: dict, rename=lambda net: net) -> dict[float, tuple[str, str]]:
+        names = spec.get("caps", [])
+        if not names:
+            return {}
+        source = NETLIST_DIR / spec["source"]
+        caps = ref.parse_capacitors(ref.subckt_body(source.read_text(), spec["subckt"]))
+        pairs: dict[float, tuple[str, str]] = {}
+        for name in names:
+            cap = caps[name]
+            width_um = ref.to_um(cap["params"]["c_width"])
+            length_um = ref.to_um(cap["params"]["c_length"])
+            value = width_um * length_um * ref.MIM_AREA_CAP_F_UM2
+            key = round(value, 21)
+            node_a, node_b = (composite_name(rename(node)) for node in cap["nodes"])
+            previous = pairs.get(key)
+            if previous is not None and previous not in ((node_a, node_b), (node_b, node_a)):
+                raise CompositeError(
+                    f"{cell}: drawn caps {value:.6g} F apart wire different net "
+                    f"pairs ({previous} vs {(node_a, node_b)}) -- cannot auto-wire "
+                    "extracted plates by value alone"
+                )
+            pairs[key] = (node_a, node_b)
+        return pairs
+
+    spec = ref.CELLS[cell]
+    if "assembly" in spec:
+        pairs: dict[float, tuple[str, str]] = {}
+        for _inst, sub_cell, rename in ref.instance_renames(cell):
+            for key, value_pair in golden_pairs(ref.CELLS[sub_cell], rename).items():
+                previous = pairs.get(key)
+                if previous is not None and previous not in (
+                    value_pair,
+                    value_pair[::-1],
+                ):
+                    raise CompositeError(
+                        f"{cell}: drawn caps {key:.6g} F apart wire different net "
+                        f"pairs ({previous} vs {value_pair}) across sub-cells -- "
+                        "cannot auto-wire extracted plates by value alone"
+                    )
+                pairs[key] = value_pair
+        return pairs
+    return golden_pairs(spec)
+
+
+def drawn_cap_unit_count(cell: str) -> int:
+    """How many drawn-cap DEVICES (post ``m=`` multiplier) a cell's manifest
+    declares -- what :func:`build_cell` requires ``extracted.caps`` to equal
+    exactly, the same "every golden device accounted for" guarantee
+    :func:`check_every_golden_device_is_accounted_for` gives the MOS half.
+    """
+
+    def count(spec: dict) -> int:
+        names = spec.get("caps", [])
+        if not names:
+            return 0
+        source = NETLIST_DIR / spec["source"]
+        caps = ref.parse_capacitors(ref.subckt_body(source.read_text(), spec["subckt"]))
+        return sum(ref.cap_units(caps[name]) for name in names)
+
+    spec = ref.CELLS[cell]
+    if "assembly" in spec:
+        return sum(
+            count(ref.CELLS[sub_cell])
+            for _inst, sub_cell, _rename in ref.instance_renames(cell)
+        )
+    return count(spec)
+
+
 def composite_name(net: str) -> str:
     return net.replace(".", INSTANCE_SEPARATOR)
 
@@ -916,6 +1085,25 @@ def build_cell(cell: str) -> tuple[str, dict]:
     verify_correspondence(extracted, reference, mapping)
 
     aliases = body_aliases(cell)
+    cap_pairs = cap_plate_pairs(cell)
+
+    # --- every drawn cap wired, exactly the "every golden device accounted
+    # for" guarantee `check_every_golden_device_is_accounted_for` gives the
+    # MOS half, extended to caps: a value the manifest never declared, or the
+    # wrong DEVICE COUNT, must fail loudly rather than leave a cap floating
+    # or silently under/over-count it.
+    expected_caps = drawn_cap_unit_count(cell)
+    if len(extracted.caps) != expected_caps:
+        raise CompositeError(
+            f"{cell}: extraction carries {len(extracted.caps)} drawn MiM cap(s), "
+            f"the manifest declares {expected_caps}"
+        )
+    for name, _node_a, _node_b, value, _klass in extracted.caps:
+        if round(value, 21) not in cap_pairs:
+            raise CompositeError(
+                f"{cell}: drawn cap {name!r} extracts at {value:.6g} F, which "
+                "matches no golden cap's value -- cannot wire its plates"
+            )
 
     def to_composite(net_extracted: str) -> str:
         net_reference = mapping[net_extracted]
@@ -930,6 +1118,8 @@ def build_cell(cell: str) -> tuple[str, dict]:
     # schematic node they are tied to.
     layout_nets: dict[str, list[str]] = {}
     for net_extracted in extracted.nets:
+        if net_extracted in extracted.cap_nets:
+            continue  # a drawn cap's plate net; wired by value, see cap_pairs
         name = to_composite(net_extracted)
         layout_nets.setdefault(name, []).append(net_extracted)
     for name, members in layout_nets.items():
@@ -951,8 +1141,9 @@ def build_cell(cell: str) -> tuple[str, dict]:
     if "assembly" in spec:
         for inst, sub_cell, rename in ref.instance_renames(cell):
             sub_spec = ref.CELLS[sub_cell]
+            drawn_caps = frozenset(sub_spec.get("caps", []))
             for name, nodes, trailing in _non_mos_cards(
-                spec["source"], sub_spec["subckt"]
+                spec["source"], sub_spec["subckt"], drawn_caps
             ):
                 spliced.append(
                     (
@@ -963,7 +1154,10 @@ def build_cell(cell: str) -> tuple[str, dict]:
                     )
                 )
     else:
-        for name, nodes, trailing in _non_mos_cards(spec["source"], spec["subckt"]):
+        drawn_caps = frozenset(spec.get("caps", []))
+        for name, nodes, trailing in _non_mos_cards(
+            spec["source"], spec["subckt"], drawn_caps
+        ):
             spliced.append((name, [composite_name(node) for node in nodes], trailing, cell))
 
     spliced_nets: dict[str, int] = {}
@@ -1004,6 +1198,7 @@ def build_cell(cell: str) -> tuple[str, dict]:
         to_composite=to_composite,
         spliced=spliced,
         new_nets=new_nets,
+        cap_pairs=cap_pairs,
     )
 
     audit = _audit(
@@ -1021,11 +1216,12 @@ def build_cell(cell: str) -> tuple[str, dict]:
         parasitic_c=parasitic_c,
         mos_counts=mos_counts,
         ports=ports,
+        cap_pairs=cap_pairs,
     )
     return text, audit
 
 
-def _emit(cell, spec, ports, extracted, to_composite, spliced, new_nets) -> str:
+def _emit(cell, spec, ports, extracted, to_composite, spliced, new_nets, cap_pairs) -> str:
     lines = [
         f"* {cell} -- COMPOSITE post-layout netlist",
         "* generated by layout/composite_netlist.py -- do not edit.",
@@ -1079,6 +1275,56 @@ def _emit(cell, spec, ports, extracted, to_composite, spliced, new_nets) -> str:
         lines.append(
             f"XM_{_instance_name(device.name)} {nodes} {model} {' '.join(params)}"
         )
+
+    if extracted.caps:
+        lines.append("")
+        lines.append("* ---- MiM cap devices: extracted from the layout ----")
+        lines.append(
+            "* Real drawn devices (klayout-tools#314/#315), not spliced from the"
+        )
+        lines.append(
+            "* schematic. `klt` cannot route a capacitor plate onto a net (same"
+        )
+        lines.append(
+            "* limitation `layout/lvs_reference.py` documents for the LVS"
+        )
+        lines.append(
+            "* reference), so the extraction's own plate nodes are isolated --"
+        )
+        lines.append(
+            "* leaving them that way would carry no capacitive loading on the"
+        )
+        lines.append(
+            "* real net at all, so the two plates are wired to the schematic's"
+        )
+        lines.append(
+            "* own nets instead, by value (composite_netlist.cap_plate_pairs;"
+        )
+        lines.append(
+            "* a capacitor is non-polarized, so which plate is which is not"
+        )
+        lines.append(
+            "* observable and does not matter electrically). Bare value, no"
+        )
+        lines.append(
+            "* trailing model name: unlike the LVS reference (a device-CLASS"
+        )
+        lines.append(
+            "* comparison klt's own SPICE reader needs), this is a netlist"
+        )
+        lines.append(
+            "* ngspice simulates, and a trailing token after the value is a"
+        )
+        lines.append("* parameter ngspice expects to parse, not a class tag.")
+        for name, _node_a, _node_b, value, klass in extracted.caps:
+            # cap_plate_pairs already resolves to composite-space net names
+            # (it runs the schematic's own node names through the same
+            # rename()/composite_name() the MOS half uses) -- not through
+            # `to_composite`, which maps an EXTRACTED net through the solved
+            # correspondence and these plate nodes were never in it.
+            net_a, net_b = cap_pairs[round(value, 21)]
+            lines.append(f"* {klass}, m=1")
+            lines.append(f"C_{_instance_name(name)} {net_a} {net_b} {value:.6g}")
 
     if extracted.parasitics:
         lines.append("")
@@ -1138,6 +1384,7 @@ def _audit(
     parasitic_c,
     mos_counts,
     ports,
+    cap_pairs,
 ) -> dict:
     nets: list[dict] = []
     for name, members in layout_nets.items():
@@ -1217,6 +1464,7 @@ def _audit(
         "ports": list(ports),
         "counts": {
             "mos_devices_from_layout": len(extracted.devices),
+            "mim_caps_from_layout": len(extracted.caps),
             "spliced_devices_from_schematic": len(spliced),
             "nets_total": len(nets),
             "nets_from_layout": len(layout_nets),
@@ -1235,9 +1483,18 @@ def _audit(
             "extracted_nets_without_parasitics": sorted(
                 f"{net} -> {composite_name(aliases.get(mapping[net], mapping[net]))}"
                 for net in extracted.nets
-                if net not in parasitic_c
+                if net not in parasitic_c and net not in extracted.cap_nets
             ),
         },
+        "mim_caps_from_layout": [
+            {
+                "name": f"C_{_instance_name(name)}",
+                "nodes": list(cap_pairs[round(value, 21)]),
+                "value_f": value,
+                "model": klass,
+            }
+            for name, _node_a, _node_b, value, klass in extracted.caps
+        ],
         "spliced_devices": [
             {"name": name, "nodes": nodes, "model": trailing.split()[0], "origin": origin}
             for name, nodes, trailing, origin in spliced

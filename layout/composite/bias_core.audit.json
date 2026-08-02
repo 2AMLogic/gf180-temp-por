@@ -10,6 +10,7 @@
   ],
   "counts": {
     "mos_devices_from_layout": 34,
+    "mim_caps_from_layout": 0,
     "spliced_devices_from_schematic": 16,
     "nets_total": 27,
     "nets_from_layout": 24,
@@ -30,6 +31,7 @@
       "vsubs -> VSS"
     ]
   },
+  "mim_caps_from_layout": [],
   "spliced_devices": [
     {
       "name": "XQ1",

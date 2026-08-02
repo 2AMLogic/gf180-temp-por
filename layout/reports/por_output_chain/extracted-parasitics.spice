@@ -62,6 +62,16 @@ M$25 \$17 \$14 VDD \$19 pfet L=0.5U W=4U AS=3.2P AD=3.2P PS=9.6U PD=9.6U
 M$26 \$17 \$12 VDD \$19 pfet L=0.5U W=4U AS=3.2P AD=3.2P PS=9.6U PD=9.6U
 * device instance $27 r0 *1 131.2,5 pfet
 M$27 \$16 \$2 VDD \$19 pfet L=10U W=10U AS=8P AD=8P PS=21.6U PD=21.6U
+* device instance $28 r0 *1 68.8,37.7 cap_mim_2f0_m4m5_noshield
+C$28 \$22 \$20 2.42e-13 cap_mim_2f0_m4m5_noshield
+* device instance $29 r0 *1 15.7,46.2 cap_mim_2f0_m4m5_noshield
+C$29 \$24 \$25 1.568e-12 cap_mim_2f0_m4m5_noshield
+* device instance $30 r0 *1 46.5,46.2 cap_mim_2f0_m4m5_noshield
+C$30 \$27 \$28 1.568e-12 cap_mim_2f0_m4m5_noshield
+* device instance $31 r0 *1 15.7,77 cap_mim_2f0_m4m5_noshield
+C$31 \$30 \$31 1.568e-12 cap_mim_2f0_m4m5_noshield
+* device instance $32 r0 *1 46.5,77 cap_mim_2f0_m4m5_noshield
+C$32 \$33 \$34 1.568e-12 cap_mim_2f0_m4m5_noshield
 * device instance $10 r0 *1 0,0 
 R$10 \$10 \$10__par 3871.3807
 * device instance $10 r0 *1 0,0 
@@ -131,7 +141,7 @@ RVDD VDD VDD__par 79.5773
 * device instance VDD r0 *1 0,0 
 CVDD VDD__par vsubs 6.8587476e-14
 * device instance VSS r0 *1 0,0 
-RVSS VSS VSS__par 65.6263
+RVSS VSS VSS__par 65.4157
 * device instance VSS r0 *1 0,0 
-CVSS VSS__par vsubs 1.11462228e-13
+CVSS VSS__par vsubs 1.11016325e-13
 .ENDS por_output_chain

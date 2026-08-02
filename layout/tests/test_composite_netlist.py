@@ -102,11 +102,17 @@ class CorrespondenceTest(unittest.TestCase):
         return extracted, reference, mapping
 
     def test_every_cell_solves_to_a_verified_bijection(self):
+        # A drawn MiM cap's isolated plate nets (Netlist.cap_nets) are real
+        # extracted nets but touch no MOS device, so they are outside the
+        # net-correspondence graph entirely (Netlist.terminals) and the
+        # mapping's domain is `extracted.nets - cap_nets`, not the full set.
         for cell in CELLS:
             with self.subTest(cell=cell):
                 extracted, reference, mapping = self.solve(cell)
                 cn.verify_correspondence(extracted, reference, mapping)
-                self.assertEqual(len(mapping), len(extracted.nets))
+                self.assertEqual(
+                    len(mapping), len(extracted.nets) - len(extracted.cap_nets)
+                )
                 self.assertEqual(len(set(mapping.values())), len(mapping))
 
     def test_negative_control_swapped_nets_are_rejected(self):
@@ -181,20 +187,43 @@ class SpliceTest(unittest.TestCase):
                         self.assertIn(node, names, f"{device['name']} -> {node}")
 
     def test_the_spliced_devices_are_exactly_the_golden_non_mos_ones(self):
+        # A sub-cell whose MiM caps are drawn for real (`caps` in its
+        # lvs_reference.CELLS manifest) already carries them in the extracted
+        # half, so they are excluded from `_non_mos_cards` rather than
+        # spliced -- otherwise the composite netlist would carry the same
+        # capacitor twice.
         for cell in CELLS:
             with self.subTest(cell=cell):
                 spec = lr.CELLS[cell]
                 if "assembly" in spec:
                     expected = sum(
-                        len(cn._non_mos_cards(spec["source"], lr.CELLS[sub]["subckt"]))
+                        len(
+                            cn._non_mos_cards(
+                                spec["source"],
+                                lr.CELLS[sub]["subckt"],
+                                frozenset(lr.CELLS[sub].get("caps", [])),
+                            )
+                        )
                         for _inst, sub, _rename in lr.instance_renames(cell)
                     )
                 else:
-                    expected = len(cn._non_mos_cards(spec["source"], spec["subckt"]))
+                    expected = len(
+                        cn._non_mos_cards(
+                            spec["source"],
+                            spec["subckt"],
+                            frozenset(spec.get("caps", [])),
+                        )
+                    )
                 self.assertEqual(
                     audit(cell)["counts"]["spliced_devices_from_schematic"], expected
                 )
-                self.assertGreater(expected, 0)
+                if cell == "por_output_chain":
+                    # Its only two non-MOS golden devices are the MiM caps,
+                    # and both are drawn for real (klayout-tools#314/#315),
+                    # so nothing is left to splice.
+                    self.assertEqual(expected, 0)
+                else:
+                    self.assertGreater(expected, 0)
 
     def test_the_port_list_is_the_golden_one(self):
         # A composite netlist is meant to be a drop-in for

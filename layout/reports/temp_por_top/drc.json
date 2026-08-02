@@ -30,6 +30,8 @@
       "34/0",
       "36/0",
       "42/0",
+      "46/0",
+      "75/0",
       "127/5"
     ],
     "layers_in_stream_without_rules": [
@@ -39,15 +41,15 @@
       "35/0",
       "36/10",
       "38/0",
+      "117/5",
+      "117/10",
       "200/0"
     ],
     "rules_skipped": [
       "metal5.space.1",
       "metal5.width.1",
       "metaltop.space.1",
-      "metaltop.width.1",
-      "mim.enclosing.fusetop.1",
-      "mim.space.1"
+      "metaltop.width.1"
     ]
   },
   "provenance": {

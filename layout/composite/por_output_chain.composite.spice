@@ -82,6 +82,31 @@ XM__26 RSTB PGDG VDD VDD pfet_03v3 L=0.5u W=4u nf=1 ad=3.2p as=3.2p pd=9.6u ps=9
 * device instance $27 r0 *1 131.2,5 pfet
 XM__27 NDGP PDN VDD VDD pfet_03v3 L=10u W=10u nf=1 ad=8p as=8p pd=21.6u ps=21.6u m=1
 
+* ---- MiM cap devices: extracted from the layout ----
+* Real drawn devices (klayout-tools#314/#315), not spliced from the
+* schematic. `klt` cannot route a capacitor plate onto a net (same
+* limitation `layout/lvs_reference.py` documents for the LVS
+* reference), so the extraction's own plate nodes are isolated --
+* leaving them that way would carry no capacitive loading on the
+* real net at all, so the two plates are wired to the schematic's
+* own nets instead, by value (composite_netlist.cap_plate_pairs;
+* a capacitor is non-polarized, so which plate is which is not
+* observable and does not matter electrically). Bare value, no
+* trailing model name: unlike the LVS reference (a device-CLASS
+* comparison klt's own SPICE reader needs), this is a netlist
+* ngspice simulates, and a trailing token after the value is a
+* parameter ngspice expects to parse, not a class tag.
+* cap_mim_2f0_m4m5_noshield, m=1
+C__28 NDG VSS 2.42e-13
+* cap_mim_2f0_m4m5_noshield, m=1
+C__29 TIM VSS 1.568e-12
+* cap_mim_2f0_m4m5_noshield, m=1
+C__30 TIM VSS 1.568e-12
+* cap_mim_2f0_m4m5_noshield, m=1
+C__31 TIM VSS 1.568e-12
+* cap_mim_2f0_m4m5_noshield, m=1
+C__32 TIM VSS 1.568e-12
+
 * ---- interconnect parasitics: extracted from the layout ----
 * One series R + one lumped C to substrate per net, from the deck's
 * curated sheet-resistance / capacitance table (klt extract
@@ -120,13 +145,9 @@ Rpar_RESETn RESETn RESETn__par 4035.82
 Cpar_RESETn RESETn__par VSS 4.11121e-14
 Rpar_VDD VDD VDD__par 79.5773
 Cpar_VDD VDD__par VSS 6.85875e-14
-Rpar_VSS VSS VSS__par 65.6263
-Cpar_VSS VSS__par VSS 1.11462e-13
+Rpar_VSS VSS VSS__par 65.4157
+Cpar_VSS VSS__par VSS 1.11016e-13
 
 * ---- non-MOS devices: IDEAL, verbatim from the schematic ----
-* from por_output_chain
-XCDG NDG VSS cap_mim_2f0_m3m4_noshield c_width=11u c_length=11u m=1
-* from por_output_chain
-XCTIM TIM VSS cap_mim_2f0_m3m4_noshield c_width=28u c_length=28u m=4
 
 .ends por_output_chain

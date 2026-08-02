@@ -33,10 +33,25 @@ documented limits of ``klt``'s curated ``gf180mcu`` extraction deck (see
   inside it. The schematic's body node (``VDD``) is rewritten to a per-well net
   named by the manifest, connected to nothing else.
 
-Both rewrites are *deliberate fidelity loss*: they make the reference describe
-what the deck can actually see. A clean LVS here therefore proves device count,
-device sizing, and signal-net topology -- **not** that wells and substrate are
-correctly tied. Filed upstream as tool friction; tracked in ``layout/README.md``.
+A third rewrite applies to the one non-MOS device class the deck now models,
+the drawn MiM capacitor (``caps`` in the manifest below):
+
+* **MiM plates** -- ``klt``'s extraction registers a recognised capacitor's two
+  plate regions as their own self-connected connectivity nodes, *not* as part
+  of the deck's metal/via stack (``CapacitorDevice``'s own documented "Known
+  limitation"), and the top plate's layer (``FuseTop``) is not in that stack at
+  all. So however the plates are wired in the drawn layout, each extracts as an
+  isolated two-terminal net pair. The schematic's plate nodes are rewritten to
+  per-instance isolated nets named after them (``XCDG.NDG`` / ``XCDG.VSS``), so
+  the loss is visible on the face of the reference netlist rather than implied.
+  Filed generically as klayout-tools#314.
+
+All three rewrites are *deliberate fidelity loss*: they make the reference
+describe what the deck can actually see. A clean LVS here therefore proves
+device count, device sizing, MiM plate area (hence capacitance) and signal-net
+topology among the MOS devices -- **not** that wells and substrate are correctly
+tied, and **not** what either MiM plate is connected to. Filed upstream as tool
+friction; tracked in ``layout/README.md``.
 """
 
 from __future__ import annotations
@@ -62,6 +77,30 @@ DEVICE_CLASS = {
     "pfet_03v3": ("M", "pfet"),
 }
 
+#: gf180mcu PDK MiM-capacitor subcircuit -> the curated deck's device class.
+#:
+#: The mapping is not the identity, and the difference is load-bearing. The
+#: schematics instantiate the PDK's **4-metal-level** MiM (``..._m3m4_...``,
+#: bottom plate on metal 3); ``klt``'s curated deck transcribes only the DRM's
+#: "10.4.2 MIM Option B" **5-metal-level** stack (``..._m4m5_...``, bottom plate
+#: on Metal4/``FuseTop`` top plate) and declares no other MiM device class, so
+#: that is the only variant a drawn cell can be recognised as. Both are the same
+#: 2.0 fF/um^2 device with the same drawn plate geometry -- only the metal pair
+#: the stack sits on differs -- so the extracted capacitance is unaffected, but
+#: the *stack level* the layout draws is the deck's, not the schematic's. Filed
+#: generically as klayout-tools#315 (``layout/README.md`` -> "Known deck limits").
+CAP_CLASS = {"cap_mim_2f0_m3m4_noshield": "cap_mim_2f0_m4m5_noshield"}
+
+#: Capacitance per square micrometre of MiM plate *overlap*, in Farads --
+#: ``klt``'s curated ``gf180mcu`` deck's own ``area_cap_f_um2`` for
+#: ``cap_mim_2f0_m4m5_noshield`` (2.0 fF/um^2, the PDK's own default
+#: ``MIM_CAP='2'`` density, and the ``2f0`` in the device name). This module is
+#: stdlib-only by design (no PDK, no klayout, no klt import), so the number is
+#: transcribed here with its provenance rather than read out of the deck; the
+#: extracted capacitance is ``plate overlap area * this``, so a wrong value here
+#: shows up immediately as a ``device.property`` LVS mismatch, not as silence.
+MIM_AREA_CAP_F_UM2 = 2.0e-15
+
 #: Layout cell -> how to build its reference netlist from a golden netlist.
 #:
 #: ``devices`` is in emission order and fixes ``M1``, ``M2``, ... numbering.
@@ -71,7 +110,10 @@ DEVICE_CLASS = {
 #: extracted netlist and matched by topology alone, but still spelled out here
 #: so the undeclared-net guard below stays a real check rather than a rubber
 #: stamp. ``wells`` groups the PMOS devices that share one drawn Nwell onto one
-#: body net.
+#: body net. ``caps`` (optional) lists the drawn MiM capacitors, in emission
+#: order, fixing ``C1``, ``C2``, ... numbering; their plate nets are synthesized
+#: per instance rather than declared, because the deck cannot connect a
+#: recognised capacitor's plates to anything (see :func:`cap_plate_nets`).
 #:
 #: ``devices[0]`` and ``devices[1]`` must not share a source net: the
 #: ``topology`` negative control re-ties the first device's source to the
@@ -378,12 +420,8 @@ CELLS = {
         "source": "por_output_chain.spice",
         "subckt": "por_output_chain",
         # Every MOS device in design/por_output_chain.sch -- 14 pfet + 13 nfet.
-        # The cell's other 2 devices (MiM caps XCDG, XCTIM) are outside the
-        # curated gf180mcu deck's device coverage (klayout-tools#219) and are
-        # not drawn; see layout/build_cells.py's por_output_chain docstring and
-        # layout/README.md for what that leaves unproven. Unlike bias_core,
-        # omitting them costs no *net*: NDG and TIM both carry MOS terminals
-        # too, so every schematic net still exists on both sides of the compare.
+        # The cell's other 2 devices are the MiM caps XCDG/XCTIM, now drawn and
+        # compared as well -- see this manifest's own `caps` field below.
         "devices": [
             # XMBD/XMPD lead so the topology control has two different sources
             # to work with (see the note above CELLS). XMBD first is not
@@ -417,6 +455,14 @@ CELLS = {
             "XMAST",
             "XMOP",
         ],
+        # The cell's 2 MiM caps, in emission order (fixes C1..C5 numbering).
+        # XCTIM is m=4, so it contributes 4 drawn units; the layout draws the
+        # same 5 plates from the same golden c_width/c_length. Their plate nets
+        # are per-instance isolated (see `cap_plate_nets`) -- the deck cannot
+        # wire a recognised capacitor's plates to anything -- so unlike the MOS
+        # devices they prove capacitance, not connectivity. Both schematic plate
+        # nodes (NDG, TIM) also carry MOS terminals, so no net depends on them.
+        "caps": ["XCDG", "XCTIM"],
         "ports": ["IBIAS", "POR_RAW", "RESETn", "VDD", "VSS", SUBSTRATE_NET],
         "internal": [
             "PDN",
@@ -463,9 +509,11 @@ CELLS = {
 #: because it is generated from them and from
 #: ``design/netlist/temp_por_top.spice``'s own instance lines, not retyped.
 #:
-#: Everything the four cells leave outside the curated deck's MOS-only device
-#: coverage (klayout-tools#219/#222) is still outside it here, and now all of
-#: it at once -- ``layout/README.md`` -> "Known deck limits" carries the list.
+#: Everything the four cells leave outside the curated deck's device coverage
+#: (klayout-tools#219/#222) is still outside it here, and now all of it at once
+#: -- ``layout/README.md`` -> "Known deck limits" carries the list. What the
+#: cells *do* draw comes through unchanged, including ``por_output_chain``'s 5
+#: drawn MiM units: extraction is flat, so they land in this cell's compare too.
 CELLS["temp_por_top"] = {
     "source": "temp_por_top.spice",
     "subckt": "temp_por_top",
@@ -548,9 +596,14 @@ def format_um(value_um: float) -> str:
     return f"{text or '0'}U"
 
 
-def parse_devices(body: list[str]) -> dict[str, dict]:
-    """Parse ``X<name> d g s b <model> k=v ...`` cards into a dict by name."""
-    devices: dict[str, dict] = {}
+def _parse_cards(body: list[str], models) -> dict[str, dict]:
+    """Parse ``X<name> <nodes...> <model> k=v ...`` cards into a dict by name.
+
+    Only cards whose model name is a key of ``models`` are returned; every other
+    ``X`` card is skipped rather than guessed at, so a device class this deck
+    cannot represent can never reach the reference netlist by accident.
+    """
+    cards: dict[str, dict] = {}
     for line in body:
         fields = line.split()
         if not fields[0].upper().startswith("X"):
@@ -562,14 +615,24 @@ def parse_devices(body: list[str]) -> dict[str, dict]:
             if "=" in field:
                 key, _, value = field.partition("=")
                 params[key.lower()] = value.strip("'\"")
-            elif model is None and field in DEVICE_CLASS:
+            elif model is None and field in models:
                 model = field
             elif model is None:
                 nodes.append(field)
         if model is None:
-            continue  # not a device this deck can model (resistor, cap, BJT...)
-        devices[fields[0]] = {"nodes": nodes, "model": model, "params": params}
-    return devices
+            continue  # not a device of the class asked for here
+        cards[fields[0]] = {"nodes": nodes, "model": model, "params": params}
+    return cards
+
+
+def parse_devices(body: list[str]) -> dict[str, dict]:
+    """Parse ``X<name> d g s b <model> k=v ...`` MOS cards into a dict by name."""
+    return _parse_cards(body, DEVICE_CLASS)
+
+
+def parse_capacitors(body: list[str]) -> dict[str, dict]:
+    """Parse ``X<name> p1 p2 <model> c_width=.. c_length=.. m=..`` MiM cards."""
+    return _parse_cards(body, CAP_CLASS)
 
 
 def subckt_ports(text: str, name: str) -> list[str]:
@@ -681,6 +744,79 @@ def build_cards(
     return cards
 
 
+def cap_units(cap: dict) -> int:
+    """How many drawn devices one golden MiM card's ``m=`` multiplier is.
+
+    The curated deck runs no device-combination step and models no multiplier,
+    so ``m=4`` is four drawn capacitors of the card's own ``c_width`` x
+    ``c_length`` -- the same treatment ``fingers`` gives a multi-finger MOS.
+    """
+    value = float(cap["params"].get("m", "1"))
+    if value != int(value) or value < 1:
+        raise ReferenceError(f"MiM multiplier m={value} is not a positive integer")
+    return int(value)
+
+
+def cap_plate_nets(name: str, cap: dict, unit: int, units: int) -> list[str]:
+    """The two isolated nets one drawn MiM unit's plates extract onto.
+
+    ``klt`` registers a recognised capacitor's plates as their own
+    self-connected connectivity nodes and the top plate's layer is not in the
+    deck's metal stack at all, so *no* drawn routing can put either plate on a
+    schematic net (``CapacitorDevice``'s "Known limitation"; see the module
+    docstring). The reference therefore names each plate after the schematic
+    node it is *meant* to be on, scoped to its own instance so it stays
+    isolated: ``XCDG.NDG``, ``XCTIM.3.VSS``. Reading the reference netlist shows
+    the fidelity loss rather than hiding it behind an anonymous ``n17``.
+    """
+    tag = name if units == 1 else f"{name}.{unit}"
+    return [f"{tag}.{node}" for node in cap["nodes"]]
+
+
+def build_cap_cards(
+    cell: str, rename=None
+) -> list[tuple[str, str, list[str], float]]:
+    """Every drawn-MiM card one manifest entry contributes, before numbering.
+
+    Plate dimensions are read out of the golden netlist's own ``c_width`` /
+    ``c_length`` -- the same source ``build_cells.py`` draws the plates from --
+    and the capacitance is that overlap area times :data:`MIM_AREA_CAP_F_UM2`,
+    which is exactly what ``klt extract`` computes from the drawn geometry. So a
+    plate drawn at the wrong size fails LVS on the value rather than passing
+    against a number typed to agree with it.
+    """
+    spec = CELLS[cell]
+    names = spec.get("caps", [])
+    if not names:
+        return []
+    source = NETLIST_DIR / spec["source"]
+    caps = parse_capacitors(subckt_body(source.read_text(), spec["subckt"]))
+
+    cards: list[tuple[str, str, list[str], float]] = []
+    for name in names:
+        if name not in caps:
+            raise ReferenceError(f"{cell}: MiM cap {name!r} not in {spec['source']}")
+        cap = caps[name]
+        if len(cap["nodes"]) != 2:
+            raise ReferenceError(f"{cell}: {name} is not a 2-terminal capacitor")
+        klass = CAP_CLASS[cap["model"]]
+        width_um = to_um(cap["params"]["c_width"])
+        length_um = to_um(cap["params"]["c_length"])
+        units = cap_units(cap)
+        value_f = width_um * length_um * MIM_AREA_CAP_F_UM2
+        for unit in range(1, units + 1):
+            nets = cap_plate_nets(name, cap, unit, units)
+            cards.append(
+                (
+                    "C",
+                    klass,
+                    [net if rename is None else rename(net) for net in nets],
+                    value_f,
+                )
+            )
+    return cards
+
+
 def instance_renames(cell: str) -> list[tuple[str, str, "object"]]:
     """``(instance, sub_cell, rename)`` for every instance of an assembly cell.
 
@@ -756,26 +892,36 @@ def instance_renames(cell: str) -> list[tuple[str, str, "object"]]:
     return renames
 
 
-def build_assembly(cell: str) -> list[tuple[str, str, list[str], float, float]]:
+def build_assembly(
+    cell: str,
+) -> tuple[
+    list[tuple[str, str, list[str], float, float]],
+    list[tuple[str, str, list[str], float]],
+]:
     """Compose an assembly cell's cards from the cells it instances.
 
-    Each sub-cell's own manifest supplies its devices, sizes, wells and dummy
-    fingers unchanged; the only thing this adds is the net renaming, which
-    :func:`instance_renames` derives from the golden top-level netlist.
+    Returns the same ``(MOS cards, MiM cards)`` pair :func:`build` builds for a
+    leaf cell. Each sub-cell's own manifest supplies its devices, sizes, wells,
+    dummy fingers and drawn MiM caps unchanged; the only thing this adds is the
+    net renaming, which :func:`instance_renames` derives from the golden
+    top-level netlist.
     """
     cards: list[tuple[str, str, list[str], float, float]] = []
+    cap_cards: list[tuple[str, str, list[str], float]] = []
     for _inst, sub_cell, rename in instance_renames(cell):
         cards.extend(build_cards(sub_cell, rename=rename))
-    return cards
+        cap_cards.extend(build_cap_cards(sub_cell, rename=rename))
+    return cards, cap_cards
 
 
 def build(cell: str, corrupt: str | None = None) -> str:
     spec = CELLS[cell]
     ports = list(spec["ports"])
     if "assembly" in spec:
-        cards = build_assembly(cell)
+        cards, cap_cards = build_assembly(cell)
     else:
         cards = build_cards(cell)
+        cap_cards = build_cap_cards(cell)
 
     if corrupt == "device-param":
         name, klass, nodes, length, width = cards[0]
@@ -801,6 +947,14 @@ def build(cell: str, corrupt: str | None = None) -> str:
             f"{prefix}{index + 1} {' '.join(nodes)} {klass} "
             f"L={format_um(length)} W={format_um(width)}"
         )
+    # MiM cards last, numbered in their own C1..Cn sequence. The value is a
+    # bare number in Farads followed by the device-class name: without the class
+    # name KLayout's SPICE reader builds its own generic ``CAP`` class and every
+    # cap compares as unmatched against the extracted
+    # ``cap_mim_2f0_m4m5_noshield`` -- a class mismatch that reads like a
+    # missing device.
+    for index, (prefix, klass, nodes, value_f) in enumerate(cap_cards):
+        lines.append(f"{prefix}{index + 1} {' '.join(nodes)} {value_f:.6g} {klass}")
     lines.append(f".ENDS {cell}")
     return "\n".join(lines) + "\n"
 

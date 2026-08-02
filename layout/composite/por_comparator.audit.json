@@ -11,6 +11,7 @@
   ],
   "counts": {
     "mos_devices_from_layout": 18,
+    "mim_caps_from_layout": 0,
     "spliced_devices_from_schematic": 3,
     "nets_total": 15,
     "nets_from_layout": 15,
@@ -32,6 +33,7 @@
       "vsubs -> VSS"
     ]
   },
+  "mim_caps_from_layout": [],
   "spliced_devices": [
     {
       "name": "XRTOP",
