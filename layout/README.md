@@ -4,15 +4,20 @@ This directory holds the block's layout artifacts and the **repeatable DRC/LVS
 invocation** they are checked with. It is `klt`-driven end to end: no GUI, no
 interactive KLayout session, no netgen/magic.
 
-> **Status: the flow is proven, the block's layout is not drawn.**
-> One real cell from `design/` is laid out here, and it runs DRC-clean and
-> LVS-clean against its schematic-derived netlist, with both LVS negative
-> controls detected. That is the deliverable of #16 — a working flow that the
-> floorplan (#17) and post-layout verification (#18) inherit instead of
-> rediscovering. It is **not** a claim about the block's layout, which does not
-> exist yet. #17's floorplan sketch and matching plan — the ranked,
-> #15-data-driven common-centroid/interdigitation/guard-ring plan this flow's
-> cells will eventually implement — is [`layout/floorplan.md`](floorplan.md).
+> **Status: the flow is proven, and the first of the block's four sub-circuits
+> is drawn — as far as the deck can see it.**
+> #16 brought the flow up on one two-device proof cell. #68 added `bias_core`,
+> the first real sub-circuit: all **34** of its MOS devices, DRC-clean and
+> LVS-clean against the schematic-derived netlist, with both negative controls
+> detected. That is **not** the whole cell — `bias_core`'s 10 vertical PNPs, 4
+> poly resistors and 2 MiM caps are outside the curated deck's device coverage
+> and are deliberately not drawn (see
+> [The cells under test](#the-cells-under-test) and
+> [Known deck limits](#known-deck-limits--what-a-clean-lvs-here-does-not-prove)).
+> The remaining three sub-circuits and the top-level assembly are not drawn.
+> #17's floorplan sketch and matching plan — the ranked, #15-data-driven
+> common-centroid/interdigitation/guard-ring plan this flow's cells implement —
+> is [`layout/floorplan.md`](floorplan.md).
 
 ## Run it
 
@@ -121,7 +126,78 @@ Reports are regenerated wholesale by `run_checks.sh` and are byte-stable across
 runs (paths are repo-relative, digests are content-based), so a re-run that
 changes nothing produces an empty `git diff` — that is the repeatability check.
 
-## The cell under test
+## The cells under test
+
+### `bias_core` — the MOS portion of the shared bias/reference core (#68)
+
+`design/bias_core.sch`'s 34 MOS devices, drawn from
+`design/netlist/bias_core.spice`. 397.9 × 140.7 µm, 2367 polygons.
+
+**What a clean run here covers, and what it does not.** `bias_core` has 50
+devices. 34 are MOS and are drawn, extracted and compared. The other **16 are
+not drawn at all**:
+
+| Not drawn | Devices | Why |
+| --- | --- | --- |
+| Vertical PNPs | `XQ1`, `XQ8A`…`XQ8H`, `XQR` (10) | deck extracts `nfet`/`pfet` only — [klayout-tools#219](https://github.com/2AMLogic/klayout-tools/issues/219) |
+| Poly resistors | `XR1`, `XR2`, `XRT`, `XRZ` (4) | same, resistor sub-issue [#222](https://github.com/2AMLogic/klayout-tools/issues/222) |
+| MiM caps | `XCC`, `XCOK` (2) | same; also needs the upper metals the deck does not declare |
+
+Leaving them out is a deliberate choice, not an oversight. Drawing a poly
+resistor body **would make the report worse**: with no resistor device in the
+deck, the extractor reads a drawn poly body as ordinary interconnect and
+silently **shorts its two terminal nets** (`NB`–`EC`, `VREF`–`ER`,
+`NBTOP`–`NB`, `NZ`–`N2`) — which then reads as a layout bug in the part of the
+cell that *can* be checked. So the sub-cell boundary drawn here is "everything
+the deck can represent, and nothing it cannot", and the passive/bipolar region
+is reserved as a floorplan rectangle on annotation layer **200/0** (read by
+neither deck, so it changes no verdict) rather than filled with geometry no
+check in this repo could answer for.
+
+Consequences to carry forward, stated so nobody has to re-derive them:
+
+- The three nets that exist **only** through a resistor (`EC`, `ER`, `NZ`) are
+  absent from both sides of the compare.
+- `VREF`, `IBIAS` and `NB` appear with **one** MOS terminal each, because their
+  other connections are to devices that are not drawn.
+- Nothing here says the reference is 1.20 V, that `R2/R1` is 11.726, or that
+  the 8:1 emitter ratio is matched. Those are `sim/`'s claims, unchanged.
+
+**Structure.** Routing is Metal1-only because the extraction deck declares one
+metal level; the scheme that makes 34 devices routable on one metal is
+**horizontal Poly2 tracks (one per signal net) with vertical Metal1 risers**,
+so a riser crosses every track it does not belong to with no contact. `VDD` and
+`VSS` are Metal1 rails above and below the row. One drawn Nwell holds the whole
+PMOS row.
+
+**Matched pairs** get ordinary matched-pair practice — adjacent placement, same
+orientation, identical drawn geometry, common well: `XMI1`/`XMI2`,
+`XML1`/`XML2`, `XMOKA`/`XMOKB`, `XMOL1`/`XMOL2`, and the three core mirror legs
+`XMP1`/`XMP2`/`XMP3`. `floorplan.md`'s ranked common-centroid plan covers
+`temp_core` (ranks 1–3) and `por_comparator` (rank 4) only — it prescribes
+nothing for this cell, and nothing was invented here to fill the gap.
+
+**Guard ring and well ties are drawn, and are a design-review claim, not a
+checked one.** A continuous VSS-tied p-substrate guard ring (COMP + Metal1,
+contacted at 1 µm pitch, no floating segment) surrounds the cell; the Nwell has
+its own VDD-tied COMP strap. Per
+[klayout-tools#281](https://github.com/2AMLogic/klayout-tools/issues/281) the
+deck has no tap/well-label layer, so **a mis-tied or untied ring would compare
+clean** — this flow does not verify it, and `klt 0.1.0` does not yet emit the
+`device.body_unverified` warning that klayout-tools#285 added (the extract
+report's `warnings` array is empty).
+
+Recorded result (`layout/reports/bias_core/`):
+
+| Check | Result |
+| ----- | ------ |
+| `klt drc --deck gf180mcu` | clean — 0 violations |
+| `klt extract --deck gf180mcu` | 34 devices (18 nfet, 16 pfet), 26 nets, 6 pins |
+| `klt lvs` | **match** — 34/34 devices, 26/26 nets, 6/6 pins, 0 mismatches |
+| negative control `topology` | detected (exit 3; `device.unmatched` 1, `topology` 2) |
+| negative control `device-param` | detected (exit 3; `device.property` 5, `topology` 2) |
+
+### `por_comparator_bias_okb_inv` — the flow's original proof cell (#16)
 
 `por_comparator_bias_okb_inv` — the local inverter that produces `BIAS_OKB`
 inside `por_comparator` (`MENP` / `MENN` in that cell's device table). Two
@@ -156,16 +232,33 @@ filed upstream per this repo's friction protocol.
 - **Device coverage is MOS-only.** The extraction deck recognises `nfet`/`pfet`
   and nothing else in the version this flow was brought up on, so a cell
   containing poly resistors, MiM caps, or vertical bipolars cannot be LVS'd
-  whole. That is why the proof cell is an all-MOS one. Upstream:
+  whole. That is why the proof cell is an all-MOS one, and why `bias_core`'s
+  16 non-MOS devices are **not drawn** rather than drawn-and-ignored — a drawn
+  poly resistor body extracts as interconnect and shorts its own terminal nets.
+  Still true at `klt 0.1.0`. Upstream:
   [klayout-tools#219](https://github.com/2AMLogic/klayout-tools/issues/219)
   (and its sub-issue #222 for resistors) — already open before this bring-up.
+  The *silence* is the sharper half and is separately filed by #68:
+  [klayout-tools#288](https://github.com/2AMLogic/klayout-tools/issues/288) —
+  extraction absorbs unmodelled-device geometry into interconnect with an empty
+  `warnings` array, so the failure mode is a wrong netlist, not an error.
+- **There is no annotation-layer contract**, so the reserved passive/bipolar
+  region in `bias_core` sits on a layer (200/0) chosen because no deck reads it
+  today, not because any deck promises not to. Filed:
+  [klayout-tools#289](https://github.com/2AMLogic/klayout-tools/issues/289).
+  Re-check after a `klt` upgrade: if `klt drc`'s or `klt extract`'s layer set
+  ever grows to include it, the reports move and `run_checks.sh` says so.
 - **Body terminals are synthetic.** The deck draws no substrate tap, so NMOS
   bodies land on a global `vsubs` net; gf180mcu has no distinct tap or
   well-label layer, so an extracted Nwell is an anonymous net. `lvs_reference.py`
   therefore rewrites the schematic's body nodes to match. **Consequence: a
   mis-tied or untied well would compare clean.** Well/substrate ties are *not*
-  verified by this flow. Filed:
-  [klayout-tools#281](https://github.com/2AMLogic/klayout-tools/issues/281).
+  verified by this flow — `bias_core` draws a continuous VSS-tied guard ring and
+  a VDD-tied Nwell strap, and their correctness is a **design-review** claim.
+  Filed: [klayout-tools#281](https://github.com/2AMLogic/klayout-tools/issues/281);
+  its follow-up #285 adds a `device.body_unverified` warning, but `klt 0.1.0`
+  does not emit it (`warnings` is empty in both cells' `extract.json`), so there
+  is no mechanical confirmation signal to read yet.
 - **The reference netlist has to be converted, not just pointed at.** `klt lvs`
   needs plain-element SPICE (`M1 d g s b nfet L=0.5U W=1U`); `design/netlist.py`
   emits the ngspice simulation form (`XM1 d g s b nfet_03v3 L=0.5u ...`).
@@ -173,18 +266,23 @@ filed upstream per this repo's friction protocol.
   net-merge cascade that reads like a layout bug. `lvs_reference.py` is this
   repo's converter. Filed:
   [klayout-tools#280](https://github.com/2AMLogic/klayout-tools/issues/280).
-- **A parameter-only defect is poorly localised on a small cell.** The
-  `device-param` control above is *detected*, but on a two-device cell it is
-  reported as `device.unmatched` + a `net.unmatched` cascade rather than the
-  documented `device.property` entry naming the wrong parameter — so the report
-  points at connectivity when the defect is a width. It classifies correctly
-  once the circuit is larger. Filed:
+- **A parameter-only defect is poorly localised on a small cell** — and #68
+  measured the size at which that stops being true. On the two-device proof
+  cell the `device-param` control is *detected* but reported as
+  `device.unmatched` + a `net.unmatched` cascade rather than the documented
+  `device.property` entry naming the wrong parameter, so the report points at
+  connectivity when the defect is a width. On the 34-device `bias_core` the same
+  control reports **`device.property` ×5**, i.e. it classifies correctly — which
+  is the first evidence in this repo for the "classifies correctly once the
+  circuit is larger" expectation rather than an assumption about it. Filed:
   [klayout-tools#282](https://github.com/2AMLogic/klayout-tools/issues/282).
-- **Single metal level.** The extraction deck this flow was brought up on
-  declares `Metal1` only, so a cell must route on Metal1 to extract as connected
-  nets. Upstream [klayout-tools#220](https://github.com/2AMLogic/klayout-tools/issues/220)
-  is closed — re-check `klt`'s version before assuming the limit still applies
-  when #17 needs upper metal.
+- **Single metal level.** The extraction deck declares `Metal1` only, so a cell
+  must route on Metal1 to extract as connected nets. Upstream
+  [klayout-tools#220](https://github.com/2AMLogic/klayout-tools/issues/220) and
+  #238 are closed, but **re-checked at `klt 0.1.0` for #68: the installed
+  version still declares one metal**, so `bias_core` routes on Metal1 with
+  Poly2 as the crossing layer. Re-check `klt --version` before assuming the
+  limit still applies.
 - **DRC is a curated subset.** Width/space/enclosure across Poly2/Comp/Contact/
   Metal1, plus Nwell spacing/enclosure and one BJT rule. Clean here means clean
   against *that* subset — it is not a tapeout-grade signoff, and no claim in
@@ -199,8 +297,12 @@ Re-run `run_checks.sh` after upgrading `klt` and commit the refreshed reports.
 1. Add a builder function to `layout/build_cells.py` and register it in `CELLS`;
    run `python3 layout/build_cells.py --cell <name>` to write the GDS.
 2. Add a manifest entry to `layout/lvs_reference.py`'s `CELLS` — the golden
-   netlist it derives from, the devices to take, the layout's own pin set, and
-   which PMOS devices share which drawn Nwell. Run it to write the reference.
+   netlist it derives from, the devices to take, the layout's own pin set
+   (`ports`), its unlabelled internal nets (`internal`), and which PMOS devices
+   share which drawn Nwell (`wells`). Run it to write the reference. On a cell
+   with more than two devices, check that `devices[0]` and `devices[1]` do not
+   share a source net — if they do, the `topology` negative control corrupts
+   nothing and silently stops controlling anything.
 3. Copy an existing `cells/<cell>.lvs.json` and point it at the new names.
 4. `bash layout/run_checks.sh <name>` — and do not treat a clean LVS as real
    until both negative controls report detected.
