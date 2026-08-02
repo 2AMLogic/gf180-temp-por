@@ -140,17 +140,41 @@ different failure mode this floorplan still has to cover).
 
 **What the automated flow will not check here.** Per
 [`layout/README.md` § "Known deck limits"](README.md#known-deck-limits---what-a-clean-lvs-here-does-not-prove)
-(klayout-tools#281): *"the extraction deck has no distinct tap/well-label
-layer, so a mis-tied or untied well compares clean."* This applies directly
-to the guard ring described above — a ring drawn but left floating, or tied
-to the wrong net, would pass `klt lvs` with a clean report. **Guard-ring and
-well/substrate-tie correctness at this seam must be caught by design review**
-when polygons are drawn (this issue's own review, and again at #18's
-post-layout stage) — it is not, and per the current deck cannot be, a thing
-the automated DRC/LVS run in `layout/run_checks.sh` verifies. This note is
-the explicit tracking this issue's Test Plan asks for; it is not a new
-`klayout-tools` friction filing, since #281 already tracks the underlying
-deck gap generically.
+the extraction deck has no distinct tap/well-label layer, so a mis-tied or
+untied well compares clean. This applies directly to the guard ring described
+above — a ring drawn but left floating, or tied to the wrong net, would pass
+`klt lvs` with a clean report, and a ring with a gap in one segment passes
+`klt drc` too. **Guard-ring and well/substrate-tie correctness at this seam
+must be caught by design review** when polygons are drawn (this issue's own
+review, and again at #18's post-layout stage), or by the build-time geometry
+checks #72 added for `temp_por_top` — it is not, and per the current deck
+cannot be, a thing the automated DRC/LVS run in `layout/run_checks.sh`
+verifies. The tool gap is filed generically as
+[klayout-tools#303](https://github.com/2AMLogic/klayout-tools/issues/303).
+(It is *not* covered by klayout-tools#281, which is **closed**: its curated
+scope was narrowed to "shape (1) only" and it was resolved by #285's
+`device.body_unverified` warning, which reports that bodies went uncompared
+and says nothing about a ring.)
+
+> **#72 update — measured, then partly answered.** Drawing the assembly
+> confirmed the claim rather than assuming it: a `temp_por_top` whose seam moat
+> is drawn but never tied to `VSS`, and one whose perimeter ring has a 10 µm
+> gap in a segment, are each `klt drc` **clean** and `klt lvs` **match**. The
+> deck's #285 follow-up *is* live now (every `lvs.json` carries two
+> `device.body_unverified` warnings), but that reports only that *bodies* went
+> uncompared — it says nothing about a ring, so it is not the missing signal,
+> and #281 (which #285 closed) does not cover ring continuity or the tie. That
+> gap is filed generically as
+> [klayout-tools#303](https://github.com/2AMLogic/klayout-tools/issues/303),
+> with both defect builds as its evidence.
+> `layout/build_cells.py` therefore checks the drawn geometry itself before
+> writing `temp_por_top.gds`: every net one connected group, every group one
+> net, every guard ring an annulus (one polygon, one hole), every via covered
+> on both levels — each negative-controlled by introducing the defect and
+> confirming the check fires. What remains a design-review claim, and is the
+> only part that does, is that `VSS` is the right net to tie the rings to.
+> Cells drawn before #72 (`bias_core`, `por_comparator`, `por_output_chain`,
+> `temp_core`) keep their own rings as a pure design-review claim.
 
 **Shared-net feedthroughs.** `IBIAS`, `VREF`, and `BIAS_OK` all originate in
 `bias_core` (inside the POR domain) and cross the seam only to reach
@@ -158,6 +182,21 @@ deck gap generically.
 POR-domain-internal per `design/README.md`'s net table). One feedthrough,
 short and direct, routed through (not around) the guard ring at a single
 crossing point rather than multiple, so the ring stays otherwise continuous.
+
+(**#72, as built** — this is the part of the plan the metal stack changed, so
+state it exactly. With Metal2/Metal3 available (see "Routing / metal-level
+note" below) nothing has to be routed *through* the moat, so the plan's "one
+feedthrough through a notch" becomes "cross over an unbroken ring", and the
+count of crossings stops being the thing that matters. What crosses `y` at the
+seam, as drawn: **four** left-margin Metal3 columns, all inside the moat's own
+`x`-span — `IBIAS` and `RESETn`/`EN` (the two signals), plus the `VSS` riser
+down to the bottom rail and the POR domain's `VDD` riser up to the top rail.
+`temp_core`'s own `VDD` tap does not cross, the top rail being on its side of
+the seam. None of the four is drawn on Metal1/COMP, the layers the moat is made
+of, so the moat is continuous everywhere and has no notch anywhere. The
+coupling claim this section is really making is unchanged and narrower than the
+crossing count: `IBIAS` is the only *bias* net that crosses into the
+temp-sensor domain, `VREF`/`BIAS_OK` staying POR-domain-internal.)
 No special matching treatment applies to this net — it is a shared bias
 reference, not a matched pair, and DR-010 already requires `temp_core` to
 present high impedance to it when disabled, so nothing about crossing the
@@ -401,15 +440,15 @@ klt 0.1.0
 
 Inspecting the installed package directly
 (`klayout_tools/decks/gf180mcu.py`, the `EXTRACTION_DECK` this `klt 0.1.0`
-ships) shows `metals=((34, 0),)` — **Metal1 only**, still. klayout-tools#220
+ships) showed `metals=((34, 0),)` — **Metal1 only**, still. klayout-tools#220
 is closed upstream (merged via klayout-tools#238, which populates the full
-Metal1–Metal5/Via1–Via4 stack), but that fix has not reached the `klt 0.1.0`
-build installed in this environment. **This floorplan therefore assumes
-Metal1-only routing for now**, consistent with #16's proven cell: matched
-structures' internal interconnect and the domain-crossing feedthroughs above
-route on Metal1, with poly used as the crossunder layer where two Metal1 runs
-must cross, exactly as `layout/README.md` describes for the single-metal
-regime. When the local `klt` install is upgraded past klayout-tools#238, this
+Metal1–Metal5/Via1–Via4 stack), but that fix had not reached the `klt 0.1.0`
+build installed in this environment. **This floorplan therefore assumed
+Metal1-only routing**, consistent with #16's proven cell: matched structures'
+internal interconnect and the domain-crossing feedthroughs above route on
+Metal1, with poly used as the crossunder layer where two Metal1 runs must
+cross, exactly as `layout/README.md` describes for the single-metal regime.
+When the local `klt` install is upgraded past klayout-tools#238, this
 constraint should be re-checked (`klt --version` / re-inspect the installed
 deck) before assuming it still applies — this floorplan does not depend on
 Metal1-only being permanent, only on it being the current, verified
@@ -418,6 +457,53 @@ capability.
 No new `klayout-tools` friction issue is filed for this: the underlying gap
 is already tracked and fixed upstream (klayout-tools#220 / #238); this is a
 local-install version gap, not a new tool-capability gap.
+
+### Re-checked for #72 (block-level assembly) — the constraint is lifted
+
+The instruction above was carried out before drawing `temp_por_top`. Same
+`klt --version` (`klt 0.1.0`), different deck:
+
+```
+>>> EXTRACTION_DECK.metals
+((34, 0), (36, 0), (42, 0), (46, 0), (81, 0))
+>>> EXTRACTION_DECK.vias
+((35, 0), (38, 0), (40, 0), (41, 0))
+```
+
+klayout-tools#238's full stack **is** in the installed build, and the DRC
+deck's `metal2`/`metal3` width and space rules are real (they previously
+appeared under `rules_skipped` only because no stream in this repo drew those
+layers; `temp_por_top`'s report shows them checked). So the single-metal
+assumption above is historical, and this section is kept rather than deleted
+because three cells were drawn under it and their geometry still reflects it.
+
+What changes, and what does not:
+
+- **The domain-seam guard ring needs no notch.** Under Metal1-only, the one
+  `IBIAS` feedthrough this plan allows across the seam had to *break* the moat
+  to cross it — a ring with a designed-in gap, which is exactly the structure
+  whose correctness the plan then has to argue for. On Metal2/Metal3 every
+  crossing — the two signal columns and the two supply risers listed under
+  "Shared-net feedthroughs" — passes *over* an unbroken moat on Metal3, none of
+  them on the Metal1/COMP the moat is drawn in. The isolation plan above is
+  realised more literally than it was written.
+- **`VDD`/`VSS` reach both domains without daisy-chaining.** The rails are
+  Metal2; each domain taps them on its own riser rather than through the
+  other's rail segment — the "Placement rationale" bullet above, satisfied by
+  construction rather than by careful ordering.
+- **The four sub-circuits are unchanged.** `bias_core`, `por_comparator`,
+  `por_output_chain` and `temp_core` still route on Metal1 with poly
+  crossunders and their committed GDS is byte-identical. The lifted limit is
+  an opportunity for the assembly level, not an obligation to redraw proven
+  cells.
+- **The matching plan is untouched.** Nothing in ranks 1–4 depended on the
+  metal count.
+
+No new `klayout-tools` friction issue *for the metal stack*: this is the *good*
+outcome of an already-tracked, already-fixed upstream gap reaching the local
+install. (The gap #72 *did* file is a different one — guard-ring continuity and
+tie, [klayout-tools#303](https://github.com/2AMLogic/klayout-tools/issues/303),
+see "Guard-ring / isolation plan" above.)
 
 ## Handoff
 

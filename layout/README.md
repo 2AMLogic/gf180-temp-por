@@ -4,19 +4,28 @@ This directory holds the block's layout artifacts and the **repeatable DRC/LVS
 invocation** they are checked with. It is `klt`-driven end to end: no GUI, no
 interactive KLayout session, no netgen/magic.
 
-> **Status: the flow is proven, and three of the block's four sub-circuits are
-> drawn — as far as the deck can see them.**
+> **Status: the block's layout is drawn and assembled — as far as the deck can
+> see it.**
 > #16 brought the flow up on one two-device proof cell. #68 added `bias_core`
-> (**34** MOS devices), #69 added `por_comparator` (**18**) and #70 added
-> `por_output_chain` (**27**), each DRC-clean and LVS-clean against the
-> schematic-derived netlist, with both negative controls detected. None of them
-> is the *whole* cell — `bias_core`'s 10 vertical PNPs, 4 poly resistors and 2
-> MiM caps, `por_comparator`'s 3-segment sense divider, and
-> `por_output_chain`'s 2 MiM caps, are outside the curated deck's device
-> coverage and are deliberately not drawn (see
+> (**34** MOS devices), #69 `por_comparator` (**18**), #70 `por_output_chain`
+> (**27**) and #71 `temp_core` (**55** drawn: 39 schematic MOS split into
+> interleaved fingers, plus 6 edge dummies). #72 assembles all four into
+> **`temp_por_top`** — **134** devices, **78** nets, and the ratified 5-pad
+> pinout — with the domain-seam moat, the perimeter guard ring and the
+> `VDD`/`VSS` rails. Every cell is DRC-clean and LVS-clean against the
+> schematic-derived netlist with both negative controls detected.
+> No cell is the *whole* cell. `bias_core`'s 10 vertical PNPs, 4 poly resistors
+> and 2 MiM caps; `por_comparator`'s 3-segment sense divider;
+> `por_output_chain`'s 2 MiM caps; `temp_core`'s PNP array, resistor ladder and
+> MiM cap — all outside what the curated deck can extract, all deliberately not
+> drawn *into the extracted cell*, and all inherited unchanged by
+> `temp_por_top`, which therefore cannot be LVS'd whole either (see
 > [The cells under test](#the-cells-under-test) and
 > [Known deck limits](#known-deck-limits--what-a-clean-lvs-here-does-not-prove)).
-> `temp_core` and the top-level assembly are not drawn.
+> **What no check in this flow covers** is guard-ring and well-tie
+> *correctness*: the deck has no tap or well-label layer, so a broken or
+> floating ring is DRC-clean and LVS-match. `temp_por_top` therefore carries
+> its own build-time geometric checks for that; see its section below.
 > #17's floorplan sketch and matching plan — the ranked, #15-data-driven
 > common-centroid/interdigitation/guard-ring plan this flow's cells implement —
 > is [`layout/floorplan.md`](floorplan.md).
@@ -183,9 +192,10 @@ nothing for this cell, and nothing was invented here to fill the gap.
 checked one.** A continuous VSS-tied p-substrate guard ring (COMP + Metal1,
 contacted at 1 µm pitch, no floating segment) surrounds the cell; the Nwell has
 its own VDD-tied COMP strap. Per
-[klayout-tools#281](https://github.com/2AMLogic/klayout-tools/issues/281) the
-deck has no tap/well-label layer, so **a mis-tied or untied ring would compare
-clean** — this flow does not verify it, and `klt 0.1.0` does not yet emit the
+[klayout-tools#303](https://github.com/2AMLogic/klayout-tools/issues/303) the
+deck has no tap/well-label layer and no ring-continuity rule, so **a mis-tied,
+untied, or physically broken ring would compare clean** — this flow does not
+verify it, and `klt 0.1.0` does not yet emit the
 `device.body_unverified` warning that klayout-tools#285 added (the extract
 report's `warnings` array is empty).
 
@@ -266,8 +276,8 @@ edit that quietly breaks the plan fails a test rather than only a review.
 checked one** — same as `bias_core`: a continuous VSS-tied p-substrate ring
 (COMP + Metal1, contacted at 1 µm pitch, no floating segment) surrounds the
 cell and the parent Nwell has its own VDD-tied COMP strap, but per
-[klayout-tools#281](https://github.com/2AMLogic/klayout-tools/issues/281) a
-mis-tied or untied ring would compare clean. This cell sits on the always-on
+[klayout-tools#303](https://github.com/2AMLogic/klayout-tools/issues/303) a
+mis-tied, untied, or physically broken ring would compare clean. This cell sits on the always-on
 POR domain's side of the block-level domain seam (`floorplan.md`, "Guard-ring /
 isolation plan"), so that seam's correctness is exactly what review has to
 carry. `klt 0.1.0` still does not emit the `device.body_unverified` warning
@@ -363,9 +373,9 @@ checked one** — same as `bias_core`, and it matters more here because this cel
 sits on the always-on POR domain's outer edge. A continuous VSS-tied
 p-substrate guard ring (COMP + Metal1, contacted at 1 µm pitch, no floating
 segment) surrounds the cell, and the Nwell has its own VDD-tied COMP strap. Per
-[klayout-tools#281](https://github.com/2AMLogic/klayout-tools/issues/281) the
-deck has no tap/well-label layer, so **a mis-tied or untied ring would compare
-clean**; `klt 0.1.0` still does not emit the `device.body_unverified` warning
+[klayout-tools#303](https://github.com/2AMLogic/klayout-tools/issues/303) the
+deck has no tap/well-label layer and no ring-continuity rule, so **a mis-tied,
+untied, or physically broken ring would compare clean**; `klt 0.1.0` still does not emit the `device.body_unverified` warning
 klayout-tools#285 added (`extract.json`'s `warnings` array is empty).
 
 **MiM area is reserved, not stacked.** The two caps need about 3.26 × 10³ µm²
@@ -386,6 +396,119 @@ Recorded result (`layout/reports/por_output_chain/`):
 | `klt lvs` | **match** — 27/27 devices, 20/20 nets, 6/6 pins, 0 mismatches |
 | negative control `topology` | detected (exit 3; `device.unmatched` 1, `topology` 1) |
 | negative control `device-param` | detected (exit 3; `device.property` 5, `topology` 1) |
+
+### `temp_core` — the PTAT/CTAT sensing core (#71)
+
+`design/temp_core.sch`'s 39 MOS devices, drawn from
+`design/netlist/temp_core.spice` per `layout/floorplan.md`'s ranked matching
+plan: the rank-1 amplifier input pair and load mirror and the rank-2 cascoded
+gain mirror are each drawn as **interleaved unit fingers** on a uniform pitch
+in the plan's common-centroid order, with edge dummy fingers. The curated deck
+runs no device-combination step, so N parallel fingers stay N devices in the
+extraction; `lvs_reference.py`'s `fingers` field splits the same schematic
+device into the same N devices of W/N in the reference, and its `dummies` field
+declares the edge fingers explicitly (they are not in the schematic, so a
+derived dummy would be a device LVS accepts that no golden netlist asked for).
+39 + 10 extra fingers + 6 dummies = **55** drawn devices, all accounted for.
+
+The cell's PNP array, `R2` gain ladder and MiM cap are outside the deck's
+extraction and are drawn as **sibling top cells** (`temp_core_pnp_array`,
+`temp_core_r2_ladder`) rather than omitted: `klt drc` checks every top cell in
+a stream while `klt extract`/`klt lvs` take a single `--top`, so the geometry
+is still checked without a drawn poly-resistor body shorting `PTAT` into `VSS`
+through the trim ladder.
+
+Recorded result (`layout/reports/temp_core/`):
+
+| Check | Result |
+| ----- | ------ |
+| `klt drc --deck gf180mcu` | clean — 0 violations |
+| `klt extract --deck gf180mcu` | 55 devices (27 nfet, 28 pfet), 30 nets, 28 pins |
+| `klt lvs` | **match** — 55/55 devices, 30/30 nets, 28/28 pins |
+| negative control `topology` | detected (exit 3; `device.unmatched` 1) |
+| negative control `device-param` | detected (exit 3; `device.property` 5) |
+
+### `temp_por_top` — the block-level assembly (#72)
+
+All four sub-circuits instanced into one cell, with the two guard rings, the
+`VDD`/`VSS` rails and the ratified 5-pad pinout (`VDD`, `VSS`, `PTAT`, `CTAT`,
+`RESETn`). **No sub-circuit is modified to fit**: each of the four functions
+this cell calls still produces its own committed GDS byte-for-byte, so
+`temp_por_top` inherits their recorded results rather than re-opening them.
+
+**Routing.** This is the first cell in the repo to route above Metal1, and it
+is why the "single metal level" limit below now reads differently: the
+installed `klt 0.1.0`'s extraction deck declares the full Metal1–Metal5 /
+Via1–Via4 stack. Discipline: Metal2 horizontal, Metal3 vertical, one Metal2
+trunk per crossing net at its own `y`, one Metal3 column per pin escape at its
+own `x`; Metal1 is used **only** for the two guard rings. Every crossing net
+reaches an instance by landing a Via1 on that instance's own Metal1 pin
+strap — nothing abuts, nothing is redrawn.
+
+The direct consequence, and the reason it matters here: **no guard ring in
+this cell has a notch in it.** In a single-metal regime the `IBIAS`
+feedthrough would have to break the domain-seam moat to cross it. On Metal3 it
+crosses *over* the moat instead, with the moat continuous end to end — which is
+what `layout/floorplan.md`'s isolation plan asks for and what a notched ring
+only approximates.
+
+**What actually crosses the seam, exactly.** Four left-margin Metal3 columns
+straddle the moat's `y`, all of them inside the moat's own `x`-span: two
+signals — `IBIAS` (`x = -60`, up to `temp_core`) and `RESETn`/`EN` (`x = -56`) —
+and two supplies — `VSS` down to the bottom rail (`x = -48`, which is also the
+rings' tie net) and the POR domain's own `VDD` riser up to the top rail
+(`x = -64`). `temp_core`'s `VDD` tap (`x = -52`) is the one left-margin column
+that does not cross, because the top rail is on its side of the seam. The
+isolation claim does not rest on the *count*: it rests on **none of the four
+being drawn on Metal1/COMP**, the layers the moat is made of, so every crossing
+passes over an unbroken ring rather than through a notch in it. `IBIAS` is
+still the only *bias* net that crosses into the temp-sensor domain — `VREF` and
+`BIAS_OK` stay POR-domain-internal — which is the part of `floorplan.md`'s plan
+that is about coupling rather than about ring continuity.
+
+**The check the deck cannot do.** A guard ring that is broken, or drawn but
+never tied to `VSS`, is DRC-clean and LVS-match — both were built and confirmed
+clean while developing this cell, and the tool gap is filed generically as
+[klayout-tools#303](https://github.com/2AMLogic/klayout-tools/issues/303). `build_cells.py`
+therefore checks the geometry itself, at build time, and refuses to write the
+stream otherwise:
+
+| Build-time check | What it catches |
+| ---------------- | --------------- |
+| every net this cell draws is **one connected group** across the via stack | a guard ring drawn but never joined to `VSS`; any open |
+| every connected group carries **one net name** | a via bridging two nets; two same-layer shapes overlapping |
+| different-net shapes respect the deck's own spacing rule | under-spacing DRC would catch, caught earlier and by name |
+| each guard ring merges to **one polygon with exactly one hole** | a ring with a gap in one segment — still connected, still on `VSS`, but no longer a ring |
+| every Via1/Via2 is covered by metal on **both** levels | a via drawn a hair off its landing pad (an open, not a short) |
+
+Each of these was negative-controlled by deliberately introducing the defect it
+describes and confirming the check fires. What is *still* a design-review claim,
+and the only one left, is that `VSS` is the right net to tie the rings to.
+
+**Coverage.** Every non-MOS device of all four sub-circuits is outside this
+compare — `bias_core`'s `XQ1`/`XQ8A..H`/`XQR` PNPs, `XR1`/`XR2`/`XRT`/`XRZ`
+resistors and `XCC`/`XCOK` MiM caps; `por_comparator`'s `XRTOP`/`XRBOT`/`XRHYS`
+divider; `por_output_chain`'s `XCDG`/`XCTIM` MiM caps; `temp_core`'s
+`XQ1`/`XQ8A..H` PNPs, `XR1`/`XR2*`/`XRISO`/`XRZ` resistors and `XCC` MiM cap.
+The 134 devices below are the MOS subset, and only the MOS subset.
+
+Recorded result (`layout/reports/temp_por_top/`):
+
+| Check | Result |
+| ----- | ------ |
+| `klt drc --deck gf180mcu` | clean — 0 violations (Metal2/Metal3 rules now exercised, not skipped) |
+| `klt extract --deck gf180mcu --top-cell-pins` | 134 devices (70 nfet, 64 pfet), 78 nets, 6 pins |
+| `klt lvs` | **match** — 134/134 devices, 78/78 nets, 6/6 pins |
+| negative control `topology` | detected (exit 3; `device.unmatched` 1) |
+| negative control `device-param` | detected (exit 3; `device.property` 5) |
+
+The 6 pins are the ratified 5 pads plus the deck's `vsubs` global. That set is
+exactly what `layout.top_cell_pins` produces: the five Metal2 labels this cell
+draws itself are its only labels, and every sub-circuit's own labels stay below
+the top cell and stay internal. `lvs_reference.py` asserts the reference's own
+port list against `design/netlist/temp_por_top.spice`'s `.subckt` line, in
+order — the same ratified-pinout assertion `design/netlist.py --check` makes at
+the schematic level.
 
 ### `por_comparator_bias_okb_inv` — the flow's original proof cell (#16)
 
@@ -427,19 +550,26 @@ filed upstream per this repo's friction protocol.
   drawn** rather than drawn-and-ignored — a drawn poly resistor body extracts as
   interconnect and shorts its own terminal nets — and why `por_output_chain`'s
   2 MiM caps are not drawn either.
-  **Re-checked at `klt 0.1.0` for #70**: upstream
+  **Re-checked at `klt 0.1.0` for #72** — and this has moved. The installed
+  deck now *declares* `['nfet', 'pfet', 'bjt', 'cap_mim_2f0_m4m5_noshield',
+  'resistor']` (every `lvs.json` records it), so
   [klayout-tools#219](https://github.com/2AMLogic/klayout-tools/issues/219) and
-  its sub-issues #222 (resistors) / #225 (MiM caps) are now *closed*, but the
-  installed 0.1.0 deck still declares an active/poly/nwell/contact/metal1 layer
-  set with no resistor, capacitor or bipolar device class — so the limit is
-  unchanged **here** until `klt` is upgraded. Re-check `klt --version` and
-  re-run `run_checks.sh` after any upgrade; if the deck grows those classes,
-  the undrawn devices in all three cells become drawable and the coverage
-  caveats above shrink.
-  The *silence* is the sharper half and is separately filed by #68:
-  [klayout-tools#288](https://github.com/2AMLogic/klayout-tools/issues/288) —
-  extraction absorbs unmodelled-device geometry into interconnect with an empty
-  `warnings` array, so the failure mode is a wrong netlist, not an error.
+  its sub-issues #222 (resistors) / #225 (MiM caps) have landed here. What has
+  **not** moved is these cells: recognising a resistor or a MiM cap needs
+  marker layers (`SAB`/`RES_MK`, `CAP_MK`/`MIM_L_MK`) that none of the drawn
+  cells carry, and the drawn geometry that *would* become those devices was
+  laid out for a deck that could not model them. So every non-MOS device in
+  this block is still undrawn-or-sibling and still outside the compare — now
+  as a **drawing** gap this repo owns, not a tool gap. Closing it is
+  post-#72 work.
+  The *silence* has moved too, in the right direction:
+  [klayout-tools#288](https://github.com/2AMLogic/klayout-tools/issues/288) is
+  live in this build — every cell's `extract.json` now carries a warning naming
+  the count of poly shapes with "the resistor-body signature" that were
+  absorbed into interconnect (19 in `bias_core`, 10 in `por_comparator`, 16 in
+  `por_output_chain`, 110 in `temp_core`, 155 in `temp_por_top` = the sum). The
+  failure mode is now a wrong netlist *with a warning*, which is what was asked
+  for.
 - **There is no dummy-device concept**, so matched-pair *dummy edges* cannot be
   drawn on any cell that must also LVS: a drawn dummy MOS extracts as a real
   device the schematic-derived reference does not have. The cells here
@@ -459,22 +589,39 @@ filed upstream per this repo's friction protocol.
   are named only because a label sits inside an instanced sub-cell. So
   `por_comparator` instancing `por_comparator_bias_okb_inv` inherits its
   `BIAS_OKB` label and `BIAS_OKB` becomes a **pin** of `por_comparator`, even
-  though the schematic calls it an internal node. There is no pin-set knob on
-  `klt extract` or in the `klt lvs` request, and the alternative — deleting the
-  label from the sub-cell — would break the sub-cell's own standalone LVS. The
-  manifest therefore declares it as a port. Filed:
-  [klayout-tools#291](https://github.com/2AMLogic/klayout-tools/issues/291).
+  though the schematic calls it an internal node. Filed:
+  [klayout-tools#291](https://github.com/2AMLogic/klayout-tools/issues/291) —
+  **now fixed in this build**, and load-bearing for #72: `klt extract
+  --top-cell-pins` / `"top_cell_pins": true` in the `klt lvs` request promotes
+  only labels drawn *directly in the top cell*. Without it `temp_por_top` would
+  have inherited every one of `temp_core`'s 27 routing-channel labels as a
+  top-level pin and could not have been compared against the ratified 5-pad
+  pinout at all. A cell that instances others should set it (see
+  [Adding a cell](#adding-a-cell-for-17--18)); `por_comparator` predates the fix
+  and still declares `BIAS_OKB` as a port in its manifest, which remains
+  correct for that cell as drawn.
 - **Body terminals are synthetic.** The deck draws no substrate tap, so NMOS
   bodies land on a global `vsubs` net; gf180mcu has no distinct tap or
   well-label layer, so an extracted Nwell is an anonymous net. `lvs_reference.py`
   therefore rewrites the schematic's body nodes to match. **Consequence: a
-  mis-tied or untied well would compare clean.** Well/substrate ties are *not*
-  verified by this flow — `bias_core` draws a continuous VSS-tied guard ring and
-  a VDD-tied Nwell strap, and their correctness is a **design-review** claim.
-  Filed: [klayout-tools#281](https://github.com/2AMLogic/klayout-tools/issues/281);
-  its follow-up #285 adds a `device.body_unverified` warning, but `klt 0.1.0`
-  does not emit it (`warnings` is empty in both cells' `extract.json`), so there
-  is no mechanical confirmation signal to read yet.
+  mis-tied, untied, or physically broken guard ring compares clean.** Both were
+  built and confirmed during #72: a `temp_por_top` whose seam moat is drawn but
+  never tied to `VSS`, and one whose perimeter ring has a 10 µm gap in a
+  segment, are each `klt drc` clean and `klt lvs` **match**.
+  Filed: [klayout-tools#303](https://github.com/2AMLogic/klayout-tools/issues/303)
+  — that is the issue that tracks this gap, with those two defect builds as its
+  evidence.
+  The older [klayout-tools#281](https://github.com/2AMLogic/klayout-tools/issues/281)
+  (synthetic body nets) is **closed**, resolved by #285, and its curated scope
+  was narrowed to that one warning — so it does **not** track ring continuity or
+  the tie, and should not be cited for them. #285 **is** live in this build:
+  every `lvs.json` now carries two `device.body_unverified` warnings naming how
+  many NMOS bodies went to `vsubs` and how many PMOS bodies went to an anonymous
+  well net. That is a real signal — it says the compare did not check bodies —
+  but it is not a *tie* check, and it says nothing at all about a guard ring. So
+  ring correctness stays outside the deck. `temp_por_top` answers it with
+  build-time geometric checks instead (see its section above); every other
+  cell's ring remains a design-review claim.
 - **The reference netlist has to be converted, not just pointed at.** `klt lvs`
   needs plain-element SPICE (`M1 d g s b nfet L=0.5U W=1U`); `design/netlist.py`
   emits the ngspice simulation form (`XM1 d g s b nfet_03v3 L=0.5u ...`).
@@ -495,16 +642,29 @@ filed upstream per this repo's friction protocol.
   reproduce that (`device.property` ×5), so it is not a one-off and the
   cross-over sits below 18 devices, not somewhere between 2 and 34. Filed:
   [klayout-tools#282](https://github.com/2AMLogic/klayout-tools/issues/282).
-- **Single metal level.** The extraction deck declares `Metal1` only, so a cell
-  must route on Metal1 to extract as connected nets. Upstream
-  [klayout-tools#220](https://github.com/2AMLogic/klayout-tools/issues/220) and
-  #238 are closed, but **re-checked at `klt 0.1.0` for #68, #69 and again for
-  #70: the installed version still declares one metal** (`metals=((34, 0),)`),
-  so `bias_core`, `por_comparator` and `por_output_chain` all route on Metal1
-  with Poly2 as the crossing layer. Re-check `klt --version` before assuming
-  the limit still applies. This is also half of why the MiM caps are undrawn:
-  the gf180mcu MiM stack lives on metal 3/4, which the deck does not declare at
-  all.
+- **~~Single metal level.~~ Lifted — re-checked at `klt 0.1.0` for #72.**
+  #68, #69 and #70 each re-checked this and each found `metals=((34, 0),)`.
+  #72 re-checked it again and found the installed build now declares the full
+  stack — `metals=((34,0),(36,0),(42,0),(46,0),(81,0))`,
+  `vias=((35,0),(38,0),(40,0),(41,0))` — i.e.
+  [klayout-tools#220](https://github.com/2AMLogic/klayout-tools/issues/220) /
+  #238 have landed here. The DRC deck's `metal2`/`metal3` width and space rules
+  are real and now actually exercised (they used to appear under
+  `rules_skipped` only because no stream drew those layers).
+  Consequences, in order of how much they matter:
+  - `temp_por_top` routes on Metal2/Metal3 and so needs **no notch in either
+    guard ring** — see its section above. This is the single biggest thing the
+    lifted limit bought.
+  - `bias_core`, `por_comparator`, `por_output_chain` and `temp_core` are
+    **unchanged**: they route on Metal1 with Poly2 crossunders, their committed
+    GDS is byte-identical, and their recorded results stand. Nothing about the
+    lifted limit obliges a redraw, and redrawing a proven cell to use a
+    capability it does not need would be a regression risk for no gain.
+  - The MiM caps stay undrawn, but the reason has narrowed: the gf180mcu MiM
+    stack (metal 3/4 + `FuseTop`) is now in the deck's layer set, so what is
+    missing is the marker geometry in these cells, not the deck.
+  `layout/floorplan.md`'s "Routing / metal-level note" carries the same
+  re-check.
 - **DRC is a curated subset.** Width/space/enclosure across Poly2/Comp/Contact/
   Metal1, plus Nwell spacing/enclosure and one BJT rule. Clean here means clean
   against *that* subset — it is not a tapeout-grade signoff, and no claim in
@@ -526,8 +686,32 @@ Re-run `run_checks.sh` after upgrading `klt` and commit the refreshed reports.
    share a source net — if they do, the `topology` negative control corrupts
    nothing and silently stops controlling anything.
 3. Copy an existing `cells/<cell>.lvs.json` and point it at the new names.
+   **If the cell instances other cells**, set `"top_cell_pins": true` in its
+   `layout` block — otherwise every label inside every instanced sub-cell
+   becomes a pin of yours, and the compare is against a pin set nobody
+   designed. `run_checks.sh` mirrors that flag onto the recorded `klt extract`
+   run and onto both negative-control requests, so all three see the same
+   compare.
 4. `bash layout/run_checks.sh <name>` — and do not treat a clean LVS as real
    until both negative controls report detected.
+
+An **assembly** cell (one that instances others, like `temp_por_top`) differs in
+two further ways:
+
+- Its `lvs_reference.py` manifest lists no devices. It carries an `assembly`
+  field naming `(instance, cell)` pairs, and the reference is composed from
+  those cells' own manifests with each instance's nets renamed through the
+  golden top-level netlist's own instance lines — a formal port maps to whatever
+  the top level wires it to, every other net is prefixed with the instance name,
+  and the deck's substrate global is never renamed. Nothing is retyped, so the
+  assembled reference cannot drift from the cells it assembles.
+- Nothing in this flow checks a guard ring, a well tie, or a different-net
+  overlap on the same layer (all three are DRC-clean and LVS-match — see
+  [Known deck limits](#known-deck-limits--what-a-clean-lvs-here-does-not-prove)).
+  If your cell draws rings or rails, check the geometry yourself at build time
+  and refuse to write the stream otherwise; `temp_por_top`'s `_TopRoutes.check`
+  and `_top_guard_ring` are the pattern, and `layout/tests` covers them without
+  needing `klt` or a PDK.
 
 Keep the friction protocol running while you do it: every time `klt` is
 awkward, missing something, or wrong, file it generically at
