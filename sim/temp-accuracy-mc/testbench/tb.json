@@ -1,0 +1,49 @@
+{
+  "name": "temp-accuracy-mc",
+  "description": "Issue #15's Monte Carlo local-mismatch sweep of design/temp_core.spice (idealised 500 nA IBIAS, same cell-level DUT sim/temp-core-designer-check/ uses): PNP pair/ratio, resistor-ratio and amplifier-offset mismatch contribution to #temp-accuracy-untrimmed and #temp-accuracy-trimmed, at the row's own binding points (temperature extremes x rail extremes). Process held at the deterministic 'tt' corner per binding point -- global process spread is #13's deterministic corner-sweep job; this experiment adds the local-mismatch axis on top, per spec/target-spec.md section 2's [3sigma] definition.",
+  "claim": "spec/target-spec.md#temp-accuracy-untrimmed, #temp-accuracy-trimmed -- local-mismatch share, Monte Carlo, N>=500 per binding point, evaluated at the temperature/rail extremes the rows themselves name as binding. Complements the deterministic systematic/corner share published by sim/temp-accuracy-vt/ (#13).",
+  "netlist": "tb_temp_accuracy_mc.spice",
+  "nominal_supply_v": 3.3,
+  "supply_tolerance": 0.1,
+  "temperatures_c": [-40, 27, 125],
+  "corners": ["full"],
+  "options": ["reltol=1e-5", "abstol=1e-15", "vntol=1e-9"],
+  "analyses": [
+    "dc temp 25 25 1",
+    "let m_vptat25_v = v(ptat)",
+    "let m_aoffs25_uv = (v(xdut.na)-v(xdut.nb))*1e6",
+    "print m_vptat25_v",
+    "print m_aoffs25_uv",
+    "dc temp %(temp_c)g %(temp_c)g 1"
+  ],
+  "measure": {
+    "vptattgt_v": "v(ptat)",
+    "vtktgt_k": "v(tk)",
+    "aoffstgt_uv": "(v(xdut.na)-v(xdut.nb))*1e6",
+    "dvbetgt_mv": "(v(xdut.nb)-v(xdut.nc))*1e3",
+    "terr_untrim_c": "v(ptat)/4.308842e-3 - v(tk)"
+  },
+  "mc": {
+    "n": 500,
+    "seed_base": 20260802,
+    "derive": "temp_trim",
+    "binding_points": [
+      {"label": "temp_lo_vdd_lo", "corner": "tt", "temp_c": -40, "vdd": 2.97},
+      {"label": "temp_lo_vdd_hi", "corner": "tt", "temp_c": -40, "vdd": 3.63},
+      {"label": "temp_hi_vdd_lo", "corner": "tt", "temp_c": 125, "vdd": 2.97},
+      {"label": "temp_hi_vdd_hi", "corner": "tt", "temp_c": 125, "vdd": 3.63}
+    ]
+  },
+  "checks": {
+    "terr_untrim_c": {
+      "min": -3.0,
+      "max": 3.0,
+      "description": "spec/target-spec.md#temp-accuracy-untrimmed ([3sigma], +/-3 C). Untrimmed error against the declared nominal K0=4.308842 mV/K, WITH local mismatch on (sw_stat_mismatch=1) -- this is the mismatch-inclusive counterpart to sim/temp-accuracy-vt/'s deterministic-corners-only terr_untrim_c check."
+    },
+    "terr_trim_c": {
+      "min": -1.5,
+      "max": 1.5,
+      "description": "spec/target-spec.md#temp-accuracy-trimmed ([3sigma] stretch, +/-1.5 C). DERIVED per-sample (montecarlo.derive_temp_trim): each die's own 25 C reading stands in for a real one-point 25 C production trim on that same die -- see sim/temp-accuracy-mc/testbench/stimulus.spice and sim/harness/montecarlo.py's derive_temp_trim docstring for the full method, which mirrors sim/temp-accuracy-vt/analyze_derived.py's deterministic-grid derivation."
+    }
+  }
+}

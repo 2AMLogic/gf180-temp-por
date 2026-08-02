@@ -58,6 +58,12 @@ class Testbench:
     params: dict[str, str | float] = field(default_factory=dict)
     checks: dict[str, dict] = field(default_factory=dict)
     options: tuple[str, ...] = ()
+    #: Monte Carlo mismatch config (issue #15), read by ``sim/run_mc.py`` /
+    #: ``sim/harness/montecarlo.py``. Absent (``{}``) for every ordinary
+    #: corner-sweep testbench; ``sim/run_corners.py`` never looks at this key.
+    #: Shape: ``{"n": 500, "seed_base": <int>, "binding_points":
+    #: [{"label": str, "corner": str, "temp_c": float, "vdd": float}, ...]}``.
+    mc: dict = field(default_factory=dict)
 
     @property
     def experiment(self) -> str:
@@ -149,6 +155,7 @@ def load(directory: str | Path) -> Testbench:
         params={k: v for k, v in manifest.get("params", {}).items()},
         checks=dict(manifest.get("checks", {})),
         options=tuple(manifest.get("options", ())),
+        mc=dict(manifest.get("mc", {})),
     )
     validate_netlist(tb)
     return tb
