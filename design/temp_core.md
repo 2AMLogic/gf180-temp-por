@@ -40,8 +40,24 @@ disabled branch and to startup timing, and is called out where it appears.
 
 Both are **deterministic corner** records: `design.ngspice` sets
 `sw_stat_mismatch=0`, so everything below bounds the **systematic** error
-only. The random/mismatch share is issue #15's Monte Carlo job, and the
-budget below is written so #15 knows exactly how much room it has left.
+only. The random/mismatch share was issue #15's Monte Carlo job, and the
+budget below is written so #15 knew exactly how much room it had left.
+
+> **#15 has now run it, and the budget does not close.**
+> [`sim/temp-accuracy-mc/`](../sim/temp-accuracy-mc/) — record
+> `20260802-082345-989ce7a`, N = 500 local-mismatch samples at each of the
+> four binding points, `sw_stat_mismatch=1` — measures
+> **σ(`V_os`) = 0.93–1.02 mV**, i.e. **3.07 mV at 3σ against the ≈0.46 mV**
+> this document's budget left for it (**6.7×**). Both accuracy rows miss:
+> untrimmed **−19.23…+19.63 °C** against ±3 °C, trimmed **−7.08…+7.70 °C**
+> against ±1.5 °C. The per-device attribution is
+> [`…-breakdown.md`](../sim/temp-accuracy-mc/records/20260802-082345-989ce7a-breakdown.md);
+> the spec consequence — targets kept, rows recorded as measured misses, fix
+> routed to a design revision — is
+> [DR-011](../spec/decision-records/DR-011-temp-accuracy-mismatch-not-met.md).
+> **Everything below is still correct as a systematic bound; it is simply no
+> longer the whole story.** The "Against the targets" section carries the
+> mismatch-inclusive numbers.
 
 ## Topology
 
@@ -454,7 +470,7 @@ Everything that scales `R2/R1` or adds a constant to `ΔVBE`.
 | Amplifier systematic offset | \|V(NA) − V(NB)\| ≤ **5.1 µV** → **±0.03 °C** | `XMS2N` as a current-density copy of `XML1` |
 | Mirror-ratio error | inside the above | `XMP1`/`XMP2` see equal VGS *and* equal VDS |
 | Supply sensitivity | **−0.054 … +0.014 °C** over the whole ±10 % window, worst point of the grid, against the ≤0.33 °C bound of [`temp-supply-sensitivity`](../spec/target-spec.md#temp-supply-sensitivity) → **16 % of that budget** | cascoded mirror; measured per-point against an identical DUT held at `vdd_nom`, not inferred across points |
-| **Random mismatch** | **not visible here** | PNP `Is` mismatch, input-pair and mirror Vt mismatch. **Issue #15.** This is what the trim actually exists for. |
+| **Random mismatch** | **not visible here** — **measured by #15**: σ(`V_os`) 0.93–1.02 mV, σ(gain `R2/R1`×mirror) 0.54–1.05 %, σ(Δ`V_BE`) 0.18–0.20 mV | PNP `Is` mismatch, input-pair and mirror Vt mismatch. **Issue #15**, `sim/temp-accuracy-mc/` record `20260802-082345-989ce7a-breakdown`. This is what the trim actually exists for — and, per that record, the trim removes the gain and Δ`V_BE` terms but not `V_os`. |
 
 ### *Not* correctable by a single-point trim
 
@@ -462,7 +478,7 @@ Everything that scales `R2/R1` or adds a constant to `ΔVBE`.
 | --- | --- | --- |
 | Curvature / nonlinearity | **−0.094 … +0.256 °C** worst case over all 27 (corner, supply) combinations | residual after normalising each corner's own `K` at 25 °C; dominated by the +125 °C end |
 | Trim quantisation | **±0.35 °C** (½ LSB, LSB = 0.71 °C) | a residual of the trim mechanism itself |
-| Random offset residual after trim | **not visible here** | ±1.87 °C per mV of `Vos` at 125 °C. **Issue #15.** |
+| Random offset residual after trim | **not visible here** — **measured by #15**: σ = 1.05–1.75 °C from `V_os` alone, plus 0.68–1.11 °C of curvature the linear attribution does not explain | ±1.87 °C per mV of `Vos` at 125 °C — **confirmed on 500 dice per point**, empirical lever +1.94/+2.02 °C/mV hot, −1.32/−1.34 °C/mV cold. **Issue #15**, record `20260802-082345-989ce7a-breakdown`. |
 
 The curvature number is derived from the record's own per-corner table:
 for each (corner, supply), `resid(T) = (K(T)/K(25 °C) − 1)·T`, which is
@@ -476,10 +492,39 @@ in the temperature list for this purpose.
 | [`temp-accuracy-untrimmed`](../spec/target-spec.md#temp-accuracy-untrimmed) | ±3 °C **[3σ]** | **−0.230 … +0.422 °C** (`ff_-40c_2.97v` / `ss_125c_3.30v`), i.e. **14 %** | ±2.58 °C, i.e. `Vos(3σ) < 0.46 mV` |
 | [`temp-accuracy-trimmed`](../spec/target-spec.md#temp-accuracy-trimmed) | ±1.5 °C **[3σ]** (stretch) | curvature ±0.256 °C + quantisation ±0.35 °C = **±0.61 °C**, i.e. **41 %** | ±0.89 °C, i.e. `Vos(3σ) < 0.48 mV` |
 
-Both rows are `[3σ]` and `conditional #15` in `spec/target-spec.md` — they are
-mismatch-inclusive by definition, and nothing here is. What this record does
-is fix the systematic term so #15's Monte Carlo has a known amount of budget
-to fit into, rather than an unknown one.
+Both rows are `[3σ]` in `spec/target-spec.md` — they are mismatch-inclusive by
+definition, and nothing in the two columns above is. What this record does is
+fix the systematic term so #15's Monte Carlo had a known amount of budget to
+fit into, rather than an unknown one.
+
+**#15's Monte Carlo has now filled the fourth column, and it overflows.**
+Measured at the four binding points these rows name, N = 500 local-mismatch
+samples each (`sim/temp-accuracy-mc/`, record `20260802-082345-989ce7a`):
+
+| Spec row | Target | Budget left for mismatch | Mismatch **measured** | Verdict |
+| --- | --- | --- | --- | --- |
+| [`temp-accuracy-untrimmed`](../spec/target-spec.md#temp-accuracy-untrimmed) | ±3 °C **[3σ]** | ±2.58 °C, i.e. `Vos(3σ) < 0.46 mV` | σ = 6.08–6.48 °C ⇒ **−19.23…+19.63 °C at 3σ**; `Vos(3σ)` = **3.07 mV** | **not met, 6.5×** |
+| [`temp-accuracy-trimmed`](../spec/target-spec.md#temp-accuracy-trimmed) | ±1.5 °C **[3σ]** | ±0.89 °C, i.e. `Vos(3σ) < 0.48 mV` | σ = 1.49–2.46 °C ⇒ **−7.08…+7.70 °C at 3σ** | **not met, 4.9×** |
+
+Per-device attribution of the untrimmed σ
+([`…-breakdown.md`](../sim/temp-accuracy-mc/records/20260802-082345-989ce7a-breakdown.md);
+the three terms come out of the measurements algebraically, and their
+root-sum-square lands within 2.1–5.0 % of the directly-measured σ):
+
+| Term | Devices | σ | σ-share of the untrimmed error | 3σ vs ±3 °C |
+| --- | --- | --- | --- | --- |
+| Amplifier offset `V_os` | `XMI1`/`XMI2`, `XML1`/`XML2` | 0.93–1.02 mV | 5.18–5.71 °C | **518–571 %** |
+| Gain `A = R2/R1` × mirror | `XR1`/`XR2*`, `XMP1`/`XMP2`/`XMP3` | 0.54–1.05 % | 2.16–2.44 °C | **216–244 %** |
+| PNP pair Δ`V_BE` | `XQ1` vs `XQ8A..H` | 0.18–0.20 mV | 1.00–1.11 °C | **100–111 %** |
+
+**Two things in that table were not in this document's prediction.** First,
+`V_os` is 6.7× over its budget rather than marginally over — the paragraph
+below called that outcome "not obviously achievable", and it is not achieved.
+Second, and more consequentially, **`V_os` is not the only term over budget**:
+the gain term alone is 216–244 % of the untrimmed window, so remedy (a)/(c)
+below closes the dominant term without closing the row. `spec/target-spec.md`
+records both rows as measured misses with their targets intact, under
+[DR-011](../spec/decision-records/DR-011-temp-accuracy-mismatch-not-met.md).
 
 **#13's assembled-path numbers (`sim/temp-accuracy-vt/`, `bias_core`-driven
 `IBIAS`) land in the same neighbourhood**: untrimmed **−0.335…+0.099 °C**
@@ -504,6 +549,30 @@ bits); (c) chopping, which DR-005 rejected for wave 1 on Iq and complexity
 grounds and explicitly said to revisit if exactly this evidence appears.
 This cell is deliberately built so that (b) is a resistor-length change and
 (c) is a change at the amplifier's inputs, not a re-topology.
+
+**It did, so here is what those remedies now cost against measured numbers**
+(the full argument, and the reasons none of them is *chosen* here, are in
+[DR-011](../spec/decision-records/DR-011-temp-accuracy-mismatch-not-met.md)):
+
+- **(a) grow the pair/mirror.** σ(`V_os`) falls as 1/√(WL); 3.07 mV → 0.46 mV
+  is a 6.7× σ reduction, i.e. **≈45× the area** of `XMI1`/`XMI2`/`XML1`/`XML2`.
+  Not viable against [`area`](../spec/target-spec.md#area) alone.
+- **(b) re-balance the trim ladder.** Still worth doing — it shrinks the
+  ±0.28/±0.48 °C quantisation term measured above at no extra bits — but the
+  quantisation term is nowhere near the binding one, so it is a refinement,
+  not a fix.
+- **(c) chop or auto-zero.** DR-005's "revisit if exactly this evidence
+  appears" condition is met. It removes the dominant untrimmed term. It does
+  **not** on its own close either row: the gain term survives it (216–244 %
+  of the untrimmed window), and on the trimmed row the ½-LSB quantisation plus
+  0.68–1.11 °C of unexplained curvature still leave ≈3.6 °C at 3σ.
+- **(d) new, and not on the original list: fix the gain term.** The
+  `XMP1`/`XMP2`/`XMP3` mirror's V_th mismatch — not the `R2/R1` ratio, whose
+  same-flavour poly matches far better than 1 % at these areas — is the likely
+  bulk of σ(`A`), and its temperature dependence is the most plausible source
+  of the trimmed row's unexplained residue. Longer/degenerated mirror devices
+  and a common-centroid `XR1`/`XR2*` layout (#17) are needed **whichever**
+  amplifier remedy is chosen.
 
 ### Output loading — stated, not hidden
 

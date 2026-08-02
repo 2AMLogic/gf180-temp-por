@@ -292,12 +292,28 @@ overdrive-referenced measurement.
 
 - **Mismatch / Monte Carlo** (`sm141064.ngspice` `statistical` `.lib`
   section, `sw_stat_mismatch=1`): confirmed present in the model file, not
-  exercised here -- this is issue #15's job. Every number in this summary
+  exercised here -- this was issue #15's job. Every number in this summary
   is a deterministic-corner value; per-device local mismatch (the
   dominant real-silicon limiter for the 8:1 delta-VBE ratio, the resistor-ratio
   cancellation, and the native-device corner spread above) is not
   captured and should not be assumed small just because the corner-only
   spread looks tractable here.
+
+  **#15 has since run it, and the warning above was correct.**
+  `sim/temp-accuracy-mc/` (record `20260802-082345-989ce7a`) and
+  `sim/por-threshold-mc/` (record `20260802-083749-3b9b414`) sample local
+  mismatch at N = 500 per binding point via `sim/run_mc.py`. The POR
+  threshold rows survive it with margin; the two temperature-accuracy rows
+  do not -- the sensing amplifier's input-referred offset alone measures
+  3.07 mV at 3 sigma against the ~0.46 mV its budget allowed, and the
+  untrimmed row misses +/-3 C by 6.5x
+  (`spec/decision-records/DR-011-temp-accuracy-mismatch-not-met.md`).
+  "Should not be assumed small" turned out to be the understatement.
+
+  This summary is **not** re-run or amended for that: `sim/` is append-only,
+  these are device-characterization curves rather than spec claims, and the
+  numbers here remain correct as the deterministic values they were always
+  labelled as. The mismatch axis lives in the two MC experiments, not here.
 - **Evidence-record format reconciliation with #5**: this summary uses the
   issue's fallback minimal-field CSV schema (see Environment above); if
   #5 lands a different canonical shape, reconcile as a follow-up rather
