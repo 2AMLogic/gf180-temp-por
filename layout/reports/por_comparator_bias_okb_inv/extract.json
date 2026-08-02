@@ -1,0 +1,81 @@
+{
+  "schema_version": 1,
+  "file": "layout/cells/por_comparator_bias_okb_inv.gds",
+  "deck": "gf180mcu",
+  "top": "por_comparator_bias_okb_inv",
+  "dbu_um": 0.001,
+  "netlist_path": "layout/reports/por_comparator_bias_okb_inv/extracted.spice",
+  "netlist_sha256": "58abbab8d589656620ca38f5e988895d42529b6e66f61c1da89926595db8323a",
+  "status": "extracted",
+  "device_count": 2,
+  "net_count": 6,
+  "pin_count": 5,
+  "device_counts": {
+    "nfet": 1,
+    "pfet": 1
+  },
+  "devices": [
+    {
+      "name": "$1",
+      "class": "nfet",
+      "nets": {
+        "s": "VSS",
+        "g": "BIAS_OK",
+        "d": "BIAS_OKB",
+        "b": "vsubs"
+      },
+      "params": {
+        "l_um": 0.5,
+        "w_um": 1.0
+      }
+    },
+    {
+      "name": "$2",
+      "class": "pfet",
+      "nets": {
+        "s": "VDD",
+        "g": "BIAS_OK",
+        "d": "BIAS_OKB",
+        "b": "$5"
+      },
+      "params": {
+        "l_um": 0.5,
+        "w_um": 2.0
+      }
+    }
+  ],
+  "nets": [
+    {
+      "name": "$5",
+      "pin": false,
+      "device_count": 1
+    },
+    {
+      "name": "BIAS_OK",
+      "pin": true,
+      "device_count": 2
+    },
+    {
+      "name": "BIAS_OKB",
+      "pin": true,
+      "device_count": 2
+    },
+    {
+      "name": "VDD",
+      "pin": true,
+      "device_count": 1
+    },
+    {
+      "name": "VSS",
+      "pin": true,
+      "device_count": 1
+    },
+    {
+      "name": "vsubs",
+      "pin": true,
+      "device_count": 1
+    }
+  ],
+  "warnings": [],
+  "pdk": null
+}

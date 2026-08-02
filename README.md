@@ -24,10 +24,13 @@ has:
   flavors, MOS options) against a bootstrap simulation harness,
 - begun recording PVT-corner simulation evidence (`sim/`), and
 - entered the block's top-level schematic hierarchy and pad interface in
-  xschem, with a reproducible ngspice netlist export (`design/`).
+  xschem, with a reproducible ngspice netlist export (`design/`), and
+- brought up a repeatable, klayout-tools-driven DRC/LVS flow, proven
+  clean on one real cell from the block (`layout/`).
 
 The sub-circuits inside that hierarchy are still placeholders, and full
-testbench sign-off and layout have not happened yet. Every claim this
+testbench sign-off and layout have not happened yet — the DRC/LVS flow
+above is a working *flow*, not a drawn block. Every claim this
 project makes is expected to be backed by a testbench and by PVT corner
 data recorded in `sim/`, not asserted without
 evidence — until a stage is checked off above, treat it as not yet done.
@@ -87,6 +90,20 @@ Every run writes an append-only evidence record under
 `sim/<experiment-slug>/records/`. The record format is authoritative in
 [`sim/README.md`](sim/README.md); how to run the harness and write a
 testbench is in [`sim/harness/README.md`](sim/harness/README.md).
+
+## Layout verification
+
+DRC and LVS run headless through [`klt`](https://github.com/2AMLogic/klayout-tools)
+(no GUI, no PDK install needed for the checks themselves):
+
+```bash
+bash layout/run_checks.sh --check-env      # which klt / deck / PDK
+bash layout/run_checks.sh                  # DRC + LVS + both negative controls
+```
+
+Reports land under `layout/reports/` and are committed as evidence. What the
+flow proves — and the curated-deck limits that bound it — is documented in
+[`layout/README.md`](layout/README.md).
 
 ## License
 

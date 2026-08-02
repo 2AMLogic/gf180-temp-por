@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "worktree:return": "./.loom/scripts/worktree-return.sh",
-    "test": "python3 -m unittest discover -s sim/tests -t sim/tests",
+    "test": "python3 -m unittest discover -s sim/tests -t sim/tests && python3 -m unittest discover -s layout/tests -t layout/tests",
     "check:ci": "bash sim/selftest.sh"
   }
 }

@@ -1,0 +1,26 @@
+{
+  "cell": "por_comparator_bias_okb_inv",
+  "all_controls_detected": true,
+  "controls": [
+    {
+      "corruption": "topology",
+      "detected": true,
+      "exit_code": 3,
+      "status": "mismatch",
+      "category_counts": {
+        "device.unmatched": 2,
+        "net.unmatched": 6
+      }
+    },
+    {
+      "corruption": "device-param",
+      "detected": true,
+      "exit_code": 3,
+      "status": "mismatch",
+      "category_counts": {
+        "device.unmatched": 2,
+        "net.unmatched": 4
+      }
+    }
+  ]
+}
