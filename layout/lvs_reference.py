@@ -374,6 +374,85 @@ CELLS = {
             "NW2": ["XMI1", "XMI2"],
         },
     },
+    "por_output_chain": {
+        "source": "por_output_chain.spice",
+        "subckt": "por_output_chain",
+        # Every MOS device in design/por_output_chain.sch -- 14 pfet + 13 nfet.
+        # The cell's other 2 devices (MiM caps XCDG, XCTIM) are outside the
+        # curated gf180mcu deck's device coverage (klayout-tools#219) and are
+        # not drawn; see layout/build_cells.py's por_output_chain docstring and
+        # layout/README.md for what that leaves unproven. Unlike bias_core,
+        # omitting them costs no *net*: NDG and TIM both carry MOS terminals
+        # too, so every schematic net still exists on both sides of the compare.
+        "devices": [
+            # XMBD/XMPD lead so the topology control has two different sources
+            # to work with (see the note above CELLS). XMBD first is not
+            # incidental: it is DR-010's always-on IBIAS mirror diode, so it is
+            # also the device the device-param control perturbs.
+            "XMBD",
+            "XMPD",
+            "XMN1",
+            "XMND",
+            "XMDGNT",
+            "XMDGNI",
+            "XMG1N",
+            "XMG2N",
+            "XMDIS",
+            "XMDANT",
+            "XMDBNI",
+            "XMNAN1",
+            "XMNAN2",
+            "XMON",
+            "XMP2",
+            "XMDGPT",
+            "XMPT",
+            "XMDBPT",
+            "XMDGPI",
+            "XMG1P",
+            "XMG2P",
+            "XMTSW",
+            "XMDAPI",
+            "XMNAP1",
+            "XMNAP2",
+            "XMAST",
+            "XMOP",
+        ],
+        "ports": ["IBIAS", "POR_RAW", "RESETn", "VDD", "VSS", SUBSTRATE_NET],
+        "internal": [
+            "PDN",
+            "NDL",
+            "NDGP",
+            "NDGN",
+            "NDG",
+            "PGDG",
+            "PGDGB",
+            "NTS",
+            "TIM",
+            "ND1",
+            "TRIP",
+            "NNAND",
+            "RSTB",
+        ],
+        # One drawn Nwell holds the whole PMOS row, XMOP included.
+        "wells": {
+            "NW1": [
+                "XMPD",
+                "XMP2",
+                "XMDGPT",
+                "XMPT",
+                "XMDBPT",
+                "XMDGPI",
+                "XMG1P",
+                "XMG2P",
+                "XMTSW",
+                "XMDAPI",
+                "XMNAP1",
+                "XMNAP2",
+                "XMAST",
+                "XMOP",
+            ]
+        },
+    },
 }
 
 SUBCKT_RE = re.compile(r"^\.subckt\s+(\S+)\s+(.*)$", re.IGNORECASE)

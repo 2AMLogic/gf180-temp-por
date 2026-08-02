@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "engine": "klayout",
+  "layout": "por_output_chain.gds",
+  "reference": "por_output_chain.reference.spice",
+  "top": "por_output_chain",
+  "status": "match",
+  "mismatch_count": 0,
+  "category_counts": {},
+  "counts": {
+    "nets": {
+      "layout": 20,
+      "reference": 20,
+      "matched": 20
+    },
+    "devices": {
+      "layout": 27,
+      "reference": 27,
+      "matched": 27
+    },
+    "pins": {
+      "layout": 6,
+      "reference": 6,
+      "matched": 6
+    }
+  },
+  "environment": {
+    "engine": "klayout",
+    "engine_version": "0.30.10",
+    "layout_sha256": "44d2d167d68de122398fa389fecb4262ffdae6bccb7617d79bb1bfe89ef63295",
+    "reference_sha256": "2aa16f393694fce5c3fcb011aef7218cb2f60b38e1cecdf7fd0939d0591d31cd",
+    "extracted_netlist": null
+  },
+  "mismatches": []
+}

@@ -4,18 +4,19 @@ This directory holds the block's layout artifacts and the **repeatable DRC/LVS
 invocation** they are checked with. It is `klt`-driven end to end: no GUI, no
 interactive KLayout session, no netgen/magic.
 
-> **Status: the flow is proven, and two of the block's four sub-circuits are
+> **Status: the flow is proven, and three of the block's four sub-circuits are
 > drawn — as far as the deck can see them.**
 > #16 brought the flow up on one two-device proof cell. #68 added `bias_core`
-> (**34** MOS devices) and #69 added `por_comparator` (**18**), each DRC-clean
-> and LVS-clean against the schematic-derived netlist, with both negative
-> controls detected. That is **not** the whole of either cell — `bias_core`'s
-> 10 vertical PNPs, 4 poly resistors and 2 MiM caps, and `por_comparator`'s
-> 3-segment sense divider, are outside the curated deck's device coverage and
-> are deliberately not drawn (see
+> (**34** MOS devices), #69 added `por_comparator` (**18**) and #70 added
+> `por_output_chain` (**27**), each DRC-clean and LVS-clean against the
+> schematic-derived netlist, with both negative controls detected. None of them
+> is the *whole* cell — `bias_core`'s 10 vertical PNPs, 4 poly resistors and 2
+> MiM caps, `por_comparator`'s 3-segment sense divider, and
+> `por_output_chain`'s 2 MiM caps, are outside the curated deck's device
+> coverage and are deliberately not drawn (see
 > [The cells under test](#the-cells-under-test) and
 > [Known deck limits](#known-deck-limits--what-a-clean-lvs-here-does-not-prove)).
-> The remaining two sub-circuits and the top-level assembly are not drawn.
+> `temp_core` and the top-level assembly are not drawn.
 > #17's floorplan sketch and matching plan — the ranked, #15-data-driven
 > common-centroid/interdigitation/guard-ring plan this flow's cells implement —
 > is [`layout/floorplan.md`](floorplan.md).
@@ -282,6 +283,110 @@ Recorded result (`layout/reports/por_comparator/`):
 | negative control `topology` | detected (exit 3; `device.unmatched` 1, `topology` 1) |
 | negative control `device-param` | detected (exit 3; `device.property` 5, `topology` 1) |
 
+### `por_output_chain` — the MOS portion of the reset output chain (#70)
+
+`design/por_output_chain.sch`'s 27 MOS devices, drawn from
+`design/netlist/por_output_chain.spice`. 221.7 × 107.7 µm, 1458 polygons.
+
+**What a clean run here covers, and what it does not.** The cell has 29
+devices. 27 are MOS (14 pfet, 13 nfet) and are drawn, extracted and compared.
+The other **2 are not drawn at all**:
+
+| Not drawn | Devices | Why |
+| --- | --- | --- |
+| MiM caps | `XCDG` (11 × 11 µm), `XCTIM` (4 × 28 × 28 µm) | deck extracts `nfet`/`pfet` only — [klayout-tools#219](https://github.com/2AMLogic/klayout-tools/issues/219); also needs the metal 3/4 the deck does not declare ([#220](https://github.com/2AMLogic/klayout-tools/issues/220)) |
+
+There is **no resistor in this cell** — `por_output_chain.md`'s only mention of
+one is in the *negative*, explaining why the ≥1 ms one-shot is a current-starved
+ramp rather than an RC ("1 ms into a 6 pF capacitor needs ~160 MΩ, which is not
+buildable here"). Confirmed against the current schematic export: the golden
+netlist's only non-MOS cards are the two `cap_mim_2f0_m3m4_noshield` calls
+above. So the resistor half of the deck's coverage gap
+([#222](https://github.com/2AMLogic/klayout-tools/issues/222)) does not bear on
+this cell at all.
+
+Unlike `bias_core`, leaving the undrawn devices out **costs no net**: `NDG` and
+`TIM` each carry MOS terminals as well as a cap terminal, so every net in the
+schematic still exists on both sides of the compare, with every one of its MOS
+connections. `layout/tests/test_lvs_reference.py` asserts that rather than
+leaving it to this paragraph, so a future schematic edit that made an undrawn
+device the sole owner of a node fails loudly instead of quietly narrowing what
+LVS answers for. What stays unproven is the two **capacitor values** — i.e. the
+deglitch dwell and the one-shot width. Those remain `sim/`'s claims, unchanged.
+
+**Structure.** Same scheme as `bias_core`, and for the same reason: the
+extraction deck still declares one metal level at `klt 0.1.0`, so routing is
+**horizontal Poly2 tracks (one per signal net) with vertical Metal1 risers**.
+`VDD`/`VSS` are Metal1 rails above and below the row; one drawn Nwell holds the
+whole PMOS row.
+
+**Placement follows `floorplan.md` inside the cell, not just at block level.**
+`floorplan.md` puts this cell nearest the `RESETn` pad, "shortest path from the
+push-pull output driver", in the always-on POR domain. Both ends are honoured
+in the drawn row:
+
+- `XMON` — the push-pull pull-down — is its own region at the **right,
+  pad-facing edge**, with `XMOP` the last device of the PMOS row immediately to
+  its left. The `RESETn` pin label sits on `XMON`'s own drain riser, the
+  right-most Metal1 in the cell on that net; nothing is placed between the
+  driver and the pad edge.
+- `XMBD` leads the NMOS row at the **left, `bias_core`-facing edge**, where
+  `IBIAS` arrives. Per
+  [DR-010](../spec/decision-records/DR-010-shared-ibias-disabled-consumer-contract.md)
+  `XMBD` is ungated and always on, and is the element that *defines* the shared
+  `IBIAS` node's operating point. It is drawn diode-connected (gate and drain on
+  the `IBIAS` pin net, source on `VSS`) with **no series device anywhere in that
+  path**, and the `IBIAS` pin label is on `XMBD`'s own drain riser, so there is
+  nowhere for a gating element to hide. The only other device touching `IBIAS`
+  is `XMN1`'s *gate* — a mirror read, not a series element. A unit test asserts
+  each clause of that.
+
+**Matched pairs** get ordinary matched-pair practice — adjacent placement, same
+orientation, identical drawn geometry, common well: `XMPD`/`XMP2` (the 10 nA
+PMOS reference and its copy), `XMPT`/`XMDBPT` (identical 0.5/10 legs off `PDN`),
+`XMNAP1`/`XMNAP2` and `XMNAN1`/`XMNAN2` (the release NAND's pull-up pair and
+pull-down stack). `floorplan.md`'s ranked common-centroid plan covers
+`temp_core` (ranks 1–3) and `por_comparator` (rank 4) only — it prescribes
+nothing for this cell, and nothing was invented here to fill the gap.
+
+**Dummy edge devices are not drawn, and that is a tool limit, not a matching
+call.** A drawn dummy MOS extracts as an ordinary device; the deck has no way
+to mark one non-functional, so it would appear in the extracted netlist as a
+device the schematic-derived reference does not have and fail LVS. The only
+alternatives are to abandon LVS on the cell or to hand-add fudge devices to the
+reference — which would end its mechanical derivability from the schematic and
+give a real missing device somewhere to hide. Filed generically:
+[klayout-tools#295](https://github.com/2AMLogic/klayout-tools/issues/295).
+
+**Guard ring and well ties are drawn, and are a design-review claim, not a
+checked one** — same as `bias_core`, and it matters more here because this cell
+sits on the always-on POR domain's outer edge. A continuous VSS-tied
+p-substrate guard ring (COMP + Metal1, contacted at 1 µm pitch, no floating
+segment) surrounds the cell, and the Nwell has its own VDD-tied COMP strap. Per
+[klayout-tools#281](https://github.com/2AMLogic/klayout-tools/issues/281) the
+deck has no tap/well-label layer, so **a mis-tied or untied ring would compare
+clean**; `klt 0.1.0` still does not emit the `device.body_unverified` warning
+klayout-tools#285 added (`extract.json`'s `warnings` array is empty).
+
+**MiM area is reserved, not stacked.** The two caps need about 3.26 × 10³ µm²
+of MiM. `design/por_output_chain.md` notes MiM sits on metal 3/4 and *may* be
+stackable over neighbouring circuitry, explicitly deferring that to a
+DRC/layout call. This cell does not make that call in the optimistic direction:
+70 × 62 µm is reserved as **separate floor area** on annotation layer 200/0,
+above the VDD rail and inside the guard ring, so the area number stays
+pessimistic. Nothing in this repo can currently answer the stacking question —
+the deck declares one metal level and has no MiM rules at all.
+
+Recorded result (`layout/reports/por_output_chain/`):
+
+| Check | Result |
+| ----- | ------ |
+| `klt drc --deck gf180mcu` | clean — 0 violations |
+| `klt extract --deck gf180mcu` | 27 devices (13 nfet, 14 pfet), 20 nets, 6 pins |
+| `klt lvs` | **match** — 27/27 devices, 20/20 nets, 6/6 pins, 0 mismatches |
+| negative control `topology` | detected (exit 3; `device.unmatched` 1, `topology` 1) |
+| negative control `device-param` | detected (exit 3; `device.property` 5, `topology` 1) |
+
 ### `por_comparator_bias_okb_inv` — the flow's original proof cell (#16)
 
 `por_comparator_bias_okb_inv` — the local inverter that produces `BIAS_OKB`
@@ -317,21 +422,35 @@ filed upstream per this repo's friction protocol.
 - **Device coverage is MOS-only.** The extraction deck recognises `nfet`/`pfet`
   and nothing else in the version this flow was brought up on, so a cell
   containing poly resistors, MiM caps, or vertical bipolars cannot be LVS'd
-  whole. That is why the proof cell is an all-MOS one, and why `bias_core`'s
+  whole. That is why the proof cell is an all-MOS one, why `bias_core`'s
   16 non-MOS devices and `por_comparator`'s 3-segment sense divider are **not
   drawn** rather than drawn-and-ignored — a drawn poly resistor body extracts as
-  interconnect and shorts its own terminal nets.
-  Still true at `klt 0.1.0`. Upstream:
-  [klayout-tools#219](https://github.com/2AMLogic/klayout-tools/issues/219)
-  (and its sub-issue #222 for resistors) — already open before this bring-up.
+  interconnect and shorts its own terminal nets — and why `por_output_chain`'s
+  2 MiM caps are not drawn either.
+  **Re-checked at `klt 0.1.0` for #70**: upstream
+  [klayout-tools#219](https://github.com/2AMLogic/klayout-tools/issues/219) and
+  its sub-issues #222 (resistors) / #225 (MiM caps) are now *closed*, but the
+  installed 0.1.0 deck still declares an active/poly/nwell/contact/metal1 layer
+  set with no resistor, capacitor or bipolar device class — so the limit is
+  unchanged **here** until `klt` is upgraded. Re-check `klt --version` and
+  re-run `run_checks.sh` after any upgrade; if the deck grows those classes,
+  the undrawn devices in all three cells become drawable and the coverage
+  caveats above shrink.
   The *silence* is the sharper half and is separately filed by #68:
   [klayout-tools#288](https://github.com/2AMLogic/klayout-tools/issues/288) —
   extraction absorbs unmodelled-device geometry into interconnect with an empty
   `warnings` array, so the failure mode is a wrong netlist, not an error.
+- **There is no dummy-device concept**, so matched-pair *dummy edges* cannot be
+  drawn on any cell that must also LVS: a drawn dummy MOS extracts as a real
+  device the schematic-derived reference does not have. The cells here
+  therefore stop at adjacency/orientation/geometry matching and draw no
+  dummies — a layout decision made by a tool limit, which is exactly the kind
+  of thing this repo exists to surface. Filed by #70:
+  [klayout-tools#295](https://github.com/2AMLogic/klayout-tools/issues/295).
 - **There is no annotation-layer contract**, so the reserved regions in
-  `bias_core` (passives/bipolars) and `por_comparator` (the sense divider) sit
-  on a layer (200/0) chosen because no deck reads it today, not because any
-  deck promises not to. Filed:
+  `bias_core` (passives/bipolars), `por_comparator` (the sense divider) and
+  `por_output_chain` (the MiM area) sit on a layer (200/0) chosen because no
+  deck reads it today, not because any deck promises not to. Filed:
   [klayout-tools#289](https://github.com/2AMLogic/klayout-tools/issues/289).
   Re-check after a `klt` upgrade: if `klt drc`'s or `klt extract`'s layer set
   ever grows to include it, the reports move and `run_checks.sh` says so.
@@ -371,17 +490,21 @@ filed upstream per this repo's friction protocol.
   connectivity when the defect is a width. On the 34-device `bias_core` the same
   control reports **`device.property` ×5**, i.e. it classifies correctly — which
   is the first evidence in this repo for the "classifies correctly once the
-  circuit is larger" expectation rather than an assumption about it. #69's
-  18-device `por_comparator` reports the same `device.property` ×5, so the
+  circuit is larger" expectation rather than an assumption about it. #70's
+  27-device `por_output_chain` and #69's 18-device `por_comparator` both
+  reproduce that (`device.property` ×5), so it is not a one-off and the
   cross-over sits below 18 devices, not somewhere between 2 and 34. Filed:
   [klayout-tools#282](https://github.com/2AMLogic/klayout-tools/issues/282).
 - **Single metal level.** The extraction deck declares `Metal1` only, so a cell
   must route on Metal1 to extract as connected nets. Upstream
   [klayout-tools#220](https://github.com/2AMLogic/klayout-tools/issues/220) and
-  #238 are closed, but **re-checked at `klt 0.1.0` for #68 and again for #69:
-  the installed version still declares one metal**, so `bias_core` and
-  `por_comparator` both route on Metal1 with Poly2 as the crossing layer.
-  Re-check `klt --version` before assuming the limit still applies.
+  #238 are closed, but **re-checked at `klt 0.1.0` for #68, #69 and again for
+  #70: the installed version still declares one metal** (`metals=((34, 0),)`),
+  so `bias_core`, `por_comparator` and `por_output_chain` all route on Metal1
+  with Poly2 as the crossing layer. Re-check `klt --version` before assuming
+  the limit still applies. This is also half of why the MiM caps are undrawn:
+  the gf180mcu MiM stack lives on metal 3/4, which the deck does not declare at
+  all.
 - **DRC is a curated subset.** Width/space/enclosure across Poly2/Comp/Contact/
   Metal1, plus Nwell spacing/enclosure and one BJT rule. Clean here means clean
   against *that* subset — it is not a tapeout-grade signoff, and no claim in
