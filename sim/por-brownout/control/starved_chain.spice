@@ -1,0 +1,86 @@
+* por-brownout control -- starved-bias por_output_chain fragment (issue #55).
+*
+* Netlist FRAGMENT: no .include / .lib / .temp / .control / .end.
+*
+* Cell-level half of the control: por_output_chain ALONE at the parent
+* deck's 1.0 V dip rail, with POR_RAW driven low (i.e. the comparator is
+* assumed to have done its job correctly, which on the assembly it does
+* not) and IBIAS collapsing to a controlled value at the dip edge. It
+* isolates the one question the assembly deck cannot separate: does this
+* cell still have the drive to pull RESETn down at a 1.0 V rail once its
+* bias is gone?
+*
+* Two identical DUTs share one rail -- the idiom design/por_output_chain.md
+* already uses for its 0.5x / 3x IBIAS envelope:
+*
+*   xdut  drives its own 5 pF load       -> reachability: does RESETn get
+*                                            there, and how fast?
+*   xdrv  has RESETn FORCED to 100 mV     -> capability: how much current
+*         by vforce                         can the cell sink at the
+*                                            valid-low bound if it is in
+*                                            the asserted state at all?
+*
+* 100 mV is not an arbitrary probe level: it is exactly the
+* spec/target-spec.md#por-reset-valid-floor bound min(0.1*VDD, 0.3 V) at
+* the 1.0 V dip rail, i.e. the level the parent record measures 999.96 mV
+* against.
+*
+* Timeline (the 15 ms pre-dip hold is sized off design/por_output_chain.md's
+* measured 4.215-7.752 ms one-shot, so both DUTs are genuinely RELEASED
+* before the dip -- a chain that never released would answer a different
+* question):
+*
+*    0   ->  1 ms   rail ramps 0 -> 3.3 V; POR_RAW low (reset asserted)
+*    1   -> 15 ms   POR_RAW high, IBIAS nominal 500 nA: the one-shot runs
+*                   out and RESETn releases
+*   15   -> 15.001 ms  rail dips 3.3 V -> 1.0 V; POR_RAW driven low in the
+*                   same 1 us; IBIAS steps to {ibias_a}
+*   15.001 -> 15.051 ms  held -- the parent deck's 50 us qualifying dwell
+*
+* Parameters the runner supplies: vdd_val, vdd_nom, temp_c, plus ibias_a
+* (the control variable: the current still reaching IBIAS during the dip)
+* and t_dip / t_edge / t_dwell.
+
+vsup vdd 0 PWL(
++ 0                       0
++ 1m                      {vdd_val}
++ {t_dip}                 {vdd_val}
++ {t_dip+t_edge}          1.0
++ {t_dip+t_edge+t_dwell}  1.0
++ )
+
+* POR_RAW: the comparator's decision, driven here rather than computed --
+* high = "rail good", low = "rail bad" (design/por_output_chain.md's
+* active-high convention).
+vraw por_raw 0 PWL(
++ 0                       0
++ 1m                      {vdd_val}
++ {t_dip}                 {vdd_val}
++ {t_dip+t_edge}          0
++ {t_dip+t_edge+t_dwell}  0
++ )
+
+* IBIAS: bias_core sources current INTO the pin (DR-010). Nominal 500 nA
+* until the dip, then whatever survives it.
+iref vdd ibias PWL(
++ 0                       500n
++ {t_dip}                 500n
++ {t_dip+t_edge}          {ibias_a}
++ {t_dip+t_edge+t_dwell}  {ibias_a}
++ )
+
+Crn resetn 0 5p
+xdut vdd 0 ibias por_raw resetn por_output_chain
+
+* Capability probe: same cell, same rail, same bias, RESETn clamped at the
+* valid-low bound so the sink current is readable directly. It gets its OWN
+* IBIAS node and its own copy of the source -- two mirror diodes on one
+* node would split the current and quietly halve both DUTs' bias.
+iref2 vdd ibias2 PWL(
++ 0                       500n
++ {t_dip}                 500n
++ {t_dip+t_edge}          {ibias_a}
++ {t_dip+t_edge+t_dwell}  {ibias_a}
++ )
+vforce resetn_f 0 0.1
+xdrv vdd 0 ibias2 por_raw resetn_f por_output_chain

@@ -703,6 +703,50 @@ to full rail) at every corner, including −40 °C; false-valid at 1.0 V/µs.
 `por-ramp-rate` ratifies 1 V/µs, so the cell is **~3× short of the ratified
 fast limit**.
 
+#### The same window on a *falling* rail — and it is far narrower (#55)
+
+Issue #55 root-caused `sim/por-brownout/`'s 0/81 failure to this same
+mechanism, running the other way. On a brownout the rail falls, `PG` again
+cannot follow, and `V_sg` — the overdrive on the whole PMOS mirror bank —
+does not merely shrink but **inverts**: measured **776.2 mV pre-dip →
+−74.4 mV** 8 µs into a 1 µs edge. The bank is driven fully off, every bias
+derived from it dies, and (as on the rising edge) the settle comparator dies
+with it, so `BIAS_OK` reads a **false valid** for the whole collapse.
+
+The falling boundary is **much lower than the rising one**, and this is the
+number that matters for [`por-brownout`](../spec/target-spec.md#por-brownout):
+
+| Direction | Boundary (correct behaviour at or below) | Source |
+| --- | --- | --- |
+| Rising (`por-ramp-rate`) | **0.36 V/µs** | `sim/bias-core-designer-check/`, 81 points |
+| Falling (`por-brownout`) | between **7.67 and 11.50 mV/µs** | `sim/por-brownout/control/`, 1 point (`tt`/27 °C/3.30 V) |
+
+The ~31× asymmetry is expected rather than surprising: on a rising rail the
+loop is driven toward *more* current and recovers by settling down onto its
+operating point, while on a falling rail it is driven toward *less* and
+recovers only by charging `PG` back up through a second stage that the
+collapse has already starved. The falling boundary sits at roughly half this
+document's own independently derived ~21 mV/µs `PG` slew capability, which is
+the corroboration that the two are the same mechanism rather than two
+coincidences.
+
+Two consequences worth stating plainly:
+
+- **The dip's depth is not what breaks it.** A dip to 2.30 V — above
+  `vdd_ref90_v`'s 1.788 V worst case at every corner — fails identically to
+  one at 1.0 V. The "below its own operating floor" caveat DR-005 wrote, and
+  which `design/bias_core.md` inherited, names the wrong variable: the
+  collapse is dynamic, not static.
+- **Waiting does not help.** Held below VPOR↓,min for 5 ms at a 1 µs edge —
+  500× `T_dip,min` — the loop never recovers while the rail stays down, so
+  reset still never asserts. Only the *recovery* edge restarts it.
+
+The boundary above is a **one-corner** number and is not fit to ratify
+against; [DR-011](../spec/decision-records/DR-011-brownout-falling-slew-limit.md)
+records it as `[TBD-#60]` pending an 81-point characterization. The
+"why it cannot be fixed inside this cell's Iq budget" arithmetic below
+applies unchanged — it is the same detector that would be needed.
+
 ### Why it cannot be fixed inside this cell's Iq budget
 
 The obvious fix is a "core is starved" detector that does not depend on the

@@ -449,6 +449,28 @@ On re-assertion the cell is clean where it is specified to be: at VDD = 2.0 V
 on the falling ramp — below VPOR↓ but above the floor — `POR_RAW` is
 **< 0.6 µV** at every corner.
 
+### That clean result holds only on a *slow* falling ramp (#55)
+
+Every number above is sampled on a quasi-static ramp, where `VREF` and the
+divider tap are both valid at each point. On a fast brownout they are not,
+and this cell stops deciding altogether —
+`sim/por-brownout/records/20260801-233807-32fbaa0.md` is 0/81 because
+`POR_RAW` never asserts during the dip.
+
+The cause is **not** in this cell. `sim/por-brownout/control/results.md`
+measures `bias_core` driving its PMOS mirror bank fully off on a fast falling
+edge (`V_sg` 776.2 mV → −74.4 mV), which starves this comparator's tail while
+`BIAS_OK` — also biased from that loop — keeps reading valid. Restoring the
+mirror gate in a control-only counterfactual restores `POR_RAW` assertion
+inside the dip, with nothing in this cell changed. The boundary is a falling
+slew between **7.67 and 11.50 mV/µs** at `tt`/27 °C/3.30 V.
+
+The consequence for this cell's own documentation: the sampled table above is
+valid for falling rails **below that boundary**, and says nothing about
+faster ones. See
+[DR-011](../spec/decision-records/DR-011-brownout-falling-slew-limit.md) and
+`design/bias_core.md` § "The same window on a *falling* rail".
+
 ## Area — flagged for #17
 
 Not a target this issue owns ([`area`](../spec/target-spec.md#area) is
