@@ -1,0 +1,5 @@
+{
+  "klt_version": "klt 0.1.0",
+  "deck": "gf180mcu",
+  "note": "regenerate with: bash layout/run_checks.sh"
+}

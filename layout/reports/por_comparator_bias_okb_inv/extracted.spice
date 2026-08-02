@@ -1,0 +1,14 @@
+* extracted by klt extract --deck gf180mcu
+
+* cell por_comparator_bias_okb_inv
+* pin BIAS_OK
+* pin BIAS_OKB
+* pin VDD
+* pin VSS
+* pin vsubs
+.SUBCKT por_comparator_bias_okb_inv BIAS_OK BIAS_OKB VDD VSS vsubs
+* device instance $1 r0 *1 0.75,0.5 nfet
+M$1 BIAS_OKB BIAS_OK VSS vsubs nfet L=0.5U W=1U AS=0.5P AD=0.8P PS=3U PD=3.6U
+* device instance $2 r0 *1 0.75,4 pfet
+M$2 BIAS_OKB BIAS_OK VDD \$5 pfet L=0.5U W=2U AS=1P AD=1.6P PS=5U PD=5.6U
+.ENDS por_comparator_bias_okb_inv
