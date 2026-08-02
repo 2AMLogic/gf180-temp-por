@@ -1,0 +1,252 @@
+* extracted by klt extract --deck gf180mcu
+
+* cell temp_core
+* pin CTAT
+* pin EN
+* pin ENB
+* pin IBIAS
+* pin M1D
+* pin M2D
+* pin M3D
+* pin N1
+* pin N2
+* pin NA
+* pin NB
+* pin NBG
+* pin ND
+* pin NR
+* pin NT
+* pin PB
+* pin PCAS
+* pin PG
+* pin PTAT
+* pin T0
+* pin T1
+* pin T2
+* pin T3
+* pin T4
+* pin T5
+* pin VDD
+* pin VSS
+* pin vsubs
+.SUBCKT temp_core CTAT EN ENB IBIAS M1D M2D M3D N1 N2 NA NB NBG ND NR NT PB
++ PCAS PG PTAT T0 T1 T2 T3 T4 T5 VDD VSS vsubs
+* device instance $1 r0 *1 49.5,-2 nfet
+M$1 VSS VSS VSS vsubs nfet L=8U W=4U AS=3.2P AD=3.2P PS=9.6U PD=9.6U
+* device instance $2 r0 *1 59.6,-2 nfet
+M$2 N1 N1 VSS vsubs nfet L=8U W=4U AS=3.2P AD=3.2P PS=9.6U PD=9.6U
+* device instance $3 r0 *1 69.7,-2 nfet
+M$3 N2 N1 VSS vsubs nfet L=8U W=4U AS=3.2P AD=3.2P PS=9.6U PD=9.6U
+* device instance $4 r0 *1 79.8,-2 nfet
+M$4 N2 N1 VSS vsubs nfet L=8U W=4U AS=3.2P AD=3.2P PS=9.6U PD=9.6U
+* device instance $5 r0 *1 89.9,-2 nfet
+M$5 N1 N1 VSS vsubs nfet L=8U W=4U AS=3.2P AD=3.2P PS=9.6U PD=9.6U
+* device instance $6 r0 *1 100,-2 nfet
+M$6 VSS VSS VSS vsubs nfet L=8U W=4U AS=3.2P AD=3.2P PS=9.6U PD=9.6U
+* device instance $7 r0 *1 177.5,-4 nfet
+M$7 PG N2 VSS vsubs nfet L=8U W=8U AS=6.4P AD=6.4P PS=17.6U PD=17.6U
+* device instance $8 r0 *1 190.7,-2 nfet
+M$8 IBIAS NBG VSS vsubs nfet L=2U W=4U AS=3.2P AD=3.2P PS=9.6U PD=9.6U
+* device instance $9 r0 *1 194.05,-1 nfet
+M$9 IBIAS EN NBG vsubs nfet L=0.5U W=2U AS=1.6P AD=1.6P PS=5.6U PD=5.6U
+* device instance $10 r0 *1 196.65,-1 nfet
+M$10 NBG ENB VSS vsubs nfet L=0.5U W=2U AS=1.6P AD=1.6P PS=5.6U PD=5.6U
+* device instance $11 r0 *1 200,-2 nfet
+M$11 PB NBG VSS vsubs nfet L=2U W=4U AS=3.2P AD=3.2P PS=9.6U PD=9.6U
+* device instance $12 r0 *1 210.2,-2 nfet
+M$12 PCAS NBG VSS vsubs nfet L=2U W=4U AS=3.2P AD=3.2P PS=9.6U PD=9.6U
+* device instance $13 r0 *1 226.25,-0.5 nfet
+M$13 ENB EN VSS vsubs nfet L=0.5U W=1U AS=0.8P AD=0.8P PS=3.6U PD=3.6U
+* device instance $14 r0 *1 239.7,-1 nfet
+M$14 ND NR VSS vsubs nfet L=2U W=2U AS=1.6P AD=1.6P PS=5.6U PD=5.6U
+* device instance $15 r0 *1 243.3,-2 nfet
+M$15 PG ND VSS vsubs nfet L=1U W=4U AS=3.2P AD=3.2P PS=9.6U PD=9.6U
+* device instance $16 r0 *1 253,-1 nfet
+M$16 NR NR VSS vsubs nfet L=2U W=2U AS=1.6P AD=1.6P PS=5.6U PD=5.6U
+* device instance $17 r0 *1 256.35,-1 nfet
+M$17 ND ENB VSS vsubs nfet L=0.5U W=2U AS=1.6P AD=1.6P PS=5.6U PD=5.6U
+* device instance $18 r0 *1 261.8,-0.5 nfet
+M$18 PTAT ENB VSS vsubs nfet L=1U W=1U AS=0.8P AD=0.8P PS=3.6U PD=3.6U
+* device instance $19 r0 *1 264.9,-0.5 nfet
+M$19 CTAT ENB VSS vsubs nfet L=1U W=1U AS=0.8P AD=0.8P PS=3.6U PD=3.6U
+* device instance $20 r0 *1 268,-1 nfet
+M$20 N2 ENB VSS vsubs nfet L=1U W=2U AS=1.6P AD=1.6P PS=5.6U PD=5.6U
+* device instance $21 r0 *1 271.1,-1 nfet
+M$21 NT ENB VSS vsubs nfet L=1U W=2U AS=1.6P AD=1.6P PS=5.6U PD=5.6U
+* device instance $22 r0 *1 273.95,-16 nfet
+M$22 T5 VDD T4 vsubs nfet L=0.5U W=32U AS=25.6P AD=25.6P PS=65.6U PD=65.6U
+* device instance $23 r0 *1 276.55,-16 nfet
+M$23 T3 VSS T2 vsubs nfet L=0.5U W=32U AS=25.6P AD=25.6P PS=65.6U PD=65.6U
+* device instance $24 r0 *1 279.15,-16 nfet
+M$24 T1 VSS T0 vsubs nfet L=0.5U W=32U AS=25.6P AD=25.6P PS=65.6U PD=65.6U
+* device instance $25 r0 *1 281.75,-16 nfet
+M$25 T0 VSS VSS vsubs nfet L=0.5U W=32U AS=25.6P AD=25.6P PS=65.6U PD=65.6U
+* device instance $26 r0 *1 284.35,-16 nfet
+M$26 T2 VSS T1 vsubs nfet L=0.5U W=32U AS=25.6P AD=25.6P PS=65.6U PD=65.6U
+* device instance $27 r0 *1 286.95,-16 nfet
+M$27 T4 VSS T3 vsubs nfet L=0.5U W=32U AS=25.6P AD=25.6P PS=65.6U PD=65.6U
+* device instance $28 r0 *1 217.3,32.5 pfet
+M$28 PCAS PCAS VDD \$29 pfet L=8U W=1U AS=0.8P AD=0.8P PS=3.6U PD=3.6U
+* device instance $29 r0 *1 232.6,32.5 pfet
+M$29 ND PB VDD \$29 pfet L=8U W=1U AS=0.8P AD=0.8P PS=3.6U PD=3.6U
+* device instance $30 r0 *1 247.9,32.5 pfet
+M$30 NR PG VDD \$29 pfet L=4U W=1U AS=0.8P AD=0.8P PS=3.6U PD=3.6U
+* device instance $31 r0 *1 223.65,33 pfet
+M$31 ENB EN VDD \$29 pfet L=0.5U W=2U AS=1.6P AD=1.6P PS=5.6U PD=5.6U
+* device instance $32 r0 *1 108.1,34 pfet
+M$32 VDD VDD VDD \$29 pfet L=4U W=4U AS=3.2P AD=3.2P PS=9.6U PD=9.6U
+* device instance $33 r0 *1 114.2,34 pfet
+M$33 M1D PG VDD \$29 pfet L=4U W=4U AS=3.2P AD=3.2P PS=9.6U PD=9.6U
+* device instance $34 r0 *1 118.8,34 pfet
+M$34 NA PCAS M1D \$29 pfet L=1U W=4U AS=3.2P AD=3.2P PS=9.6U PD=9.6U
+* device instance $35 r0 *1 123.4,34 pfet
+M$35 M2D PG VDD \$29 pfet L=4U W=4U AS=3.2P AD=3.2P PS=9.6U PD=9.6U
+* device instance $36 r0 *1 128,34 pfet
+M$36 NB PCAS M2D \$29 pfet L=1U W=4U AS=3.2P AD=3.2P PS=9.6U PD=9.6U
+* device instance $37 r0 *1 132.6,34 pfet
+M$37 M3D PG VDD \$29 pfet L=4U W=4U AS=3.2P AD=3.2P PS=9.6U PD=9.6U
+* device instance $38 r0 *1 137.2,34 pfet
+M$38 PTAT PCAS M3D \$29 pfet L=1U W=4U AS=3.2P AD=3.2P PS=9.6U PD=9.6U
+* device instance $39 r0 *1 140.3,34 pfet
+M$39 PTAT PCAS M3D \$29 pfet L=1U W=4U AS=3.2P AD=3.2P PS=9.6U PD=9.6U
+* device instance $40 r0 *1 144.9,34 pfet
+M$40 M3D PG VDD \$29 pfet L=4U W=4U AS=3.2P AD=3.2P PS=9.6U PD=9.6U
+* device instance $41 r0 *1 149.5,34 pfet
+M$41 NB PCAS M2D \$29 pfet L=1U W=4U AS=3.2P AD=3.2P PS=9.6U PD=9.6U
+* device instance $42 r0 *1 154.1,34 pfet
+M$42 M2D PG VDD \$29 pfet L=4U W=4U AS=3.2P AD=3.2P PS=9.6U PD=9.6U
+* device instance $43 r0 *1 158.7,34 pfet
+M$43 NA PCAS M1D \$29 pfet L=1U W=4U AS=3.2P AD=3.2P PS=9.6U PD=9.6U
+* device instance $44 r0 *1 163.3,34 pfet
+M$44 M1D PG VDD \$29 pfet L=4U W=4U AS=3.2P AD=3.2P PS=9.6U PD=9.6U
+* device instance $45 r0 *1 169.4,34 pfet
+M$45 VDD VDD VDD \$29 pfet L=4U W=4U AS=3.2P AD=3.2P PS=9.6U PD=9.6U
+* device instance $46 r0 *1 258.95,34 pfet
+M$46 PG EN VDD \$29 pfet L=0.5U W=4U AS=3.2P AD=3.2P PS=9.6U PD=9.6U
+* device instance $47 r0 *1 185.6,37 pfet
+M$47 PG PB VDD \$29 pfet L=4U W=10U AS=8P AD=8P PS=21.6U PD=21.6U
+* device instance $48 r0 *1 205.1,37 pfet
+M$48 PB PB VDD \$29 pfet L=4U W=10U AS=8P AD=8P PS=21.6U PD=21.6U
+* device instance $49 r0 *1 2.8,40 pfet
+M$49 NT NT NT \$28 pfet L=4U W=16U AS=12.8P AD=12.8P PS=33.6U PD=33.6U
+* device instance $50 r0 *1 8.9,40 pfet
+M$50 N1 NA NT \$28 pfet L=4U W=16U AS=12.8P AD=12.8P PS=33.6U PD=33.6U
+* device instance $51 r0 *1 15,40 pfet
+M$51 N2 NB NT \$28 pfet L=4U W=16U AS=12.8P AD=12.8P PS=33.6U PD=33.6U
+* device instance $52 r0 *1 21.1,40 pfet
+M$52 N2 NB NT \$28 pfet L=4U W=16U AS=12.8P AD=12.8P PS=33.6U PD=33.6U
+* device instance $53 r0 *1 27.2,40 pfet
+M$53 N1 NA NT \$28 pfet L=4U W=16U AS=12.8P AD=12.8P PS=33.6U PD=33.6U
+* device instance $54 r0 *1 33.3,40 pfet
+M$54 NT NT NT \$28 pfet L=4U W=16U AS=12.8P AD=12.8P PS=33.6U PD=33.6U
+* device instance $55 r0 *1 41.4,42 pfet
+M$55 NT PB VDD \$29 pfet L=4U W=20U AS=16P AD=16P PS=41.6U PD=41.6U
+* device instance CTAT r0 *1 0,0 
+RCTAT CTAT CTAT__par 474.7403
+* device instance CTAT r0 *1 0,0 
+CCTAT CTAT__par vsubs 2.7195352e-14
+* device instance EN r0 *1 0,0 
+REN EN EN__par 1400.3651
+* device instance EN r0 *1 0,0 
+CEN EN__par vsubs 3.315668e-14
+* device instance ENB r0 *1 0,0 
+RENB ENB ENB__par 1686.1221
+* device instance ENB r0 *1 0,0 
+CENB ENB__par vsubs 3.6146108e-14
+* device instance IBIAS r0 *1 0,0 
+RIBIAS IBIAS IBIAS__par 322.6504
+* device instance IBIAS r0 *1 0,0 
+CIBIAS IBIAS__par vsubs 2.0287657e-14
+* device instance M1D r0 *1 0,0 
+RM1D M1D M1D__par 1180.5884
+* device instance M1D r0 *1 0,0 
+CM1D M1D__par vsubs 2.5430782e-14
+* device instance M2D r0 *1 0,0 
+RM2D M2D M2D__par 1105.0547
+* device instance M2D r0 *1 0,0 
+CM2D M2D__par vsubs 2.403986e-14
+* device instance M3D r0 *1 0,0 
+RM3D M3D M3D__par 1029.5295
+* device instance M3D r0 *1 0,0 
+CM3D M3D__par vsubs 2.2648937e-14
+* device instance N1 r0 *1 0,0 
+RN1 N1 N1__par 3844.0985
+* device instance N1 r0 *1 0,0 
+CN1 N1__par vsubs 3.8589379e-14
+* device instance N2 r0 *1 0,0 
+RN2 N2 N2__par 2240.7855
+* device instance N2 r0 *1 0,0 
+CN2 N2__par vsubs 4.4032876e-14
+* device instance NA r0 *1 0,0 
+RNA NA NA__par 1928.7659
+* device instance NA r0 *1 0,0 
+CNA NA__par vsubs 2.9097844e-14
+* device instance NB r0 *1 0,0 
+RNB NB NB__par 1853.5061
+* device instance NB r0 *1 0,0 
+CNB NB__par vsubs 2.7706922e-14
+* device instance NBG r0 *1 0,0 
+RNBG NBG NBG__par 1144.9314
+* device instance NBG r0 *1 0,0 
+CNBG NBG__par vsubs 2.6946068e-14
+* device instance ND r0 *1 0,0 
+RND ND ND__par 1476.2059
+* device instance ND r0 *1 0,0 
+CND ND__par vsubs 3.4480799e-14
+* device instance NR r0 *1 0,0 
+RNR NR NR__par 1658.5064
+* device instance NR r0 *1 0,0 
+CNR NR__par vsubs 3.5110516e-14
+* device instance NT r0 *1 0,0 
+RNT NT NT__par 5050.5517
+* device instance NT r0 *1 0,0 
+CNT NT__par vsubs 7.5724293e-14
+* device instance PB r0 *1 0,0 
+RPB PB PB__par 3354.4466
+* device instance PB r0 *1 0,0 
+CPB PB__par vsubs 4.5703065e-14
+* device instance PCAS r0 *1 0,0 
+RPCAS PCAS PCAS__par 4257.7848
+* device instance PCAS r0 *1 0,0 
+CPCAS PCAS__par vsubs 5.1430208e-14
+* device instance PG r0 *1 0,0 
+RPG PG PG__par 4774.5776
+* device instance PG r0 *1 0,0 
+CPG PG__par vsubs 5.9115143e-14
+* device instance PTAT r0 *1 0,0 
+RPTAT PTAT PTAT__par 847.1419
+* device instance PTAT r0 *1 0,0 
+CPTAT PTAT__par vsubs 3.0557482e-14
+* device instance T0 r0 *1 0,0 
+RT0 T0 T0__par 1166.127
+* device instance T0 r0 *1 0,0 
+CT0 T0__par vsubs 3.9524362e-14
+* device instance T1 r0 *1 0,0 
+RT1 T1 T1__par 1129.9138
+* device instance T1 r0 *1 0,0 
+CT1 T1__par vsubs 3.9324288e-14
+* device instance T2 r0 *1 0,0 
+RT2 T2 T2__par 1093.8697
+* device instance T2 r0 *1 0,0 
+CT2 T2__par vsubs 3.9177292e-14
+* device instance T3 r0 *1 0,0 
+RT3 T3 T3__par 1057.6573
+* device instance T3 r0 *1 0,0 
+CT3 T3__par vsubs 3.8977218e-14
+* device instance T4 r0 *1 0,0 
+RT4 T4 T4__par 1021.6142
+* device instance T4 r0 *1 0,0 
+CT4 T4__par vsubs 3.8830221e-14
+* device instance T5 r0 *1 0,0 
+RT5 T5 T5__par 522.434
+* device instance T5 r0 *1 0,0 
+CT5 T5__par vsubs 3.1004675e-14
+* device instance VDD r0 *1 0,0 
+RVDD VDD VDD__par 11047.1798
+* device instance VDD r0 *1 0,0 
+CVDD VDD__par vsubs 1.17867827e-13
+* device instance VSS r0 *1 0,0 
+RVSS VSS VSS__par 3075.8618
+* device instance VSS r0 *1 0,0 
+CVSS VSS__par vsubs 5.5176978e-14
+.ENDS temp_core

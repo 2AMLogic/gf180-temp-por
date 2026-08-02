@@ -1,0 +1,1846 @@
+{
+  "cell": "temp_por_top",
+  "note": "the block-level assembly (#72)",
+  "ports": [
+    "VDD",
+    "VSS",
+    "PTAT",
+    "CTAT",
+    "RESETn"
+  ],
+  "counts": {
+    "mos_devices_from_layout": 134,
+    "spliced_devices_from_schematic": 41,
+    "nets_total": 76,
+    "nets_from_layout": 71,
+    "nets_schematic_only": 5,
+    "reference_devices": 134,
+    "extracted_nets": 78
+  },
+  "parasitics": {
+    "nets_with_parasitics": 71,
+    "nets_in_extraction": 78,
+    "coverage_pct": 91.03,
+    "r_cards": 71,
+    "c_cards": 71,
+    "total_resistance_ohm": 250147.3613,
+    "total_capacitance_ff": 4767.4906,
+    "extracted_nets_without_parasitics": [
+      "$49 -> VDD",
+      "$50 -> VDD",
+      "$51 -> VDD",
+      "$52 -> VDD",
+      "$76 -> xtemp__NT",
+      "$77 -> VDD",
+      "vsubs -> VSS"
+    ]
+  },
+  "spliced_devices": [
+    {
+      "name": "XQ1_xbias",
+      "nodes": [
+        "VSS",
+        "VSS",
+        "xbias__NA"
+      ],
+      "model": "pnp_10p00x10p00",
+      "origin": "xbias (bias_core)"
+    },
+    {
+      "name": "XRT_xbias",
+      "nodes": [
+        "xbias__NBTOP",
+        "xbias__NB",
+        "VSS"
+      ],
+      "model": "ppolyf_u_3k",
+      "origin": "xbias (bias_core)"
+    },
+    {
+      "name": "XR1_xbias",
+      "nodes": [
+        "xbias__NB",
+        "xbias__EC",
+        "VSS"
+      ],
+      "model": "ppolyf_u_3k",
+      "origin": "xbias (bias_core)"
+    },
+    {
+      "name": "XQ8A_xbias",
+      "nodes": [
+        "VSS",
+        "VSS",
+        "xbias__EC"
+      ],
+      "model": "pnp_10p00x10p00",
+      "origin": "xbias (bias_core)"
+    },
+    {
+      "name": "XQ8B_xbias",
+      "nodes": [
+        "VSS",
+        "VSS",
+        "xbias__EC"
+      ],
+      "model": "pnp_10p00x10p00",
+      "origin": "xbias (bias_core)"
+    },
+    {
+      "name": "XQ8C_xbias",
+      "nodes": [
+        "VSS",
+        "VSS",
+        "xbias__EC"
+      ],
+      "model": "pnp_10p00x10p00",
+      "origin": "xbias (bias_core)"
+    },
+    {
+      "name": "XQ8D_xbias",
+      "nodes": [
+        "VSS",
+        "VSS",
+        "xbias__EC"
+      ],
+      "model": "pnp_10p00x10p00",
+      "origin": "xbias (bias_core)"
+    },
+    {
+      "name": "XQ8E_xbias",
+      "nodes": [
+        "VSS",
+        "VSS",
+        "xbias__EC"
+      ],
+      "model": "pnp_10p00x10p00",
+      "origin": "xbias (bias_core)"
+    },
+    {
+      "name": "XQ8F_xbias",
+      "nodes": [
+        "VSS",
+        "VSS",
+        "xbias__EC"
+      ],
+      "model": "pnp_10p00x10p00",
+      "origin": "xbias (bias_core)"
+    },
+    {
+      "name": "XQ8G_xbias",
+      "nodes": [
+        "VSS",
+        "VSS",
+        "xbias__EC"
+      ],
+      "model": "pnp_10p00x10p00",
+      "origin": "xbias (bias_core)"
+    },
+    {
+      "name": "XQ8H_xbias",
+      "nodes": [
+        "VSS",
+        "VSS",
+        "xbias__EC"
+      ],
+      "model": "pnp_10p00x10p00",
+      "origin": "xbias (bias_core)"
+    },
+    {
+      "name": "XR2_xbias",
+      "nodes": [
+        "VREF",
+        "xbias__ER",
+        "VSS"
+      ],
+      "model": "ppolyf_u_3k",
+      "origin": "xbias (bias_core)"
+    },
+    {
+      "name": "XQR_xbias",
+      "nodes": [
+        "VSS",
+        "VSS",
+        "xbias__ER"
+      ],
+      "model": "pnp_10p00x10p00",
+      "origin": "xbias (bias_core)"
+    },
+    {
+      "name": "XCC_xbias",
+      "nodes": [
+        "xbias__PG",
+        "xbias__NZ"
+      ],
+      "model": "cap_mim_2f0_m3m4_noshield",
+      "origin": "xbias (bias_core)"
+    },
+    {
+      "name": "XRZ_xbias",
+      "nodes": [
+        "xbias__NZ",
+        "xbias__N2",
+        "VSS"
+      ],
+      "model": "ppolyf_u_3k",
+      "origin": "xbias (bias_core)"
+    },
+    {
+      "name": "XCOK_xbias",
+      "nodes": [
+        "VDD",
+        "xbias__NOKX"
+      ],
+      "model": "cap_mim_2f0_m3m4_noshield",
+      "origin": "xbias (bias_core)"
+    },
+    {
+      "name": "XRTOP_xcmp",
+      "nodes": [
+        "xcmp__SNS",
+        "VDD",
+        "VSS"
+      ],
+      "model": "ppolyf_u_3k",
+      "origin": "xcmp (por_comparator)"
+    },
+    {
+      "name": "XRBOT_xcmp",
+      "nodes": [
+        "xcmp__SNSB",
+        "xcmp__SNS",
+        "VSS"
+      ],
+      "model": "ppolyf_u_3k",
+      "origin": "xcmp (por_comparator)"
+    },
+    {
+      "name": "XRHYS_xcmp",
+      "nodes": [
+        "VSS",
+        "xcmp__SNSB",
+        "VSS"
+      ],
+      "model": "ppolyf_u_3k",
+      "origin": "xcmp (por_comparator)"
+    },
+    {
+      "name": "XCDG_xpor",
+      "nodes": [
+        "xpor__NDG",
+        "VSS"
+      ],
+      "model": "cap_mim_2f0_m3m4_noshield",
+      "origin": "xpor (por_output_chain)"
+    },
+    {
+      "name": "XCTIM_xpor",
+      "nodes": [
+        "xpor__TIM",
+        "VSS"
+      ],
+      "model": "cap_mim_2f0_m3m4_noshield",
+      "origin": "xpor (por_output_chain)"
+    },
+    {
+      "name": "XCC_xtemp",
+      "nodes": [
+        "xtemp__PG",
+        "xtemp__NZ"
+      ],
+      "model": "cap_mim_2f0_m3m4_noshield",
+      "origin": "xtemp (temp_core)"
+    },
+    {
+      "name": "XRZ_xtemp",
+      "nodes": [
+        "xtemp__NZ",
+        "xtemp__N2",
+        "VSS"
+      ],
+      "model": "ppolyf_u",
+      "origin": "xtemp (temp_core)"
+    },
+    {
+      "name": "XQ1_xtemp",
+      "nodes": [
+        "VSS",
+        "VSS",
+        "xtemp__NA"
+      ],
+      "model": "pnp_10p00x10p00",
+      "origin": "xtemp (temp_core)"
+    },
+    {
+      "name": "XQ8A_xtemp",
+      "nodes": [
+        "VSS",
+        "VSS",
+        "xtemp__NC"
+      ],
+      "model": "pnp_10p00x10p00",
+      "origin": "xtemp (temp_core)"
+    },
+    {
+      "name": "XQ8B_xtemp",
+      "nodes": [
+        "VSS",
+        "VSS",
+        "xtemp__NC"
+      ],
+      "model": "pnp_10p00x10p00",
+      "origin": "xtemp (temp_core)"
+    },
+    {
+      "name": "XQ8C_xtemp",
+      "nodes": [
+        "VSS",
+        "VSS",
+        "xtemp__NC"
+      ],
+      "model": "pnp_10p00x10p00",
+      "origin": "xtemp (temp_core)"
+    },
+    {
+      "name": "XQ8D_xtemp",
+      "nodes": [
+        "VSS",
+        "VSS",
+        "xtemp__NC"
+      ],
+      "model": "pnp_10p00x10p00",
+      "origin": "xtemp (temp_core)"
+    },
+    {
+      "name": "XQ8E_xtemp",
+      "nodes": [
+        "VSS",
+        "VSS",
+        "xtemp__NC"
+      ],
+      "model": "pnp_10p00x10p00",
+      "origin": "xtemp (temp_core)"
+    },
+    {
+      "name": "XQ8F_xtemp",
+      "nodes": [
+        "VSS",
+        "VSS",
+        "xtemp__NC"
+      ],
+      "model": "pnp_10p00x10p00",
+      "origin": "xtemp (temp_core)"
+    },
+    {
+      "name": "XQ8G_xtemp",
+      "nodes": [
+        "VSS",
+        "VSS",
+        "xtemp__NC"
+      ],
+      "model": "pnp_10p00x10p00",
+      "origin": "xtemp (temp_core)"
+    },
+    {
+      "name": "XQ8H_xtemp",
+      "nodes": [
+        "VSS",
+        "VSS",
+        "xtemp__NC"
+      ],
+      "model": "pnp_10p00x10p00",
+      "origin": "xtemp (temp_core)"
+    },
+    {
+      "name": "XR1_xtemp",
+      "nodes": [
+        "xtemp__NB",
+        "xtemp__NC",
+        "VSS"
+      ],
+      "model": "ppolyf_u",
+      "origin": "xtemp (temp_core)"
+    },
+    {
+      "name": "XR2F_xtemp",
+      "nodes": [
+        "PTAT",
+        "xtemp__T5",
+        "VSS"
+      ],
+      "model": "ppolyf_u",
+      "origin": "xtemp (temp_core)"
+    },
+    {
+      "name": "XR2T5_xtemp",
+      "nodes": [
+        "xtemp__T5",
+        "xtemp__T4",
+        "VSS"
+      ],
+      "model": "ppolyf_u",
+      "origin": "xtemp (temp_core)"
+    },
+    {
+      "name": "XR2T4_xtemp",
+      "nodes": [
+        "xtemp__T4",
+        "xtemp__T3",
+        "VSS"
+      ],
+      "model": "ppolyf_u",
+      "origin": "xtemp (temp_core)"
+    },
+    {
+      "name": "XR2T3_xtemp",
+      "nodes": [
+        "xtemp__T3",
+        "xtemp__T2",
+        "VSS"
+      ],
+      "model": "ppolyf_u",
+      "origin": "xtemp (temp_core)"
+    },
+    {
+      "name": "XR2T2_xtemp",
+      "nodes": [
+        "xtemp__T2",
+        "xtemp__T1",
+        "VSS"
+      ],
+      "model": "ppolyf_u",
+      "origin": "xtemp (temp_core)"
+    },
+    {
+      "name": "XR2T1_xtemp",
+      "nodes": [
+        "xtemp__T1",
+        "xtemp__T0",
+        "VSS"
+      ],
+      "model": "ppolyf_u",
+      "origin": "xtemp (temp_core)"
+    },
+    {
+      "name": "XR2T0_xtemp",
+      "nodes": [
+        "xtemp__T0",
+        "VSS",
+        "VSS"
+      ],
+      "model": "ppolyf_u",
+      "origin": "xtemp (temp_core)"
+    },
+    {
+      "name": "XRISO_xtemp",
+      "nodes": [
+        "xtemp__NA",
+        "CTAT",
+        "VSS"
+      ],
+      "model": "ppolyf_u",
+      "origin": "xtemp (temp_core)"
+    }
+  ],
+  "schematic_only_nets": [
+    "xbias__EC",
+    "xbias__ER",
+    "xbias__NZ",
+    "xtemp__NC",
+    "xtemp__NZ"
+  ],
+  "nets": [
+    {
+      "net": "BIAS_OK",
+      "extracted_net": "BIAS_OK",
+      "extracted_nets": [
+        "BIAS_OK"
+      ],
+      "reference_nets": [
+        "BIAS_OK"
+      ],
+      "body_nets_merged": [],
+      "labelled_in_layout": true,
+      "origin": "layout",
+      "mos_terminals": 5,
+      "spliced_terminals": 0,
+      "parasitic_r_ohm": 6145.4389,
+      "parasitic_c_ff": 62.7687,
+      "is_pin": false
+    },
+    {
+      "net": "CTAT",
+      "extracted_net": "CTAT",
+      "extracted_nets": [
+        "CTAT"
+      ],
+      "reference_nets": [
+        "CTAT"
+      ],
+      "body_nets_merged": [],
+      "labelled_in_layout": true,
+      "origin": "layout",
+      "mos_terminals": 1,
+      "spliced_terminals": 1,
+      "parasitic_r_ohm": 474.7403,
+      "parasitic_c_ff": 27.1954,
+      "is_pin": true
+    },
+    {
+      "net": "IBIAS",
+      "extracted_net": "IBIAS",
+      "extracted_nets": [
+        "IBIAS"
+      ],
+      "reference_nets": [
+        "IBIAS"
+      ],
+      "body_nets_merged": [],
+      "labelled_in_layout": true,
+      "origin": "layout",
+      "mos_terminals": 9,
+      "spliced_terminals": 0,
+      "parasitic_r_ohm": 10576.1726,
+      "parasitic_c_ff": 122.0841,
+      "is_pin": false
+    },
+    {
+      "net": "POR_RAW",
+      "extracted_net": "POR_RAW",
+      "extracted_nets": [
+        "POR_RAW"
+      ],
+      "reference_nets": [
+        "POR_RAW"
+      ],
+      "body_nets_merged": [],
+      "labelled_in_layout": true,
+      "origin": "layout",
+      "mos_terminals": 4,
+      "spliced_terminals": 0,
+      "parasitic_r_ohm": 5256.9367,
+      "parasitic_c_ff": 47.2218,
+      "is_pin": false
+    },
+    {
+      "net": "PTAT",
+      "extracted_net": "PTAT",
+      "extracted_nets": [
+        "PTAT"
+      ],
+      "reference_nets": [
+        "PTAT"
+      ],
+      "body_nets_merged": [],
+      "labelled_in_layout": true,
+      "origin": "layout",
+      "mos_terminals": 3,
+      "spliced_terminals": 1,
+      "parasitic_r_ohm": 847.1419,
+      "parasitic_c_ff": 30.5575,
+      "is_pin": true
+    },
+    {
+      "net": "RESETn",
+      "extracted_net": "EN|RESETn",
+      "extracted_nets": [
+        "EN|RESETn"
+      ],
+      "reference_nets": [
+        "RESETn"
+      ],
+      "body_nets_merged": [],
+      "labelled_in_layout": true,
+      "origin": "layout",
+      "mos_terminals": 7,
+      "spliced_terminals": 0,
+      "parasitic_r_ohm": 5439.8618,
+      "parasitic_c_ff": 74.2687,
+      "is_pin": true
+    },
+    {
+      "net": "VDD",
+      "extracted_net": null,
+      "extracted_nets": [
+        "$49",
+        "$50",
+        "$51",
+        "$52",
+        "$77",
+        "VDD"
+      ],
+      "reference_nets": [
+        "VDD",
+        "xbias.NW1",
+        "xcmp.NW1",
+        "xcmp.NW2",
+        "xpor.NW1",
+        "xtemp.NW1"
+      ],
+      "body_nets_merged": [
+        "xbias.NW1",
+        "xcmp.NW1",
+        "xcmp.NW2",
+        "xpor.NW1",
+        "xtemp.NW1"
+      ],
+      "labelled_in_layout": true,
+      "origin": "layout",
+      "mos_terminals": 109,
+      "spliced_terminals": 2,
+      "parasitic_r_ohm": 11430.0429,
+      "parasitic_c_ff": 337.7701,
+      "is_pin": true
+    },
+    {
+      "net": "VREF",
+      "extracted_net": "VREF",
+      "extracted_nets": [
+        "VREF"
+      ],
+      "reference_nets": [
+        "VREF"
+      ],
+      "body_nets_merged": [],
+      "labelled_in_layout": true,
+      "origin": "layout",
+      "mos_terminals": 2,
+      "spliced_terminals": 1,
+      "parasitic_r_ohm": 5992.9627,
+      "parasitic_c_ff": 52.9876,
+      "is_pin": false
+    },
+    {
+      "net": "VSS",
+      "extracted_net": null,
+      "extracted_nets": [
+        "VSS",
+        "vsubs"
+      ],
+      "reference_nets": [
+        "VSS",
+        "vsubs"
+      ],
+      "body_nets_merged": [
+        "vsubs"
+      ],
+      "labelled_in_layout": true,
+      "origin": "layout",
+      "mos_terminals": 133,
+      "spliced_terminals": 59,
+      "parasitic_r_ohm": 3249.111,
+      "parasitic_c_ff": 1475.0563,
+      "is_pin": true
+    },
+    {
+      "net": "xbias__EC",
+      "extracted_net": null,
+      "extracted_nets": [],
+      "reference_nets": [],
+      "body_nets_merged": [],
+      "labelled_in_layout": false,
+      "origin": "schematic",
+      "mos_terminals": 0,
+      "spliced_terminals": 9,
+      "parasitic_r_ohm": null,
+      "parasitic_c_ff": null,
+      "is_pin": false
+    },
+    {
+      "net": "xbias__ER",
+      "extracted_net": null,
+      "extracted_nets": [],
+      "reference_nets": [],
+      "body_nets_merged": [],
+      "labelled_in_layout": false,
+      "origin": "schematic",
+      "mos_terminals": 0,
+      "spliced_terminals": 2,
+      "parasitic_r_ohm": null,
+      "parasitic_c_ff": null,
+      "is_pin": false
+    },
+    {
+      "net": "xbias__KS1",
+      "extracted_net": "$29",
+      "extracted_nets": [
+        "$29"
+      ],
+      "reference_nets": [
+        "xbias.KS1"
+      ],
+      "body_nets_merged": [],
+      "labelled_in_layout": false,
+      "origin": "layout",
+      "mos_terminals": 3,
+      "spliced_terminals": 0,
+      "parasitic_r_ohm": 4818.8511,
+      "parasitic_c_ff": 54.3306,
+      "is_pin": false
+    },
+    {
+      "net": "xbias__KS2",
+      "extracted_net": "$30",
+      "extracted_nets": [
+        "$30"
+      ],
+      "reference_nets": [
+        "xbias.KS2"
+      ],
+      "body_nets_merged": [],
+      "labelled_in_layout": false,
+      "origin": "layout",
+      "mos_terminals": 3,
+      "spliced_terminals": 0,
+      "parasitic_r_ohm": 4819.3911,
+      "parasitic_c_ff": 54.5486,
+      "is_pin": false
+    },
+    {
+      "net": "xbias__KS3",
+      "extracted_net": "$31",
+      "extracted_nets": [
+        "$31"
+      ],
+      "reference_nets": [
+        "xbias.KS3"
+      ],
+      "body_nets_merged": [],
+      "labelled_in_layout": false,
+      "origin": "layout",
+      "mos_terminals": 3,
+      "spliced_terminals": 0,
+      "parasitic_r_ohm": 4819.931,
+      "parasitic_c_ff": 54.7667,
+      "is_pin": false
+    },
+    {
+      "net": "xbias__KS4",
+      "extracted_net": "$32",
+      "extracted_nets": [
+        "$32"
+      ],
+      "reference_nets": [
+        "xbias.KS4"
+      ],
+      "body_nets_merged": [],
+      "labelled_in_layout": false,
+      "origin": "layout",
+      "mos_terminals": 3,
+      "spliced_terminals": 0,
+      "parasitic_r_ohm": 4820.471,
+      "parasitic_c_ff": 54.9848,
+      "is_pin": false
+    },
+    {
+      "net": "xbias__N1",
+      "extracted_net": "$22",
+      "extracted_nets": [
+        "$22"
+      ],
+      "reference_nets": [
+        "xbias.N1"
+      ],
+      "body_nets_merged": [],
+      "labelled_in_layout": false,
+      "origin": "layout",
+      "mos_terminals": 4,
+      "spliced_terminals": 0,
+      "parasitic_r_ohm": 4967.8583,
+      "parasitic_c_ff": 59.7813,
+      "is_pin": false
+    },
+    {
+      "net": "xbias__N2",
+      "extracted_net": "$23",
+      "extracted_nets": [
+        "$23"
+      ],
+      "reference_nets": [
+        "xbias.N2"
+      ],
+      "body_nets_merged": [],
+      "labelled_in_layout": false,
+      "origin": "layout",
+      "mos_terminals": 3,
+      "spliced_terminals": 1,
+      "parasitic_r_ohm": 4814.5763,
+      "parasitic_c_ff": 52.6042,
+      "is_pin": false
+    },
+    {
+      "net": "xbias__NA",
+      "extracted_net": "$17",
+      "extracted_nets": [
+        "$17"
+      ],
+      "reference_nets": [
+        "xbias.NA"
+      ],
+      "body_nets_merged": [],
+      "labelled_in_layout": false,
+      "origin": "layout",
+      "mos_terminals": 3,
+      "spliced_terminals": 1,
+      "parasitic_r_ohm": 4857.571,
+      "parasitic_c_ff": 50.1637,
+      "is_pin": false
+    },
+    {
+      "net": "xbias__NB",
+      "extracted_net": "$8",
+      "extracted_nets": [
+        "$8"
+      ],
+      "reference_nets": [
+        "xbias.NB"
+      ],
+      "body_nets_merged": [],
+      "labelled_in_layout": false,
+      "origin": "layout",
+      "mos_terminals": 1,
+      "spliced_terminals": 2,
+      "parasitic_r_ohm": 4747.4272,
+      "parasitic_c_ff": 41.1174,
+      "is_pin": false
+    },
+    {
+      "net": "xbias__NBG",
+      "extracted_net": "$19",
+      "extracted_nets": [
+        "$19"
+      ],
+      "reference_nets": [
+        "xbias.NBG"
+      ],
+      "body_nets_merged": [],
+      "labelled_in_layout": false,
+      "origin": "layout",
+      "mos_terminals": 4,
+      "spliced_terminals": 0,
+      "parasitic_r_ohm": 4871.7578,
+      "parasitic_c_ff": 55.8514,
+      "is_pin": false
+    },
+    {
+      "net": "xbias__NBTOP",
+      "extracted_net": "$18",
+      "extracted_nets": [
+        "$18"
+      ],
+      "reference_nets": [
+        "xbias.NBTOP"
+      ],
+      "body_nets_merged": [],
+      "labelled_in_layout": false,
+      "origin": "layout",
+      "mos_terminals": 2,
+      "spliced_terminals": 1,
+      "parasitic_r_ohm": 4760.1747,
+      "parasitic_c_ff": 46.2236,
+      "is_pin": false
+    },
+    {
+      "net": "xbias__NKG",
+      "extracted_net": "$33",
+      "extracted_nets": [
+        "$33"
+      ],
+      "reference_nets": [
+        "xbias.NKG"
+      ],
+      "body_nets_merged": [],
+      "labelled_in_layout": false,
+      "origin": "layout",
+      "mos_terminals": 4,
+      "spliced_terminals": 0,
+      "parasitic_r_ohm": 4848.0503,
+      "parasitic_c_ff": 57.785,
+      "is_pin": false
+    },
+    {
+      "net": "xbias__NKM",
+      "extracted_net": "$24",
+      "extracted_nets": [
+        "$24"
+      ],
+      "reference_nets": [
+        "xbias.NKM"
+      ],
+      "body_nets_merged": [],
+      "labelled_in_layout": false,
+      "origin": "layout",
+      "mos_terminals": 4,
+      "spliced_terminals": 0,
+      "parasitic_r_ohm": 4876.8874,
+      "parasitic_c_ff": 57.9231,
+      "is_pin": false
+    },
+    {
+      "net": "xbias__NOKL",
+      "extracted_net": "$27",
+      "extracted_nets": [
+        "$27"
+      ],
+      "reference_nets": [
+        "xbias.NOKL"
+      ],
+      "body_nets_merged": [],
+      "labelled_in_layout": false,
+      "origin": "layout",
+      "mos_terminals": 4,
+      "spliced_terminals": 0,
+      "parasitic_r_ohm": 4883.997,
+      "parasitic_c_ff": 60.7943,
+      "is_pin": false
+    },
+    {
+      "net": "xbias__NOKO",
+      "extracted_net": "$26",
+      "extracted_nets": [
+        "$26"
+      ],
+      "reference_nets": [
+        "xbias.NOKO"
+      ],
+      "body_nets_merged": [],
+      "labelled_in_layout": false,
+      "origin": "layout",
+      "mos_terminals": 4,
+      "spliced_terminals": 0,
+      "parasitic_r_ohm": 4792.4183,
+      "parasitic_c_ff": 59.1619,
+      "is_pin": false
+    },
+    {
+      "net": "xbias__NOKX",
+      "extracted_net": "$28",
+      "extracted_nets": [
+        "$28"
+      ],
+      "reference_nets": [
+        "xbias.NOKX"
+      ],
+      "body_nets_merged": [],
+      "labelled_in_layout": false,
+      "origin": "layout",
+      "mos_terminals": 4,
+      "spliced_terminals": 1,
+      "parasitic_r_ohm": 4848.4085,
+      "parasitic_c_ff": 59.7519,
+      "is_pin": false
+    },
+    {
+      "net": "xbias__NT",
+      "extracted_net": "$21",
+      "extracted_nets": [
+        "$21"
+      ],
+      "reference_nets": [
+        "xbias.NT"
+      ],
+      "body_nets_merged": [],
+      "labelled_in_layout": false,
+      "origin": "layout",
+      "mos_terminals": 3,
+      "spliced_terminals": 0,
+      "parasitic_r_ohm": 4684.5858,
+      "parasitic_c_ff": 49.9518,
+      "is_pin": false
+    },
+    {
+      "net": "xbias__NZ",
+      "extracted_net": null,
+      "extracted_nets": [],
+      "reference_nets": [],
+      "body_nets_merged": [],
+      "labelled_in_layout": false,
+      "origin": "schematic",
+      "mos_terminals": 0,
+      "spliced_terminals": 2,
+      "parasitic_r_ohm": null,
+      "parasitic_c_ff": null,
+      "is_pin": false
+    },
+    {
+      "net": "xbias__PB",
+      "extracted_net": "$7",
+      "extracted_nets": [
+        "$7"
+      ],
+      "reference_nets": [
+        "xbias.PB"
+      ],
+      "body_nets_merged": [],
+      "labelled_in_layout": false,
+      "origin": "layout",
+      "mos_terminals": 9,
+      "spliced_terminals": 0,
+      "parasitic_r_ohm": 5396.0003,
+      "parasitic_c_ff": 79.1681,
+      "is_pin": false
+    },
+    {
+      "net": "xbias__PG",
+      "extracted_net": "$6",
+      "extracted_nets": [
+        "$6"
+      ],
+      "reference_nets": [
+        "xbias.PG"
+      ],
+      "body_nets_merged": [],
+      "labelled_in_layout": false,
+      "origin": "layout",
+      "mos_terminals": 7,
+      "spliced_terminals": 1,
+      "parasitic_r_ohm": 5084.0134,
+      "parasitic_c_ff": 68.1472,
+      "is_pin": false
+    },
+    {
+      "net": "xbias__TOK",
+      "extracted_net": "$25",
+      "extracted_nets": [
+        "$25"
+      ],
+      "reference_nets": [
+        "xbias.TOK"
+      ],
+      "body_nets_merged": [],
+      "labelled_in_layout": false,
+      "origin": "layout",
+      "mos_terminals": 3,
+      "spliced_terminals": 0,
+      "parasitic_r_ohm": 4690.5254,
+      "parasitic_c_ff": 52.3505,
+      "is_pin": false
+    },
+    {
+      "net": "xcmp__BIAS_OKB",
+      "extracted_net": "BIAS_OKB",
+      "extracted_nets": [
+        "BIAS_OKB"
+      ],
+      "reference_nets": [
+        "xcmp.BIAS_OKB"
+      ],
+      "body_nets_merged": [],
+      "labelled_in_layout": true,
+      "origin": "layout",
+      "mos_terminals": 6,
+      "spliced_terminals": 0,
+      "parasitic_r_ohm": 1631.1837,
+      "parasitic_c_ff": 21.6593,
+      "is_pin": false
+    },
+    {
+      "net": "xcmp__CMPO",
+      "extracted_net": "$36",
+      "extracted_nets": [
+        "$36"
+      ],
+      "reference_nets": [
+        "xcmp.CMPO"
+      ],
+      "body_nets_merged": [],
+      "labelled_in_layout": false,
+      "origin": "layout",
+      "mos_terminals": 5,
+      "spliced_terminals": 0,
+      "parasitic_r_ohm": 1382.1249,
+      "parasitic_c_ff": 17.7667,
+      "is_pin": false
+    },
+    {
+      "net": "xcmp__N1",
+      "extracted_net": "$37",
+      "extracted_nets": [
+        "$37"
+      ],
+      "reference_nets": [
+        "xcmp.N1"
+      ],
+      "body_nets_merged": [],
+      "labelled_in_layout": false,
+      "origin": "layout",
+      "mos_terminals": 5,
+      "spliced_terminals": 0,
+      "parasitic_r_ohm": 1437.8825,
+      "parasitic_c_ff": 17.8661,
+      "is_pin": false
+    },
+    {
+      "net": "xcmp__NA",
+      "extracted_net": "$35",
+      "extracted_nets": [
+        "$35"
+      ],
+      "reference_nets": [
+        "xcmp.NA"
+      ],
+      "body_nets_merged": [],
+      "labelled_in_layout": false,
+      "origin": "layout",
+      "mos_terminals": 4,
+      "spliced_terminals": 0,
+      "parasitic_r_ohm": 1384.846,
+      "parasitic_c_ff": 15.8685,
+      "is_pin": false
+    },
+    {
+      "net": "xcmp__NBG",
+      "extracted_net": "$11",
+      "extracted_nets": [
+        "$11"
+      ],
+      "reference_nets": [
+        "xcmp.NBG"
+      ],
+      "body_nets_merged": [],
+      "labelled_in_layout": false,
+      "origin": "layout",
+      "mos_terminals": 4,
+      "spliced_terminals": 0,
+      "parasitic_r_ohm": 1516.9554,
+      "parasitic_c_ff": 21.326,
+      "is_pin": false
+    },
+    {
+      "net": "xcmp__SNS",
+      "extracted_net": "$10",
+      "extracted_nets": [
+        "$10"
+      ],
+      "reference_nets": [
+        "xcmp.SNS"
+      ],
+      "body_nets_merged": [],
+      "labelled_in_layout": false,
+      "origin": "layout",
+      "mos_terminals": 1,
+      "spliced_terminals": 2,
+      "parasitic_r_ohm": 1614.0367,
+      "parasitic_c_ff": 13.8696,
+      "is_pin": false
+    },
+    {
+      "net": "xcmp__SNSB",
+      "extracted_net": "$39",
+      "extracted_nets": [
+        "$39"
+      ],
+      "reference_nets": [
+        "xcmp.SNSB"
+      ],
+      "body_nets_merged": [],
+      "labelled_in_layout": false,
+      "origin": "layout",
+      "mos_terminals": 1,
+      "spliced_terminals": 2,
+      "parasitic_r_ohm": 1556.3463,
+      "parasitic_c_ff": 14.3923,
+      "is_pin": false
+    },
+    {
+      "net": "xcmp__TN",
+      "extracted_net": "$38",
+      "extracted_nets": [
+        "$38"
+      ],
+      "reference_nets": [
+        "xcmp.TN"
+      ],
+      "body_nets_merged": [],
+      "labelled_in_layout": false,
+      "origin": "layout",
+      "mos_terminals": 3,
+      "spliced_terminals": 0,
+      "parasitic_r_ohm": 1261.1261,
+      "parasitic_c_ff": 13.5887,
+      "is_pin": false
+    },
+    {
+      "net": "xcmp__VDDA",
+      "extracted_net": "$34",
+      "extracted_nets": [
+        "$34"
+      ],
+      "reference_nets": [
+        "xcmp.VDDA"
+      ],
+      "body_nets_merged": [],
+      "labelled_in_layout": false,
+      "origin": "layout",
+      "mos_terminals": 3,
+      "spliced_terminals": 0,
+      "parasitic_r_ohm": 1263.8244,
+      "parasitic_c_ff": 14.679,
+      "is_pin": false
+    },
+    {
+      "net": "xpor__ND1",
+      "extracted_net": "$15",
+      "extracted_nets": [
+        "$15"
+      ],
+      "reference_nets": [
+        "xpor.ND1"
+      ],
+      "body_nets_merged": [],
+      "labelled_in_layout": false,
+      "origin": "layout",
+      "mos_terminals": 3,
+      "spliced_terminals": 0,
+      "parasitic_r_ohm": 3938.5423,
+      "parasitic_c_ff": 36.9999,
+      "is_pin": false
+    },
+    {
+      "net": "xpor__NDG",
+      "extracted_net": "$41",
+      "extracted_nets": [
+        "$41"
+      ],
+      "reference_nets": [
+        "xpor.NDG"
+      ],
+      "body_nets_merged": [],
+      "labelled_in_layout": false,
+      "origin": "layout",
+      "mos_terminals": 4,
+      "spliced_terminals": 1,
+      "parasitic_r_ohm": 4004.4196,
+      "parasitic_c_ff": 38.0628,
+      "is_pin": false
+    },
+    {
+      "net": "xpor__NDGN",
+      "extracted_net": "$40",
+      "extracted_nets": [
+        "$40"
+      ],
+      "reference_nets": [
+        "xpor.NDGN"
+      ],
+      "body_nets_merged": [],
+      "labelled_in_layout": false,
+      "origin": "layout",
+      "mos_terminals": 2,
+      "spliced_terminals": 0,
+      "parasitic_r_ohm": 3871.3807,
+      "parasitic_c_ff": 33.743,
+      "is_pin": false
+    },
+    {
+      "net": "xpor__NDGP",
+      "extracted_net": "$46",
+      "extracted_nets": [
+        "$46"
+      ],
+      "reference_nets": [
+        "xpor.NDGP"
+      ],
+      "body_nets_merged": [],
+      "labelled_in_layout": false,
+      "origin": "layout",
+      "mos_terminals": 2,
+      "spliced_terminals": 0,
+      "parasitic_r_ohm": 3871.0209,
+      "parasitic_c_ff": 33.5976,
+      "is_pin": false
+    },
+    {
+      "net": "xpor__NDL",
+      "extracted_net": "$13",
+      "extracted_nets": [
+        "$13"
+      ],
+      "reference_nets": [
+        "xpor.NDL"
+      ],
+      "body_nets_merged": [],
+      "labelled_in_layout": false,
+      "origin": "layout",
+      "mos_terminals": 5,
+      "spliced_terminals": 0,
+      "parasitic_r_ohm": 4397.8512,
+      "parasitic_c_ff": 46.8548,
+      "is_pin": false
+    },
+    {
+      "net": "xpor__NNAND",
+      "extracted_net": "$45",
+      "extracted_nets": [
+        "$45"
+      ],
+      "reference_nets": [
+        "xpor.NNAND"
+      ],
+      "body_nets_merged": [],
+      "labelled_in_layout": false,
+      "origin": "layout",
+      "mos_terminals": 2,
+      "spliced_terminals": 0,
+      "parasitic_r_ohm": 3874.2598,
+      "parasitic_c_ff": 34.9061,
+      "is_pin": false
+    },
+    {
+      "net": "xpor__NTS",
+      "extracted_net": "$16",
+      "extracted_nets": [
+        "$16"
+      ],
+      "reference_nets": [
+        "xpor.NTS"
+      ],
+      "body_nets_merged": [],
+      "labelled_in_layout": false,
+      "origin": "layout",
+      "mos_terminals": 2,
+      "spliced_terminals": 0,
+      "parasitic_r_ohm": 3872.8202,
+      "parasitic_c_ff": 34.3245,
+      "is_pin": false
+    },
+    {
+      "net": "xpor__PDN",
+      "extracted_net": "$12",
+      "extracted_nets": [
+        "$12"
+      ],
+      "reference_nets": [
+        "xpor.PDN"
+      ],
+      "body_nets_merged": [],
+      "labelled_in_layout": false,
+      "origin": "layout",
+      "mos_terminals": 7,
+      "spliced_terminals": 0,
+      "parasitic_r_ohm": 4808.7621,
+      "parasitic_c_ff": 56.0048,
+      "is_pin": false
+    },
+    {
+      "net": "xpor__PGDG",
+      "extracted_net": "$42",
+      "extracted_nets": [
+        "$42"
+      ],
+      "reference_nets": [
+        "xpor.PGDG"
+      ],
+      "body_nets_merged": [],
+      "labelled_in_layout": false,
+      "origin": "layout",
+      "mos_terminals": 6,
+      "spliced_terminals": 0,
+      "parasitic_r_ohm": 4123.7127,
+      "parasitic_c_ff": 41.8228,
+      "is_pin": false
+    },
+    {
+      "net": "xpor__PGDGB",
+      "extracted_net": "$14",
+      "extracted_nets": [
+        "$14"
+      ],
+      "reference_nets": [
+        "xpor.PGDGB"
+      ],
+      "body_nets_merged": [],
+      "labelled_in_layout": false,
+      "origin": "layout",
+      "mos_terminals": 4,
+      "spliced_terminals": 0,
+      "parasitic_r_ohm": 4001.1623,
+      "parasitic_c_ff": 38.4214,
+      "is_pin": false
+    },
+    {
+      "net": "xpor__RSTB",
+      "extracted_net": "$47",
+      "extracted_nets": [
+        "$47"
+      ],
+      "reference_nets": [
+        "xpor.RSTB"
+      ],
+      "body_nets_merged": [],
+      "labelled_in_layout": false,
+      "origin": "layout",
+      "mos_terminals": 6,
+      "spliced_terminals": 0,
+      "parasitic_r_ohm": 4010.467,
+      "parasitic_c_ff": 43.7315,
+      "is_pin": false
+    },
+    {
+      "net": "xpor__TIM",
+      "extracted_net": "$43",
+      "extracted_nets": [
+        "$43"
+      ],
+      "reference_nets": [
+        "xpor.TIM"
+      ],
+      "body_nets_merged": [],
+      "labelled_in_layout": false,
+      "origin": "layout",
+      "mos_terminals": 3,
+      "spliced_terminals": 1,
+      "parasitic_r_ohm": 3937.7776,
+      "parasitic_c_ff": 36.691,
+      "is_pin": false
+    },
+    {
+      "net": "xpor__TRIP",
+      "extracted_net": "$44",
+      "extracted_nets": [
+        "$44"
+      ],
+      "reference_nets": [
+        "xpor.TRIP"
+      ],
+      "body_nets_merged": [],
+      "labelled_in_layout": false,
+      "origin": "layout",
+      "mos_terminals": 4,
+      "spliced_terminals": 0,
+      "parasitic_r_ohm": 3994.4831,
+      "parasitic_c_ff": 38.9569,
+      "is_pin": false
+    },
+    {
+      "net": "xtemp__ENB",
+      "extracted_net": "ENB",
+      "extracted_nets": [
+        "ENB"
+      ],
+      "reference_nets": [
+        "xtemp.ENB"
+      ],
+      "body_nets_merged": [],
+      "labelled_in_layout": true,
+      "origin": "layout",
+      "mos_terminals": 8,
+      "spliced_terminals": 0,
+      "parasitic_r_ohm": 1686.1221,
+      "parasitic_c_ff": 36.1461,
+      "is_pin": false
+    },
+    {
+      "net": "xtemp__M1D",
+      "extracted_net": "M1D",
+      "extracted_nets": [
+        "M1D"
+      ],
+      "reference_nets": [
+        "xtemp.M1D"
+      ],
+      "body_nets_merged": [],
+      "labelled_in_layout": true,
+      "origin": "layout",
+      "mos_terminals": 4,
+      "spliced_terminals": 0,
+      "parasitic_r_ohm": 1180.5884,
+      "parasitic_c_ff": 25.4308,
+      "is_pin": false
+    },
+    {
+      "net": "xtemp__M2D",
+      "extracted_net": "M2D",
+      "extracted_nets": [
+        "M2D"
+      ],
+      "reference_nets": [
+        "xtemp.M2D"
+      ],
+      "body_nets_merged": [],
+      "labelled_in_layout": true,
+      "origin": "layout",
+      "mos_terminals": 4,
+      "spliced_terminals": 0,
+      "parasitic_r_ohm": 1105.0547,
+      "parasitic_c_ff": 24.0399,
+      "is_pin": false
+    },
+    {
+      "net": "xtemp__M3D",
+      "extracted_net": "M3D",
+      "extracted_nets": [
+        "M3D"
+      ],
+      "reference_nets": [
+        "xtemp.M3D"
+      ],
+      "body_nets_merged": [],
+      "labelled_in_layout": true,
+      "origin": "layout",
+      "mos_terminals": 4,
+      "spliced_terminals": 0,
+      "parasitic_r_ohm": 1029.5295,
+      "parasitic_c_ff": 22.6489,
+      "is_pin": false
+    },
+    {
+      "net": "xtemp__N1",
+      "extracted_net": "N1",
+      "extracted_nets": [
+        "N1"
+      ],
+      "reference_nets": [
+        "xtemp.N1"
+      ],
+      "body_nets_merged": [],
+      "labelled_in_layout": true,
+      "origin": "layout",
+      "mos_terminals": 8,
+      "spliced_terminals": 0,
+      "parasitic_r_ohm": 3844.0985,
+      "parasitic_c_ff": 38.5894,
+      "is_pin": false
+    },
+    {
+      "net": "xtemp__N2",
+      "extracted_net": "N2",
+      "extracted_nets": [
+        "N2"
+      ],
+      "reference_nets": [
+        "xtemp.N2"
+      ],
+      "body_nets_merged": [],
+      "labelled_in_layout": true,
+      "origin": "layout",
+      "mos_terminals": 6,
+      "spliced_terminals": 1,
+      "parasitic_r_ohm": 2240.7855,
+      "parasitic_c_ff": 44.0329,
+      "is_pin": false
+    },
+    {
+      "net": "xtemp__NA",
+      "extracted_net": "NA",
+      "extracted_nets": [
+        "NA"
+      ],
+      "reference_nets": [
+        "xtemp.NA"
+      ],
+      "body_nets_merged": [],
+      "labelled_in_layout": true,
+      "origin": "layout",
+      "mos_terminals": 4,
+      "spliced_terminals": 2,
+      "parasitic_r_ohm": 1928.7659,
+      "parasitic_c_ff": 29.0978,
+      "is_pin": false
+    },
+    {
+      "net": "xtemp__NB",
+      "extracted_net": "NB",
+      "extracted_nets": [
+        "NB"
+      ],
+      "reference_nets": [
+        "xtemp.NB"
+      ],
+      "body_nets_merged": [],
+      "labelled_in_layout": true,
+      "origin": "layout",
+      "mos_terminals": 4,
+      "spliced_terminals": 1,
+      "parasitic_r_ohm": 1853.5061,
+      "parasitic_c_ff": 27.7069,
+      "is_pin": false
+    },
+    {
+      "net": "xtemp__NBG",
+      "extracted_net": "NBG",
+      "extracted_nets": [
+        "NBG"
+      ],
+      "reference_nets": [
+        "xtemp.NBG"
+      ],
+      "body_nets_merged": [],
+      "labelled_in_layout": true,
+      "origin": "layout",
+      "mos_terminals": 5,
+      "spliced_terminals": 0,
+      "parasitic_r_ohm": 1144.9314,
+      "parasitic_c_ff": 26.9461,
+      "is_pin": false
+    },
+    {
+      "net": "xtemp__NC",
+      "extracted_net": null,
+      "extracted_nets": [],
+      "reference_nets": [],
+      "body_nets_merged": [],
+      "labelled_in_layout": false,
+      "origin": "schematic",
+      "mos_terminals": 0,
+      "spliced_terminals": 9,
+      "parasitic_r_ohm": null,
+      "parasitic_c_ff": null,
+      "is_pin": false
+    },
+    {
+      "net": "xtemp__ND",
+      "extracted_net": "ND",
+      "extracted_nets": [
+        "ND"
+      ],
+      "reference_nets": [
+        "xtemp.ND"
+      ],
+      "body_nets_merged": [],
+      "labelled_in_layout": true,
+      "origin": "layout",
+      "mos_terminals": 4,
+      "spliced_terminals": 0,
+      "parasitic_r_ohm": 1476.2059,
+      "parasitic_c_ff": 34.4808,
+      "is_pin": false
+    },
+    {
+      "net": "xtemp__NR",
+      "extracted_net": "NR",
+      "extracted_nets": [
+        "NR"
+      ],
+      "reference_nets": [
+        "xtemp.NR"
+      ],
+      "body_nets_merged": [],
+      "labelled_in_layout": true,
+      "origin": "layout",
+      "mos_terminals": 4,
+      "spliced_terminals": 0,
+      "parasitic_r_ohm": 1658.5064,
+      "parasitic_c_ff": 35.1105,
+      "is_pin": false
+    },
+    {
+      "net": "xtemp__NT",
+      "extracted_net": null,
+      "extracted_nets": [
+        "$76",
+        "NT"
+      ],
+      "reference_nets": [
+        "xtemp.NT",
+        "xtemp.NW2"
+      ],
+      "body_nets_merged": [
+        "xtemp.NW2"
+      ],
+      "labelled_in_layout": true,
+      "origin": "layout",
+      "mos_terminals": 18,
+      "spliced_terminals": 0,
+      "parasitic_r_ohm": 5050.5517,
+      "parasitic_c_ff": 75.7243,
+      "is_pin": false
+    },
+    {
+      "net": "xtemp__NZ",
+      "extracted_net": null,
+      "extracted_nets": [],
+      "reference_nets": [],
+      "body_nets_merged": [],
+      "labelled_in_layout": false,
+      "origin": "schematic",
+      "mos_terminals": 0,
+      "spliced_terminals": 2,
+      "parasitic_r_ohm": null,
+      "parasitic_c_ff": null,
+      "is_pin": false
+    },
+    {
+      "net": "xtemp__PB",
+      "extracted_net": "PB",
+      "extracted_nets": [
+        "PB"
+      ],
+      "reference_nets": [
+        "xtemp.PB"
+      ],
+      "body_nets_merged": [],
+      "labelled_in_layout": true,
+      "origin": "layout",
+      "mos_terminals": 6,
+      "spliced_terminals": 0,
+      "parasitic_r_ohm": 3354.4466,
+      "parasitic_c_ff": 45.7031,
+      "is_pin": false
+    },
+    {
+      "net": "xtemp__PCAS",
+      "extracted_net": "PCAS",
+      "extracted_nets": [
+        "PCAS"
+      ],
+      "reference_nets": [
+        "xtemp.PCAS"
+      ],
+      "body_nets_merged": [],
+      "labelled_in_layout": true,
+      "origin": "layout",
+      "mos_terminals": 9,
+      "spliced_terminals": 0,
+      "parasitic_r_ohm": 4257.7848,
+      "parasitic_c_ff": 51.4302,
+      "is_pin": false
+    },
+    {
+      "net": "xtemp__PG",
+      "extracted_net": "PG",
+      "extracted_nets": [
+        "PG"
+      ],
+      "reference_nets": [
+        "xtemp.PG"
+      ],
+      "body_nets_merged": [],
+      "labelled_in_layout": true,
+      "origin": "layout",
+      "mos_terminals": 11,
+      "spliced_terminals": 1,
+      "parasitic_r_ohm": 4774.5776,
+      "parasitic_c_ff": 59.1151,
+      "is_pin": false
+    },
+    {
+      "net": "xtemp__T0",
+      "extracted_net": "T0",
+      "extracted_nets": [
+        "T0"
+      ],
+      "reference_nets": [
+        "xtemp.T0"
+      ],
+      "body_nets_merged": [],
+      "labelled_in_layout": true,
+      "origin": "layout",
+      "mos_terminals": 2,
+      "spliced_terminals": 2,
+      "parasitic_r_ohm": 1166.127,
+      "parasitic_c_ff": 39.5244,
+      "is_pin": false
+    },
+    {
+      "net": "xtemp__T1",
+      "extracted_net": "T1",
+      "extracted_nets": [
+        "T1"
+      ],
+      "reference_nets": [
+        "xtemp.T1"
+      ],
+      "body_nets_merged": [],
+      "labelled_in_layout": true,
+      "origin": "layout",
+      "mos_terminals": 2,
+      "spliced_terminals": 2,
+      "parasitic_r_ohm": 1129.9138,
+      "parasitic_c_ff": 39.3243,
+      "is_pin": false
+    },
+    {
+      "net": "xtemp__T2",
+      "extracted_net": "T2",
+      "extracted_nets": [
+        "T2"
+      ],
+      "reference_nets": [
+        "xtemp.T2"
+      ],
+      "body_nets_merged": [],
+      "labelled_in_layout": true,
+      "origin": "layout",
+      "mos_terminals": 2,
+      "spliced_terminals": 2,
+      "parasitic_r_ohm": 1093.8697,
+      "parasitic_c_ff": 39.1773,
+      "is_pin": false
+    },
+    {
+      "net": "xtemp__T3",
+      "extracted_net": "T3",
+      "extracted_nets": [
+        "T3"
+      ],
+      "reference_nets": [
+        "xtemp.T3"
+      ],
+      "body_nets_merged": [],
+      "labelled_in_layout": true,
+      "origin": "layout",
+      "mos_terminals": 2,
+      "spliced_terminals": 2,
+      "parasitic_r_ohm": 1057.6573,
+      "parasitic_c_ff": 38.9772,
+      "is_pin": false
+    },
+    {
+      "net": "xtemp__T4",
+      "extracted_net": "T4",
+      "extracted_nets": [
+        "T4"
+      ],
+      "reference_nets": [
+        "xtemp.T4"
+      ],
+      "body_nets_merged": [],
+      "labelled_in_layout": true,
+      "origin": "layout",
+      "mos_terminals": 2,
+      "spliced_terminals": 2,
+      "parasitic_r_ohm": 1021.6142,
+      "parasitic_c_ff": 38.8302,
+      "is_pin": false
+    },
+    {
+      "net": "xtemp__T5",
+      "extracted_net": "T5",
+      "extracted_nets": [
+        "T5"
+      ],
+      "reference_nets": [
+        "xtemp.T5"
+      ],
+      "body_nets_merged": [],
+      "labelled_in_layout": true,
+      "origin": "layout",
+      "mos_terminals": 1,
+      "spliced_terminals": 2,
+      "parasitic_r_ohm": 522.434,
+      "parasitic_c_ff": 31.0047,
+      "is_pin": false
+    }
+  ],
+  "readme_claims": [
+    {
+      "claim": "every non-MOS device of all four sub-circuits is outside this compare, so the nets they alone own are absent from the extraction",
+      "holds": true,
+      "findings": [
+        "xbias__EC: schematic-only",
+        "xbias__ER: schematic-only",
+        "xbias__NZ: schematic-only",
+        "xtemp__NC: schematic-only",
+        "xtemp__NZ: schematic-only"
+      ]
+    },
+    {
+      "claim": "IBIAS is the one bias net that crosses the domain seam and it is a real drawn net shared by all four sub-circuits",
+      "holds": true,
+      "findings": [
+        "IBIAS: extracted as IBIAS, 9 MOS terminal(s), labelled"
+      ]
+    }
+  ]
+}

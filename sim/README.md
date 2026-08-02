@@ -81,6 +81,18 @@ fields:
 - **Netlist provenance** — `schematic` (`design/...`) or `extracted`
   (post-layout, `layout/...`). Required so post-layout re-runs are
   distinguishable from the original schematic-level record.
+  A post-layout run on this block is in practice
+  `composite post-layout (layout/composite/<cell>.composite.spice)`, **not**
+  a plain `extracted`, and the distinction is load-bearing: the curated
+  extraction deck sees no bipolar, resistor or MiM cap in any of this
+  block's drawn cells, so a composite netlist carries the layout's real MOS
+  devices and real interconnect R/C with the passives and bipolars spliced
+  in **ideal, verbatim from the schematic**. A record taken on one must say
+  so in its **Claim** field as well — what it substantiates is real
+  parasitic loading on the real MOS topology, not a parasitic-extracted
+  analog core. The convention and the per-cell audit are
+  [`layout/README.md` → "Composite post-layout netlists"](../layout/README.md#composite-post-layout-netlists)
+  and [`layout/composite/AUDIT.md`](../layout/composite/AUDIT.md).
 - **Corner matrix run** — explicit list of (process corner, temperature,
   supply) points actually executed. Must be the full PVT matrix from
   CLAUDE.md (−40/27/125 °C, ±10% supply, process corners) unless the record
@@ -244,11 +256,15 @@ a simulation — `sim/temp-accuracy-vt/analyze_derived.py` and
 source record, makes no measurement of its own, and does not supersede the
 record it reads.
 
-A later post-layout extracted re-run (#18) of the original corner-matrix
-claim would live under the same `temp-accuracy/` experiment directory with
-its own `<record-id>`, `Netlist provenance: extracted (layout/... ->
-extracted netlist)`, and a `Supersedes: 20260729-153000-1a7ef75` field
-carrying a schematic-vs-extracted delta summary in its Result section.
+A later post-layout re-run (#18) of the original corner-matrix claim would
+live under the same `temp-accuracy/` experiment directory with its own
+`<record-id>`, `Netlist provenance: composite post-layout
+(layout/composite/<cell>.composite.spice)`, and a
+`Supersedes: 20260729-153000-1a7ef75` field carrying a
+schematic-vs-post-layout delta summary in its Result section. Its Claim must
+carry the composite netlist's own caveat — ideal passives and bipolars,
+real MOS and real interconnect R/C — since only part of the circuit is
+post-layout at all.
 
 ## Pre-harness evidence (`sim/devchar/`, issue #4)
 

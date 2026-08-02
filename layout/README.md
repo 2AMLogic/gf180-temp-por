@@ -29,6 +29,11 @@ interactive KLayout session, no netgen/magic.
 > #17's floorplan sketch and matching plan — the ranked, #15-data-driven
 > common-centroid/interdigitation/guard-ring plan this flow's cells implement —
 > is [`layout/floorplan.md`](floorplan.md).
+> **Post-layout simulation** does not follow from a clean LVS here, because the
+> extraction has no bipolars, resistors or caps in it to simulate. #82 builds
+> the bridge — extracted MOS + real interconnect parasitics, schematic-ideal
+> passives — and is honest about which half is which: see
+> [Composite post-layout netlists](#composite-post-layout-netlists).
 
 ## Run it
 
@@ -234,6 +239,19 @@ Consequences to carry forward:
 
 - `SNS` and `SNSB` appear with **one** MOS terminal each (`XMINA`'s gate,
   `XMHSW`'s drain); their other connections are to devices that are not drawn.
+  **They do not appear under those names in `extracted.spice`** — `grep -i sns
+  layout/reports/por_comparator/extracted.spice` returns nothing, and the same
+  is true of `temp_por_top`'s. That is not a missing net: no Metal1 *label* is
+  drawn on either routing track (this cell labels only the 6 nets that are
+  pins, plus the 2 it inherits from the instanced sub-cell), so extraction
+  names both positionally — they are `$10` and `$14` in the current build. The
+  schematic names survive only on the reference side of LVS, and the
+  correspondence between the two is topological, not textual. Anything that
+  needs to attach to those nodes must **solve** that correspondence rather
+  than grep for a name; `layout/composite_netlist.py` does, and
+  [`layout/composite/AUDIT.md`](composite/AUDIT.md) records which anonymous
+  net each schematic name landed on for every cell. The same caution applies
+  to every unlabelled net in every cell, not just these two.
 - Nothing here says `RTOP/RBOT` is 1.16667, that V_hys is 150 mV, or that the
   three segments match. Those are `sim/`'s claims, unchanged.
 - The reserved rectangle is **222.0 × 219.5 µm = 0.0487 mm²**, computed by
@@ -534,6 +552,119 @@ Recorded result (`layout/reports/por_comparator_bias_okb_inv/`):
 | `klt lvs` | **match** — 2/2 devices, 6/6 nets, 5/5 pins, 0 mismatches |
 | negative control `topology` | detected (exit 3, mismatch) |
 | negative control `device-param` | detected (exit 3, mismatch) |
+
+## Composite post-layout netlists
+
+`klt extract` produces a **MOS-only** netlist for every cell here — no
+bipolar, no resistor, no MiM cap, in any of them (see
+[Known deck limits](#known-deck-limits--what-a-clean-lvs-here-does-not-prove);
+the deck now *declares* those classes, but none of the drawn cells carries the
+marker geometry they need). So "re-run the verification suite on the extracted
+netlist" cannot be done literally: the devices that set this block's analog
+behaviour are not in the extraction at all, and `klt extract --parasitics`
+only ever hangs first-order R/C on the nets that exist in that MOS-only graph.
+
+What *can* be done is a **composite** netlist, and
+`layout/composite_netlist.py` builds one per cell:
+
+```bash
+python3 layout/composite_netlist.py --extract   # klt extract --parasitics (needs klt)
+python3 layout/composite_netlist.py             # regenerate layout/composite/
+python3 layout/composite_netlist.py --check     # committed outputs still current?
+python3 layout/composite_smoke.py               # DC smoke run (needs ngspice + PDK)
+```
+
+| Part of the composite netlist | Comes from | Real? |
+| --- | --- | --- |
+| every MOS device, with its drawn `L`/`W`/`AS`/`AD`/`PS`/`PD` | `klt extract --deck gf180mcu --parasitics` | **yes — layout** |
+| one series R + one lumped C per net | the same run | **yes — layout** (first-order, from the deck's curated sheet table; not a field solve) |
+| MOS *body* nodes | the golden schematic | no — the deck has no tap/well-label layer, so an extracted body lands on a substrate global or an anonymous well net, and a floating body cannot be simulated |
+| vertical PNPs, poly resistors, MiM caps | `design/netlist/<cell>.spice`, **verbatim** | **no — ideal**; not drawn anywhere, so no geometry, no parasitics, no layout-derived matching |
+| the nets those devices alone own (`EC`, `ER`, `NZ`, `NC`, …) | introduced by the splice | no — brand-new nodes, checked by name against every extracted net so the splice cannot short one |
+
+**What a result taken on one of these may claim.** Real interconnect
+parasitics loading the real MOS topology — the sensing core's high-impedance
+bias/mirror nodes, the POR chain's switching nodes, the cross-domain
+routing — and nothing else. It is **not** a parasitic-extracted analog core.
+Every generated netlist repeats that in its own header; every `sim/` record
+taken against one must repeat it in its **Claim** field, per CLAUDE.md's "no
+claim without a testbench" and "the spec is not relaxed to make a result
+pass". A record's **Netlist provenance** field should read
+`composite post-layout (layout/composite/<cell>.composite.spice)`.
+
+**Where to expect a difference, and where not to.** The parasitic model is one
+series R feeding one lumped C per net. At DC the R carries no current and the
+C is an open, so **every DC quantity is parasitic-invariant by construction** —
+and `layout/composite/SMOKE.md` measures exactly that: all five cells
+reproduce their golden-schematic operating points to within 0.04 %. A
+switching edge is a different matter; `temp_por_top`'s reset release moves
+**+1.9 %** on the same run. Post-layout claims worth recording against these
+netlists are therefore timing/edge claims, not DC ones.
+
+**How the splice knows where to attach.** Not by name. Most extracted nets are
+anonymous (`$5`, `$12`, …) because the layout labels only its pins, so the
+schematic net names survive only on the reference side of LVS — the
+`SNS`/`SNSB` case above is the one that bites. `composite_netlist.py`
+therefore *solves* the net correspondence between the extracted netlist and
+`layout/cells/<cell>.reference.spice` (colour refinement plus backtracking,
+seeded by the pin names both sides agree on) — the same correspondence
+`klt lvs` computes internally but does not report, filed upstream as
+[klayout-tools#311](https://github.com/2AMLogic/klayout-tools/issues/311). The
+solved mapping is **verified, not trusted**:
+
+| Check | Catches |
+| --- | --- |
+| the extracted device multiset, translated through the mapping, equals the reference device multiset | any wrong pairing anywhere in the graph |
+| the mapping is a bijection, onto, and maps pins to pins | a merge that would short two nets |
+| every extracted net that *does* carry a drawn label lands on the reference net of the same name | a plausible-but-wrong isomorphism — the solver is never given below-top labels, so this is independent information |
+| no spliced-in node name collides with an extracted net name | the splice silently shorting a new node onto a real one |
+| the golden schematic, run through a byte-identical smoke deck, gives the same answer | a splice attached to the wrong node, which would still converge and still print numbers |
+
+Two negative controls in `layout/tests/test_composite_netlist.py` keep those
+honest: swapping two nets of a solved mapping must be rejected, and
+`lvs_reference.py --corrupt topology`'s deliberately mis-wired reference must
+not solve at all.
+
+### Files, and the parasitics coverage counter
+
+```
+layout/
+  composite_netlist.py             the generator (stdlib only; --extract needs klt)
+  composite_smoke.py               the DC smoke run (needs ngspice + the PDK)
+  composite/
+    <cell>.composite.spice         the composite netlist (golden .subckt port list)
+    <cell>.audit.json              per-net provenance + counters
+    AUDIT.md                       the per-cell audit tables, rendered
+    SMOKE.md                       the smoke run, rendered
+  reports/<cell>/
+    extracted-parasitics.spice     klt extract --parasitics output
+    extracted-parasitics.json      its report
+    composite-smoke.json           the cell's smoke result
+```
+
+`extracted-parasitics.*` are **separate artifacts on purpose**:
+`run_checks.sh` keeps `extracted.spice` / `extract.json` byte-stable as the
+DRC/LVS flow's own repeatability contract, and nothing here touches them.
+
+Every cell's audit reports **nets carrying parasitics vs. nets in the
+extraction** — the
+[klayout-tools#283](https://github.com/2AMLogic/klayout-tools/issues/283)
+sanity check, since that issue was a *silent zero* on unlabelled nets and
+these cells are mostly unlabelled nets. Current build:
+
+| cell | MOS devices (layout) | spliced devices (ideal) | nets with parasitics | ΣC |
+| --- | --- | --- | --- | --- |
+| `bias_core` | 34 | 16 | 24/26 (92.3 %) | 1498.6 fF |
+| `temp_core` | 55 | 20 | 27/30 (90.0 %) | 1087.3 fF |
+| `por_comparator` | 18 | 3 | 15/18 (83.3 %) | 376.7 fF |
+| `por_output_chain` | 27 | 2 | 18/20 (90.0 %) | 813.9 fF |
+| `temp_por_top` | 134 | 41 | 71/78 (91.0 %) | 4767.5 fF |
+
+The nets with no parasitics are, in every cell, the deck's synthetic body nets
+(the substrate global and each anonymous Nwell) plus one supply — nets with no
+drawn interconnect of their own to be resistive or capacitive. `--extract`
+refuses to write an artifact whose coverage is zero, and the generator refuses
+to build if its own recount disagrees with the recorded JSON.
 
 ## Known deck limits — what a clean LVS here does *not* prove
 

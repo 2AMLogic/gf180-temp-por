@@ -1,0 +1,369 @@
+{
+  "cell": "por_comparator",
+  "note": "the POR threshold comparator (#69)",
+  "ports": [
+    "VDD",
+    "VSS",
+    "IBIAS",
+    "VREF",
+    "BIAS_OK",
+    "POR_RAW"
+  ],
+  "counts": {
+    "mos_devices_from_layout": 18,
+    "spliced_devices_from_schematic": 3,
+    "nets_total": 15,
+    "nets_from_layout": 15,
+    "nets_schematic_only": 0,
+    "reference_devices": 18,
+    "extracted_nets": 18
+  },
+  "parasitics": {
+    "nets_with_parasitics": 15,
+    "nets_in_extraction": 18,
+    "coverage_pct": 83.33,
+    "r_cards": 15,
+    "c_cards": 15,
+    "total_resistance_ohm": 18445.9461,
+    "total_capacitance_ff": 376.7255,
+    "extracted_nets_without_parasitics": [
+      "$16 -> VDD",
+      "$17 -> VDD",
+      "vsubs -> VSS"
+    ]
+  },
+  "spliced_devices": [
+    {
+      "name": "XRTOP",
+      "nodes": [
+        "SNS",
+        "VDD",
+        "VSS"
+      ],
+      "model": "ppolyf_u_3k",
+      "origin": "por_comparator"
+    },
+    {
+      "name": "XRBOT",
+      "nodes": [
+        "SNSB",
+        "SNS",
+        "VSS"
+      ],
+      "model": "ppolyf_u_3k",
+      "origin": "por_comparator"
+    },
+    {
+      "name": "XRHYS",
+      "nodes": [
+        "VSS",
+        "SNSB",
+        "VSS"
+      ],
+      "model": "ppolyf_u_3k",
+      "origin": "por_comparator"
+    }
+  ],
+  "schematic_only_nets": [],
+  "nets": [
+    {
+      "net": "BIAS_OK",
+      "extracted_net": "BIAS_OK",
+      "extracted_nets": [
+        "BIAS_OK"
+      ],
+      "reference_nets": [
+        "BIAS_OK"
+      ],
+      "body_nets_merged": [],
+      "labelled_in_layout": true,
+      "origin": "layout",
+      "mos_terminals": 3,
+      "spliced_terminals": 0,
+      "parasitic_r_ohm": 1452.1675,
+      "parasitic_c_ff": 15.0155,
+      "is_pin": true
+    },
+    {
+      "net": "BIAS_OKB",
+      "extracted_net": "BIAS_OKB",
+      "extracted_nets": [
+        "BIAS_OKB"
+      ],
+      "reference_nets": [
+        "BIAS_OKB"
+      ],
+      "body_nets_merged": [],
+      "labelled_in_layout": true,
+      "origin": "layout",
+      "mos_terminals": 6,
+      "spliced_terminals": 0,
+      "parasitic_r_ohm": 1631.1837,
+      "parasitic_c_ff": 21.6593,
+      "is_pin": true
+    },
+    {
+      "net": "CMPO",
+      "extracted_net": "$5",
+      "extracted_nets": [
+        "$5"
+      ],
+      "reference_nets": [
+        "CMPO"
+      ],
+      "body_nets_merged": [],
+      "labelled_in_layout": false,
+      "origin": "layout",
+      "mos_terminals": 5,
+      "spliced_terminals": 0,
+      "parasitic_r_ohm": 1382.1249,
+      "parasitic_c_ff": 17.7667,
+      "is_pin": false
+    },
+    {
+      "net": "IBIAS",
+      "extracted_net": "IBIAS",
+      "extracted_nets": [
+        "IBIAS"
+      ],
+      "reference_nets": [
+        "IBIAS"
+      ],
+      "body_nets_merged": [],
+      "labelled_in_layout": true,
+      "origin": "layout",
+      "mos_terminals": 3,
+      "spliced_terminals": 0,
+      "parasitic_r_ohm": 1265.9835,
+      "parasitic_c_ff": 15.5513,
+      "is_pin": true
+    },
+    {
+      "net": "N1",
+      "extracted_net": "$7",
+      "extracted_nets": [
+        "$7"
+      ],
+      "reference_nets": [
+        "N1"
+      ],
+      "body_nets_merged": [],
+      "labelled_in_layout": false,
+      "origin": "layout",
+      "mos_terminals": 5,
+      "spliced_terminals": 0,
+      "parasitic_r_ohm": 1437.8825,
+      "parasitic_c_ff": 17.8661,
+      "is_pin": false
+    },
+    {
+      "net": "NA",
+      "extracted_net": "$4",
+      "extracted_nets": [
+        "$4"
+      ],
+      "reference_nets": [
+        "NA"
+      ],
+      "body_nets_merged": [],
+      "labelled_in_layout": false,
+      "origin": "layout",
+      "mos_terminals": 4,
+      "spliced_terminals": 0,
+      "parasitic_r_ohm": 1384.846,
+      "parasitic_c_ff": 15.8685,
+      "is_pin": false
+    },
+    {
+      "net": "NBG",
+      "extracted_net": "$12",
+      "extracted_nets": [
+        "$12"
+      ],
+      "reference_nets": [
+        "NBG"
+      ],
+      "body_nets_merged": [],
+      "labelled_in_layout": false,
+      "origin": "layout",
+      "mos_terminals": 4,
+      "spliced_terminals": 0,
+      "parasitic_r_ohm": 1516.9554,
+      "parasitic_c_ff": 21.326,
+      "is_pin": false
+    },
+    {
+      "net": "POR_RAW",
+      "extracted_net": "POR_RAW",
+      "extracted_nets": [
+        "POR_RAW"
+      ],
+      "reference_nets": [
+        "POR_RAW"
+      ],
+      "body_nets_merged": [],
+      "labelled_in_layout": true,
+      "origin": "layout",
+      "mos_terminals": 2,
+      "spliced_terminals": 0,
+      "parasitic_r_ohm": 1260.5254,
+      "parasitic_c_ff": 13.389,
+      "is_pin": true
+    },
+    {
+      "net": "SNS",
+      "extracted_net": "$10",
+      "extracted_nets": [
+        "$10"
+      ],
+      "reference_nets": [
+        "SNS"
+      ],
+      "body_nets_merged": [],
+      "labelled_in_layout": false,
+      "origin": "layout",
+      "mos_terminals": 1,
+      "spliced_terminals": 2,
+      "parasitic_r_ohm": 1614.0367,
+      "parasitic_c_ff": 13.8696,
+      "is_pin": false
+    },
+    {
+      "net": "SNSB",
+      "extracted_net": "$14",
+      "extracted_nets": [
+        "$14"
+      ],
+      "reference_nets": [
+        "SNSB"
+      ],
+      "body_nets_merged": [],
+      "labelled_in_layout": false,
+      "origin": "layout",
+      "mos_terminals": 1,
+      "spliced_terminals": 2,
+      "parasitic_r_ohm": 1556.3463,
+      "parasitic_c_ff": 14.3923,
+      "is_pin": false
+    },
+    {
+      "net": "TN",
+      "extracted_net": "$9",
+      "extracted_nets": [
+        "$9"
+      ],
+      "reference_nets": [
+        "TN"
+      ],
+      "body_nets_merged": [],
+      "labelled_in_layout": false,
+      "origin": "layout",
+      "mos_terminals": 3,
+      "spliced_terminals": 0,
+      "parasitic_r_ohm": 1261.1261,
+      "parasitic_c_ff": 13.5887,
+      "is_pin": false
+    },
+    {
+      "net": "VDD",
+      "extracted_net": null,
+      "extracted_nets": [
+        "$16",
+        "$17",
+        "VDD"
+      ],
+      "reference_nets": [
+        "NW1",
+        "NW2",
+        "VDD"
+      ],
+      "body_nets_merged": [
+        "NW1",
+        "NW2"
+      ],
+      "labelled_in_layout": true,
+      "origin": "layout",
+      "mos_terminals": 10,
+      "spliced_terminals": 1,
+      "parasitic_r_ohm": 26.6687,
+      "parasitic_c_ff": 22.3031,
+      "is_pin": true
+    },
+    {
+      "net": "VDDA",
+      "extracted_net": "$3",
+      "extracted_nets": [
+        "$3"
+      ],
+      "reference_nets": [
+        "VDDA"
+      ],
+      "body_nets_merged": [],
+      "labelled_in_layout": false,
+      "origin": "layout",
+      "mos_terminals": 3,
+      "spliced_terminals": 0,
+      "parasitic_r_ohm": 1263.8244,
+      "parasitic_c_ff": 14.679,
+      "is_pin": false
+    },
+    {
+      "net": "VREF",
+      "extracted_net": "VREF",
+      "extracted_nets": [
+        "VREF"
+      ],
+      "reference_nets": [
+        "VREF"
+      ],
+      "body_nets_merged": [],
+      "labelled_in_layout": true,
+      "origin": "layout",
+      "mos_terminals": 1,
+      "spliced_terminals": 0,
+      "parasitic_r_ohm": 1314.9134,
+      "parasitic_c_ff": 11.5763,
+      "is_pin": true
+    },
+    {
+      "net": "VSS",
+      "extracted_net": null,
+      "extracted_nets": [
+        "VSS",
+        "vsubs"
+      ],
+      "reference_nets": [
+        "VSS",
+        "vsubs"
+      ],
+      "body_nets_merged": [
+        "vsubs"
+      ],
+      "labelled_in_layout": true,
+      "origin": "layout",
+      "mos_terminals": 21,
+      "spliced_terminals": 4,
+      "parasitic_r_ohm": 77.3616,
+      "parasitic_c_ff": 147.8739,
+      "is_pin": true
+    }
+  ],
+  "readme_claims": [
+    {
+      "claim": "SNS and SNSB appear with one MOS terminal each (XMINA's gate, XMHSW's drain)",
+      "holds": true,
+      "findings": [
+        "SNS: extracted as $10, 1 MOS terminal(s), unlabelled",
+        "SNSB: extracted as $14, 1 MOS terminal(s), unlabelled"
+      ]
+    },
+    {
+      "claim": "SNS and SNSB carry no drawn label, so they do NOT appear under those names anywhere in extracted.spice",
+      "holds": true,
+      "findings": [
+        "SNS: extracted as $10, 1 MOS terminal(s), unlabelled",
+        "SNSB: extracted as $14, 1 MOS terminal(s), unlabelled"
+      ]
+    }
+  ]
+}

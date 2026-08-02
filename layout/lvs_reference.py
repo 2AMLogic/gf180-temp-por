@@ -681,12 +681,11 @@ def build_cards(
     return cards
 
 
-def build_assembly(cell: str) -> list[tuple[str, str, list[str], float, float]]:
-    """Compose an assembly cell's cards from the cells it instances.
+def instance_renames(cell: str) -> list[tuple[str, str, "object"]]:
+    """``(instance, sub_cell, rename)`` for every instance of an assembly cell.
 
-    Each sub-cell's own manifest supplies its devices, sizes, wells and dummy
-    fingers unchanged; the only thing this adds is the net renaming, taken
-    from the golden top-level netlist itself:
+    The rename maps a sub-cell's own net names into the enclosing cell's,
+    taken from the golden top-level netlist itself:
 
     * a sub-circuit's formal port maps to whatever the top-level instance line
       wires it to (``xbias VDD VSS IBIAS VREF BIAS_OK bias_core`` ->
@@ -700,6 +699,11 @@ def build_assembly(cell: str) -> list[tuple[str, str, list[str], float, float]]:
     netlist's ``.subckt`` line -- the same ratified-pinout check
     ``design/netlist.py --check`` makes at the schematic level, restated here
     because this is the artifact the layout is compared against.
+
+    Split out of :func:`build_assembly` so that anything else deriving from
+    the same assembly -- ``layout/composite_netlist.py`` needs exactly this
+    mapping to splice the sub-cells' undrawn devices at the right top-level
+    nets -- reads the renaming from here instead of re-deriving it.
     """
     spec = CELLS[cell]
     text = (NETLIST_DIR / spec["source"]).read_text()
@@ -719,7 +723,7 @@ def build_assembly(cell: str) -> list[tuple[str, str, list[str], float, float]]:
         if fields[0].lower().startswith("x"):
             instances[fields[0].lower()] = fields[1:]
 
-    cards: list[tuple[str, str, list[str], float, float]] = []
+    renames: list[tuple[str, str, object]] = []
     for inst, sub_cell in spec["assembly"]:
         if inst not in instances:
             raise ReferenceError(f"{cell}: no instance {inst!r} in {spec['source']}")
@@ -748,6 +752,19 @@ def build_assembly(cell: str) -> list[tuple[str, str, list[str], float, float]]:
                 return net
             return mapping.get(net, f"{inst}.{net}")
 
+        renames.append((inst, sub_cell, rename))
+    return renames
+
+
+def build_assembly(cell: str) -> list[tuple[str, str, list[str], float, float]]:
+    """Compose an assembly cell's cards from the cells it instances.
+
+    Each sub-cell's own manifest supplies its devices, sizes, wells and dummy
+    fingers unchanged; the only thing this adds is the net renaming, which
+    :func:`instance_renames` derives from the golden top-level netlist.
+    """
+    cards: list[tuple[str, str, list[str], float, float]] = []
+    for _inst, sub_cell, rename in instance_renames(cell):
         cards.extend(build_cards(sub_cell, rename=rename))
     return cards
 

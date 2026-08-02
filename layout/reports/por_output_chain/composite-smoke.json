@@ -1,0 +1,76 @@
+{
+  "cell": "por_output_chain",
+  "purpose": "composite-netlist plumbing proof -- NOT a sim/ evidence record; one nominal PVT point, loose sanity windows, ideal passives/bipolars (see layout/composite/AUDIT.md)",
+  "netlist": "layout/composite/por_output_chain.composite.spice",
+  "control_netlist": "design/netlist/por_output_chain.spice",
+  "corner_id": "tt_27c_3.30v",
+  "corner_sections": [
+    "typical",
+    "res_typical",
+    "bjt_typical",
+    "diode_typical",
+    "moscap_typical",
+    "mimcap_typical"
+  ],
+  "temp_c": 27.0,
+  "vdd_v": 3.3,
+  "analyses": [
+    "op"
+  ],
+  "converged": true,
+  "measurements": {
+    "iq_ua": 0.521708109,
+    "vibias_v": 0.69936333,
+    "vresetn_v": 3.29999995,
+    "vtim_v": 3.299958288
+  },
+  "schematic_control_measurements": {
+    "iq_ua": 0.521708145,
+    "vibias_v": 0.699363551,
+    "vresetn_v": 3.29999995,
+    "vtim_v": 3.299958303
+  },
+  "sanity_checks": [
+    {
+      "measurement": "vresetn_v",
+      "composite": 3.2999999501,
+      "schematic_control": 3.2999999501,
+      "delta_pct": 0.0,
+      "min": 2.5,
+      "max": 3.4,
+      "pass": true,
+      "control_pass": true
+    },
+    {
+      "measurement": "vibias_v",
+      "composite": 0.69936333038,
+      "schematic_control": 0.69936355084,
+      "delta_pct": -0.0,
+      "min": 0.2,
+      "max": 1.2,
+      "pass": true,
+      "control_pass": true
+    },
+    {
+      "measurement": "vtim_v",
+      "composite": 3.2999582884,
+      "schematic_control": 3.2999583034,
+      "delta_pct": -0.0,
+      "min": -0.05,
+      "max": 3.4,
+      "pass": true,
+      "control_pass": true
+    },
+    {
+      "measurement": "iq_ua",
+      "composite": 0.52170810941,
+      "schematic_control": 0.52170814498,
+      "delta_pct": -0.0,
+      "min": 0.05,
+      "max": 50.0,
+      "pass": true,
+      "control_pass": true
+    }
+  ],
+  "problems": []
+}

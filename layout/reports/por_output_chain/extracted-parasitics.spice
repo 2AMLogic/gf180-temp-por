@@ -1,0 +1,137 @@
+* extracted by klt extract --deck gf180mcu
+
+* cell por_output_chain
+* pin IBIAS
+* pin POR_RAW
+* pin RESETn
+* pin VDD
+* pin VSS
+* pin vsubs
+.SUBCKT por_output_chain IBIAS POR_RAW RESETn VDD VSS vsubs
+* device instance $1 r0 *1 19.9,0.25 nfet
+M$1 \$2 IBIAS VSS vsubs nfet L=25U W=0.5U AS=0.4P AD=0.4P PS=2.6U PD=2.6U
+* device instance $2 r0 *1 67.4,0.25 nfet
+M$2 \$5 \$12 VSS vsubs nfet L=2U W=0.5U AS=0.4P AD=0.4P PS=2.6U PD=2.6U
+* device instance $3 r0 *1 79.6,0.25 nfet
+M$3 \$6 \$3 VSS vsubs nfet L=10U W=0.5U AS=0.4P AD=0.4P PS=2.6U PD=2.6U
+* device instance $4 r0 *1 60.45,0.5 nfet
+M$4 \$11 POR_RAW \$10 vsubs nfet L=0.5U W=1U AS=0.8P AD=0.8P PS=3.6U PD=3.6U
+* device instance $5 r0 *1 71.5,0.5 nfet
+M$5 \$13 \$5 VSS vsubs nfet L=1U W=1U AS=0.8P AD=0.8P PS=3.6U PD=3.6U
+* device instance $6 r0 *1 87.7,0.5 nfet
+M$6 \$14 \$6 VSS vsubs nfet L=1U W=1U AS=0.8P AD=0.8P PS=3.6U PD=3.6U
+* device instance $7 r0 *1 40,1 nfet
+M$7 \$3 \$3 VSS vsubs nfet L=10U W=2U AS=1.6P AD=1.6P PS=5.6U PD=5.6U
+* device instance $8 r0 *1 63.55,1 nfet
+M$8 \$12 \$11 VSS vsubs nfet L=0.5U W=2U AS=1.6P AD=1.6P PS=5.6U PD=5.6U
+* device instance $9 r0 *1 91.05,1 nfet
+M$9 \$17 \$14 \$15 vsubs nfet L=0.5U W=2U AS=1.6P AD=1.6P PS=5.6U PD=5.6U
+* device instance $10 r0 *1 94.15,1 nfet
+M$10 \$15 \$12 VSS vsubs nfet L=0.5U W=2U AS=1.6P AD=1.6P PS=5.6U PD=5.6U
+* device instance $11 r0 *1 2.8,2 nfet
+M$11 IBIAS IBIAS VSS vsubs nfet L=4U W=4U AS=3.2P AD=3.2P PS=9.6U PD=9.6U
+* device instance $12 r0 *1 52.6,5 nfet
+M$12 \$10 \$3 VSS vsubs nfet L=10U W=10U AS=8P AD=8P PS=21.6U PD=21.6U
+* device instance $13 r0 *1 208.65,5 nfet
+M$13 RESETn \$17 VSS vsubs nfet L=0.5U W=10U AS=8P AD=8P PS=21.6U PD=21.6U
+* device instance $14 r0 *1 143.8,0.25 pfet
+M$14 \$8 \$2 VDD \$19 pfet L=10U W=0.5U AS=0.4P AD=0.4P PS=2.6U PD=2.6U
+* device instance $15 r0 *1 156.4,0.25 pfet
+M$15 \$14 \$2 VDD \$19 pfet L=10U W=0.5U AS=0.4P AD=0.4P PS=2.6U PD=2.6U
+* device instance $16 r0 *1 168.1,0.25 pfet
+M$16 \$12 \$11 VDD \$19 pfet L=2U W=0.5U AS=0.4P AD=0.4P PS=2.6U PD=2.6U
+* device instance $17 r0 *1 193.2,0.25 pfet
+M$17 \$17 RESETn VDD \$19 pfet L=10U W=0.5U AS=0.4P AD=0.4P PS=2.6U PD=2.6U
+* device instance $18 r0 *1 164.25,0.5 pfet
+M$18 \$11 POR_RAW \$16 \$19 pfet L=0.5U W=1U AS=0.8P AD=0.8P PS=3.6U PD=3.6U
+* device instance $19 r0 *1 201.3,0.5 pfet
+M$19 RESETn \$17 VDD \$19 pfet L=1U W=1U AS=0.8P AD=0.8P PS=3.6U PD=3.6U
+* device instance $20 r0 *1 106,1 pfet
+M$20 \$2 \$2 VDD \$19 pfet L=10U W=2U AS=1.6P AD=1.6P PS=5.6U PD=5.6U
+* device instance $21 r0 *1 118.6,1 pfet
+M$21 \$3 \$2 VDD \$19 pfet L=10U W=2U AS=1.6P AD=1.6P PS=5.6U PD=5.6U
+* device instance $22 r0 *1 171.95,1 pfet
+M$22 \$5 \$12 VDD \$19 pfet L=0.5U W=2U AS=1.6P AD=1.6P PS=5.6U PD=5.6U
+* device instance $23 r0 *1 175.3,1 pfet
+M$23 \$13 \$5 \$8 \$19 pfet L=1U W=2U AS=1.6P AD=1.6P PS=5.6U PD=5.6U
+* device instance $24 r0 *1 178.9,1 pfet
+M$24 \$6 \$13 VDD \$19 pfet L=1U W=2U AS=1.6P AD=1.6P PS=5.6U PD=5.6U
+* device instance $25 r0 *1 182.25,2 pfet
+M$25 \$17 \$14 VDD \$19 pfet L=0.5U W=4U AS=3.2P AD=3.2P PS=9.6U PD=9.6U
+* device instance $26 r0 *1 185.35,2 pfet
+M$26 \$17 \$12 VDD \$19 pfet L=0.5U W=4U AS=3.2P AD=3.2P PS=9.6U PD=9.6U
+* device instance $27 r0 *1 131.2,5 pfet
+M$27 \$16 \$2 VDD \$19 pfet L=10U W=10U AS=8P AD=8P PS=21.6U PD=21.6U
+* device instance $10 r0 *1 0,0 
+R$10 \$10 \$10__par 3871.3807
+* device instance $10 r0 *1 0,0 
+C$10 \$10__par vsubs 3.3743019e-14
+* device instance $11 r0 *1 0,0 
+R$11 \$11 \$11__par 4004.4196
+* device instance $11 r0 *1 0,0 
+C$11 \$11__par vsubs 3.8062762e-14
+* device instance $12 r0 *1 0,0 
+R$12 \$12 \$12__par 4123.7127
+* device instance $12 r0 *1 0,0 
+C$12 \$12__par vsubs 4.1822839e-14
+* device instance $13 r0 *1 0,0 
+R$13 \$13 \$13__par 3937.7776
+* device instance $13 r0 *1 0,0 
+C$13 \$13__par vsubs 3.6690975e-14
+* device instance $14 r0 *1 0,0 
+R$14 \$14 \$14__par 3994.4831
+* device instance $14 r0 *1 0,0 
+C$14 \$14__par vsubs 3.8956888e-14
+* device instance $15 r0 *1 0,0 
+R$15 \$15 \$15__par 3874.2598
+* device instance $15 r0 *1 0,0 
+C$15 \$15__par vsubs 3.4906053e-14
+* device instance $16 r0 *1 0,0 
+R$16 \$16 \$16__par 3871.0209
+* device instance $16 r0 *1 0,0 
+C$16 \$16__par vsubs 3.359764e-14
+* device instance $17 r0 *1 0,0 
+R$17 \$17 \$17__par 4010.467
+* device instance $17 r0 *1 0,0 
+C$17 \$17__par vsubs 4.3731461e-14
+* device instance $2 r0 *1 0,0 
+R$2 \$2 \$2__par 4808.7621
+* device instance $2 r0 *1 0,0 
+C$2 \$2__par vsubs 5.6004839e-14
+* device instance $3 r0 *1 0,0 
+R$3 \$3 \$3__par 4397.8512
+* device instance $3 r0 *1 0,0 
+C$3 \$3__par vsubs 4.6854784e-14
+* device instance $5 r0 *1 0,0 
+R$5 \$5 \$5__par 4001.1623
+* device instance $5 r0 *1 0,0 
+C$5 \$5__par vsubs 3.8421379e-14
+* device instance $6 r0 *1 0,0 
+R$6 \$6 \$6__par 3938.5423
+* device instance $6 r0 *1 0,0 
+C$6 \$6__par vsubs 3.6999905e-14
+* device instance $8 r0 *1 0,0 
+R$8 \$8 \$8__par 3872.8202
+* device instance $8 r0 *1 0,0 
+C$8 \$8__par vsubs 3.4324536e-14
+* device instance IBIAS r0 *1 0,0 
+RIBIAS IBIAS IBIAS__par 4334.0363
+* device instance IBIAS r0 *1 0,0 
+CIBIAS IBIAS__par vsubs 4.4761188e-14
+* device instance POR_RAW r0 *1 0,0 
+RPOR_RAW POR_RAW POR_RAW__par 3981.5881
+* device instance POR_RAW r0 *1 0,0 
+CPOR_RAW POR_RAW__par vsubs 3.3832785e-14
+* device instance RESETn r0 *1 0,0 
+RRESETn RESETn RESETn__par 4035.8215
+* device instance RESETn r0 *1 0,0 
+CRESETn RESETn__par vsubs 4.1112054e-14
+* device instance VDD r0 *1 0,0 
+RVDD VDD VDD__par 79.5773
+* device instance VDD r0 *1 0,0 
+CVDD VDD__par vsubs 6.8587476e-14
+* device instance VSS r0 *1 0,0 
+RVSS VSS VSS__par 65.6263
+* device instance VSS r0 *1 0,0 
+CVSS VSS__par vsubs 1.11462228e-13
+.ENDS por_output_chain

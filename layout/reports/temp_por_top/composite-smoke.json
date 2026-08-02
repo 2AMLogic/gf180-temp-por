@@ -1,0 +1,119 @@
+{
+  "cell": "temp_por_top",
+  "purpose": "composite-netlist plumbing proof -- NOT a sim/ evidence record; one nominal PVT point, loose sanity windows, ideal passives/bipolars (see layout/composite/AUDIT.md)",
+  "netlist": "layout/composite/temp_por_top.composite.spice",
+  "control_netlist": "design/netlist/temp_por_top.spice",
+  "corner_id": "tt_27c_3.30v",
+  "corner_sections": [
+    "typical",
+    "res_typical",
+    "bjt_typical",
+    "diode_typical",
+    "moscap_typical",
+    "mimcap_typical"
+  ],
+  "temp_c": 27.0,
+  "vdd_v": 3.3,
+  "analyses": [
+    "tran 10u 20m",
+    "meas tran s_resetn find v(resetn) at=19m",
+    "meas tran s_ptat find v(ptat) at=19m",
+    "meas tran s_ctat find v(ctat) at=19m",
+    "meas tran s_ibias find v(xdut.ibias) at=19m",
+    "meas tran s_vref find v(xdut.vref) at=19m",
+    "meas tran s_isup avg i(vsup) from=18m to=19m",
+    "meas tran s_release when v(resetn)=1.65 rise=1"
+  ],
+  "converged": true,
+  "measurements": {
+    "iq_ua": 10.42229,
+    "t_release_ms": 10.25589,
+    "vctat_v": 0.6533479,
+    "vibias_v": 0.6333102,
+    "vptat_v": 1.292477,
+    "vref_v": 1.199349,
+    "vresetn_v": 3.3
+  },
+  "schematic_control_measurements": {
+    "iq_ua": 10.41855,
+    "t_release_ms": 10.06441,
+    "vctat_v": 0.6533473,
+    "vibias_v": 0.6333103,
+    "vptat_v": 1.292474,
+    "vref_v": 1.199349,
+    "vresetn_v": 3.3
+  },
+  "sanity_checks": [
+    {
+      "measurement": "vresetn_v",
+      "composite": 3.3,
+      "schematic_control": 3.3,
+      "delta_pct": 0.0,
+      "min": 2.5,
+      "max": 3.4,
+      "pass": true,
+      "control_pass": true
+    },
+    {
+      "measurement": "vptat_v",
+      "composite": 1.292477,
+      "schematic_control": 1.292474,
+      "delta_pct": 0.0,
+      "min": 0.5,
+      "max": 2.5,
+      "pass": true,
+      "control_pass": true
+    },
+    {
+      "measurement": "vctat_v",
+      "composite": 0.6533479,
+      "schematic_control": 0.6533473,
+      "delta_pct": 0.0,
+      "min": 0.3,
+      "max": 0.95,
+      "pass": true,
+      "control_pass": true
+    },
+    {
+      "measurement": "vibias_v",
+      "composite": 0.6333102,
+      "schematic_control": 0.6333103,
+      "delta_pct": -0.0,
+      "min": 0.2,
+      "max": 1.2,
+      "pass": true,
+      "control_pass": true
+    },
+    {
+      "measurement": "vref_v",
+      "composite": 1.199349,
+      "schematic_control": 1.199349,
+      "delta_pct": 0.0,
+      "min": 0.8,
+      "max": 1.6,
+      "pass": true,
+      "control_pass": true
+    },
+    {
+      "measurement": "iq_ua",
+      "composite": 10.42229,
+      "schematic_control": 10.41855,
+      "delta_pct": 0.036,
+      "min": 0.5,
+      "max": 300.0,
+      "pass": true,
+      "control_pass": true
+    },
+    {
+      "measurement": "t_release_ms",
+      "composite": 10.25589,
+      "schematic_control": 10.06441,
+      "delta_pct": 1.903,
+      "min": 0.5,
+      "max": 19.0,
+      "pass": true,
+      "control_pass": true
+    }
+  ],
+  "problems": []
+}

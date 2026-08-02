@@ -1,0 +1,491 @@
+{
+  "schema_version": 1,
+  "file": "layout/cells/por_comparator.gds",
+  "deck": "gf180mcu",
+  "top": "por_comparator",
+  "dbu_um": 0.001,
+  "netlist_path": "layout/reports/por_comparator/extracted-parasitics.spice",
+  "netlist_sha256": "ed155fac55d47f92ad8001e07061c201d5c38d192ab6aec436ae27039aeddb27",
+  "status": "extracted",
+  "device_count": 18,
+  "net_count": 18,
+  "pin_count": 8,
+  "device_counts": {
+    "nfet": 12,
+    "pfet": 6
+  },
+  "dummy_devices_dropped": 0,
+  "ignored_layers": [
+    {
+      "layer": 200,
+      "datatype": 0,
+      "shapes": 1
+    }
+  ],
+  "device_classes": [
+    "nfet",
+    "pfet",
+    "bjt",
+    "cap_mim_2f0_m4m5_noshield",
+    "resistor"
+  ],
+  "devices": [
+    {
+      "name": "$1",
+      "class": "nfet",
+      "nets": {
+        "s": "VSS",
+        "g": "$12",
+        "d": "$9",
+        "b": "vsubs"
+      },
+      "params": {
+        "l_um": 10.0,
+        "w_um": 1.0
+      }
+    },
+    {
+      "name": "$10",
+      "class": "nfet",
+      "nets": {
+        "s": "VSS",
+        "g": "BIAS_OKB",
+        "d": "$12",
+        "b": "vsubs"
+      },
+      "params": {
+        "l_um": 0.5,
+        "w_um": 2.0
+      }
+    },
+    {
+      "name": "$11",
+      "class": "nfet",
+      "nets": {
+        "s": "VSS",
+        "g": "BIAS_OKB",
+        "d": "$5",
+        "b": "vsubs"
+      },
+      "params": {
+        "l_um": 1.0,
+        "w_um": 2.0
+      }
+    },
+    {
+      "name": "$12",
+      "class": "nfet",
+      "nets": {
+        "s": "VSS",
+        "g": "$7",
+        "d": "$14",
+        "b": "vsubs"
+      },
+      "params": {
+        "l_um": 0.5,
+        "w_um": 10.0
+      }
+    },
+    {
+      "name": "$13",
+      "class": "pfet",
+      "nets": {
+        "s": "VDD",
+        "g": "$5",
+        "d": "$7",
+        "b": "$17"
+      },
+      "params": {
+        "l_um": 0.5,
+        "w_um": 2.0
+      }
+    },
+    {
+      "name": "$14",
+      "class": "pfet",
+      "nets": {
+        "s": "VDD",
+        "g": "$7",
+        "d": "POR_RAW",
+        "b": "$17"
+      },
+      "params": {
+        "l_um": 0.5,
+        "w_um": 2.0
+      }
+    },
+    {
+      "name": "$15",
+      "class": "pfet",
+      "nets": {
+        "s": "$3",
+        "g": "$4",
+        "d": "$4",
+        "b": "$17"
+      },
+      "params": {
+        "l_um": 1.0,
+        "w_um": 4.0
+      }
+    },
+    {
+      "name": "$16",
+      "class": "pfet",
+      "nets": {
+        "s": "$3",
+        "g": "$4",
+        "d": "$5",
+        "b": "$17"
+      },
+      "params": {
+        "l_um": 1.0,
+        "w_um": 4.0
+      }
+    },
+    {
+      "name": "$17",
+      "class": "pfet",
+      "nets": {
+        "s": "VDD",
+        "g": "BIAS_OKB",
+        "d": "$3",
+        "b": "$17"
+      },
+      "params": {
+        "l_um": 0.5,
+        "w_um": 4.0
+      }
+    },
+    {
+      "name": "$18",
+      "class": "pfet",
+      "nets": {
+        "s": "VDD",
+        "g": "BIAS_OK",
+        "d": "BIAS_OKB",
+        "b": "$16"
+      },
+      "params": {
+        "l_um": 0.5,
+        "w_um": 2.0
+      }
+    },
+    {
+      "name": "$2",
+      "class": "nfet",
+      "nets": {
+        "s": "VSS",
+        "g": "BIAS_OKB",
+        "d": "IBIAS",
+        "b": "vsubs"
+      },
+      "params": {
+        "l_um": 1.0,
+        "w_um": 1.0
+      }
+    },
+    {
+      "name": "$3",
+      "class": "nfet",
+      "nets": {
+        "s": "VSS",
+        "g": "$5",
+        "d": "$7",
+        "b": "vsubs"
+      },
+      "params": {
+        "l_um": 0.5,
+        "w_um": 1.0
+      }
+    },
+    {
+      "name": "$4",
+      "class": "nfet",
+      "nets": {
+        "s": "VSS",
+        "g": "$7",
+        "d": "POR_RAW",
+        "b": "vsubs"
+      },
+      "params": {
+        "l_um": 0.5,
+        "w_um": 1.0
+      }
+    },
+    {
+      "name": "$5",
+      "class": "nfet",
+      "nets": {
+        "s": "VSS",
+        "g": "BIAS_OK",
+        "d": "BIAS_OKB",
+        "b": "vsubs"
+      },
+      "params": {
+        "l_um": 0.5,
+        "w_um": 1.0
+      }
+    },
+    {
+      "name": "$6",
+      "class": "nfet",
+      "nets": {
+        "s": "$9",
+        "g": "$10",
+        "d": "$4",
+        "b": "vsubs"
+      },
+      "params": {
+        "l_um": 1.0,
+        "w_um": 2.0
+      }
+    },
+    {
+      "name": "$7",
+      "class": "nfet",
+      "nets": {
+        "s": "$9",
+        "g": "VREF",
+        "d": "$5",
+        "b": "vsubs"
+      },
+      "params": {
+        "l_um": 1.0,
+        "w_um": 2.0
+      }
+    },
+    {
+      "name": "$8",
+      "class": "nfet",
+      "nets": {
+        "s": "VSS",
+        "g": "$12",
+        "d": "IBIAS",
+        "b": "vsubs"
+      },
+      "params": {
+        "l_um": 2.0,
+        "w_um": 2.0
+      }
+    },
+    {
+      "name": "$9",
+      "class": "nfet",
+      "nets": {
+        "s": "$12",
+        "g": "BIAS_OK",
+        "d": "IBIAS",
+        "b": "vsubs"
+      },
+      "params": {
+        "l_um": 0.5,
+        "w_um": 2.0
+      }
+    }
+  ],
+  "nets": [
+    {
+      "name": "$10",
+      "pin": false,
+      "device_count": 1
+    },
+    {
+      "name": "$12",
+      "pin": false,
+      "device_count": 4
+    },
+    {
+      "name": "$14",
+      "pin": false,
+      "device_count": 1
+    },
+    {
+      "name": "$16",
+      "pin": false,
+      "device_count": 1
+    },
+    {
+      "name": "$17",
+      "pin": false,
+      "device_count": 5
+    },
+    {
+      "name": "$3",
+      "pin": false,
+      "device_count": 3
+    },
+    {
+      "name": "$4",
+      "pin": false,
+      "device_count": 4
+    },
+    {
+      "name": "$5",
+      "pin": false,
+      "device_count": 5
+    },
+    {
+      "name": "$7",
+      "pin": false,
+      "device_count": 5
+    },
+    {
+      "name": "$9",
+      "pin": false,
+      "device_count": 3
+    },
+    {
+      "name": "BIAS_OK",
+      "pin": true,
+      "device_count": 3
+    },
+    {
+      "name": "BIAS_OKB",
+      "pin": true,
+      "device_count": 6
+    },
+    {
+      "name": "IBIAS",
+      "pin": true,
+      "device_count": 3
+    },
+    {
+      "name": "POR_RAW",
+      "pin": true,
+      "device_count": 2
+    },
+    {
+      "name": "VDD",
+      "pin": true,
+      "device_count": 4
+    },
+    {
+      "name": "VREF",
+      "pin": true,
+      "device_count": 1
+    },
+    {
+      "name": "VSS",
+      "pin": true,
+      "device_count": 9
+    },
+    {
+      "name": "vsubs",
+      "pin": true,
+      "device_count": 12
+    }
+  ],
+  "warnings": [
+    "10 poly-layer shapes not part of any recognised nfet/pfet gate touch contact at 2+ separate points (the resistor-body signature) and carry no resistor-marker layer at all; this deck may not model the device class drawn here, and its terminals have been absorbed into ordinary interconnect as an unintended short -- see docs/cli/extract.md's 'Known limitation: unmodelled device geometry'.",
+    "promoted 2 net(s) to top-level pins from label(s) found only below the top cell (inside instanced sub-cells): BIAS_OK, BIAS_OKB -- these are internal nodes once instanced; pass top_cell_pins_only (--top-cell-pins) to keep them internal (issue #291)"
+  ],
+  "black_box_regions": [],
+  "pdk": null,
+  "provenance": {
+    "klt_version": "0.1.0",
+    "klayout_version": "0.30.10",
+    "pdk": null,
+    "deck": {
+      "name": "gf180mcu",
+      "content_hash": "sha256:dcd6c84a4e9f541f47907dbc493d00758b0eeb89f2dc54d9a9d3662587acb4d8"
+    }
+  },
+  "parasitics": {
+    "r_count": 15,
+    "c_count": 15,
+    "total_resistance_ohm": 18445.9461,
+    "total_capacitance_ff": 376.7255,
+    "nets": [
+      {
+        "net": "$10",
+        "resistance_ohm": 1614.0367,
+        "capacitance_ff": 13.869633,
+        "internal_node": "$10__par"
+      },
+      {
+        "net": "$12",
+        "resistance_ohm": 1516.9554,
+        "capacitance_ff": 21.326008,
+        "internal_node": "$12__par"
+      },
+      {
+        "net": "$14",
+        "resistance_ohm": 1556.3463,
+        "capacitance_ff": 14.392349,
+        "internal_node": "$14__par"
+      },
+      {
+        "net": "$3",
+        "resistance_ohm": 1263.8244,
+        "capacitance_ff": 14.679011,
+        "internal_node": "$3__par"
+      },
+      {
+        "net": "$4",
+        "resistance_ohm": 1384.846,
+        "capacitance_ff": 15.868526,
+        "internal_node": "$4__par"
+      },
+      {
+        "net": "$5",
+        "resistance_ohm": 1382.1249,
+        "capacitance_ff": 17.766709,
+        "internal_node": "$5__par"
+      },
+      {
+        "net": "$7",
+        "resistance_ohm": 1437.8825,
+        "capacitance_ff": 17.866109,
+        "internal_node": "$7__par"
+      },
+      {
+        "net": "$9",
+        "resistance_ohm": 1261.1261,
+        "capacitance_ff": 13.588667,
+        "internal_node": "$9__par"
+      },
+      {
+        "net": "BIAS_OK",
+        "resistance_ohm": 1452.1675,
+        "capacitance_ff": 15.015489,
+        "internal_node": "BIAS_OK__par"
+      },
+      {
+        "net": "BIAS_OKB",
+        "resistance_ohm": 1631.1837,
+        "capacitance_ff": 21.659338,
+        "internal_node": "BIAS_OKB__par"
+      },
+      {
+        "net": "IBIAS",
+        "resistance_ohm": 1265.9835,
+        "capacitance_ff": 15.551286,
+        "internal_node": "IBIAS__par"
+      },
+      {
+        "net": "POR_RAW",
+        "resistance_ohm": 1260.5254,
+        "capacitance_ff": 13.389027,
+        "internal_node": "POR_RAW__par"
+      },
+      {
+        "net": "VDD",
+        "resistance_ohm": 26.6687,
+        "capacitance_ff": 22.303093,
+        "internal_node": "VDD__par"
+      },
+      {
+        "net": "VREF",
+        "resistance_ohm": 1314.9134,
+        "capacitance_ff": 11.576327,
+        "internal_node": "VREF__par"
+      },
+      {
+        "net": "VSS",
+        "resistance_ohm": 77.3616,
+        "capacitance_ff": 147.873928,
+        "internal_node": "VSS__par"
+      }
+    ]
+  }
+}

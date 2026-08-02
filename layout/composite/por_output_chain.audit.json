@@ -1,0 +1,398 @@
+{
+  "cell": "por_output_chain",
+  "note": "the MOS portion of the reset output chain (#70)",
+  "ports": [
+    "VDD",
+    "VSS",
+    "IBIAS",
+    "POR_RAW",
+    "RESETn"
+  ],
+  "counts": {
+    "mos_devices_from_layout": 27,
+    "spliced_devices_from_schematic": 2,
+    "nets_total": 18,
+    "nets_from_layout": 18,
+    "nets_schematic_only": 0,
+    "reference_devices": 27,
+    "extracted_nets": 20
+  },
+  "parasitics": {
+    "nets_with_parasitics": 18,
+    "nets_in_extraction": 20,
+    "coverage_pct": 90.0,
+    "r_cards": 18,
+    "c_cards": 18,
+    "total_resistance_ohm": 65203.309,
+    "total_capacitance_ff": 813.8728,
+    "extracted_nets_without_parasitics": [
+      "$19 -> VDD",
+      "vsubs -> VSS"
+    ]
+  },
+  "spliced_devices": [
+    {
+      "name": "XCDG",
+      "nodes": [
+        "NDG",
+        "VSS"
+      ],
+      "model": "cap_mim_2f0_m3m4_noshield",
+      "origin": "por_output_chain"
+    },
+    {
+      "name": "XCTIM",
+      "nodes": [
+        "TIM",
+        "VSS"
+      ],
+      "model": "cap_mim_2f0_m3m4_noshield",
+      "origin": "por_output_chain"
+    }
+  ],
+  "schematic_only_nets": [],
+  "nets": [
+    {
+      "net": "IBIAS",
+      "extracted_net": "IBIAS",
+      "extracted_nets": [
+        "IBIAS"
+      ],
+      "reference_nets": [
+        "IBIAS"
+      ],
+      "body_nets_merged": [],
+      "labelled_in_layout": true,
+      "origin": "layout",
+      "mos_terminals": 3,
+      "spliced_terminals": 0,
+      "parasitic_r_ohm": 4334.0363,
+      "parasitic_c_ff": 44.7612,
+      "is_pin": true
+    },
+    {
+      "net": "ND1",
+      "extracted_net": "$6",
+      "extracted_nets": [
+        "$6"
+      ],
+      "reference_nets": [
+        "ND1"
+      ],
+      "body_nets_merged": [],
+      "labelled_in_layout": false,
+      "origin": "layout",
+      "mos_terminals": 3,
+      "spliced_terminals": 0,
+      "parasitic_r_ohm": 3938.5423,
+      "parasitic_c_ff": 36.9999,
+      "is_pin": false
+    },
+    {
+      "net": "NDG",
+      "extracted_net": "$11",
+      "extracted_nets": [
+        "$11"
+      ],
+      "reference_nets": [
+        "NDG"
+      ],
+      "body_nets_merged": [],
+      "labelled_in_layout": false,
+      "origin": "layout",
+      "mos_terminals": 4,
+      "spliced_terminals": 1,
+      "parasitic_r_ohm": 4004.4196,
+      "parasitic_c_ff": 38.0628,
+      "is_pin": false
+    },
+    {
+      "net": "NDGN",
+      "extracted_net": "$10",
+      "extracted_nets": [
+        "$10"
+      ],
+      "reference_nets": [
+        "NDGN"
+      ],
+      "body_nets_merged": [],
+      "labelled_in_layout": false,
+      "origin": "layout",
+      "mos_terminals": 2,
+      "spliced_terminals": 0,
+      "parasitic_r_ohm": 3871.3807,
+      "parasitic_c_ff": 33.743,
+      "is_pin": false
+    },
+    {
+      "net": "NDGP",
+      "extracted_net": "$16",
+      "extracted_nets": [
+        "$16"
+      ],
+      "reference_nets": [
+        "NDGP"
+      ],
+      "body_nets_merged": [],
+      "labelled_in_layout": false,
+      "origin": "layout",
+      "mos_terminals": 2,
+      "spliced_terminals": 0,
+      "parasitic_r_ohm": 3871.0209,
+      "parasitic_c_ff": 33.5976,
+      "is_pin": false
+    },
+    {
+      "net": "NDL",
+      "extracted_net": "$3",
+      "extracted_nets": [
+        "$3"
+      ],
+      "reference_nets": [
+        "NDL"
+      ],
+      "body_nets_merged": [],
+      "labelled_in_layout": false,
+      "origin": "layout",
+      "mos_terminals": 5,
+      "spliced_terminals": 0,
+      "parasitic_r_ohm": 4397.8512,
+      "parasitic_c_ff": 46.8548,
+      "is_pin": false
+    },
+    {
+      "net": "NNAND",
+      "extracted_net": "$15",
+      "extracted_nets": [
+        "$15"
+      ],
+      "reference_nets": [
+        "NNAND"
+      ],
+      "body_nets_merged": [],
+      "labelled_in_layout": false,
+      "origin": "layout",
+      "mos_terminals": 2,
+      "spliced_terminals": 0,
+      "parasitic_r_ohm": 3874.2598,
+      "parasitic_c_ff": 34.9061,
+      "is_pin": false
+    },
+    {
+      "net": "NTS",
+      "extracted_net": "$8",
+      "extracted_nets": [
+        "$8"
+      ],
+      "reference_nets": [
+        "NTS"
+      ],
+      "body_nets_merged": [],
+      "labelled_in_layout": false,
+      "origin": "layout",
+      "mos_terminals": 2,
+      "spliced_terminals": 0,
+      "parasitic_r_ohm": 3872.8202,
+      "parasitic_c_ff": 34.3245,
+      "is_pin": false
+    },
+    {
+      "net": "PDN",
+      "extracted_net": "$2",
+      "extracted_nets": [
+        "$2"
+      ],
+      "reference_nets": [
+        "PDN"
+      ],
+      "body_nets_merged": [],
+      "labelled_in_layout": false,
+      "origin": "layout",
+      "mos_terminals": 7,
+      "spliced_terminals": 0,
+      "parasitic_r_ohm": 4808.7621,
+      "parasitic_c_ff": 56.0048,
+      "is_pin": false
+    },
+    {
+      "net": "PGDG",
+      "extracted_net": "$12",
+      "extracted_nets": [
+        "$12"
+      ],
+      "reference_nets": [
+        "PGDG"
+      ],
+      "body_nets_merged": [],
+      "labelled_in_layout": false,
+      "origin": "layout",
+      "mos_terminals": 6,
+      "spliced_terminals": 0,
+      "parasitic_r_ohm": 4123.7127,
+      "parasitic_c_ff": 41.8228,
+      "is_pin": false
+    },
+    {
+      "net": "PGDGB",
+      "extracted_net": "$5",
+      "extracted_nets": [
+        "$5"
+      ],
+      "reference_nets": [
+        "PGDGB"
+      ],
+      "body_nets_merged": [],
+      "labelled_in_layout": false,
+      "origin": "layout",
+      "mos_terminals": 4,
+      "spliced_terminals": 0,
+      "parasitic_r_ohm": 4001.1623,
+      "parasitic_c_ff": 38.4214,
+      "is_pin": false
+    },
+    {
+      "net": "POR_RAW",
+      "extracted_net": "POR_RAW",
+      "extracted_nets": [
+        "POR_RAW"
+      ],
+      "reference_nets": [
+        "POR_RAW"
+      ],
+      "body_nets_merged": [],
+      "labelled_in_layout": true,
+      "origin": "layout",
+      "mos_terminals": 2,
+      "spliced_terminals": 0,
+      "parasitic_r_ohm": 3981.5881,
+      "parasitic_c_ff": 33.8328,
+      "is_pin": true
+    },
+    {
+      "net": "RESETn",
+      "extracted_net": "RESETn",
+      "extracted_nets": [
+        "RESETn"
+      ],
+      "reference_nets": [
+        "RESETn"
+      ],
+      "body_nets_merged": [],
+      "labelled_in_layout": true,
+      "origin": "layout",
+      "mos_terminals": 3,
+      "spliced_terminals": 0,
+      "parasitic_r_ohm": 4035.8215,
+      "parasitic_c_ff": 41.1121,
+      "is_pin": true
+    },
+    {
+      "net": "RSTB",
+      "extracted_net": "$17",
+      "extracted_nets": [
+        "$17"
+      ],
+      "reference_nets": [
+        "RSTB"
+      ],
+      "body_nets_merged": [],
+      "labelled_in_layout": false,
+      "origin": "layout",
+      "mos_terminals": 6,
+      "spliced_terminals": 0,
+      "parasitic_r_ohm": 4010.467,
+      "parasitic_c_ff": 43.7315,
+      "is_pin": false
+    },
+    {
+      "net": "TIM",
+      "extracted_net": "$13",
+      "extracted_nets": [
+        "$13"
+      ],
+      "reference_nets": [
+        "TIM"
+      ],
+      "body_nets_merged": [],
+      "labelled_in_layout": false,
+      "origin": "layout",
+      "mos_terminals": 3,
+      "spliced_terminals": 1,
+      "parasitic_r_ohm": 3937.7776,
+      "parasitic_c_ff": 36.691,
+      "is_pin": false
+    },
+    {
+      "net": "TRIP",
+      "extracted_net": "$14",
+      "extracted_nets": [
+        "$14"
+      ],
+      "reference_nets": [
+        "TRIP"
+      ],
+      "body_nets_merged": [],
+      "labelled_in_layout": false,
+      "origin": "layout",
+      "mos_terminals": 4,
+      "spliced_terminals": 0,
+      "parasitic_r_ohm": 3994.4831,
+      "parasitic_c_ff": 38.9569,
+      "is_pin": false
+    },
+    {
+      "net": "VDD",
+      "extracted_net": null,
+      "extracted_nets": [
+        "$19",
+        "VDD"
+      ],
+      "reference_nets": [
+        "NW1",
+        "VDD"
+      ],
+      "body_nets_merged": [
+        "NW1"
+      ],
+      "labelled_in_layout": true,
+      "origin": "layout",
+      "mos_terminals": 26,
+      "spliced_terminals": 0,
+      "parasitic_r_ohm": 79.5773,
+      "parasitic_c_ff": 68.5875,
+      "is_pin": true
+    },
+    {
+      "net": "VSS",
+      "extracted_net": null,
+      "extracted_nets": [
+        "VSS",
+        "vsubs"
+      ],
+      "reference_nets": [
+        "VSS",
+        "vsubs"
+      ],
+      "body_nets_merged": [
+        "vsubs"
+      ],
+      "labelled_in_layout": true,
+      "origin": "layout",
+      "mos_terminals": 24,
+      "spliced_terminals": 2,
+      "parasitic_r_ohm": 65.6263,
+      "parasitic_c_ff": 111.4622,
+      "is_pin": true
+    }
+  ],
+  "readme_claims": [
+    {
+      "claim": "omitting the two MiM caps costs no net: NDG and TIM each carry MOS terminals as well as a cap terminal, so every schematic net still exists on both sides of the compare",
+      "holds": true,
+      "findings": [
+        "NDG: extracted as $11, 4 MOS terminal(s), unlabelled",
+        "TIM: extracted as $13, 3 MOS terminal(s), unlabelled"
+      ]
+    }
+  ]
+}
