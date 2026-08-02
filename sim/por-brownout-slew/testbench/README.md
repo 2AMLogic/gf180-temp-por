@@ -65,6 +65,18 @@ bisection step above a single observed FAIL), so it is not undermined by
 that non-monotonicity, but the zone itself is flagged as worth a follow-up
 characterization rather than resolved here.
 
+**Follow-up (#74).** Three additional full-grid rungs (3.42/3.44/3.46 mV/µs)
+and an event-timing control at the `ss`/−40 °C binding family map the band's
+shape and its mechanism: it is a race between the shrinking dip window and
+`por_output_chain`'s deglitch dwell, realized far past its documented
+ceiling because the near-boundary edge has not finished falling when
+`POR_RAW` trips — see
+[`sim/por-brownout-slew/records/20260802-134958-dd0cd60-transition-band.md`](../records/20260802-134958-dd0cd60-transition-band.md)
+and `design/bias_core.md`'s "starved-loop window" section. The earliest
+observed FAIL also moved down from 3.4795 to **3.46 mV/µs** (`ss`/−40 °C/
+3.30 V); the ratified 3.40 mV/µs bound is unaffected (every PASS margin at or
+below it is ≥108.7 µs, well clear of the band).
+
 ## Where the result lands
 
 - Per-corner bracket table + binding-corner identification:
@@ -77,3 +89,8 @@ characterization rather than resolved here.
 - DR-011 decision 2's gate: satisfied by this full-grid characterization;
   `por-brownout`'s `pending #1` status is unchanged pending #1's own overall
   ratification pass.
+- Non-monotonic band shape + mechanism (#74):
+  [`sim/por-brownout-slew/analyze_transition_band.py`](../analyze_transition_band.py)
+  (also derived; reads the rung records above plus
+  [`control/results.json`](../control/results.json)) →
+  `sim/por-brownout-slew/records/<latest-record-id>-transition-band.md`.
