@@ -1,0 +1,365 @@
+{
+  "schema_version": 1,
+  "file": "layout/cells/por_comparator.gds",
+  "deck": "gf180mcu",
+  "top": "por_comparator",
+  "dbu_um": 0.001,
+  "netlist_path": "layout/reports/por_comparator/extracted.spice",
+  "netlist_sha256": "c75327b527eacbf9d93a52238b535ff2696ea377c1b15dc891f212a7e204c911",
+  "status": "extracted",
+  "device_count": 18,
+  "net_count": 18,
+  "pin_count": 8,
+  "device_counts": {
+    "nfet": 12,
+    "pfet": 6
+  },
+  "devices": [
+    {
+      "name": "$1",
+      "class": "nfet",
+      "nets": {
+        "s": "VSS",
+        "g": "$12",
+        "d": "$9",
+        "b": "vsubs"
+      },
+      "params": {
+        "l_um": 10.0,
+        "w_um": 1.0
+      }
+    },
+    {
+      "name": "$10",
+      "class": "nfet",
+      "nets": {
+        "s": "VSS",
+        "g": "BIAS_OKB",
+        "d": "$12",
+        "b": "vsubs"
+      },
+      "params": {
+        "l_um": 0.5,
+        "w_um": 2.0
+      }
+    },
+    {
+      "name": "$11",
+      "class": "nfet",
+      "nets": {
+        "s": "VSS",
+        "g": "BIAS_OKB",
+        "d": "$5",
+        "b": "vsubs"
+      },
+      "params": {
+        "l_um": 1.0,
+        "w_um": 2.0
+      }
+    },
+    {
+      "name": "$12",
+      "class": "nfet",
+      "nets": {
+        "s": "VSS",
+        "g": "$7",
+        "d": "$14",
+        "b": "vsubs"
+      },
+      "params": {
+        "l_um": 0.5,
+        "w_um": 10.0
+      }
+    },
+    {
+      "name": "$13",
+      "class": "pfet",
+      "nets": {
+        "s": "VDD",
+        "g": "$5",
+        "d": "$7",
+        "b": "$17"
+      },
+      "params": {
+        "l_um": 0.5,
+        "w_um": 2.0
+      }
+    },
+    {
+      "name": "$14",
+      "class": "pfet",
+      "nets": {
+        "s": "VDD",
+        "g": "$7",
+        "d": "POR_RAW",
+        "b": "$17"
+      },
+      "params": {
+        "l_um": 0.5,
+        "w_um": 2.0
+      }
+    },
+    {
+      "name": "$15",
+      "class": "pfet",
+      "nets": {
+        "s": "$3",
+        "g": "$4",
+        "d": "$4",
+        "b": "$17"
+      },
+      "params": {
+        "l_um": 1.0,
+        "w_um": 4.0
+      }
+    },
+    {
+      "name": "$16",
+      "class": "pfet",
+      "nets": {
+        "s": "$3",
+        "g": "$4",
+        "d": "$5",
+        "b": "$17"
+      },
+      "params": {
+        "l_um": 1.0,
+        "w_um": 4.0
+      }
+    },
+    {
+      "name": "$17",
+      "class": "pfet",
+      "nets": {
+        "s": "VDD",
+        "g": "BIAS_OKB",
+        "d": "$3",
+        "b": "$17"
+      },
+      "params": {
+        "l_um": 0.5,
+        "w_um": 4.0
+      }
+    },
+    {
+      "name": "$18",
+      "class": "pfet",
+      "nets": {
+        "s": "VDD",
+        "g": "BIAS_OK",
+        "d": "BIAS_OKB",
+        "b": "$16"
+      },
+      "params": {
+        "l_um": 0.5,
+        "w_um": 2.0
+      }
+    },
+    {
+      "name": "$2",
+      "class": "nfet",
+      "nets": {
+        "s": "VSS",
+        "g": "BIAS_OKB",
+        "d": "IBIAS",
+        "b": "vsubs"
+      },
+      "params": {
+        "l_um": 1.0,
+        "w_um": 1.0
+      }
+    },
+    {
+      "name": "$3",
+      "class": "nfet",
+      "nets": {
+        "s": "VSS",
+        "g": "$5",
+        "d": "$7",
+        "b": "vsubs"
+      },
+      "params": {
+        "l_um": 0.5,
+        "w_um": 1.0
+      }
+    },
+    {
+      "name": "$4",
+      "class": "nfet",
+      "nets": {
+        "s": "VSS",
+        "g": "$7",
+        "d": "POR_RAW",
+        "b": "vsubs"
+      },
+      "params": {
+        "l_um": 0.5,
+        "w_um": 1.0
+      }
+    },
+    {
+      "name": "$5",
+      "class": "nfet",
+      "nets": {
+        "s": "VSS",
+        "g": "BIAS_OK",
+        "d": "BIAS_OKB",
+        "b": "vsubs"
+      },
+      "params": {
+        "l_um": 0.5,
+        "w_um": 1.0
+      }
+    },
+    {
+      "name": "$6",
+      "class": "nfet",
+      "nets": {
+        "s": "$9",
+        "g": "$10",
+        "d": "$4",
+        "b": "vsubs"
+      },
+      "params": {
+        "l_um": 1.0,
+        "w_um": 2.0
+      }
+    },
+    {
+      "name": "$7",
+      "class": "nfet",
+      "nets": {
+        "s": "$9",
+        "g": "VREF",
+        "d": "$5",
+        "b": "vsubs"
+      },
+      "params": {
+        "l_um": 1.0,
+        "w_um": 2.0
+      }
+    },
+    {
+      "name": "$8",
+      "class": "nfet",
+      "nets": {
+        "s": "VSS",
+        "g": "$12",
+        "d": "IBIAS",
+        "b": "vsubs"
+      },
+      "params": {
+        "l_um": 2.0,
+        "w_um": 2.0
+      }
+    },
+    {
+      "name": "$9",
+      "class": "nfet",
+      "nets": {
+        "s": "$12",
+        "g": "BIAS_OK",
+        "d": "IBIAS",
+        "b": "vsubs"
+      },
+      "params": {
+        "l_um": 0.5,
+        "w_um": 2.0
+      }
+    }
+  ],
+  "nets": [
+    {
+      "name": "$10",
+      "pin": false,
+      "device_count": 1
+    },
+    {
+      "name": "$12",
+      "pin": false,
+      "device_count": 4
+    },
+    {
+      "name": "$14",
+      "pin": false,
+      "device_count": 1
+    },
+    {
+      "name": "$16",
+      "pin": false,
+      "device_count": 1
+    },
+    {
+      "name": "$17",
+      "pin": false,
+      "device_count": 5
+    },
+    {
+      "name": "$3",
+      "pin": false,
+      "device_count": 3
+    },
+    {
+      "name": "$4",
+      "pin": false,
+      "device_count": 4
+    },
+    {
+      "name": "$5",
+      "pin": false,
+      "device_count": 5
+    },
+    {
+      "name": "$7",
+      "pin": false,
+      "device_count": 5
+    },
+    {
+      "name": "$9",
+      "pin": false,
+      "device_count": 3
+    },
+    {
+      "name": "BIAS_OK",
+      "pin": true,
+      "device_count": 3
+    },
+    {
+      "name": "BIAS_OKB",
+      "pin": true,
+      "device_count": 6
+    },
+    {
+      "name": "IBIAS",
+      "pin": true,
+      "device_count": 3
+    },
+    {
+      "name": "POR_RAW",
+      "pin": true,
+      "device_count": 2
+    },
+    {
+      "name": "VDD",
+      "pin": true,
+      "device_count": 4
+    },
+    {
+      "name": "VREF",
+      "pin": true,
+      "device_count": 1
+    },
+    {
+      "name": "VSS",
+      "pin": true,
+      "device_count": 9
+    },
+    {
+      "name": "vsubs",
+      "pin": true,
+      "device_count": 12
+    }
+  ],
+  "warnings": [],
+  "pdk": null
+}

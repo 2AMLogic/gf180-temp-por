@@ -31,19 +31,23 @@ plus one repo-local annotation layer that is **not** a gf180mcu drawn layer and
 is read by neither the DRC deck nor the extraction deck:
 
     RESERVED 200/0  area reserved for devices the deck cannot represent
-                    (see ``bias_core``'s docstring)
+                    (see ``bias_core``'s and ``por_comparator``'s docstrings)
 
-Device dimensions are never retyped here. ``bias_core`` reads every ``L``/``W``
-out of ``design/netlist/bias_core.spice`` through ``lvs_reference``'s parser --
-the same golden netlist the LVS reference is derived from -- so the layout and
-the reference cannot drift apart silently: move a size in the schematic and
-both ``--check`` gates fail together.
+Device dimensions are never retyped here. ``bias_core`` and ``por_comparator``
+read every ``L``/``W`` out of ``design/netlist/*.spice`` through
+``lvs_reference``'s parser -- the same golden netlist the LVS reference is
+derived from -- so the layout and the reference cannot drift apart silently:
+move a size in the schematic and both ``--check`` gates fail together. The same
+holds for the one reserved region whose size is load-bearing: the sense
+divider's footprint is folded from the golden netlist's own ``r_width`` /
+``r_length``, not from a number typed in here.
 """
 
 from __future__ import annotations
 
 import argparse
 import hashlib
+import math
 import sys
 import tempfile
 from pathlib import Path
@@ -97,6 +101,29 @@ class CellBuilder:
         self.cell.shapes(self._layer(METAL1_LABEL)).insert(
             self._kdb.DText(name, self._kdb.DTrans(self._kdb.DVector(x, y))).to_itype(
                 self.layout.dbu
+            )
+        )
+
+    def instance(self, name: str, body, dx: float, dy: float) -> None:
+        """Draw ``body`` into a child cell and place one instance at ``dx, dy``.
+
+        The cell hierarchy is real in the stream and flat everywhere it is
+        checked: both ``klt drc`` and ``klt extract`` read each layer through
+        ``begin_shapes_rec`` on the top cell, i.e. flattened (see
+        ``klayout_tools.drc``/``extract``). So an instanced sub-cell's geometry
+        -- including its Metal1 labels -- lands in the parent's own flat
+        connectivity graph, which is what lets a parent wire abut a sub-cell's
+        strap and come out as one net.
+        """
+        child = self.layout.create_cell(name)
+        parent, self.cell = self.cell, child
+        try:
+            body(self)
+        finally:
+            self.cell = parent
+        self.cell.insert(
+            self._kdb.DCellInstArray(
+                child.cell_index(), self._kdb.DTrans(self._kdb.DVector(dx, dy))
             )
         )
 
@@ -481,9 +508,402 @@ def bias_core(b: CellBuilder) -> None:
         b.label(net, x, track_y[net])
 
 
+# --------------------------------------------------------------------------- #
+# por_comparator (#69)
+# --------------------------------------------------------------------------- #
+
+#: ``por_comparator``'s PMOS devices, left to right across the drawn row.
+#: ``XMENP`` is absent on purpose -- it comes in with the instanced
+#: ``por_comparator_bias_okb_inv`` sub-cell.
+POR_COMPARATOR_PMOS = (
+    # load mirror (matched pair -- adjacent, same orientation)
+    "XMLA",
+    "XMLB",
+    # VDDA supply gate, then the two output-inverter PMOS
+    "XMENSRC",
+    "XMI1P",
+    "XMI2P",
+)
+
+#: ``por_comparator``'s NMOS devices, left to right across the drawn row.
+#: ``XMENN`` is absent on purpose (see ``POR_COMPARATOR_PMOS``).
+POR_COMPARATOR_NMOS = (
+    # comparator input pair, then its tail -- floorplan rank 4: side by side,
+    # same orientation, no interleaving (see the cell docstring)
+    "XMINA",
+    "XMINB",
+    "XMTAIL",
+    # local bias mirror and its BIAS_OK-gated clamps
+    "XMBD",
+    "XMPASS",
+    "XMDNB",
+    "XMDIB",
+    # hysteresis switch, CMPO clamp, output inverters
+    "XMHSW",
+    "XMDCMPO",
+    "XMI1N",
+    "XMI2N",
+)
+
+#: One Poly2 routing track per signal net, bottom to top in the channel above
+#: the device row. ``VDD``/``VSS`` are not here -- they are Metal1 rails.
+#:
+#: Order is not arbitrary: the input pair's two gate nets (``SNS``/``VREF``)
+#: are adjacent, and so are its two drain nets (``NA``/``CMPO``), with the
+#: shared source (``TN``) directly below both -- so ``XMINA``'s and
+#: ``XMINB``'s routing differs by exactly one 0.8 um track pitch, which is the
+#: "short and symmetric routing from SNS and VREF" the floorplan asks for.
+#: ``SNS`` and ``SNSB`` are the two nets the (undrawn) sense divider taps, so
+#: both tracks are also run out to the reserved divider region.
+POR_COMPARATOR_TRACKS = (
+    "TN",
+    "SNS",
+    "VREF",
+    "NA",
+    "CMPO",
+    "VDDA",
+    "N1",
+    "POR_RAW",
+    "NBG",
+    "IBIAS",
+    "BIAS_OK",
+    "BIAS_OKB",
+    "SNSB",
+)
+
+#: Metal1 pin labels, dropped on the riser of the named device terminal (a
+#: label only becomes an extracted pin if it sits inside a Metal1 shape on that
+#: net). ``VDD``/``VSS`` go on the rails; ``BIAS_OK``/``BIAS_OKB`` arrive with
+#: the instanced sub-cell, which carries its own labels.
+POR_COMPARATOR_PIN_ON_DRAIN = {"IBIAS": "XMBD", "POR_RAW": "XMI2P"}
+POR_COMPARATOR_PIN_ON_GATE = {"VREF": "XMINB"}
+
+#: The sense divider, VDD end first (``design/por_comparator.md``, "Sense
+#: divider"). Poly resistors: outside the curated deck's device coverage, so
+#: reserved rather than drawn -- see ``por_comparator``'s docstring.
+POR_DIVIDER_RESISTORS = ("XRTOP", "XRBOT", "XRHYS")
+
+#: Poly-to-poly space between adjacent serpentine legs of the folded divider.
+#: The DRM minimum (``PL.3a``) is 0.24 um; 1.0 um is ordinary poly-resistor
+#: practice and is the assumption the reserved footprint is computed against.
+DIVIDER_LEG_SPACE_UM = 1.0
+#: Standard end-of-string dummy segments: one leg at each end of the string.
+DIVIDER_DUMMY_LEGS = 2
+#: Turn + head/tail contact overhead at each end of a leg.
+DIVIDER_LEG_END_UM = 2.0
+
+
+def _poly_resistors(source: str, subckt: str, names: tuple[str, ...]) -> dict:
+    """Parse ``design/netlist/<source>``'s ``<subckt>`` for the named resistors.
+
+    ``lvs_reference.parse_devices`` deliberately drops every card the curated
+    deck cannot model, resistors included, so this reads their ``r_width`` /
+    ``r_length`` directly -- still out of the same golden netlist, so no
+    dimension is retyped here either.
+    """
+    text = (REPO_ROOT / "design" / "netlist" / source).read_text()
+    found: dict[str, dict[str, str]] = {}
+    for line in lvsref.subckt_body(text, subckt):
+        fields = line.split()
+        if fields[0] not in names:
+            continue
+        found[fields[0]] = {
+            key.lower(): value.strip("'\"")
+            for key, _, value in (f.partition("=") for f in fields[1:] if "=" in f)
+        }
+    missing = [name for name in names if name not in found]
+    if missing:
+        raise KeyError(f"{source}:{subckt}: no resistor card for {missing}")
+    return found
+
+
+def _divider_footprint() -> tuple[float, float, float, float, int]:
+    """The folded sense divider's reserved footprint, from the golden netlist.
+
+    Returns ``(width_um, height_um, drawn_length_um, leg_width_um, legs)`` for
+    an ordinary serpentine fold: same-flavor, same-width legs at a fixed pitch,
+    folded to a roughly square footprint, plus one dummy leg at each end. Area
+    is what constrains this structure, not matching -- ``layout/floorplan.md``
+    rank 4 -- so the fold is chosen for footprint and the number it produces is
+    computed here rather than asserted.
+    """
+    cards = _poly_resistors(
+        "por_comparator.spice", "por_comparator", POR_DIVIDER_RESISTORS
+    )
+    widths = {lvsref.to_um(card["r_width"]) for card in cards.values()}
+    if len(widths) != 1:
+        # Same-width legs are the premise of the TC/sheet-rho-in-ratio
+        # cancellation this divider's accuracy rests on (design/
+        # por_comparator.md, "Why the hysteresis is a resistor ratio"), and of
+        # the floorplan's rank-4 plan. If the schematic ever stops agreeing,
+        # fail here rather than reserve an area for a structure that no longer
+        # matches the plan.
+        raise ValueError(f"sense divider legs are not one width: {sorted(widths)}")
+    leg_w = widths.pop()
+    drawn = sum(lvsref.to_um(card["r_length"]) for card in cards.values())
+    pitch = leg_w + DIVIDER_LEG_SPACE_UM
+    leg_len = math.sqrt(drawn * pitch)  # square-ish serpentine
+    legs = math.ceil(drawn / leg_len) + DIVIDER_DUMMY_LEGS
+    width = math.ceil(legs * pitch * 2.0) / 2.0
+    height = math.ceil((leg_len + 2 * DIVIDER_LEG_END_UM) * 2.0) / 2.0
+    return width, height, drawn, leg_w, legs
+
+
+def por_comparator(b: CellBuilder) -> None:
+    """The MOS portion of ``por_comparator`` (``design/por_comparator.sch``).
+
+    **What is drawn, and what deliberately is not.** ``por_comparator`` has 18
+    MOS devices and three ``ppolyf_u_3k`` poly resistors -- the sense divider
+    ``XRTOP``/``XRBOT``/``XRHYS``. The curated ``gf180mcu`` extraction deck
+    recognises ``nfet``/``pfet`` and nothing else (klayout-tools#219, resistors
+    #222), so the divider cannot be extracted as devices. Drawing its poly
+    anyway would be worse than leaving it out: the deck would read a drawn
+    resistor body as plain interconnect and silently short ``VDD``-``SNS``,
+    ``SNS``-``SNSB`` and ``SNSB``-``VSS`` together -- collapsing the comparator's
+    own sense node onto the rail, which would then read as a layout bug in the
+    part that *can* be checked. So, exactly as in ``bias_core`` (#68), the
+    divider's area is **reserved** on annotation layer 200/0 (read by neither
+    deck, so it changes no DRC or LVS verdict) and its two taps ``SNS``/``SNSB``
+    are routed out to that region's edge. ``layout/README.md`` records which
+    devices that leaves outside LVS coverage.
+
+    The reserved rectangle is not a guess: :func:`_divider_footprint` reads
+    ``r_width``/``r_length`` for the three segments out of the golden netlist
+    and folds them at ``leg width + 1 um`` pitch into a roughly square
+    serpentine, plus one end-of-string dummy leg at each end.
+
+    **The BIAS_OKB inverter is instanced, not re-drawn.** ``MENP``/``MENN``
+    already exist as ``por_comparator_bias_okb_inv`` (#16's proof cell, DRC- and
+    LVS-clean in its own right), so this cell places one instance of it rather
+    than a second copy of the same two devices. Its ``BIAS_OKB`` Metal1 label
+    comes along with it and names that net in the flattened parent, which is
+    why ``BIAS_OKB`` is a pin of this cell and not an internal node (see
+    ``layout/lvs_reference.py``'s manifest entry).
+
+    **Matching plan** -- ``layout/floorplan.md`` rank 4, followed as
+    floorplanned, i.e. **standard practice, not common-centroid**, because
+    #15's MC record measures the ratified threshold rows passing at 100 % yield
+    regardless of the comparator's own offset:
+
+    * ``XMINA``/``XMINB`` are adjacent, same orientation, identical drawn
+      geometry, in the same substrate context, with no finger splitting and no
+      interleaving. Their gate nets (``SNS``/``VREF``) sit on adjacent routing
+      tracks and their drain nets (``NA``/``CMPO``) on the next adjacent pair,
+      so the two halves' routing differs by one 0.8 um track pitch.
+    * The sense divider keeps ``W = 2 um`` (the floorplan's explicit
+      conclusion; nothing here narrows it) with same-flavor, same-width legs
+      and ordinary serpentine folding for area, and standard end-of-string
+      dummy segments -- all of which is what the reserved footprint above is
+      computed from.
+    * The load mirror ``XMLA``/``XMLB`` gets the same ordinary matched-pair
+      practice (adjacent, same orientation, one well) although the floorplan
+      names no plan for it.
+
+    **Structure** -- same two-layer scheme as ``bias_core``: horizontal Poly2
+    tracks, vertical Metal1 risers, Metal1-only by necessity (the extraction
+    deck still declares one metal level at ``klt 0.1.0``)::
+
+        +--- guard ring: COMP + Metal1, VSS-tied, continuous, contacts 1um ----+
+        |  VDD rail (Metal1)                                                   |
+        |  ..... routing channel: one Poly2 track per signal net .....         |
+        |  [ PMOS row, one Nwell ]  [ NMOS row ]  [inv] [ reserved divider ]   |
+        |  Nwell tie strap (COMP in Nwell -> VDD)                              |
+        |  VSS rail (Metal1) over a p-substrate tap strap (COMP)               |
+        +----------------------------------------------------------------------+
+
+    Each cell in this file owns its own placement pass rather than sharing one
+    emitter: a committed ``.gds`` is recorded evidence with its own DRC/LVS
+    reports, and a shared emitter would mean a tweak aimed at one cell silently
+    re-streams the other and invalidates reports nobody re-ran.
+    """
+    devices = _golden_devices("por_comparator.spice", "por_comparator")
+
+    # --- placement pass: fix every device's x, then derive the frame -------
+    tiles = []
+    cursor = 0.0
+    for name in POR_COMPARATOR_PMOS + POR_COMPARATOR_NMOS:
+        if name == POR_COMPARATOR_NMOS[0]:
+            cursor += REGION_GAP_UM
+        device = devices[name]
+        length = lvsref.to_um(device["params"]["l"])
+        width = lvsref.to_um(device["params"]["w"])
+        drain, gate, source, _body = device["nodes"]
+        tiles.append(
+            {
+                "name": name,
+                "pmos": name in POR_COMPARATOR_PMOS,
+                "x0": cursor,
+                "l": length,
+                "w": width,
+                "d": drain,
+                "g": gate,
+                "s": source,
+            }
+        )
+        cursor += 2 * SD_EXT_UM + length + TILE_GAP_UM
+
+    pmos = [tile for tile in tiles if tile["pmos"]]
+    p_x0 = pmos[0]["x0"]
+    p_x1 = pmos[-1]["x0"] + 2 * SD_EXT_UM + pmos[-1]["l"]
+    row_x1 = cursor - TILE_GAP_UM
+    max_w = max(tile["w"] for tile in tiles)
+    max_pw = max(tile["w"] for tile in pmos)
+
+    channel_y0 = max_w + 3.0
+    track_y = {
+        net: channel_y0 + index * TRACK_PITCH_UM
+        for index, net in enumerate(POR_COMPARATOR_TRACKS)
+    }
+    vdd_y0 = channel_y0 + len(POR_COMPARATOR_TRACKS) * TRACK_PITCH_UM + 1.5
+    vdd_y1 = vdd_y0 + 1.2
+    vss_y0, vss_y1 = -5.2, -4.2
+    tie_y0, tie_y1 = -2.2, -1.2
+
+    # The instanced BIAS_OKB inverter sits on the row's own baseline, clear of
+    # the routing channel: its own Poly2 gate strip tops out at y = 5.3, well
+    # below the lowest track, so no track can touch it.
+    inv_x, inv_y = row_x1 + 6.0, 0.0
+    inv_x1 = inv_x + 2.4  # its Nwell's right edge
+
+    div_w, div_h, div_len, div_leg_w, div_legs = _divider_footprint()
+    reserved_x0 = inv_x1 + 6.0
+    reserved_x1 = reserved_x0 + div_w
+    reserved_y0 = -3.5
+    reserved_y1 = reserved_y0 + div_h
+
+    clear = GUARD_RING_CLEAR_UM + GUARD_RING_W_UM
+    gx0 = p_x0 - 1.0 - clear
+    gx1 = reserved_x1 + clear
+    gy0 = vss_y0 - clear
+    gy1 = max(vdd_y1, reserved_y1) + clear
+
+    def riser(x_centre: float, net: str, y_low: float, y_high: float) -> None:
+        """One Metal1 riser from a device terminal to its rail or track."""
+        if net == "VDD":
+            y_high = vdd_y1
+        elif net == "VSS":
+            y_low = vss_y0
+        else:
+            y_high = track_y[net] + 0.2
+            b.contact(x_centre, track_y[net])
+        b.box(
+            METAL1,
+            x_centre - RISER_W_UM / 2.0,
+            y_low,
+            x_centre + RISER_W_UM / 2.0,
+            y_high,
+        )
+
+    # --- devices -----------------------------------------------------------
+    for tile in tiles:
+        x0, length, width = tile["x0"], tile["l"], tile["w"]
+        tile_w = 2 * SD_EXT_UM + length
+        gate_x0 = x0 + SD_EXT_UM
+        gate_cx = gate_x0 + length / 2.0
+        x_source = x0 + CONT_INSET_UM
+        x_drain = x0 + tile_w - CONT_INSET_UM
+
+        b.box(COMP, x0, 0.0, x0 + tile_w, width)
+        b.box(POLY2, gate_x0, -0.3, gate_x0 + length, width + 1.1)
+        b.contact(gate_cx, width + 0.75)
+        for y in _contact_rows(width):
+            b.contact(x_source, y)
+            b.contact(x_drain, y)
+
+        riser(x_source, tile["s"], 0.15, max(0.6, width - 0.2))
+        riser(x_drain, tile["d"], 0.15, max(0.6, width - 0.2))
+        riser(gate_cx, tile["g"], width + 0.55, width + 0.95)
+
+    # --- Poly2 routing channel ---------------------------------------------
+    # Two tracks run further right than the device row: the pair the sense
+    # divider taps (out to the reserved region), and the two nets the instanced
+    # inverter drives/receives (out to its own risers).
+    track_x1 = {
+        "SNS": reserved_x0 + 3.0,
+        "SNSB": reserved_x0 + 3.0,
+        "BIAS_OK": inv_x - 2.6,
+        "BIAS_OKB": inv_x + 1.8,
+    }
+    for net in POR_COMPARATOR_TRACKS:
+        y = track_y[net]
+        half_w = TRACK_W_UM / 2.0
+        b.box(POLY2, p_x0 - 1.0, y - half_w, track_x1.get(net, row_x1 + 1.0), y + half_w)
+
+    # --- Nwell, and its tie strap ------------------------------------------
+    b.box(NWELL, p_x0 - 1.0, -2.6, p_x1 + 1.0, max_pw + 1.5)
+    b.box(COMP, p_x0 - 0.5, tie_y0, p_x1 + 0.5, tie_y1)
+    b.box(METAL1, p_x0 - 0.6, tie_y0 - 0.05, p_x1 + 0.6, tie_y1 + 0.05)
+    for x in _span(p_x0 - 0.1, p_x1 + 0.1, TAP_PITCH_UM):
+        b.contact(x, (tie_y0 + tie_y1) / 2.0)
+    # ... carried up to the VDD rail clear of the first device's own risers.
+    b.box(METAL1, p_x0 - 0.6, tie_y1, p_x0 - 0.2, vdd_y1)
+
+    # --- the instanced BIAS_OKB inverter, and its four connections ----------
+    b.instance("por_comparator_bias_okb_inv", por_comparator_bias_okb_inv, inv_x, inv_y)
+    # VSS / VDD: straight down / up out of the sub-cell's own supply straps,
+    # in the x window those straps share and the BIAS_OKB strap does not.
+    b.box(METAL1, inv_x + 0.05, vss_y0, inv_x + 0.45, 0.75)
+    b.box(METAL1, inv_x + 0.05, 3.75, inv_x + 0.45, vdd_y1)
+    # BIAS_OKB: up the right-hand side, onto its own track.
+    b.box(METAL1, inv_x + 1.2, 4.3, inv_x + 1.6, track_y["BIAS_OKB"] + 0.2)
+    b.contact(inv_x + 1.4, track_y["BIAS_OKB"])
+    # BIAS_OK: out to the left at the sub-cell's own gate-strap height (clear
+    # of both supply straps in y), then up onto its track.
+    b.box(METAL1, inv_x - 3.2, 1.8, inv_x - 0.5, 2.2)
+    b.box(METAL1, inv_x - 3.2, 1.8, inv_x - 2.8, track_y["BIAS_OK"] + 0.2)
+    b.contact(inv_x - 3.0, track_y["BIAS_OK"])
+
+    # --- supply rails -------------------------------------------------------
+    b.box(METAL1, gx0 + 2.5, vdd_y0, inv_x1 + 2.0, vdd_y1)
+    b.box(METAL1, gx0 + 1.0, vss_y0, inv_x1 + 2.0, vss_y1)
+    b.box(COMP, gx0 + 2.3, vss_y0, inv_x1 + 1.7, vss_y1)
+    for x in _span(gx0 + 2.8, inv_x1 + 1.2, TAP_PITCH_UM):
+        b.contact(x, (vss_y0 + vss_y1) / 2.0)
+
+    # --- guard ring: continuous, VSS-tied, contacted at 1 um ----------------
+    # Tied to VSS by abutting the VSS rail's left end; no floating segment.
+    # This cell sits on the always-on POR domain's side of the block-level
+    # domain seam (layout/floorplan.md, "Guard-ring / isolation plan"), whose
+    # correctness the deck cannot check -- klayout-tools#281.
+    ring = [
+        (gx0, gy0, gx1, gy0 + GUARD_RING_W_UM),
+        (gx0, gy1 - GUARD_RING_W_UM, gx1, gy1),
+        (gx0, gy0, gx0 + GUARD_RING_W_UM, gy1),
+        (gx1 - GUARD_RING_W_UM, gy0, gx1, gy1),
+    ]
+    for rect in ring:
+        b.box(COMP, *rect)
+        b.box(METAL1, *rect)
+    half = GUARD_RING_W_UM / 2.0
+    for x in _span(gx0 + half, gx1 - half, TAP_PITCH_UM):
+        b.contact(x, gy0 + half)
+        b.contact(x, gy1 - half)
+    inner_low = gy0 + GUARD_RING_W_UM + half
+    inner_high = gy1 - GUARD_RING_W_UM - half
+    for y in _span(inner_low, inner_high, TAP_PITCH_UM):
+        b.contact(gx0 + half, y)
+        b.contact(gx1 - half, y)
+
+    # --- reserved sense-divider region (annotation only) --------------------
+    b.box(RESERVED, reserved_x0, reserved_y0, reserved_x1, reserved_y1)
+
+    # --- pins ---------------------------------------------------------------
+    b.label("VDD", row_x1, (vdd_y0 + vdd_y1) / 2.0)
+    b.label("VSS", row_x1, (vss_y0 + vss_y1) / 2.0)
+    by_name = {tile["name"]: tile for tile in tiles}
+    for net, owner in POR_COMPARATOR_PIN_ON_DRAIN.items():
+        tile = by_name[owner]
+        x = tile["x0"] + 2 * SD_EXT_UM + tile["l"] - CONT_INSET_UM
+        b.label(net, x, track_y[net])
+    for net, owner in POR_COMPARATOR_PIN_ON_GATE.items():
+        tile = by_name[owner]
+        b.label(net, tile["x0"] + SD_EXT_UM + tile["l"] / 2.0, track_y[net])
+
+
 #: cell name -> body. Add a cell here and it joins ``layout/run_checks.sh``.
 CELLS = {
     "bias_core": bias_core,
+    "por_comparator": por_comparator,
     "por_comparator_bias_okb_inv": por_comparator_bias_okb_inv,
 }
 
