@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
   "engine": "klayout",
-  "layout": "por_comparator.gds",
-  "reference": "por_comparator.reference.spice",
-  "top": "por_comparator",
+  "layout": "temp_por_top.gds",
+  "reference": "temp_por_top.reference.spice",
+  "top": "temp_por_top",
   "status": "match",
   "mismatch_count": 3,
   "category_counts": {
@@ -12,19 +12,19 @@
   },
   "counts": {
     "nets": {
-      "layout": 18,
-      "reference": 18,
-      "matched": 18
+      "layout": 78,
+      "reference": 78,
+      "matched": 78
     },
     "devices": {
-      "layout": 18,
-      "reference": 18,
-      "matched": 18
+      "layout": 134,
+      "reference": 134,
+      "matched": 134
     },
     "pins": {
-      "layout": 8,
-      "reference": 8,
-      "matched": 8
+      "layout": 6,
+      "reference": 6,
+      "matched": 6
     }
   },
   "device_classes": [
@@ -37,8 +37,8 @@
   "environment": {
     "engine": "klayout",
     "engine_version": "0.30.10",
-    "layout_sha256": "fbd8b47ead55fe618ca7ae35a08ba14e6e832075015705659a77ee60bd2d99f8",
-    "reference_sha256": "8195604df4c91877225509724512604380c3d249a1f7f4c44096093daf8b6a01",
+    "layout_sha256": "94788e9309024317587077aba3531808d150bfc1cdcc987112bc9f88956d02b4",
+    "reference_sha256": "2facdd3527fd8ddf84ce1098b941ad49c62965152fb11bd9fdb8b2a0ce519221",
     "extracted_netlist": null
   },
   "provenance": {
@@ -54,7 +54,7 @@
     {
       "category": "device.body_unverified",
       "severity": "warning",
-      "description": "12 NMOS device body terminal(s) were compared against the 'vsubs' deck-synthesized substrate net, not a real schematic net -- this deck draws no distinct NMOS substrate/tap layer (see docs/cli/extract.md, \"Coverage\")",
+      "description": "70 NMOS device body terminal(s) were compared against the 'vsubs' deck-synthesized substrate net, not a real schematic net -- this deck draws no distinct NMOS substrate/tap layer (see docs/cli/extract.md, \"Coverage\")",
       "side": "layout",
       "net": null,
       "device": {
@@ -67,7 +67,7 @@
     {
       "category": "device.body_unverified",
       "severity": "warning",
-      "description": "6 PMOS device body terminal(s) were compared against an anonymous, deck-synthesized well net, not a real schematic net -- this deck has no distinct well-tap layer (see docs/cli/extract.md, \"Coverage\")",
+      "description": "64 PMOS device body terminal(s) were compared against an anonymous, deck-synthesized well net, not a real schematic net -- this deck has no distinct well-tap layer (see docs/cli/extract.md, \"Coverage\")",
       "side": "layout",
       "net": null,
       "device": {

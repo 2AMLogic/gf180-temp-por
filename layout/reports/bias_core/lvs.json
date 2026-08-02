@@ -5,8 +5,11 @@
   "reference": "bias_core.reference.spice",
   "top": "bias_core",
   "status": "match",
-  "mismatch_count": 0,
-  "category_counts": {},
+  "mismatch_count": 3,
+  "category_counts": {
+    "device.body_unverified": 2,
+    "topology": 1
+  },
   "counts": {
     "nets": {
       "layout": 26,
@@ -24,6 +27,13 @@
       "matched": 6
     }
   },
+  "device_classes": [
+    "nfet",
+    "pfet",
+    "bjt",
+    "cap_mim_2f0_m4m5_noshield",
+    "resistor"
+  ],
   "environment": {
     "engine": "klayout",
     "engine_version": "0.30.10",
@@ -31,5 +41,50 @@
     "reference_sha256": "c06c19dee0b8683c759edc50317ce96de26115b17b88d3bf256cf63b385a1212",
     "extracted_netlist": null
   },
-  "mismatches": []
+  "provenance": {
+    "klt_version": "0.1.0",
+    "klayout_version": "0.30.10",
+    "pdk": null,
+    "deck": {
+      "name": "gf180mcu",
+      "content_hash": "sha256:dcd6c84a4e9f541f47907dbc493d00758b0eeb89f2dc54d9a9d3662587acb4d8"
+    }
+  },
+  "mismatches": [
+    {
+      "category": "device.body_unverified",
+      "severity": "warning",
+      "description": "18 NMOS device body terminal(s) were compared against the 'vsubs' deck-synthesized substrate net, not a real schematic net -- this deck draws no distinct NMOS substrate/tap layer (see docs/cli/extract.md, \"Coverage\")",
+      "side": "layout",
+      "net": null,
+      "device": {
+        "layout": null,
+        "reference": null,
+        "class": "nfet"
+      },
+      "property": null
+    },
+    {
+      "category": "device.body_unverified",
+      "severity": "warning",
+      "description": "16 PMOS device body terminal(s) were compared against an anonymous, deck-synthesized well net, not a real schematic net -- this deck has no distinct well-tap layer (see docs/cli/extract.md, \"Coverage\")",
+      "side": "layout",
+      "net": null,
+      "device": {
+        "layout": null,
+        "reference": null,
+        "class": "pfet"
+      },
+      "property": null
+    },
+    {
+      "category": "topology",
+      "severity": "warning",
+      "description": "device class has no counterpart on the other side, but no devices of this class were extracted either -- not a real topology mismatch",
+      "side": "layout",
+      "net": null,
+      "device": null,
+      "property": null
+    }
+  ]
 }

@@ -123,8 +123,22 @@ for cell in "${CELLS[@]}"; do
   fi
 
   # 2. extraction --------------------------------------------------------
+  # Extraction is flat, so by default every net named by a label anywhere in
+  # the hierarchy becomes a top-level pin -- including the ones an instanced
+  # sub-cell names, which are internal nodes once instanced (klayout-tools
+  # #291). A cell that instances others therefore sets `layout.top_cell_pins`
+  # in its own request; this mirrors it onto the recorded extraction so the
+  # committed extract.json and the compare see the same pin set.
+  extract_flags=()
+  if python3 -c "
+import json,sys
+print(json.load(open(sys.argv[1]))['layout'].get('top_cell_pins', False))
+" "$request" | grep -q True; then
+    extract_flags+=(--top-cell-pins)
+  fi
   if klt extract "$gds" --deck "$DECK" \
     -o "$out/extracted.spice" --top "$cell" \
+    "${extract_flags[@]+"${extract_flags[@]}"}" \
     --format json >"$out/extract.json"; then
     green "    EXTR  ok      ($out/extracted.spice)"
   else
@@ -150,14 +164,17 @@ for cell in "${CELLS[@]}"; do
     req="$control_dir/${cell}.${corruption}.request.json"
     python3 layout/lvs_reference.py --cell "$cell" \
       --corrupt "$corruption" -o "$ref" >/dev/null
-    python3 - "$cell" "$PWD/$gds" "$ref" "$DECK" >"$req" <<'PY'
-import json, sys
-cell, gds, ref, deck = sys.argv[1:5]
-json.dump({
-    "schema": "klt.lvs.request/1",
-    "layout": {"file": gds, "deck": deck, "top": cell},
-    "reference": {"netlist": ref, "top": cell},
-}, sys.stdout, indent=2)
+    # Derived from the cell's own committed request, with *only* the reference
+    # netlist swapped: a control that quietly dropped an option the real run
+    # uses (`top_cell_pins`, hints, ...) would still exit 3, so it would still
+    # look like a passing control while no longer controlling the same compare.
+    python3 - "$request" "$PWD/$gds" "$ref" >"$req" <<'PY'
+import json, os, sys
+committed, gds, ref = sys.argv[1:4]
+request = json.load(open(committed))
+request["layout"]["file"] = gds
+request["reference"]["netlist"] = ref
+json.dump(request, sys.stdout, indent=2)
 PY
     code=0
     klt lvs "$req" --format json >"$control_dir/${corruption}.report.json" || code=$?

@@ -586,5 +586,235 @@ class TempCoreTest(unittest.TestCase):
             self.assertEqual(len(differing), 1, f"{corruption} changed too much")
 
 
+class TempPorTopAssemblyTest(unittest.TestCase):
+    """``temp_por_top`` (#72) is the one manifest entry with no devices of its
+    own: it is composed from the four sub-cells and from the golden top-level
+    netlist's own instance lines. These cover the composition, because a
+    silently wrong net mapping there produces a reference that is internally
+    consistent, generates cleanly, and describes the wrong circuit."""
+
+    CELL = "temp_por_top"
+
+    def golden(self):
+        return (REPO_ROOT / "design" / "netlist" / "temp_por_top.spice").read_text()
+
+    def cards(self, text=None):
+        return [
+            line.split()
+            for line in (text or lr.build(self.CELL)).splitlines()
+            if line[:1] == "M"
+        ]
+
+    def test_reference_matches_the_committed_file(self):
+        committed = (LAYOUT_DIR / "cells" / f"{self.CELL}.reference.spice").read_text()
+        self.assertEqual(lr.build(self.CELL), committed)
+
+    def test_pin_list_is_the_ratified_pinout_in_the_ratified_order(self):
+        # The same assertion design/netlist.py --check makes at the schematic
+        # level. Order, not just membership: the pinout is a hard external
+        # contract, and agents do not relax a ratified spec to make a result
+        # pass (CLAUDE.md).
+        ratified = lr.subckt_ports(self.golden(), "temp_por_top")
+        self.assertEqual(ratified, ["VDD", "VSS", "PTAT", "CTAT", "RESETn"])
+        declared = [
+            port for port in lr.CELLS[self.CELL]["ports"] if port != lr.SUBSTRATE_NET
+        ]
+        self.assertEqual(declared, ratified)
+        self.assertEqual(bc.TOP_PINOUT, tuple(ratified))
+        header = next(
+            line
+            for line in lr.build(self.CELL).splitlines()
+            if line.upper().startswith(".SUBCKT")
+        )
+        self.assertEqual(
+            header.split()[2:], ratified + [lr.SUBSTRATE_NET]
+        )
+
+    def test_every_sub_cell_device_is_carried_into_the_assembly(self):
+        expected = 0
+        for _inst, sub in lr.CELLS[self.CELL]["assembly"]:
+            spec = lr.CELLS[sub]
+            expected += (
+                len(spec["devices"])
+                + sum(count - 1 for count in spec.get("fingers", {}).values())
+                + len(spec.get("dummies", []))
+            )
+        self.assertEqual(len(self.cards()), expected)
+
+    def test_shared_nets_are_one_net_across_instances(self):
+        # The whole point of the assembly: IBIAS is one node all four
+        # sub-circuits sit on (DR-010), VREF/BIAS_OK/POR_RAW each join two.
+        cards = self.cards()
+        for net, instances in (
+            ("IBIAS", {"xbias", "xcmp", "xpor", "xtemp"}),
+            ("VREF", {"xbias", "xcmp"}),
+            ("BIAS_OK", {"xbias", "xcmp"}),
+            ("POR_RAW", {"xcmp", "xpor"}),
+            ("VDD", {"xbias", "xcmp", "xpor", "xtemp"}),
+            ("VSS", {"xbias", "xcmp", "xpor", "xtemp"}),
+            ("RESETn", {"xpor", "xtemp"}),
+        ):
+            touching = {
+                card[0]
+                for card in cards
+                if net in card[1:5]
+            }
+            self.assertTrue(touching, f"{net} touches no device")
+            # Each such card is one instance's; identify it by the prefixed
+            # nets it also carries.
+            owners = {
+                node.split(".", 1)[0]
+                for card in cards
+                if net in card[1:5]
+                for node in card[1:5]
+                if "." in node
+            }
+            self.assertEqual(
+                owners, instances, f"{net} is not shared by the right instances"
+            )
+
+    def test_instance_internal_nets_stay_distinct(self):
+        # bias_core, por_comparator and temp_core all have a net called PG.
+        # Merging them would be a short LVS could only report as a topology
+        # mismatch a long way from its cause.
+        nodes = {node for card in self.cards() for node in card[1:5]}
+        for net in ("PG", "NA", "NB", "N1", "N2", "NT", "NBG", "PB"):
+            self.assertNotIn(net, nodes, f"{net} leaked out of its instance")
+        self.assertIn("xbias.PG", nodes)
+        self.assertIn("xtemp.PG", nodes)
+        self.assertIn("xcmp.NW1", nodes)
+        self.assertIn("xpor.NW1", nodes)
+
+    def test_substrate_global_is_never_prefixed(self):
+        nodes = {node for card in self.cards() for node in card[1:5]}
+        self.assertIn(lr.SUBSTRATE_NET, nodes)
+        for node in nodes:
+            self.assertFalse(node.endswith(f".{lr.SUBSTRATE_NET}"))
+
+    def test_controls_still_change_exactly_one_card(self):
+        clean = lr.build(self.CELL).splitlines()
+        for corruption in ("device-param", "topology"):
+            bad = lr.build(self.CELL, corrupt=corruption).splitlines()
+            self.assertEqual(len(clean), len(bad))
+            differing = [
+                (a, b)
+                for a, b in zip(clean, bad)
+                if a[:1] == "M" and b[:1] == "M" and a != b
+            ]
+            self.assertEqual(len(differing), 1, f"{corruption} changed too much")
+
+    def test_a_wrong_pinout_is_an_error_not_a_quietly_different_block(self):
+        spec = dict(lr.CELLS[self.CELL])
+        self.addCleanup(lr.CELLS.__setitem__, self.CELL, lr.CELLS[self.CELL])
+        lr.CELLS[self.CELL] = {
+            **spec,
+            "ports": ["VSS", "VDD", "PTAT", "CTAT", "RESETn", lr.SUBSTRATE_NET],
+        }
+        with self.assertRaises(lr.ReferenceError):
+            lr.build(self.CELL)
+
+    def test_a_wrong_instance_model_is_an_error(self):
+        spec = dict(lr.CELLS[self.CELL])
+        self.addCleanup(lr.CELLS.__setitem__, self.CELL, lr.CELLS[self.CELL])
+        lr.CELLS[self.CELL] = {
+            **spec,
+            "assembly": [("xbias", "por_comparator")] + spec["assembly"][1:],
+        }
+        with self.assertRaises(lr.ReferenceError):
+            lr.build(self.CELL)
+
+
+class TempPorTopRouteCheckTest(unittest.TestCase):
+    """``_TopRoutes.check`` is the only thing standing between this block and
+    the two defects the automated flow provably cannot see (both demonstrated
+    against ``klt drc``/``klt lvs`` in the PR for #72): a different-net overlap
+    that DRC reads as one legal polygon, and a guard ring that is drawn but
+    never actually joined to ``VSS``. Pure python -- no klayout needed."""
+
+    class _FakeBuilder:
+        def box(self, *_args, **_kwargs):
+            pass
+
+    def routes(self):
+        return bc._TopRoutes(self._FakeBuilder())
+
+    def test_a_clean_two_net_pattern_passes(self):
+        routes = self.routes()
+        routes.hwire("A", 0.0, 0.0, 10.0)
+        routes.hwire("B", 5.0, 0.0, 10.0)
+        routes.check()
+
+    def test_two_nets_overlapping_on_one_layer_is_a_short(self):
+        routes = self.routes()
+        routes.hwire("A", 0.0, 0.0, 10.0)
+        routes.hwire("B", 0.0, 5.0, 15.0)
+        with self.assertRaises(AssertionError) as caught:
+            routes.check()
+        self.assertIn("SHORT", str(caught.exception))
+
+    def test_two_nets_closer_than_the_deck_rule_is_a_spacing_error(self):
+        routes = self.routes()
+        routes.hwire("A", 0.0, 0.0, 10.0)
+        routes.hwire("B", bc.TOP_WIRE_W + 0.1, 0.0, 10.0)
+        with self.assertRaises(AssertionError) as caught:
+            routes.check()
+        self.assertIn("spacing", str(caught.exception))
+
+    def test_a_via_may_not_bridge_two_nets(self):
+        routes = self.routes()
+        routes.hwire("A", 0.0, 0.0, 10.0)
+        routes.vwire("B", 5.0, -10.0, 10.0)  # Metal3 crossing Metal2: legal
+        routes.check()
+        routes.via2("A", 5.0, 0.0)  # ... until a via lands on the crossing
+        with self.assertRaises(AssertionError) as caught:
+            routes.check()
+        self.assertIn("more than one net", str(caught.exception))
+
+    def test_a_net_drawn_in_two_pieces_is_an_error(self):
+        # This is the floating-guard-ring case: shapes that carry the right
+        # net label but are not joined to it.
+        routes = self.routes()
+        routes.hwire("VSS", 0.0, 0.0, 10.0)
+        routes.hwire("VSS", 0.0, 50.0, 60.0)
+        with self.assertRaises(AssertionError) as caught:
+            routes.check()
+        self.assertIn("disconnected pieces", str(caught.exception))
+
+
+class TempPorTopFloorplanTest(unittest.TestCase):
+    """The block-level floorplan claims that are checkable without drawing."""
+
+    def test_every_crossing_net_is_routed_and_nothing_else_is(self):
+        # Exactly the nets design/netlist/temp_por_top.spice puts on more than
+        # one instance line. A net dropped from TOP_NET_PINS would extract as
+        # two unconnected nets; a net added would be a wire to nowhere.
+        text = (REPO_ROOT / "design" / "netlist" / "temp_por_top.spice").read_text()
+        seen: dict[str, int] = {}
+        for line in lr.subckt_body(text, "temp_por_top"):
+            fields = line.split()
+            if fields[0].lower().startswith("x"):
+                for net in fields[1:-1]:
+                    seen[net] = seen.get(net, 0) + 1
+        crossing = {net for net, count in seen.items() if count > 1}
+        self.assertEqual(set(bc.TOP_NET_PINS), crossing)
+
+    def test_the_two_domains_are_placed_on_opposite_sides_of_the_seam(self):
+        placement = {name: (dx, dy) for name, _inst, dx, dy in bc.TOP_PLACEMENT}
+        self.assertEqual(placement["temp_core"], (0.0, 0.0))
+        for por_cell in ("bias_core", "por_comparator", "por_output_chain"):
+            self.assertLess(placement[por_cell][1], bc.TOP_SEAM_Y)
+        # bias_core is the POR domain's seam-facing, leftmost cell: it is what
+        # both domains consume (layout/floorplan.md, "Placement rationale").
+        self.assertLess(placement["bias_core"][0], placement["por_comparator"][0])
+        self.assertLess(placement["por_comparator"][0], placement["por_output_chain"][0])
+
+    def test_each_crossing_net_has_its_own_trunk_and_column(self):
+        ys = list(bc.TOP_TRUNK_Y.values())
+        self.assertEqual(len(ys), len(set(ys)))
+        xs = list(bc.TOP_MARGIN_X.values())
+        self.assertEqual(len(xs), len(set(xs)))
+        self.assertNotIn("VSS", bc.TOP_TRUNK_Y)  # VSS's trunk is the rail
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -455,6 +455,38 @@ CELLS = {
     },
 }
 
+#: temp_por_top: the block-level assembly (#72). Unlike every entry above, it
+#: lists no devices of its own -- it is *composed* from the four sub-cell
+#: manifests, with each instance's nets renamed through the golden top-level
+#: netlist's own port mapping (``build_assembly`` below). That is the point:
+#: the assembled reference cannot drift from the four cells it assembles,
+#: because it is generated from them and from
+#: ``design/netlist/temp_por_top.spice``'s own instance lines, not retyped.
+#:
+#: Everything the four cells leave outside the curated deck's MOS-only device
+#: coverage (klayout-tools#219/#222) is still outside it here, and now all of
+#: it at once -- ``layout/README.md`` -> "Known deck limits" carries the list.
+CELLS["temp_por_top"] = {
+    "source": "temp_por_top.spice",
+    "subckt": "temp_por_top",
+    #: instance name in design/temp_por_top.sch -> the cell it instances.
+    "assembly": [
+        ("xbias", "bias_core"),
+        ("xcmp", "por_comparator"),
+        ("xpor", "por_output_chain"),
+        ("xtemp", "temp_core"),
+    ],
+    # The ratified 5-pad pinout, in the ratified order (spec/target-spec.md
+    # § "Electrical interface"). Checked against design/netlist/
+    # temp_por_top.spice's own .subckt line by build_assembly -- the same
+    # assertion design/netlist.py --check makes at the schematic level -- so
+    # this list cannot silently drift from the spec. SUBSTRATE_NET is the
+    # deck's own global, not a pad.
+    "ports": ["VDD", "VSS", "PTAT", "CTAT", "RESETn", SUBSTRATE_NET],
+    # The four nets that cross between instances and stay inside the block.
+    "internal": ["IBIAS", "VREF", "BIAS_OK", "POR_RAW"],
+}
+
 SUBCKT_RE = re.compile(r"^\.subckt\s+(\S+)\s+(.*)$", re.IGNORECASE)
 ENDS_RE = re.compile(r"^\.ends\b", re.IGNORECASE)
 UNIT_RE = re.compile(r"^([0-9.eE+-]+)\s*([a-zA-Z]*)$")
@@ -540,7 +572,25 @@ def parse_devices(body: list[str]) -> dict[str, dict]:
     return devices
 
 
-def build(cell: str, corrupt: str | None = None) -> str:
+def subckt_ports(text: str, name: str) -> list[str]:
+    """The formal port list of ``.subckt <name> ...`` in ``text``."""
+    for line in logical_lines(text):
+        match = SUBCKT_RE.match(line)
+        if match and match.group(1) == name:
+            return match.group(2).split()
+    raise ReferenceError(f"subcircuit {name!r} not found")
+
+
+def build_cards(
+    cell: str, corrupt: str | None = None, rename=None
+) -> list[tuple[str, str, list[str], float, float]]:
+    """Every device card one manifest entry contributes, before numbering.
+
+    ``rename`` (used only by :func:`build_assembly`) maps this cell's own net
+    names into the enclosing cell's. It is applied *after* the undeclared-net
+    guard below, so a sub-cell's manifest still has to declare every net its
+    own devices touch -- assembling it cannot launder an undeclared net.
+    """
     spec = CELLS[cell]
     source = NETLIST_DIR / spec["source"]
     devices = parse_devices(subckt_body(source.read_text(), spec["subckt"]))
@@ -604,9 +654,9 @@ def build(cell: str, corrupt: str | None = None) -> str:
         for finger in range(count):
             cards.append(
                 (
-                    f"{letter}{len(cards) + 1}",
+                    letter,
                     klass,
-                    list(nodes),
+                    [net if rename is None else rename(net) for net in nodes],
                     to_um(device["params"]["l"]),
                     to_um(device["params"]["w"]) / count,
                 )
@@ -617,15 +667,98 @@ def build(cell: str, corrupt: str | None = None) -> str:
         klass = dummy["class"]
         drain, gate, source_node = dummy["nets"]
         body = SUBSTRATE_NET if klass == "nfet" else dummy["well"]
+        nodes = [drain, gate, source_node, body]
         cards.append(
             (
-                f"MD{len(cards) + 1}",
+                "MD",
                 klass,
-                [drain, gate, source_node, body],
+                [net if rename is None else rename(net) for net in nodes],
                 float(dummy["l"]),
                 float(dummy["w"]),
             )
         )
+
+    return cards
+
+
+def build_assembly(cell: str) -> list[tuple[str, str, list[str], float, float]]:
+    """Compose an assembly cell's cards from the cells it instances.
+
+    Each sub-cell's own manifest supplies its devices, sizes, wells and dummy
+    fingers unchanged; the only thing this adds is the net renaming, taken
+    from the golden top-level netlist itself:
+
+    * a sub-circuit's formal port maps to whatever the top-level instance line
+      wires it to (``xbias VDD VSS IBIAS VREF BIAS_OK bias_core`` ->
+      ``bias_core``'s ``IBIAS`` *is* the block's ``IBIAS``),
+    * every other net of that sub-circuit -- internal nodes, and the
+      per-drawn-well body nets -- is prefixed with the instance name, so two
+      instances that both have a net called ``PG`` keep two distinct nets,
+    * the deck's substrate global is never renamed; it is global.
+
+    Also asserts the assembled cell's own pin list against the golden
+    netlist's ``.subckt`` line -- the same ratified-pinout check
+    ``design/netlist.py --check`` makes at the schematic level, restated here
+    because this is the artifact the layout is compared against.
+    """
+    spec = CELLS[cell]
+    text = (NETLIST_DIR / spec["source"]).read_text()
+
+    ratified = subckt_ports(text, spec["subckt"])
+    declared = [port for port in spec["ports"] if port != SUBSTRATE_NET]
+    if declared != ratified:
+        raise ReferenceError(
+            f"{cell}: manifest ports {declared} do not match the ratified "
+            f"pinout {ratified} in design/netlist/{spec['source']}"
+        )
+    top_nets = set(ratified) | set(spec.get("internal", []))
+
+    instances: dict[str, list[str]] = {}
+    for line in subckt_body(text, spec["subckt"]):
+        fields = line.split()
+        if fields[0].lower().startswith("x"):
+            instances[fields[0].lower()] = fields[1:]
+
+    cards: list[tuple[str, str, list[str], float, float]] = []
+    for inst, sub_cell in spec["assembly"]:
+        if inst not in instances:
+            raise ReferenceError(f"{cell}: no instance {inst!r} in {spec['source']}")
+        *actual, model = instances[inst]
+        if model != sub_cell:
+            raise ReferenceError(
+                f"{cell}: instance {inst} is a {model}, manifest says {sub_cell}"
+            )
+        formal = subckt_ports(text, sub_cell)
+        if len(formal) != len(actual):
+            raise ReferenceError(
+                f"{cell}: {inst} passes {len(actual)} nets to {sub_cell}'s "
+                f"{len(formal)} ports"
+            )
+        unknown = [net for net in actual if net not in top_nets]
+        if unknown:
+            raise ReferenceError(
+                f"{cell}: {inst} wires undeclared block net(s) "
+                f"{', '.join(unknown)} -- add them to the manifest's "
+                "ports/internal"
+            )
+        mapping = dict(zip(formal, actual))
+
+        def rename(net: str, mapping=mapping, inst=inst) -> str:
+            if net == SUBSTRATE_NET:
+                return net
+            return mapping.get(net, f"{inst}.{net}")
+
+        cards.extend(build_cards(sub_cell, rename=rename))
+    return cards
+
+
+def build(cell: str, corrupt: str | None = None) -> str:
+    spec = CELLS[cell]
+    ports = list(spec["ports"])
+    if "assembly" in spec:
+        cards = build_assembly(cell)
+    else:
+        cards = build_cards(cell)
 
     if corrupt == "device-param":
         name, klass, nodes, length, width = cards[0]
@@ -646,9 +779,9 @@ def build(cell: str, corrupt: str | None = None) -> str:
         "* Do not edit: edit the schematic, re-run design/netlist.py, re-run this.",
         f".SUBCKT {cell} {' '.join(ports)}",
     ]
-    for name, klass, nodes, length, width in cards:
+    for index, (prefix, klass, nodes, length, width) in enumerate(cards):
         lines.append(
-            f"{name} {' '.join(nodes)} {klass} "
+            f"{prefix}{index + 1} {' '.join(nodes)} {klass} "
             f"L={format_um(length)} W={format_um(width)}"
         )
     lines.append(f".ENDS {cell}")

@@ -152,12 +152,32 @@ the explicit tracking this issue's Test Plan asks for; it is not a new
 `klayout-tools` friction filing, since #281 already tracks the underlying
 deck gap generically.
 
+> **#72 update — measured, then partly answered.** Drawing the assembly
+> confirmed the claim rather than assuming it: a `temp_por_top` whose seam moat
+> is drawn but never tied to `VSS`, and one whose perimeter ring has a 10 µm
+> gap in a segment, are each `klt drc` **clean** and `klt lvs` **match**. The
+> deck's #285 follow-up *is* live now (every `lvs.json` carries two
+> `device.body_unverified` warnings), but that reports only that *bodies* went
+> uncompared — it says nothing about a ring, so it is not the missing signal.
+> `layout/build_cells.py` therefore checks the drawn geometry itself before
+> writing `temp_por_top.gds`: every net one connected group, every group one
+> net, every guard ring an annulus (one polygon, one hole), every via covered
+> on both levels — each negative-controlled by introducing the defect and
+> confirming the check fires. What remains a design-review claim, and is the
+> only part that does, is that `VSS` is the right net to tie the rings to.
+> Cells drawn before #72 (`bias_core`, `por_comparator`, `por_output_chain`,
+> `temp_core`) keep their own rings as a pure design-review claim.
+
 **Shared-net feedthroughs.** `IBIAS`, `VREF`, and `BIAS_OK` all originate in
 `bias_core` (inside the POR domain) and cross the seam only to reach
 `temp_core`'s enable/bias network (`IBIAS` only — `VREF`/`BIAS_OK` are
 POR-domain-internal per `design/README.md`'s net table). One feedthrough,
 short and direct, routed through (not around) the guard ring at a single
 crossing point rather than multiple, so the ring stays otherwise continuous.
+(**#72, as built**: with the metal stack available — see "Routing /
+metal-level note" below — that single crossing is made *over* the moat on
+Metal3 rather than through a notch in it, so the ring stays continuous
+everywhere, not merely "otherwise".)
 No special matching treatment applies to this net — it is a shared bias
 reference, not a matched pair, and DR-010 already requires `temp_core` to
 present high impedance to it when disabled, so nothing about crossing the
@@ -401,15 +421,15 @@ klt 0.1.0
 
 Inspecting the installed package directly
 (`klayout_tools/decks/gf180mcu.py`, the `EXTRACTION_DECK` this `klt 0.1.0`
-ships) shows `metals=((34, 0),)` — **Metal1 only**, still. klayout-tools#220
+ships) showed `metals=((34, 0),)` — **Metal1 only**, still. klayout-tools#220
 is closed upstream (merged via klayout-tools#238, which populates the full
-Metal1–Metal5/Via1–Via4 stack), but that fix has not reached the `klt 0.1.0`
-build installed in this environment. **This floorplan therefore assumes
-Metal1-only routing for now**, consistent with #16's proven cell: matched
-structures' internal interconnect and the domain-crossing feedthroughs above
-route on Metal1, with poly used as the crossunder layer where two Metal1 runs
-must cross, exactly as `layout/README.md` describes for the single-metal
-regime. When the local `klt` install is upgraded past klayout-tools#238, this
+Metal1–Metal5/Via1–Via4 stack), but that fix had not reached the `klt 0.1.0`
+build installed in this environment. **This floorplan therefore assumed
+Metal1-only routing**, consistent with #16's proven cell: matched structures'
+internal interconnect and the domain-crossing feedthroughs above route on
+Metal1, with poly used as the crossunder layer where two Metal1 runs must
+cross, exactly as `layout/README.md` describes for the single-metal regime.
+When the local `klt` install is upgraded past klayout-tools#238, this
 constraint should be re-checked (`klt --version` / re-inspect the installed
 deck) before assuming it still applies — this floorplan does not depend on
 Metal1-only being permanent, only on it being the current, verified
@@ -418,6 +438,48 @@ capability.
 No new `klayout-tools` friction issue is filed for this: the underlying gap
 is already tracked and fixed upstream (klayout-tools#220 / #238); this is a
 local-install version gap, not a new tool-capability gap.
+
+### Re-checked for #72 (block-level assembly) — the constraint is lifted
+
+The instruction above was carried out before drawing `temp_por_top`. Same
+`klt --version` (`klt 0.1.0`), different deck:
+
+```
+>>> EXTRACTION_DECK.metals
+((34, 0), (36, 0), (42, 0), (46, 0), (81, 0))
+>>> EXTRACTION_DECK.vias
+((35, 0), (38, 0), (40, 0), (41, 0))
+```
+
+klayout-tools#238's full stack **is** in the installed build, and the DRC
+deck's `metal2`/`metal3` width and space rules are real (they previously
+appeared under `rules_skipped` only because no stream in this repo drew those
+layers; `temp_por_top`'s report shows them checked). So the single-metal
+assumption above is historical, and this section is kept rather than deleted
+because three cells were drawn under it and their geometry still reflects it.
+
+What changes, and what does not:
+
+- **The domain-seam guard ring needs no notch.** Under Metal1-only, the one
+  `IBIAS` feedthrough this plan allows across the seam had to *break* the moat
+  to cross it — a ring with a designed-in gap, which is exactly the structure
+  whose correctness the plan then has to argue for. On Metal2/Metal3 the
+  feedthrough crosses *over* an unbroken moat, at one point, short and direct.
+  The isolation plan above is realised more literally than it was written.
+- **`VDD`/`VSS` reach both domains without daisy-chaining.** The rails are
+  Metal2; each domain taps them on its own riser rather than through the
+  other's rail segment — the "Placement rationale" bullet above, satisfied by
+  construction rather than by careful ordering.
+- **The four sub-circuits are unchanged.** `bias_core`, `por_comparator`,
+  `por_output_chain` and `temp_core` still route on Metal1 with poly
+  crossunders and their committed GDS is byte-identical. The lifted limit is
+  an opportunity for the assembly level, not an obligation to redraw proven
+  cells.
+- **The matching plan is untouched.** Nothing in ranks 1–4 depended on the
+  metal count.
+
+Still no new `klayout-tools` friction issue: this is the *good* outcome of an
+already-tracked, already-fixed upstream gap reaching the local install.
 
 ## Handoff
 

@@ -8,8 +8,10 @@
       "exit_code": 3,
       "status": "mismatch",
       "category_counts": {
+        "device.body_unverified": 2,
         "device.unmatched": 2,
-        "net.unmatched": 6
+        "net.unmatched": 6,
+        "topology": 1
       }
     },
     {
@@ -18,8 +20,10 @@
       "exit_code": 3,
       "status": "mismatch",
       "category_counts": {
+        "device.body_unverified": 2,
         "device.unmatched": 2,
-        "net.unmatched": 4
+        "net.unmatched": 4,
+        "topology": 1
       }
     }
   ]

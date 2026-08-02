@@ -70,10 +70,24 @@ POLY2 = (30, 0)
 CONTACT = (33, 0)
 METAL1 = (34, 0)
 METAL1_LABEL = (34, 10)
+#: Upper routing layers. Used only by ``temp_por_top`` (#72): every sub-circuit
+#: cell below is Metal1-only, and stays that way. See ``temp_por_top``'s
+#: docstring and ``layout/floorplan.md`` -> "Routing / metal-level note" for
+#: why the block-level assembly may use them and the sub-cells do not.
+VIA1 = (35, 0)
+METAL2 = (36, 0)
+METAL2_LABEL = (36, 10)
+VIA2 = (38, 0)
+METAL3 = (42, 0)
 RESERVED = (200, 0)
 
 #: gf180mcu DRM "CO.1": contact is a fixed 0.22 x 0.22 um square.
 CONTACT_SIDE_UM = 0.22
+#: gf180mcu DRM "V1.1"/"V2.1": Via1/Via2 are a fixed 0.26 x 0.26 um square.
+#: ``klt``'s curated ``gf180mcu`` DRC deck carries no via rule at all (see
+#: ``layout/README.md`` -> "Known deck limits"), so this size is held to the
+#: DRM by construction here rather than by a check.
+VIA_SIDE_UM = 0.26
 
 
 class CellBuilder:
@@ -99,14 +113,35 @@ class CellBuilder:
         half = CONTACT_SIDE_UM / 2.0
         self.box(CONTACT, cx - half, cy - half, cx + half, cy + half)
 
-    def label(self, name: str, x: float, y: float) -> None:
-        self.cell.shapes(self._layer(METAL1_LABEL)).insert(
+    def via(self, spec, cx: float, cy: float) -> None:
+        """One DRM-sized Via1/Via2 square centred at ``cx, cy``."""
+        half = VIA_SIDE_UM / 2.0
+        self.box(spec, cx - half, cy - half, cx + half, cy + half)
+
+    def label(self, name: str, x: float, y: float, spec=METAL1_LABEL) -> None:
+        self.cell.shapes(self._layer(spec)).insert(
             self._kdb.DText(name, self._kdb.DTrans(self._kdb.DVector(x, y))).to_itype(
                 self.layout.dbu
             )
         )
 
-    def instance(self, name: str, body, dx: float, dy: float) -> None:
+    def labels_in(self, cell, spec=METAL1_LABEL) -> dict[str, list[tuple[float, float]]]:
+        """Every label string drawn (recursively) in ``cell``, and where.
+
+        ``temp_por_top`` reads its own instances' pin labels back out of the
+        stream it just built, instead of re-deriving each sub-cell's internal
+        geometry: a pin label is by construction a point inside a Metal1 shape
+        on that net, which is exactly what the assembly needs to land a via on.
+        Coordinates are in ``cell``'s own frame; the caller adds the placement
+        offset.
+        """
+        found: dict[str, list[tuple[float, float]]] = {}
+        for item in cell.begin_shapes_rec(self._layer(spec)).each():
+            text = item.shape().dtext.transformed(item.dtrans())
+            found.setdefault(text.string, []).append((text.x, text.y))
+        return {name: sorted(points) for name, points in found.items()}
+
+    def instance(self, name: str, body, dx: float, dy: float):
         """Draw ``body`` into a child cell and place one instance at ``dx, dy``.
 
         The cell hierarchy is real in the stream and flat everywhere it is
@@ -116,6 +151,10 @@ class CellBuilder:
         -- including its Metal1 labels -- lands in the parent's own flat
         connectivity graph, which is what lets a parent wire abut a sub-cell's
         strap and come out as one net.
+
+        Returns the child cell, so a parent that has just placed a sub-circuit
+        can read its pin labels back out (:meth:`labels_in`) rather than
+        re-deriving the sub-circuit's internal geometry a second time.
         """
         child = self.layout.create_cell(name)
         parent, self.cell = self.cell, child
@@ -128,6 +167,7 @@ class CellBuilder:
                 child.cell_index(), self._kdb.DTrans(self._kdb.DVector(dx, dy))
             )
         )
+        return child
 
     def add_cell(self, name: str) -> None:
         """Start a second (sibling) top cell in the same stream.
@@ -1496,6 +1536,23 @@ def temp_core(b: CellBuilder) -> None:
     sibling top cells: ``klt drc`` checks every top cell in the stream, so the
     geometry is still verified, while extraction/LVS stay on the MOS subset.
     """
+    _temp_core_mos(b)
+    _temp_core_r2_ladder(b)
+    _temp_core_pnp_array(b)
+
+
+def _temp_core_mos(b: CellBuilder) -> None:
+    """``temp_core``'s MOS network alone -- everything :func:`temp_core` draws
+    into the ``temp_core`` cell itself, and nothing it draws into a sibling.
+
+    Split out for ``temp_por_top`` (#72), which instances *this* into the
+    block-level assembly: :meth:`CellBuilder.add_cell` (which the two sibling
+    structures call) retargets the builder at a new top cell, so calling
+    :func:`temp_core` itself inside :meth:`CellBuilder.instance` would spill
+    the ladder and the PNP array out of the instance mid-body. Splitting is
+    also the honest hierarchy: those two siblings are already *not* part of
+    the cell ``klt extract``/``klt lvs`` run on.
+    """
     channel = _Channel(b, _TEMP_CORE_NETS)
     nrow_y = 0.0
     prow_y = channel.top + _ROW_GAP
@@ -1531,9 +1588,6 @@ def temp_core(b: CellBuilder) -> None:
         b.box(NWELL, x0, prow_y - _WELL_MARGIN, x1, y1)
 
     channel.draw()
-
-    _temp_core_r2_ladder(b)
-    _temp_core_pnp_array(b)
 
 
 #: Implant marker layers. No rule in ``klt``'s curated ``gf180mcu`` DRC deck
@@ -1654,6 +1708,639 @@ def _temp_core_pnp_array(b: CellBuilder) -> None:
     ring(METAL1, 9.8, 1.6)
 
 
+# --------------------------------------------------------------------------- #
+# temp_por_top -- the block-level assembly (#72)
+# --------------------------------------------------------------------------- #
+#
+# Routing regime. layout/floorplan.md's "Routing / metal-level note" recorded
+# that the installed klt 0.1.0's gf180mcu EXTRACTION_DECK declared
+# ``metals=((34, 0),)`` -- Metal1 only -- and committed the floorplan to a
+# single-metal regime "until the local klt install is upgraded past
+# klayout-tools#238", with an explicit instruction to re-check before assuming
+# the limit still applies. Re-checked for this cell:
+#
+#     $ klt --version
+#     klt 0.1.0
+#     >>> EXTRACTION_DECK.metals
+#     ((34, 0), (36, 0), (42, 0), (46, 0), (81, 0))
+#     >>> EXTRACTION_DECK.vias
+#     ((35, 0), (38, 0), (40, 0), (41, 0))
+#
+# klayout-tools#238's full Metal1-Metal5 / Via1-Via4 stack **is** in the
+# installed build, and the DRC deck carries metal2/metal3 width+space rules
+# (they showed as `rules_skipped` before only because no stream drew those
+# layers). The single-metal constraint is therefore lifted, and this assembly
+# uses it: every sub-circuit below stays Metal1-only and byte-identical, and
+# *only* this cell routes on Metal2/Metal3.
+#
+# That is not a convenience. Four independently laid-out cells plus rails have
+# nets that must cross, and in a one-metal regime every crossing is either a
+# poly crossunder (a resistor-shaped poly shape the deck absorbs into
+# interconnect) or a break in a guard ring. Routing above Metal1 means **no
+# guard ring in this cell has a single notch in it** -- the one IBIAS
+# feedthrough crosses the domain-seam moat *over* it on Metal2/Metal3, at one
+# point, short and direct, with the moat itself unbroken end to end.
+#
+# Discipline, held by the build-time checks at the bottom of ``temp_por_top``
+# rather than by convention: Metal2 runs horizontally, Metal3 vertically, one
+# Metal2 trunk per crossing net at its own y, one Metal3 column per pin escape
+# at its own x. Nothing in this cell is drawn on Metal1 except the two guard
+# rings.
+
+#: Where each sub-circuit's own origin lands in the assembled block, in the
+#: order the floorplan sketch reads: ``temp_core`` alone on top (the
+#: temp-sensor domain), then the always-on POR domain left to right below the
+#: seam with ``bias_core`` at its seam-facing left edge.
+TOP_PLACEMENT = (
+    ("temp_core", "temp_por_top_temp_core", 0.0, 0.0),
+    ("bias_core", "temp_por_top_bias_core", 0.0, -400.0),
+    ("por_comparator", "temp_por_top_por_comparator", 450.0, -400.0),
+    ("por_output_chain", "temp_por_top_por_output_chain", 820.0, -400.0),
+)
+
+#: Which pin of which instance each crossing net has to reach. Names are the
+#: sub-circuit's own pin labels; ``temp_core``'s ``EN`` is the ratified
+#: top-level ``RESETn`` (``design/netlist/temp_por_top.spice``:
+#: ``xtemp VDD VSS IBIAS RESETn PTAT CTAT temp_core``).
+TOP_NET_PINS = {
+    "VDD": (
+        ("temp_core", "VDD"),
+        ("bias_core", "VDD"),
+        ("por_comparator", "VDD"),
+        ("por_output_chain", "VDD"),
+    ),
+    "VSS": (
+        ("temp_core", "VSS"),
+        ("bias_core", "VSS"),
+        ("por_comparator", "VSS"),
+        ("por_output_chain", "VSS"),
+    ),
+    "IBIAS": (
+        ("temp_core", "IBIAS"),
+        ("bias_core", "IBIAS"),
+        ("por_comparator", "IBIAS"),
+        ("por_output_chain", "IBIAS"),
+    ),
+    "VREF": (("bias_core", "VREF"), ("por_comparator", "VREF")),
+    "BIAS_OK": (("bias_core", "BIAS_OK"), ("por_comparator", "BIAS_OK")),
+    "POR_RAW": (("por_comparator", "POR_RAW"), ("por_output_chain", "POR_RAW")),
+    "RESETn": (("por_output_chain", "RESETn"), ("temp_core", "EN")),
+}
+
+#: y of each crossing net's own horizontal Metal2 trunk, in the open band
+#: between the POR row's bottom (-409.7) and the VSS rail. ``VSS`` has none:
+#: its trunk *is* the bottom rail, which is also the guard-ring tie net
+#: (``layout/floorplan.md`` -> "Pin placement").
+TOP_TRUNK_Y = {
+    "POR_RAW": -420.0,
+    "BIAS_OK": -425.0,
+    "RESETn": -430.0,
+    "VREF": -435.0,
+    "IBIAS": -440.0,
+    "VDD": -445.0,
+}
+
+#: Left-margin Metal3 columns, clear in x of both domains and of the seam
+#: moat's taps. ``temp_core``'s four crossing pins reach the POR domain and
+#: the rails through here rather than straight down through the seam -- only
+#: ``IBIAS`` crosses the seam, per ``layout/floorplan.md``.
+TOP_MARGIN_X = {
+    "VSS": -48.0,
+    "VDD": -52.0,
+    "RESETn": -56.0,
+    "IBIAS": -60.0,
+    "VDD_POR": -64.0,
+}
+
+#: Where the domain-seam moat is strapped down to the VSS rail. Three ties,
+#: spread across its length: the moat is one continuous shape, so one tie is
+#: electrically sufficient -- the other two exist so a single broken via
+#: cannot silently float the whole seam (which no automated check in this flow
+#: would catch; see ``layout/README.md`` -> "Known deck limits").
+TOP_SEAM_TIE_X = (-68.0, 420.0, 960.0)
+
+TOP_WIRE_W = 0.44  # Metal2/Metal3 route width (>= metal2/3.width.1's 0.28)
+TOP_PAD_HALF = 0.22  # half-size of a Metal2/Metal3 via landing pad
+TOP_ESCAPE_PITCH = 1.5  # minimum x between two Metal3 pin-escape columns
+TOP_RING_W = 4.0  # guard-ring / moat COMP+Metal1 width
+TOP_RAIL_HALF = 2.0  # half-height of the VDD rail
+TOP_VSS_RAIL_HALF = 1.5  # half-height of the VSS rail (inside the ring)
+
+#: The outer perimeter guard ring, and the VDD/VSS rails it frames.
+TOP_PERIM = (-140.0, -540.0, 1094.0, 114.0)
+TOP_RAIL_X0, TOP_RAIL_X1 = -134.0, 1088.0
+TOP_VDD_RAIL_Y = 100.0
+TOP_VSS_RAIL_Y = -538.0
+
+#: The domain-seam moat: one continuous VSS-tied p-substrate strip along the
+#: full seam between the two domains, unbroken (see the module comment above
+#: on why it needs no notch).
+TOP_SEAM_Y = -108.0
+TOP_SEAM_X0, TOP_SEAM_X1 = -134.0, 1088.0
+
+#: ``PTAT``/``CTAT`` leave ``temp_core`` westward on their own Metal2 tracks
+#: and stop here, just inside the perimeter ring's left segment.
+TOP_LEFT_PAD_X = -120.0
+#: ``RESETn``'s pad, just inside the perimeter ring's right segment.
+TOP_RIGHT_PAD_X = 1080.0
+
+#: The ratified 5-pad pinout, in ``design/netlist/temp_por_top.spice``'s own
+#: ``.subckt temp_por_top`` order. ``design/netlist.py --check`` asserts this
+#: at the schematic level; ``layout/lvs_reference.py``'s ``temp_por_top``
+#: manifest asserts the layout's extracted pin set against the same source.
+TOP_PINOUT = ("VDD", "VSS", "PTAT", "CTAT", "RESETn")
+
+
+class _TopRoutes:
+    """Every rectangle ``temp_por_top`` draws itself, tagged with its net.
+
+    Exists for the check at the end of :func:`temp_por_top`. Two same-layer
+    rectangles on *different* nets that overlap are an electrical short that
+    ``klt drc`` cannot see (two overlapping shapes merge into one legal
+    polygon -- no width or spacing rule is broken) and that a reviewer reading
+    a floorplan will not see either. In a cell whose whole job is to join four
+    already-clean blocks, that is the failure mode worth a mechanical guard,
+    so the guard is here and it raises.
+    """
+
+    #: layer -> (name, minimum spacing between different nets, um). Thresholds
+    #: are the curated deck's own (``metal1.space.1`` 0.23, ``metal2.space.1``
+    #: and ``metal3.space.1`` 0.28); via layers have no deck rule, so they are
+    #: checked for overlap only.
+    LIMITS = {
+        METAL1: ("Metal1", 0.23),
+        METAL2: ("Metal2", 0.28),
+        METAL3: ("Metal3", 0.28),
+        VIA1: ("Via1", 0.0),
+        VIA2: ("Via2", 0.0),
+    }
+
+    def __init__(self, builder: CellBuilder) -> None:
+        self.b = builder
+        self.rects: list[tuple[tuple[int, int], str, tuple[float, ...]]] = []
+
+    def box(self, spec, net: str, x0: float, y0: float, x1: float, y1: float) -> None:
+        self.b.box(spec, x0, y0, x1, y1)
+        if spec in self.LIMITS:
+            self.rects.append((spec, net, (x0, y0, x1, y1)))
+
+    def hwire(self, net: str, y: float, x0: float, x1: float, spec=METAL2) -> None:
+        half = TOP_WIRE_W / 2.0
+        self.box(spec, net, min(x0, x1), y - half, max(x0, x1), y + half)
+
+    def vwire(self, net: str, x: float, y0: float, y1: float, spec=METAL3) -> None:
+        half = TOP_WIRE_W / 2.0
+        self.box(spec, net, x - half, min(y0, y1), x + half, max(y0, y1))
+
+    def pad(self, spec, net: str, x: float, y: float) -> None:
+        h = TOP_PAD_HALF
+        self.box(spec, net, x - h, y - h, x + h, y + h)
+
+    def via1(self, net: str, x: float, y: float) -> None:
+        """A Via1 onto an instance's own Metal1 pin strap, with its Metal2 pad.
+
+        The Metal1 side is the sub-circuit's -- untouched, and already at
+        least 0.30 um across at every pin label
+        (:meth:`CellBuilder.labels_in`), so a 0.26 um via lands inside it.
+        """
+        self.box(VIA1, net, x - VIA_SIDE_UM / 2.0, y - VIA_SIDE_UM / 2.0,
+                 x + VIA_SIDE_UM / 2.0, y + VIA_SIDE_UM / 2.0)
+        self.pad(METAL2, net, x, y)
+
+    def via2(self, net: str, x: float, y: float) -> None:
+        """A Via2 with a landing pad on both of its levels."""
+        self.box(VIA2, net, x - VIA_SIDE_UM / 2.0, y - VIA_SIDE_UM / 2.0,
+                 x + VIA_SIDE_UM / 2.0, y + VIA_SIDE_UM / 2.0)
+        self.pad(METAL2, net, x, y)
+        self.pad(METAL3, net, x, y)
+
+    #: Which layers a via may bridge, bottom to top. Two rectangles on the
+    #: same layer, or on two adjacent entries of this stack, are electrically
+    #: one shape where they overlap.
+    STACK = (METAL1, VIA1, METAL2, VIA2, METAL3)
+
+    @staticmethod
+    def _gap(a: tuple[float, ...], b: tuple[float, ...]) -> float:
+        return max(max(a[0] - b[2], b[0] - a[2]), max(a[1] - b[3], b[1] - a[3]))
+
+    def check(self) -> None:
+        """Raise unless this cell's own shapes realise exactly its own nets.
+
+        Three properties, all mechanical, none of them things ``klt drc`` or
+        ``klt lvs`` can establish here:
+
+        1. **No short.** Two same-layer rectangles on different nets never
+           overlap, and never sit closer than the deck's own spacing rule.
+           Overlap in particular is invisible to DRC -- two overlapping shapes
+           merge into one perfectly legal polygon.
+        2. **No via bridges two nets.** Following the via stack, every
+           connected group of rectangles carries exactly one net name.
+        3. **Every net is one piece.** Each net this cell draws forms exactly
+           one connected group -- so the domain-seam moat and the perimeter
+           ring are *continuous*, and *are* on ``VSS`` along with the bottom
+           rail, rather than being a shape that merely looks like a ring in a
+           plot. This is the guard-ring claim klayout-tools#281 says the deck
+           cannot make (no tap or well-label layer: a floating ring compares
+           clean), made here instead, at build time, from the geometry.
+        """
+        problems: list[str] = []
+        for index, (spec, net, rect) in enumerate(self.rects):
+            name, limit = self.LIMITS[spec]
+            for other_spec, other_net, other in self.rects[index + 1 :]:
+                if other_spec != spec or other_net == net:
+                    continue
+                gap = self._gap(rect, other)
+                if gap < limit - 1e-9:
+                    kind = "SHORT" if gap < 0 else f"spacing {gap:.3f} < {limit}"
+                    problems.append(
+                        f"{name} {kind}: {net} {rect} vs {other_net} {other}"
+                    )
+
+        parent = list(range(len(self.rects)))
+
+        def find(node: int) -> int:
+            while parent[node] != node:
+                parent[node] = parent[parent[node]]
+                node = parent[node]
+            return node
+
+        level = {spec: index for index, spec in enumerate(self.STACK)}
+        for index, (spec, _net, rect) in enumerate(self.rects):
+            for offset, (other_spec, _other_net, other) in enumerate(
+                self.rects[index + 1 :]
+            ):
+                if abs(level[spec] - level[other_spec]) > 1:
+                    continue
+                if self._gap(rect, other) < -1e-9:
+                    parent[find(index)] = find(index + 1 + offset)
+
+        groups: dict[int, set[str]] = {}
+        nets: dict[str, set[int]] = {}
+        for index, (_spec, net, _rect) in enumerate(self.rects):
+            root = find(index)
+            groups.setdefault(root, set()).add(net)
+            nets.setdefault(net, set()).add(root)
+        for members in groups.values():
+            if len(members) > 1:
+                problems.append(
+                    "one connected group carries more than one net: "
+                    + ", ".join(sorted(members))
+                )
+        for net, roots in sorted(nets.items()):
+            if len(roots) > 1:
+                problems.append(
+                    f"net {net} is drawn as {len(roots)} disconnected pieces"
+                )
+
+        if problems:
+            raise AssertionError(
+                "temp_por_top routing does not realise its own nets:\n  "
+                + "\n  ".join(problems[:20])
+            )
+
+
+def _top_escape_columns(pins: list[dict]) -> None:
+    """Give each pin its own Metal3 column, as near its own x as possible.
+
+    Two pins whose Metal3 escapes would overlap in y (``bias_core``'s ``VDD``
+    and ``VSS`` labels share an x, as do ``por_output_chain``'s ``VDD``,
+    ``VSS`` and ``RESETn``) get pushed apart in ``TOP_ESCAPE_PITCH`` steps.
+    Deterministic: ``pins`` arrives in a fixed order and only ever moves right.
+    """
+    placed: list[tuple[float, float, float]] = []
+    for pin in pins:
+        low, high = sorted((pin["py"], pin["ty"]))
+        x = pin["px"]
+        while any(
+            abs(x - other_x) < TOP_ESCAPE_PITCH - 1e-9
+            and not (high < other_low - 1e-9 or low > other_high + 1e-9)
+            for other_x, other_low, other_high in placed
+        ):
+            x += TOP_ESCAPE_PITCH
+        placed.append((x, low, high))
+        pin["xe"] = x
+
+
+def _top_escape(
+    routes: _TopRoutes, net: str, px: float, py: float, xe: float, ty: float
+) -> None:
+    """Route one instance pin onto its net's trunk.
+
+    Metal1 pin strap -> Via1 -> Metal2 jog along the pin's own y out to the
+    escape column -> Via2 -> Metal3 down (or up) the column -> Via2 onto the
+    Metal2 trunk. This is the only shape this cell ever makes: everything that
+    crosses between instances is one of these plus one horizontal trunk.
+    """
+    routes.via1(net, px, py)
+    routes.hwire(net, py, px, xe)
+    routes.via2(net, xe, py)
+    routes.vwire(net, xe, py, ty)
+    routes.via2(net, xe, ty)
+
+
+def _guard_ring_segments(
+    x0: float, y0: float, x1: float, y1: float
+) -> tuple[tuple[float, float, float, float], ...]:
+    """The four overlapping rectangles of a guard ring: bottom, top, left, right."""
+    return (
+        (x0, y0, x1, y0 + TOP_RING_W),
+        (x0, y1 - TOP_RING_W, x1, y1),
+        (x0, y0, x0 + TOP_RING_W, y1),
+        (x1 - TOP_RING_W, y0, x1, y1),
+    )
+
+
+def _top_guard_ring(routes: _TopRoutes, x0: float, y0: float, x1: float, y1: float) -> None:
+    """A closed COMP+Metal1 p-substrate guard ring, contacted at 1 um.
+
+    Asserts it actually closed. ``_TopRoutes.check``'s connectivity pass
+    cannot do this one: a ring is redundant by construction, so a ring with a
+    single break in one segment is still one connected shape and still lands
+    on ``VSS``. What distinguishes the two is topology -- a closed ring is an
+    annulus (one polygon with exactly one hole), a broken one is simply
+    connected -- so that is what is checked. Nothing in ``klt``'s curated
+    deck checks it: klayout-tools#281 (no tap or well-label layer) means a
+    broken *or* floating ring compares clean.
+    """
+    import klayout.db as kdb
+
+    segments = _guard_ring_segments(x0, y0, x1, y1)
+    for rect in segments:
+        routes.box(COMP, "VSS", *rect)
+        routes.box(METAL1, "VSS", *rect)
+
+    closed = kdb.Region()
+    for rect in segments:
+        closed.insert(kdb.DBox(*rect).to_itype(routes.b.layout.dbu))
+    closed.merge()
+    if closed.count() != 1 or closed.holes().count() != 1:
+        raise AssertionError(
+            f"guard ring ({x0}, {y0})-({x1}, {y1}) is not a closed annulus: "
+            f"{closed.count()} polygon(s), {closed.holes().count()} hole(s)"
+        )
+    half = TOP_RING_W / 2.0
+    for x in _span(x0 + half, x1 - half, TAP_PITCH_UM):
+        routes.b.contact(x, y0 + half)
+        routes.b.contact(x, y1 - half)
+    for y in _span(y0 + TOP_RING_W + half, y1 - TOP_RING_W - half, TAP_PITCH_UM):
+        routes.b.contact(x0 + half, y)
+        routes.b.contact(x1 - half, y)
+
+
+def temp_por_top(b: CellBuilder) -> None:
+    """The block-level assembly (#72): the four sub-circuits, wired.
+
+    Instances ``bias_core`` (#68), ``por_comparator`` (#69),
+    ``por_output_chain`` (#70) and ``temp_core``'s MOS network (#71)
+    **unmodified** -- every one of those cells' own committed GDS is still
+    byte-reproducible from the same function this cell calls, so this assembly
+    inherits each of their already-recorded DRC/LVS results rather than
+    re-litigating them -- and adds exactly four things:
+
+    1. the two guard rings (domain-seam moat + outer perimeter),
+    2. the ``VDD``/``VSS`` rails,
+    3. one Metal2 trunk per net that crosses between instances,
+    4. the ratified 5-pad pinout (:data:`TOP_PINOUT`).
+
+    **Floorplan** (``layout/floorplan.md`` -> "Block-level floorplan sketch"),
+    as realised in :data:`TOP_PLACEMENT`:
+
+    - ``temp_core`` alone above the seam (the temp-sensor domain), its pin
+      column facing the ``PTAT``/``CTAT`` pads on the left edge.
+    - ``bias_core``, ``por_comparator``, ``por_output_chain`` below it (the
+      always-on POR domain), left to right, with ``bias_core`` at the
+      domain's seam-facing left edge -- it is what both domains consume, so
+      the two shared-net feedthroughs (``IBIAS`` up to ``temp_core``;
+      ``IBIAS``/``VREF``/``BIAS_OK`` rightward inside the POR domain) start
+      there -- and ``por_output_chain`` at the right edge, beside ``RESETn``.
+    - ``VDD`` and ``VSS`` are full-width rails at the top and bottom. Each
+      domain taps each rail on its own riser: ``temp_core`` through the left
+      margin, the POR row through its own trunk. No domain's supply is
+      daisy-chained through the other.
+    - The domain-seam moat is one continuous, unbroken, VSS-tied strip along
+      the whole seam; ``IBIAS`` -- the one net the floorplan lets cross it --
+      crosses *over* it, at one point, on Metal3. ``VDD``, ``VSS`` and
+      ``RESETn``/``EN`` reach ``temp_core`` through the left margin instead,
+      well clear of the moat, because the floorplan gives the seam exactly one
+      crossing and they are not it.
+
+    **DR-010's shared-``IBIAS`` contract at the layout level.**
+    ``por_output_chain``'s ungated ``XMBD`` is what defines the shared
+    ``IBIAS`` node's operating point (see the decision record, and #41's fix).
+    Here ``IBIAS`` is one Metal2 trunk that every consumer taps from --
+    ``bias_core``'s ``XMPIB`` source, ``por_comparator``'s ``XMBD``,
+    ``por_output_chain``'s ``XMBD``, ``temp_core``'s ``XMBD`` -- with no
+    series element, switch or gated segment anywhere on it, so no floorplan or
+    routing choice here can let a disabled consumer clamp it: the layout
+    reproduces the schematic's single shared node exactly, and the LVS compare
+    against ``design/netlist/temp_por_top.spice`` is what holds it there.
+
+    **What is checked and what is not.** ``bash layout/run_checks.sh
+    temp_por_top`` gives DRC clean, LVS match on the MOS subset, and both
+    negative controls detected. It does **not** check the guard rings: the
+    curated ``gf180mcu`` deck has no tap or well-label layer
+    (klayout-tools#281), so a ring left floating or tied to the wrong net
+    compares clean. Two things stand in for that here, and both are mechanical
+    rather than a claim in prose: :func:`_top_guard_ring` cannot draw a gap
+    (four overlapping rectangles, no gap parameter), and the block-time checks
+    at the end of this function assert every Via1/Via2 lands inside metal on
+    both sides and that no two different-net shapes this cell draws overlap.
+    What remains a design-review claim is the same one every cell in this repo
+    carries: that VSS is the right net to tie them to.
+
+    Device coverage is unchanged and still MOS-only: this cell inherits every
+    non-MOS device of all four sub-circuits (see
+    ``layout/lvs_reference.py``'s ``temp_por_top`` manifest for the list, and
+    ``layout/README.md`` -> "Known deck limits" for what that leaves unproven).
+    """
+    routes = _TopRoutes(b)
+
+    # --- the four sub-circuits, placed --------------------------------------
+    bodies = {
+        "temp_core": _temp_core_mos,
+        "bias_core": bias_core,
+        "por_comparator": por_comparator,
+        "por_output_chain": por_output_chain,
+    }
+    anchors: dict[str, dict[str, tuple[float, float]]] = {}
+    for cell_name, inst_name, dx, dy in TOP_PLACEMENT:
+        child = b.instance(inst_name, bodies[cell_name], dx, dy)
+        # A pin label is a point inside a Metal1 shape on that net. Where a
+        # sub-circuit carries more than one label for a net (por_comparator's
+        # VDD/VSS: one on its own rail, one inside the instanced BIAS_OKB
+        # inverter), the first in sorted order is its own rail -- the strap
+        # this assembly should land on, not the sub-instance's.
+        anchors[cell_name] = {
+            net: (points[0][0] + dx, points[0][1] + dy)
+            for net, points in b.labels_in(child).items()
+        }
+
+    # --- pin escapes: Metal1 pin -> Metal2 pad -> Metal3 column -> trunk -----
+    pins: list[dict] = []
+    for net in sorted(TOP_NET_PINS):
+        for cell_name, pin_name in TOP_NET_PINS[net]:
+            px, py = anchors[cell_name][pin_name]
+            if cell_name == "temp_core":
+                # temp_core reaches everything through the left margin, on its
+                # own y, so its escape column is fixed rather than allocated.
+                continue
+            pins.append(
+                {
+                    "net": net,
+                    "cell": cell_name,
+                    "px": px,
+                    "py": py,
+                    "ty": TOP_VSS_RAIL_Y if net == "VSS" else TOP_TRUNK_Y[net],
+                }
+            )
+    _top_escape_columns(pins)
+
+    trunk_x: dict[str, list[float]] = {net: [] for net in TOP_NET_PINS}
+    for pin in pins:
+        _top_escape(routes, pin["net"], pin["px"], pin["py"], pin["xe"], pin["ty"])
+        trunk_x[pin["net"]].append(pin["xe"])
+
+    # --- temp_core's own escapes, up the left margin ------------------------
+    for net, pin_name in (
+        ("VSS", "VSS"),
+        ("VDD", "VDD"),
+        ("RESETn", "EN"),
+        ("IBIAS", "IBIAS"),
+    ):
+        px, py = anchors["temp_core"][pin_name]
+        xe = TOP_MARGIN_X[net]
+        if net == "VSS":
+            ty = TOP_VSS_RAIL_Y
+        elif net == "VDD":
+            ty = TOP_VDD_RAIL_Y  # temp_core taps the top rail directly
+        else:
+            ty = TOP_TRUNK_Y[net]
+        _top_escape(routes, net, px, py, xe, ty)
+        if net not in ("VSS", "VDD"):
+            trunk_x[net].append(xe)
+
+    # --- the crossing nets' trunks -----------------------------------------
+    for net, y in TOP_TRUNK_Y.items():
+        xs = trunk_x[net]
+        if net == "VDD":
+            xs = xs + [TOP_MARGIN_X["VDD_POR"]]
+        if net == "RESETn":
+            xs = xs + [TOP_RIGHT_PAD_X]
+        routes.hwire(net, y, min(xs), max(xs))
+
+    # --- VDD / VSS: full-width top and bottom rails -------------------------
+    routes.box(
+        METAL2,
+        "VDD",
+        TOP_RAIL_X0,
+        TOP_VDD_RAIL_Y - TOP_RAIL_HALF,
+        TOP_RAIL_X1,
+        TOP_VDD_RAIL_Y + TOP_RAIL_HALF,
+    )
+    routes.box(
+        METAL2,
+        "VSS",
+        TOP_RAIL_X0,
+        TOP_VSS_RAIL_Y - TOP_VSS_RAIL_HALF,
+        TOP_RAIL_X1,
+        TOP_VSS_RAIL_Y + TOP_VSS_RAIL_HALF,
+    )
+    # The POR domain's own VDD riser: rail -> trunk, in the left margin, not
+    # through either domain's footprint.
+    riser_x = TOP_MARGIN_X["VDD_POR"]
+    routes.vwire("VDD", riser_x, TOP_TRUNK_Y["VDD"], TOP_VDD_RAIL_Y)
+    for y in (TOP_TRUNK_Y["VDD"], TOP_VDD_RAIL_Y):
+        routes.via2("VDD", riser_x, y)
+
+    # --- guard rings: the outer perimeter, and the domain-seam moat ---------
+    _top_guard_ring(routes, *TOP_PERIM)
+    routes.box(
+        COMP,
+        "VSS",
+        TOP_SEAM_X0,
+        TOP_SEAM_Y - TOP_RING_W / 2.0,
+        TOP_SEAM_X1,
+        TOP_SEAM_Y + TOP_RING_W / 2.0,
+    )
+    routes.box(
+        METAL1,
+        "VSS",
+        TOP_SEAM_X0,
+        TOP_SEAM_Y - TOP_RING_W / 2.0,
+        TOP_SEAM_X1,
+        TOP_SEAM_Y + TOP_RING_W / 2.0,
+    )
+    for x in _span(TOP_SEAM_X0 + 1.0, TOP_SEAM_X1 - 1.0, TAP_PITCH_UM):
+        b.contact(x, TOP_SEAM_Y)
+
+    # The perimeter ring is tied to VSS by the bottom rail running along its
+    # own bottom segment on Metal2, stitched down at a regular pitch; the seam
+    # moat is tied by three risers to the same rail. VSS is therefore the
+    # guard-ring tie net by construction, exactly as layout/floorplan.md's pin
+    # table says ("VSS ... also the guard-ring tie net").
+    for x in _span(TOP_RAIL_X0 + 5.0, TOP_RAIL_X1 - 5.0, 25.0):
+        routes.via1("VSS", x, TOP_VSS_RAIL_Y)
+    for x in TOP_SEAM_TIE_X:
+        routes.via1("VSS", x, TOP_SEAM_Y)
+        routes.via2("VSS", x, TOP_SEAM_Y)
+        routes.vwire("VSS", x, TOP_SEAM_Y, TOP_VSS_RAIL_Y)
+        routes.via2("VSS", x, TOP_VSS_RAIL_Y)
+
+    # --- the ratified 5-pad pinout -----------------------------------------
+    # PTAT/CTAT leave temp_core westward on their own Metal2 tracks to the
+    # left edge; RESETn's pad is the right end of its own trunk. VDD/VSS are
+    # labelled on their rails. These five Metal2 labels are the *only* labels
+    # drawn directly in this cell, which is what `top_cell_pins` turns into
+    # exactly this pin set (klayout-tools#291) -- every sub-circuit's own
+    # labels stay below the top cell and stay internal.
+    for pad_net in ("CTAT", "PTAT"):
+        px, py = anchors["temp_core"][pad_net]
+        routes.via1(pad_net, px, py)
+        routes.hwire(pad_net, py, TOP_LEFT_PAD_X, px)
+        b.label(pad_net, TOP_LEFT_PAD_X + 1.0, py, METAL2_LABEL)
+    b.label("RESETn", TOP_RIGHT_PAD_X, TOP_TRUNK_Y["RESETn"], METAL2_LABEL)
+    b.label("VDD", 0.0, TOP_VDD_RAIL_Y, METAL2_LABEL)
+    b.label("VSS", 0.0, TOP_VSS_RAIL_Y, METAL2_LABEL)
+
+    # --- build-time checks (see this function's docstring) ------------------
+    routes.check()
+    _top_assert_connected(b)
+
+    # --- temp_core's two non-extractable structures, as sibling top cells ---
+    # Same treatment as in temp_core.gds itself: drawn (and so DRC-checked,
+    # since klt drc checks every top cell) but outside extraction/LVS, because
+    # the curated deck models neither a poly resistor nor a vertical PNP.
+    # Drawn last: add_cell() retargets the builder at a new top cell.
+    _temp_core_r2_ladder(b)
+    _temp_core_pnp_array(b)
+
+
+def _top_assert_connected(b: CellBuilder) -> None:
+    """Every via this cell drew lands inside metal on both of its levels.
+
+    A via drawn a hair off its landing pad costs nothing in DRC (the curated
+    deck has no via rule at all) and produces an open, not a short -- which
+    LVS *does* catch, but only as an unexplained topology mismatch a long way
+    from its cause. Checking it here turns that into a build-time failure that
+    names the layer.
+    """
+    import klayout.db as kdb
+
+    top = b.cell
+    layers = {
+        spec: kdb.Region(top.begin_shapes_rec(b._layer(spec))).merged()
+        for spec in (METAL1, METAL2, METAL3, VIA1, VIA2)
+    }
+    for via, below, above in ((VIA1, METAL1, METAL2), (VIA2, METAL2, METAL3)):
+        for level in (below, above):
+            stranded = layers[via] - layers[level]
+            if not stranded.is_empty():
+                raise AssertionError(
+                    f"temp_por_top: {stranded.count()} via shape(s) on "
+                    f"{via} are not covered by {level}"
+                )
+
+
 #: cell name -> body. Add a cell here and it joins ``layout/run_checks.sh``.
 CELLS = {
     "bias_core": bias_core,
@@ -1661,6 +2348,7 @@ CELLS = {
     "por_comparator_bias_okb_inv": por_comparator_bias_okb_inv,
     "temp_core": temp_core,
     "por_output_chain": por_output_chain,
+    "temp_por_top": temp_por_top,
 }
 
 

@@ -8,8 +8,9 @@
       "exit_code": 3,
       "status": "mismatch",
       "category_counts": {
+        "device.body_unverified": 2,
         "device.unmatched": 1,
-        "topology": 1
+        "topology": 2
       }
     },
     {
@@ -18,8 +19,9 @@
       "exit_code": 3,
       "status": "mismatch",
       "category_counts": {
+        "device.body_unverified": 2,
         "device.property": 5,
-        "topology": 1
+        "topology": 2
       }
     }
   ]

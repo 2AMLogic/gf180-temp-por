@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "file": "layout/cells/bias_core.gds",
+  "file": "layout/cells/temp_por_top.gds",
   "deck": "gf180mcu",
   "dbu_um": 0.001,
   "status": "clean",
@@ -27,18 +27,21 @@
       "22/0",
       "30/0",
       "33/0",
-      "34/0"
+      "34/0",
+      "36/0",
+      "42/0",
+      "127/5"
     ],
     "layers_in_stream_without_rules": [
+      "31/0",
+      "32/0",
       "34/10",
+      "35/0",
+      "36/10",
+      "38/0",
       "200/0"
     ],
     "rules_skipped": [
-      "bjt.separation.comp.1",
-      "metal2.space.1",
-      "metal2.width.1",
-      "metal3.space.1",
-      "metal3.width.1",
       "metal5.space.1",
       "metal5.width.1",
       "metaltop.space.1",
