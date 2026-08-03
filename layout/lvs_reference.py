@@ -7,6 +7,7 @@
     python3 layout/lvs_reference.py --cell <name> --corrupt device-param -o /tmp/bad.spice
     python3 layout/lvs_reference.py --check-deck-hash  # committed drc.json all one deck?
     python3 layout/lvs_reference.py --check-gds-hash   # committed reports match their .gds?
+    python3 layout/lvs_reference.py --list-frozen-deck-cells  # who that gate skips
 
 stdlib only; no PDK, no klayout, no ngspice.
 
@@ -1856,7 +1857,20 @@ def main(argv: list[str] | None = None) -> int:
             "--cell/--corrupt/--output)"
         ),
     )
+    parser.add_argument(
+        "--list-frozen-deck-cells",
+        action="store_true",
+        help=(
+            "print the cells --check-deck-hash excludes as frozen, one per "
+            "line (run_checks.sh --regen-all reads this so the list is "
+            "declared once, here, rather than duplicated in the shell)"
+        ),
+    )
     args = parser.parse_args(argv)
+    if args.list_frozen_deck_cells:
+        for cell in sorted(FROZEN_DECK_CELLS):
+            print(cell)
+        return 0
     if args.check_deck_hash:
         failures = check_deck_hash_consistency()
         for line in failures:

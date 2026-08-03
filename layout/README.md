@@ -66,6 +66,8 @@ interactive KLayout session, no netgen/magic.
 bash layout/run_checks.sh              # every cell under layout/cells/
 bash layout/run_checks.sh <cell>       # one cell
 bash layout/run_checks.sh --check-env  # what klt/PDK am I about to use?
+bash layout/run_checks.sh --regen-all  # re-stamp every non-frozen cell onto
+                                       # one deck (see 0b below)
 ```
 
 Exit 0 means, for every cell: the committed GDS and reference netlist are
@@ -116,6 +118,47 @@ behind #97 (`lvs_reference.FROZEN_DECK_CELLS`):
 ```bash
 python3 layout/lvs_reference.py --check-deck-hash
 ```
+
+##### Repairing a split: `--regen-all`
+
+The gate's remediation is "regenerate every non-frozen cell's reports against
+one deck" — but the command that does that is `run_checks.sh` itself, which
+aborted *at the gate* before it could regenerate anything. A directory that had
+legitimately drifted (two correct single-cell PRs landing days apart under
+different `klt` builds, each regenerating only its own cell as the convention
+below requires) therefore could not be repaired with the documented command, and
+every invocation of the script — single-cell runs included — was blocked (#108).
+
+`bash layout/run_checks.sh --regen-all` is the way out. It **defers** the gate
+to after the per-cell loop rather than skipping it:
+
+| | plain / single-cell run | `--regen-all` |
+| --- | --- | --- |
+| deck-hash gate | before any per-cell work | after the per-cell loop |
+| on failure | aborts (`set -e`), nothing rewritten | non-zero exit, run is a failure |
+| cells | as named (all, or the ones given) | every **non-frozen** cell, always |
+
+Deferring is not weakening, and the distinction is the whole point of the flag:
+
+- it is opt-in and never the default — a plain run and a single-cell run still
+  gate before touching anything, so a genuinely drifted `layout/reports/` fails
+  loudly exactly as it did before;
+- `--regen-all` rejects cell arguments (exit 2). It can only ever *establish*
+  one shared deck across every non-frozen cell, never re-stamp a subset — a
+  partial regeneration is precisely what produces the drift it exists to fix;
+- the same check still has to pass on the **result**, and a failure there fails
+  the run. Nothing in the script can waive it.
+
+It skips the cells the gate itself excludes as frozen (`FROZEN_DECK_CELLS`,
+today `temp_por_top`), reading that list from `lvs_reference.py
+--list-frozen-deck-cells` so it is declared exactly once — re-stamping a frozen
+cell's evidence here would silently take over the issue that owns it.
+
+Note that `--regen-all` defers only the deck-hash gate. The GDS-hash gate below
+still runs before the per-cell loop on every invocation, including this one: it
+guards a different invariant (a committed report describing a GDS it was not
+generated from), and letting a regeneration run overwrite that evidence before
+it is checked is exactly what it exists to prevent.
 
 **0c. GDS-hash gate.** A recorded report only means something if it is a
 description of the GDS actually committed alongside it. `por_comparator`'s
@@ -1296,7 +1339,11 @@ Re-run `run_checks.sh` after upgrading `klt` and commit the refreshed reports
 — `run_checks.sh` now checks that every committed cell's `drc.json` agrees on
 `provenance.deck.content_hash` before running anything else, so a report
 regenerated against a new `klt` for only some cells is caught immediately
-rather than becoming this section's next entry.
+rather than becoming this section's next entry. Once that gate is already
+failing, `bash layout/run_checks.sh --regen-all` is what repairs it (the plain
+command aborts at the gate before it can regenerate anything — #108); see
+"Repairing a split" above for why deferring the gate that way does not weaken
+it.
 
 ## Adding a cell (for #17 / #18)
 
