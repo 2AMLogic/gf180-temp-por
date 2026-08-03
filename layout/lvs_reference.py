@@ -79,6 +79,7 @@ import hashlib
 import json
 import re
 import sys
+from collections.abc import Sequence
 from pathlib import Path
 from typing import NamedTuple
 
@@ -88,14 +89,40 @@ NETLIST_DIR = REPO_ROOT / "design" / "netlist"
 CELLS_DIR = LAYOUT_DIR / "cells"
 REPORTS_DIR = LAYOUT_DIR / "reports"
 
+#: Cells whose committed artefacts are deliberately held at an older build than
+#: their sources would produce, keyed by cell name. Read by **both**
+#: ``--check`` paths -- this module's and ``layout/build_cells.py``'s (which
+#: imports this module) -- so a freeze is declared once and cannot drift
+#: between the two gates.
+#:
+#: A freeze is *not* "skip the staleness check". A frozen cell's committed
+#: artefact is pinned to the exact sha256 recorded here, so ``--check`` still
+#: fails if that artefact changes -- what the freeze suspends is only the
+#: comparison against a *fresh rebuild*, which is the thing the tracking issue
+#: owns. The three states are therefore distinguishable in the output:
+#:
+#: * unfrozen and current            -> ``ok <artefact>``
+#: * unfrozen and rebuilt-differs    -> ``FAIL ...: committed ... is stale``
+#: * frozen and baseline intact      -> ``frozen <artefact> ... (see #N)``
+#: * frozen and baseline **changed** -> ``FAIL ...: no longer matches the
+#:   pinned frozen baseline`` (someone regenerated a frozen artefact; either
+#:   restore it or land the tracking issue and delete the entry)
+#:
+#: Regenerating (running either script without ``--check``) also skips a frozen
+#: cell unless it is named explicitly with ``--cell``, so a routine
+#: whole-repo regeneration cannot quietly break the pin.
+#:
+#: Removal condition: delete the entry when its ``issue`` lands. Nothing else
+#: has to change -- both gates fall straight back to rebuild-and-compare.
+FROZEN_CELLS: dict[str, dict[str, str]] = {}
+
 #: Cells whose committed ``layout/reports/<cell>/drc.json`` is allowed to lag
-#: the rest on deck version because the cell itself is intentionally frozen
-#: (see that cell's own section in ``layout/README.md``). Today this is only
-#: ``temp_por_top``, held behind #97 (its assembly is re-derived once, after
-#: the sub-cell device work lands, rather than four times); remove an entry
-#: once its issue lands and its reports are regenerated against the shared
-#: deck like every other cell's.
-FROZEN_DECK_CELLS = {"temp_por_top"}
+#: the rest on deck version because the cell itself is intentionally frozen.
+#: Derived from :data:`FROZEN_CELLS` rather than declared separately -- the
+#: two registries used to be independent sets that happened to agree only
+#: because there was ever one frozen cell (#111), which is exactly the kind
+#: of drift a second source of truth invites.
+FROZEN_DECK_CELLS = frozenset(FROZEN_CELLS)
 
 #: The deck ties every extracted NMOS body to this global net.
 SUBSTRATE_NET = "vsubs"
@@ -765,39 +792,35 @@ CELLS["temp_por_top"] = {
     "internal": ["IBIAS", "VREF", "BIAS_OK", "POR_RAW"],
 }
 
-#: Cells whose committed artefacts are deliberately held at an older build than
-#: their sources would produce, keyed by cell name. Read by **both**
-#: ``--check`` paths -- this module's and ``layout/build_cells.py``'s (which
-#: imports this module) -- so a freeze is declared once and cannot drift
-#: between the two gates.
-#:
-#: A freeze is *not* "skip the staleness check". A frozen cell's committed
-#: artefact is pinned to the exact sha256 recorded here, so ``--check`` still
-#: fails if that artefact changes -- what the freeze suspends is only the
-#: comparison against a *fresh rebuild*, which is the thing the tracking issue
-#: owns. The three states are therefore distinguishable in the output:
-#:
-#: * unfrozen and current            -> ``ok <artefact>``
-#: * unfrozen and rebuilt-differs    -> ``FAIL ...: committed ... is stale``
-#: * frozen and baseline intact      -> ``frozen <artefact> ... (see #N)``
-#: * frozen and baseline **changed** -> ``FAIL ...: no longer matches the
-#:   pinned frozen baseline`` (someone regenerated a frozen artefact; either
-#:   restore it or land the tracking issue and delete the entry)
-#:
-#: Regenerating (running either script without ``--check``) also skips a frozen
-#: cell unless it is named explicitly with ``--cell``, so a routine
-#: whole-repo regeneration cannot quietly break the pin.
-#:
-#: Removal condition: delete the entry when its ``issue`` lands. Nothing else
-#: has to change -- both gates fall straight back to rebuild-and-compare.
-FROZEN_CELLS: dict[str, dict[str, str]] = {}
-
 
 class FrozenVerdict(NamedTuple):
     """One frozen cell's artefact verdict: ``ok`` plus the line to print."""
 
     ok: bool
     line: str
+
+
+def pinned_report_cells(named: Sequence[str]) -> list[str]:
+    """Cells whose committed ``layout/reports/<cell>/`` this invocation of
+    ``run_checks.sh`` must **not** overwrite.
+
+    A frozen cell's committed reports are evidence recorded under the deck and
+    the sub-cell set its tracking issue owns; a whole-repo run re-stamping them
+    onto today's deck silently ends the freeze the moment someone ``git add
+    -A``s (#111). So a run that names no cells -- the implicit whole-repo loop
+    -- treats every :data:`FROZEN_CELLS` entry's reports as read-only: the
+    checks still run, but into a scratch directory that is diffed against the
+    committed set instead of replacing it.
+
+    Naming cells explicitly (``bash layout/run_checks.sh temp_por_top``) is the
+    deliberate "regenerate it anyway" path, exactly as ``--cell`` is for this
+    module's and ``build_cells.py``'s regeneration passes, so nothing is
+    pinned then. Empty :data:`FROZEN_CELLS` gives an empty list either way,
+    which is what makes the guard a no-op once the freezes are lifted.
+    """
+    if named:
+        return []
+    return sorted(FROZEN_CELLS)
 
 
 def sha256_bytes(data: bytes) -> str:
@@ -1850,10 +1873,41 @@ def main(argv: list[str] | None = None) -> int:
             "declared once, here, rather than duplicated in the shell)"
         ),
     )
+    parser.add_argument(
+        "--pinned-report-cells",
+        action="store_true",
+        help=(
+            "print (one per line) the cells whose committed "
+            "layout/reports/<cell>/ the caller must not overwrite: the frozen "
+            "cells, unless the caller named cells itself (see the trailing "
+            "positional arguments), which is the explicit "
+            "regenerate-it-anyway path. Read by layout/run_checks.sh"
+        ),
+    )
+    parser.add_argument(
+        "cells",
+        nargs="*",
+        help=(
+            "the cells the caller was asked to act on; only meaningful with "
+            "--pinned-report-cells, and empty means a whole-repo run"
+        ),
+    )
     args = parser.parse_args(argv)
+    if args.cells and not args.pinned_report_cells:
+        # The positional exists only to let run_checks.sh forward its own "$@";
+        # every other mode selects a cell with --cell, and used to reject a bare
+        # name outright. Keep rejecting it rather than silently ignoring it.
+        parser.error(
+            "cell names are positional only with --pinned-report-cells; "
+            "use --cell to select a cell"
+        )
     if args.list_frozen_deck_cells:
         for cell in sorted(FROZEN_DECK_CELLS):
             print(cell)
+        return 0
+    if args.pinned_report_cells:
+        for name in pinned_report_cells(args.cells):
+            print(name)
         return 0
     if args.check_deck_hash:
         failures = check_deck_hash_consistency()

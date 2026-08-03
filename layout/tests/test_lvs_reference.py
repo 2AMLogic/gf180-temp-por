@@ -17,6 +17,8 @@ import contextlib
 import io
 import json
 import os
+import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -1731,6 +1733,308 @@ class FrozenCellTest(unittest.TestCase):
         self.assertIn("#42", output)
         # ... and it says "frozen", not "ok": a reader can tell the two apart.
         self.assertNotIn("ok ", output)
+
+
+class PinnedReportCellsTest(unittest.TestCase):
+    """``pinned_report_cells`` (#111) is the whole decision behind the guard
+    ``layout/run_checks.sh`` applies to a frozen cell's committed *reports*:
+    a whole-repo run must not rewrite them (that re-stamps evidence recorded
+    under an older deck onto today's, so a ``git add -A`` ends the freeze
+    without anyone deciding to), while naming the cell explicitly must."""
+
+    def test_a_whole_repo_run_pins_every_frozen_cell(self):
+        self.assertEqual(lr.pinned_report_cells([]), sorted(lr.FROZEN_CELLS))
+        # Not vacuous today: there is a freeze in force to be pinned.
+        self.assertTrue(lr.FROZEN_CELLS)
+
+    def test_naming_cells_explicitly_pins_nothing(self):
+        # Naming a cell is the deliberate "regenerate it anyway" path, the same
+        # override --cell already is for the two regeneration passes.
+        for named in (["temp_por_top"], ["temp_core"], ["temp_core", CELL]):
+            self.assertEqual(lr.pinned_report_cells(named), [], named)
+
+    def test_no_frozen_cells_is_a_no_op_in_both_directions(self):
+        # The removal condition: once the freezes are lifted the guard has to
+        # go quiet by itself rather than needing to be taken back out.
+        with unittest.mock.patch.dict(lr.FROZEN_CELLS, {}, clear=True):
+            self.assertEqual(lr.pinned_report_cells([]), [])
+            self.assertEqual(lr.pinned_report_cells(["temp_por_top"]), [])
+
+    def cli(self, *argv):
+        with contextlib.redirect_stdout(io.StringIO()) as out:
+            code = lr.main(["--pinned-report-cells", *argv])
+        return code, out.getvalue().split()
+
+    def test_the_cli_prints_one_cell_per_line_for_a_whole_repo_run(self):
+        code, names = self.cli()
+        self.assertEqual(code, 0)
+        self.assertEqual(names, sorted(lr.FROZEN_CELLS))
+
+    def test_the_cli_prints_nothing_when_the_caller_named_cells(self):
+        # run_checks.sh passes its own "$@" straight through, so this is the
+        # single-cell invocation's answer.
+        self.assertEqual(self.cli("temp_por_top"), (0, []))
+
+    def test_a_bare_cell_name_is_still_rejected_by_every_other_mode(self):
+        # The positional carries run_checks.sh's "$@" and nothing else; every
+        # other mode takes --cell, and a bare name there used to be an
+        # "unrecognized arguments" error rather than a silently ignored one.
+        with contextlib.redirect_stderr(io.StringIO()) as err:
+            with self.assertRaises(SystemExit) as raised:
+                lr.main(["--check", "temp_core"])
+        self.assertEqual(raised.exception.code, 2)
+        self.assertIn("--cell", err.getvalue())
+
+
+#: A stand-in for ``klt`` used by :class:`RunChecksFrozenReportsTest`. It is
+#: deliberately not a DRC/LVS engine: what is under test is which *files*
+#: ``run_checks.sh`` writes, so the stub only has to honour the exit-code and
+#: report-shape contract the script reads (``drc``/``extract`` clean on 0,
+#: ``lvs`` reporting a mismatch with exit 3 when handed a corrupted reference
+#: netlist, which is what makes the negative controls pass).
+KLT_STUB = '''#!/usr/bin/env python3
+import hashlib
+import json
+import os
+import sys
+from pathlib import Path
+
+DECK = {"content_hash": "stub-deck-0000000000000000"}
+argv = sys.argv[1:]
+
+
+def emit(payload, code):
+    json.dump(payload, sys.stdout, indent=2)
+    sys.stdout.write("\\n")
+    raise SystemExit(code)
+
+
+def opt(name):
+    return argv[argv.index(name) + 1] if name in argv else None
+
+
+if argv[:1] == ["--version"]:
+    print("klt 0.0+stub")
+    raise SystemExit(0)
+if argv[:1] == ["pdk"]:
+    raise SystemExit(0)
+
+command = argv[0]
+if command == "drc":
+    failing = os.environ.get("KLT_STUB_DRC_FAIL")
+    if failing and Path(argv[1]).stem == failing:
+        emit({"status": "violations", "violation_count": 1,
+              "violations": [{"rule": "stub.injected.1"}],
+              "provenance": {"deck": DECK}}, 3)
+    emit({"status": "clean", "violation_count": 0, "violations": [],
+          "provenance": {"deck": DECK}}, 0)
+if command == "extract":
+    Path(opt("-o")).write_text(".subckt %s\\n.ends\\n" % opt("--top"))
+    emit({"status": "ok", "device_count": 0, "provenance": {"deck": DECK}}, 0)
+if command == "lvs":
+    request_path = Path(argv[1])
+    request = json.loads(request_path.read_text())
+    layout = Path(request["layout"]["file"])
+    if not layout.is_absolute():
+        layout = request_path.parent / layout
+    reference = Path(request["reference"]["netlist"]).name
+    corrupt = any(".%s." % c in reference
+                  for c in ("topology", "device-param", "passive-param"))
+    emit({"status": "mismatch" if corrupt else "match",
+          "category_counts": {"net": 1} if corrupt else {},
+          "environment": {
+              "layout_sha256": hashlib.sha256(layout.read_bytes()).hexdigest()
+          }}, 3 if corrupt else 0)
+sys.exit("stub klt: unsupported command %r" % (argv,))
+'''
+
+#: Stands in for the interpreter ``klt`` ships beside itself. ``run_checks.sh``
+#: looks for a python with the ``klayout`` module (plain ``python3``, then this
+#: path, then ``uv run --with klayout``); answering the probe here keeps the
+#: sandbox off the ``uv`` branch, which would go to the network in CI. The only
+#: thing it is ever asked to run is the ``build_cells.py`` stub beside it.
+PYTHON_SHIM = '''#!/usr/bin/env python3
+import os
+import sys
+
+if sys.argv[1:] == ["-c", "import klayout.db"]:
+    raise SystemExit(0)
+os.execv(sys.executable, [sys.executable, *sys.argv[1:]])
+'''
+
+#: Stands in for ``layout/build_cells.py``. The real one rebuilds every
+#: committed GDS and so needs the ``klayout`` module, which these tests
+#: deliberately do without: the subject here is ``run_checks.sh``'s
+#: report-writing loop, and the GDS staleness gate has its own coverage in
+#: :class:`FrozenCellTest`.
+BUILD_CELLS_STUB = '''#!/usr/bin/env python3
+raise SystemExit(0)
+'''
+
+
+class RunChecksFrozenReportsTest(unittest.TestCase):
+    """``layout/run_checks.sh``'s frozen-cell report guard (#111), end to end.
+
+    A whole-repo run used to re-run a frozen cell's checks and overwrite its
+    committed ``layout/reports/<cell>/`` with the result -- evidence recorded
+    against an older deck, silently re-stamped onto today's, so the next
+    ``git add -A`` ended the freeze without anyone deciding to. The fix writes
+    a pinned cell's reports to a scratch directory and diffs them instead, so
+    the checks still run and still fail loudly; only the destination of the
+    bytes changes.
+
+    These run the real script against a sandbox copy of the tree with a stub
+    ``klt`` (above) on ``PATH``, so they need no klt, no PDK and no klayout --
+    and, importantly, cannot touch this repo's own committed reports.
+    """
+
+    #: The frozen cell under test, plus the smallest unfrozen cell as the
+    #: contrast: the same run must still rewrite *its* reports normally.
+    FROZEN = "temp_por_top"
+    UNFROZEN = "por_comparator_bias_okb_inv"
+
+    @classmethod
+    def setUpClass(cls):
+        if cls.FROZEN not in lr.FROZEN_CELLS:
+            raise unittest.SkipTest(
+                f"{cls.FROZEN} is no longer frozen -- the guard is a no-op and "
+                "these tests have nothing left to hold (see #111)"
+            )
+        cls._root_ctx = tempfile.TemporaryDirectory()
+        cls.addClassCleanup(cls._root_ctx.cleanup)
+        cls.root = build_run_checks_sandbox(
+            Path(cls._root_ctx.name), (cls.FROZEN, cls.UNFROZEN)
+        )
+        cls.before = {
+            cell: report_digests(cls.root, cell)
+            for cell in (cls.FROZEN, cls.UNFROZEN)
+        }
+        cls.result = run_checks(cls.root)
+        cls.after = {
+            cell: report_digests(cls.root, cell)
+            for cell in (cls.FROZEN, cls.UNFROZEN)
+        }
+
+    def section(self, output, cell):
+        """The part of ``output`` between ``==> <cell>`` and the next cell."""
+        self.assertIn(f"==> {cell}", output, output)
+        rest = output.split(f"==> {cell}", 1)[1]
+        return rest.split("==> ", 1)[0]
+
+    def test_a_whole_repo_run_leaves_the_frozen_cells_reports_untouched(self):
+        # The acceptance criterion, byte for byte: `git status --porcelain
+        # layout/reports/temp_por_top/` has to come back empty.
+        self.assertEqual(self.result.returncode, 0, self.result.stdout)
+        self.assertEqual(self.after[self.FROZEN], self.before[self.FROZEN])
+        self.assertTrue(self.before[self.FROZEN], "no committed reports to hold")
+
+    def test_the_same_run_still_rewrites_an_unfrozen_cells_reports(self):
+        # Without this the first assertion would also pass on a script that
+        # wrote nothing at all.
+        self.assertNotEqual(self.after[self.UNFROZEN], self.before[self.UNFROZEN])
+        self.assertEqual(
+            sorted(self.after[self.UNFROZEN]), sorted(self.before[self.UNFROZEN])
+        )
+
+    def test_the_frozen_cells_verdicts_are_computed_not_skipped(self):
+        # A freeze is "do not compare against a fresh rebuild", never "stop
+        # running DRC" -- so every verdict has to appear for the frozen cell
+        # too, and be labelled as this run's own.
+        section = self.section(self.result.stdout, self.FROZEN)
+        for verdict in ("DRC   clean", "EXTR  ok", "LVS   match", "CTRL  topology"):
+            self.assertIn(verdict, section, section)
+        self.assertIn("FROZEN", section, section)
+
+    def test_a_frozen_cells_failure_is_not_swallowed_by_the_guard(self):
+        # The risk the guard has to avoid: "don't overwrite" must not shade
+        # into "don't notice". A real DRC failure on the frozen cell still
+        # fails the run, and still leaves the committed evidence alone.
+        with tempfile.TemporaryDirectory() as tmp:
+            # One cell is enough here (and much cheaper): this is still the
+            # implicit whole-repo invocation, which is what arms the guard.
+            root = build_run_checks_sandbox(Path(tmp), (self.FROZEN,))
+            before = report_digests(root, self.FROZEN)
+            result = run_checks(root, env={"KLT_STUB_DRC_FAIL": self.FROZEN})
+            self.assertEqual(result.returncode, 1, result.stdout)
+            self.assertIn("DRC   FAILED", self.section(result.stdout, self.FROZEN))
+            self.assertEqual(report_digests(root, self.FROZEN), before)
+            # ... and the failing report it names is kept, not swept away with
+            # the scratch dir, so the FAIL line points at something readable.
+            kept = re.search(
+                r"kept this run's frozen-cell reports[^:]*: ([^\s\x1b]+)",
+                result.stdout,
+            )
+            self.assertIsNotNone(kept, result.stdout)
+            scratch = Path(kept.group(1))
+            self.addCleanup(shutil.rmtree, scratch, ignore_errors=True)
+            self.assertTrue((scratch / "reports" / self.FROZEN / "drc.json").exists())
+
+    def test_naming_the_frozen_cell_explicitly_regenerates_its_reports(self):
+        # The escape hatch #97's own workflow needs, and the reason the guard
+        # keys off "did the caller name cells" rather than off the freeze alone.
+        with tempfile.TemporaryDirectory() as tmp:
+            root = build_run_checks_sandbox(Path(tmp), (self.FROZEN,))
+            before = report_digests(root, self.FROZEN)
+            result = run_checks(root, self.FROZEN)
+            self.assertEqual(result.returncode, 0, result.stdout)
+            self.assertNotEqual(report_digests(root, self.FROZEN), before)
+            self.assertNotIn("FROZEN", result.stdout)
+
+
+def build_run_checks_sandbox(root: Path, cells: tuple[str, ...]) -> Path:
+    """A minimal copy of the tree ``run_checks.sh`` runs against.
+
+    Only ``cells`` get a ``.gds``, so they are the whole of the script's
+    whole-repo loop; every cell's ``.reference.spice`` and the golden netlists
+    come along because the unscoped staleness gate rebuilds all of them.
+    """
+    shutil.copytree(REPO_ROOT / "design" / "netlist", root / "design" / "netlist")
+    layout = root / "layout"
+    (layout / "cells").mkdir(parents=True)
+    for name in ("lvs_reference.py", "run_checks.sh"):
+        shutil.copy(LAYOUT_DIR / name, layout / name)
+    (layout / "build_cells.py").write_text(BUILD_CELLS_STUB)
+    for reference in (LAYOUT_DIR / "cells").glob("*.reference.spice"):
+        shutil.copy(reference, layout / "cells" / reference.name)
+    for cell in cells:
+        for suffix in (".gds", ".lvs.json"):
+            shutil.copy(
+                LAYOUT_DIR / "cells" / f"{cell}{suffix}",
+                layout / "cells" / f"{cell}{suffix}",
+            )
+        shutil.copytree(LAYOUT_DIR / "reports" / cell, layout / "reports" / cell)
+    binaries = root / "bin"
+    binaries.mkdir()
+    for name, text in (("klt", KLT_STUB), ("python", PYTHON_SHIM)):
+        (binaries / name).write_text(text)
+        (binaries / name).chmod(0o755)
+    return root
+
+
+def report_digests(root: Path, cell: str) -> dict[str, str]:
+    """``{report name: sha256}`` for one cell's committed reports."""
+    directory = root / "layout" / "reports" / cell
+    return {
+        path.name: lr.sha256_bytes(path.read_bytes())
+        for path in sorted(directory.iterdir())
+    }
+
+
+def run_checks(
+    root: Path, *args: str, env: dict[str, str] | None = None
+) -> subprocess.CompletedProcess[str]:
+    """``bash layout/run_checks.sh <args>`` against a sandbox from
+    :func:`build_run_checks_sandbox`, with the stub ``klt`` found first."""
+    environment = dict(os.environ, PATH=f"{root / 'bin'}{os.pathsep}{os.environ['PATH']}")
+    environment.pop("KLT_STUB_DRC_FAIL", None)
+    environment.update(env or {})
+    return subprocess.run(
+        ["bash", str(root / "layout" / "run_checks.sh"), *args],
+        capture_output=True,
+        text=True,
+        env=environment,
+        cwd=root,
+    )
 
 
 class Poly2ContactEnclosureTest(unittest.TestCase):
