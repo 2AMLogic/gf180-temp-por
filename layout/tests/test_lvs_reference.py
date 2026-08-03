@@ -16,6 +16,8 @@ import collections
 import contextlib
 import io
 import json
+import os
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -1465,6 +1467,135 @@ class GdsHashConsistencyTest(unittest.TestCase):
         failures = lr.check_gds_hash(self.reports_dir, self.cells_dir)
         self.assertEqual(len(failures), 1)
         self.assertIn("temp_core", failures[0])
+class DeckHashGateBootstrapTest(unittest.TestCase):
+    """``run_checks.sh --regen-all`` (#108) is the deck-hash gate's bootstrap
+    mode. The gate's own remediation is "regenerate every non-frozen cell's
+    reports against one deck (bash layout/run_checks.sh)" -- but the gate ran
+    before any per-cell work under ``set -e``, so it aborted the very run that
+    was supposed to perform that regeneration, and *every* invocation of the
+    script (single-cell runs included) was blocked once the committed reports
+    had legitimately drifted onto two decks.
+
+    The danger in fixing that is fixing it too hard: an escape hatch that
+    *skips* the gate rather than *deferring* it silently retires the invariant
+    #104 added it to enforce. These tests pin the difference. They are the only
+    coverage of the shell's control flow -- ``DeckHashConsistencyTest`` above
+    exercises the pure function against a synthetic directory and would stay
+    green even if the script stopped calling it entirely."""
+
+    SCRIPT_PATH = LAYOUT_DIR / "run_checks.sh"
+
+    @classmethod
+    def setUpClass(cls):
+        cls.script = cls.SCRIPT_PATH.read_text()
+
+    # --- the frozen-cell list is declared once, in python -------------------
+
+    def test_list_frozen_deck_cells_prints_the_gate_s_own_exclusions(self):
+        with contextlib.redirect_stdout(io.StringIO()) as out:
+            code = lr.main(["--list-frozen-deck-cells"])
+        self.assertEqual(code, 0)
+        self.assertEqual(out.getvalue().split(), sorted(lr.FROZEN_DECK_CELLS))
+
+    def test_regen_all_reads_that_list_rather_than_keeping_its_own(self):
+        # A second copy of the frozen set in the shell is a copy that drifts:
+        # --regen-all would then re-stamp a cell the gate still excuses (or
+        # skip one it no longer does).
+        self.assertIn("--list-frozen-deck-cells", self.script)
+
+    # --- deferred, not skipped ---------------------------------------------
+
+    def test_the_gate_is_still_run_on_ordinary_invocations(self):
+        # The pre-run gate must be guarded by "--regen-all was NOT passed",
+        # not by anything weaker: a plain run and a single-cell run still gate
+        # before touching a single report.
+        self.assertRegex(
+            self.script,
+            r'if \[ "\$REGEN_ALL" -eq 0 \]; then\n'
+            r'\s+info "==> checking layout/reports/ agree on one deck[^"]*"\n'
+            r"\s+python3 layout/lvs_reference\.py --check-deck-hash\n",
+        )
+
+    def test_regen_all_asserts_the_gate_afterwards_instead_of_dropping_it(self):
+        # Exactly two invocations: the pre-run gate for ordinary runs, and the
+        # post-run assertion --regen-all defers it to. One would mean the hatch
+        # waives the check; the guard here is that removing the second one
+        # fails a test rather than passing review.
+        #
+        # Count *invocations*, not bare occurrences of the flag name: the
+        # script's prose also references `--check-deck-hash` when explaining
+        # the neighbouring GDS-hash gate (#109), and a comment mentioning the
+        # flag must not read as a third call to it.
+        self.assertEqual(
+            self.script.count("python3 layout/lvs_reference.py --check-deck-hash"),
+            2,
+        )
+        deferred = self.script.split("# --- deferred deck-hash assertion")[-1]
+        self.assertIn("--check-deck-hash", deferred)
+
+    def test_a_failed_deferred_assertion_fails_the_run(self):
+        deferred = self.script.split("# --- deferred deck-hash assertion")[-1]
+        # It must set the script's failure status, and must not be neutered
+        # with `|| true` / `set +e`.
+        self.assertIn("status=1", deferred)
+        self.assertNotIn("|| true", deferred)
+        self.assertNotIn("set +e", self.script)
+
+    def test_no_environment_variable_can_switch_the_gate_off(self):
+        # The hatch is a flag on one invocation, not repo state: nothing may
+        # read a SKIP/BYPASS-style variable, which would outlive the run that
+        # set it (a CI export, a shell rc) and disable the gate for everyone.
+        self.assertNotRegex(self.script, r"(?i)\$\{?(SKIP|BYPASS|NO)_[A-Z_]*DECK")
+
+    # --- behaviour, against a sandboxed copy of the script ------------------
+
+    def _sandbox(self, tmp: Path) -> Path:
+        """A throwaway repo root holding just ``layout/run_checks.sh`` and a
+        stub ``klt``, so the argument-handling paths can be exercised for real
+        without ``klt`` and without touching the committed reports."""
+        (tmp / "layout").mkdir(parents=True, exist_ok=True)
+        script = tmp / "layout" / "run_checks.sh"
+        script.write_text(self.script)
+        bindir = tmp / "bin"
+        bindir.mkdir(exist_ok=True)
+        stub = bindir / "klt"
+        stub.write_text(
+            "#!/usr/bin/env bash\n"
+            'if [ "$1" = "--version" ]; then echo "klt 0.0.0-stub"; fi\nexit 0\n'
+        )
+        stub.chmod(0o755)
+        return script
+
+    def _run(self, tmp: Path, *args: str):
+        script = self._sandbox(tmp)
+        env = dict(os.environ, PATH=f"{tmp / 'bin'}:{os.environ['PATH']}")
+        return subprocess.run(
+            ["bash", str(script), *args],
+            capture_output=True,
+            text=True,
+            env=env,
+        )
+
+    def test_regen_all_refuses_a_cell_argument(self):
+        # A subset regeneration is exactly what produces the drift the flag
+        # exists to repair, so `--regen-all <cell>` is an error, not a
+        # convenience: it must never become a per-cell gate bypass.
+        with tempfile.TemporaryDirectory() as tmp:
+            result = self._run(Path(tmp), "--regen-all", "bias_core")
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("takes no cell argument", result.stdout + result.stderr)
+
+    def test_check_env_still_works_alongside_the_new_flag(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            result = self._run(Path(tmp), "--check-env")
+        self.assertEqual(result.returncode, 0)
+        self.assertIn("klt 0.0.0-stub", result.stdout)
+
+    def test_the_script_is_syntactically_valid(self):
+        result = subprocess.run(
+            ["bash", "-n", str(self.SCRIPT_PATH)], capture_output=True, text=True
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
 
 
 class FrozenCellTest(unittest.TestCase):
