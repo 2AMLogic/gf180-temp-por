@@ -6,6 +6,7 @@
     python3 layout/lvs_reference.py --cell por_comparator_bias_okb_inv
     python3 layout/lvs_reference.py --cell <name> --corrupt device-param -o /tmp/bad.spice
     python3 layout/lvs_reference.py --check-deck-hash  # committed drc.json all one deck?
+    python3 layout/lvs_reference.py --check-gds-hash   # committed reports match their .gds?
 
 stdlib only; no PDK, no klayout, no ngspice.
 
@@ -1689,6 +1690,85 @@ def check_deck_hash_consistency(reports_dir: Path = REPORTS_DIR) -> list[str]:
     return failures
 
 
+#: For each report file under ``layout/reports/<cell>/``, the JSON path (as a
+#: key tuple) to the field recording the sha256 of the ``.gds`` stream it was
+#: generated from. ``lvs.json``'s ``environment.layout_sha256`` is ``klt
+#: lvs``'s own output and was already correct (see :data:`FROZEN_CELLS`'
+#: ``gds_sha256``, pinned against the same convention); ``drc.json`` and
+#: ``extract.json`` gained ``provenance.gds_sha256`` under #106, spliced in by
+#: ``run_checks.sh`` right after ``klt drc``/``klt extract`` write the file,
+#: since neither writes it itself.
+GDS_HASH_FIELDS: dict[str, tuple[str, ...]] = {
+    "drc.json": ("provenance", "gds_sha256"),
+    "extract.json": ("provenance", "gds_sha256"),
+    "lvs.json": ("environment", "layout_sha256"),
+}
+
+
+def _dig(data: object, field_path: tuple[str, ...]) -> str | None:
+    """Walk ``field_path`` through nested dicts; ``None`` on any miss."""
+    for key in field_path:
+        if not isinstance(data, dict):
+            return None
+        data = data.get(key)
+    return data if isinstance(data, str) else None
+
+
+def check_gds_hash(
+    reports_dir: Path = REPORTS_DIR, cells_dir: Path = CELLS_DIR
+) -> list[str]:
+    """Fail loudly if a committed report's recorded GDS digest disagrees with
+    the GDS it actually describes.
+
+    This is the guard #106 added after #102: `por_comparator`'s false-clean
+    ``drc.json`` (``status: clean``, ``violation_count: 0``) was textually
+    indistinguishable from a genuine clean report, because nothing in the
+    report recorded which GDS bytes it was generated against -- only manual
+    inspection against a rebuilt stream caught it. Every committed
+    ``layout/reports/<cell>/{drc,extract,lvs}.json`` now pins a digest of its
+    source GDS (see :data:`GDS_HASH_FIELDS`); this recomputes
+    ``sha256(layout/cells/<cell>.gds)`` and compares it against every report
+    that names that cell, for every cell -- including frozen ones (a frozen
+    cell's committed reports must still describe its own committed,
+    unchanged GDS; freezing suspends the *rebuild* comparison, not this one).
+
+    Returns a list of human-readable failure strings; empty means every
+    committed report's recorded digest matches its committed GDS.
+    """
+    failures: list[str] = []
+    for cell_dir in sorted(p for p in reports_dir.iterdir() if p.is_dir()):
+        cell = cell_dir.name
+        gds_path = cells_dir / f"{cell}.gds"
+        if not gds_path.exists():
+            # No matching committed GDS for this report directory is not this
+            # check's invariant -- build_cells.py --check / lvs_reference.py
+            # --check own "is there a committed GDS at all".
+            continue
+        actual = sha256_bytes(gds_path.read_bytes())
+        for report_name, field_path in GDS_HASH_FIELDS.items():
+            report_path = cell_dir / report_name
+            if not report_path.exists():
+                continue
+            try:
+                data = json.loads(report_path.read_text())
+            except (OSError, json.JSONDecodeError) as error:
+                failures.append(f"{cell}: could not read {report_path}: {error}")
+                continue
+            recorded = _dig(data, field_path)
+            field_name = ".".join(field_path)
+            if not recorded:
+                failures.append(f"{cell}: {report_path} has no {field_name}")
+                continue
+            if recorded != actual:
+                failures.append(
+                    f"{cell}: {report_path} records {field_name}="
+                    f"{recorded[:16]}... but {_display_path(gds_path)} is "
+                    f"{actual[:16]}... -- report is stale (or false-clean); "
+                    "regenerate with bash layout/run_checks.sh"
+                )
+    return failures
+
+
 def run(check: bool, only: str | None, corrupt: str | None, out: str | None) -> int:
     names = [only] if only else sorted(CELLS)
     for name in names:
@@ -1766,6 +1846,16 @@ def main(argv: list[str] | None = None) -> int:
             f"tolerates {', '.join(sorted(FROZEN_DECK_CELLS))} while frozen)"
         ),
     )
+    parser.add_argument(
+        "--check-gds-hash",
+        action="store_true",
+        help=(
+            "fail if a committed layout/reports/<cell>/{drc,extract,lvs}.json "
+            "records a GDS digest that disagrees with the committed "
+            "layout/cells/<cell>.gds it describes (ignores "
+            "--cell/--corrupt/--output)"
+        ),
+    )
     args = parser.parse_args(argv)
     if args.check_deck_hash:
         failures = check_deck_hash_consistency()
@@ -1773,6 +1863,16 @@ def main(argv: list[str] | None = None) -> int:
             print(f"FAIL {line}")
         if not failures:
             print(f"ok {REPORTS_DIR.relative_to(REPO_ROOT)}/*/drc.json: one deck hash")
+        return 1 if failures else 0
+    if args.check_gds_hash:
+        failures = check_gds_hash()
+        for line in failures:
+            print(f"FAIL {line}")
+        if not failures:
+            print(
+                f"ok {REPORTS_DIR.relative_to(REPO_ROOT)}/*/*.json: "
+                "GDS digests match their committed .gds"
+            )
         return 1 if failures else 0
     try:
         return run(args.check, args.cell, args.corrupt, args.output)

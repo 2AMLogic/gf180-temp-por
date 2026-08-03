@@ -39,6 +39,34 @@ red() { printf '\033[0;31m%s\033[0m\n' "$*"; }
 green() { printf '\033[0;32m%s\033[0m\n' "$*"; }
 info() { printf '\033[0;34m%s\033[0m\n' "$*"; }
 
+# splice_gds_hash <gds> <report.json> -- inject sha256(<gds>) as
+# provenance.gds_sha256 into a just-written drc.json/extract.json.
+#
+# `klt drc`/`klt extract` write neither report with anything tying it to the
+# GDS stream it describes (unlike `klt lvs`, whose own `environment.
+# layout_sha256` already does this) -- see #106. Splicing it in here, right
+# after each report is written and before it is ever treated as committed
+# evidence, means `lvs_reference.py --check-gds-hash` can catch a report that
+# has drifted from its own GDS the same way `--check-deck-hash` catches
+# reports that have drifted from each other (#102/#103).
+splice_gds_hash() {
+  local gds="$1" report="$2"
+  python3 - "$gds" "$report" <<'PY'
+import hashlib
+import json
+import sys
+
+gds_path, report_path = sys.argv[1:3]
+digest = hashlib.sha256(open(gds_path, "rb").read()).hexdigest()
+with open(report_path) as f:
+    data = json.load(f)
+data.setdefault("provenance", {})["gds_sha256"] = digest
+with open(report_path, "w") as f:
+    json.dump(data, f, indent=2)
+    f.write("\n")
+PY
+}
+
 # --- toolchain ---------------------------------------------------------------
 
 if ! command -v klt >/dev/null 2>&1; then
@@ -142,6 +170,18 @@ fi
 info "==> checking layout/reports/ agree on one deck (provenance.deck.content_hash)"
 python3 layout/lvs_reference.py --check-deck-hash
 
+# --- GDS-hash gate -------------------------------------------------------------
+#
+# Also unscoped, for the same reason as the deck-hash gate above, and for the
+# same reason it runs *before* the per-cell loop overwrites this run's own
+# reports: this checks the invariant #106 added -- every already-committed
+# report's recorded digest still matches the already-committed GDS it claims
+# to describe -- so a stale/false-clean report (#102) is caught before this
+# run's fresh reports replace the evidence of it.
+
+info "==> checking layout/reports/ agree with layout/cells/ (gds_sha256 / layout_sha256)"
+python3 layout/lvs_reference.py --check-gds-hash
+
 # --- per-cell checks ---------------------------------------------------------
 
 status=0
@@ -155,6 +195,7 @@ for cell in "${CELLS[@]}"; do
 
   # 1. DRC ---------------------------------------------------------------
   if klt drc "$gds" --deck "$DECK" --format json >"$out/drc.json"; then
+    splice_gds_hash "$gds" "$out/drc.json"
     green "    DRC   clean   ($out/drc.json)"
   else
     red "    DRC   FAILED  ($out/drc.json)"
@@ -180,6 +221,7 @@ print(json.load(open(sys.argv[1]))['layout'].get('top_cell_pins', False))
     -o "$out/extracted.spice" --top "$cell" \
     "${extract_flags[@]+"${extract_flags[@]}"}" \
     --format json >"$out/extract.json"; then
+    splice_gds_hash "$gds" "$out/extract.json"
     green "    EXTR  ok      ($out/extracted.spice)"
   else
     red "    EXTR  FAILED  ($out/extract.json)"
