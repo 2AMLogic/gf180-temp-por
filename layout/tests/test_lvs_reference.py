@@ -1338,6 +1338,135 @@ class DeckHashConsistencyTest(unittest.TestCase):
         self.assertEqual(lr.check_deck_hash_consistency(self.reports_dir), [])
 
 
+class GdsHashConsistencyTest(unittest.TestCase):
+    """``check_gds_hash`` is the guard #106 added: #102's `por_comparator`
+    false-clean `drc.json` was textually indistinguishable from a genuine
+    clean one because nothing in the report recorded which GDS bytes it was
+    run against. This operates on real reports/cells directories built from
+    scratch under a temp dir, exactly like ``DeckHashConsistencyTest`` above,
+    so it never touches the committed evidence."""
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.reports_dir = Path(self._tmp.name) / "reports"
+        self.cells_dir = Path(self._tmp.name) / "cells"
+        self.reports_dir.mkdir()
+        self.cells_dir.mkdir()
+
+    def _gds(self, cell: str, content: bytes = b"fake gds stream") -> str:
+        """Write ``<cell>.gds`` and return its sha256."""
+        path = self.cells_dir / f"{cell}.gds"
+        path.write_bytes(content)
+        return lr.sha256_bytes(content)
+
+    def _write(self, cell: str, name: str, payload: dict | None, malformed: bool = False):
+        cell_dir = self.reports_dir / cell
+        cell_dir.mkdir(parents=True, exist_ok=True)
+        path = cell_dir / name
+        if malformed:
+            path.write_text("{not json")
+            return
+        path.write_text(json.dumps(payload))
+
+    def test_matching_digests_across_all_three_reports_is_clean(self):
+        digest = self._gds("por_comparator")
+        self._write(
+            "por_comparator", "drc.json", {"provenance": {"gds_sha256": digest}}
+        )
+        self._write(
+            "por_comparator", "extract.json", {"provenance": {"gds_sha256": digest}}
+        )
+        self._write(
+            "por_comparator",
+            "lvs.json",
+            {"environment": {"layout_sha256": digest}},
+        )
+        self.assertEqual(
+            lr.check_gds_hash(self.reports_dir, self.cells_dir), []
+        )
+
+    def test_stale_drc_json_is_a_failure(self):
+        # Reproduces the #102 scenario: a committed report whose recorded
+        # digest disagrees with the actual committed GDS.
+        digest = self._gds("por_comparator")
+        self._write(
+            "por_comparator", "drc.json", {"provenance": {"gds_sha256": "stale" * 12}}
+        )
+        failures = lr.check_gds_hash(self.reports_dir, self.cells_dir)
+        self.assertEqual(len(failures), 1)
+        self.assertIn("por_comparator", failures[0])
+        self.assertIn("drc.json", failures[0])
+        self.assertIn("stale", failures[0])
+
+    def test_stale_extract_json_is_a_failure(self):
+        self._gds("temp_core")
+        self._write(
+            "temp_core", "extract.json", {"provenance": {"gds_sha256": "b" * 64}}
+        )
+        failures = lr.check_gds_hash(self.reports_dir, self.cells_dir)
+        self.assertEqual(len(failures), 1)
+        self.assertIn("temp_core", failures[0])
+        self.assertIn("extract.json", failures[0])
+
+    def test_stale_lvs_json_is_a_failure(self):
+        # lvs.json already carried environment.layout_sha256 before #106 --
+        # this check must still catch drift there, not just in the two new
+        # fields.
+        self._gds("bias_core")
+        self._write(
+            "bias_core", "lvs.json", {"environment": {"layout_sha256": "c" * 64}}
+        )
+        failures = lr.check_gds_hash(self.reports_dir, self.cells_dir)
+        self.assertEqual(len(failures), 1)
+        self.assertIn("bias_core", failures[0])
+        self.assertIn("lvs.json", failures[0])
+
+    def test_missing_field_is_a_failure(self):
+        self._gds("por_comparator")
+        self._write("por_comparator", "drc.json", {"provenance": {}})
+        failures = lr.check_gds_hash(self.reports_dir, self.cells_dir)
+        self.assertEqual(len(failures), 1)
+        self.assertIn("no provenance.gds_sha256", failures[0])
+
+    def test_unreadable_report_is_a_failure(self):
+        self._gds("por_comparator")
+        self._write("por_comparator", "drc.json", None, malformed=True)
+        failures = lr.check_gds_hash(self.reports_dir, self.cells_dir)
+        self.assertEqual(len(failures), 1)
+        self.assertIn("por_comparator", failures[0])
+
+    def test_report_directory_with_no_matching_gds_is_skipped(self):
+        # Not this check's invariant -- build_cells.py --check /
+        # lvs_reference.py --check own "is there a committed GDS at all".
+        self._write(
+            "no_such_cell", "drc.json", {"provenance": {"gds_sha256": "d" * 64}}
+        )
+        self.assertEqual(
+            lr.check_gds_hash(self.reports_dir, self.cells_dir), []
+        )
+
+    def test_no_reports_at_all_is_not_a_failure(self):
+        self.assertEqual(
+            lr.check_gds_hash(self.reports_dir, self.cells_dir), []
+        )
+
+    def test_multiple_cells_each_checked_independently(self):
+        good_digest = self._gds("bias_core")
+        bad_digest = self._gds("temp_core")
+        self._write(
+            "bias_core", "drc.json", {"provenance": {"gds_sha256": good_digest}}
+        )
+        self._write(
+            "temp_core",
+            "drc.json",
+            {"provenance": {"gds_sha256": bad_digest[::-1]}},  # deliberately wrong
+        )
+        failures = lr.check_gds_hash(self.reports_dir, self.cells_dir)
+        self.assertEqual(len(failures), 1)
+        self.assertIn("temp_core", failures[0])
+
+
 class FrozenCellTest(unittest.TestCase):
     """``FROZEN_CELLS`` (#102) is what lets one cell's committed artefacts stay
     behind their sources without taking the whole staleness gate down with them
