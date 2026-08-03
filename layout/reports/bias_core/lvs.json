@@ -47,8 +47,9 @@
     "pdk": null,
     "deck": {
       "name": "gf180mcu",
-      "content_hash": "sha256:90a7f0ef3c555b20964260da411d12cd76823a90693da0ca27e8166bedf0137b"
-    }
+      "content_hash": "sha256:be1a89e0f899a68c60baeeedffe1b4d76b965bd763e1b16beed1c85937872b1d"
+    },
+    "input": null
   },
   "mismatches": [
     {
@@ -95,6 +96,18 @@
       "description": "nets were paired ambiguously; the comparer resolved it structurally (consider a hints.same_nets entry to pin this down)",
       "side": "both",
       "net": {
+        "layout": "$40",
+        "reference": "XCOK.NOKX"
+      },
+      "device": null,
+      "property": null
+    },
+    {
+      "category": "topology",
+      "severity": "warning",
+      "description": "nets were paired ambiguously; the comparer resolved it structurally (consider a hints.same_nets entry to pin this down)",
+      "side": "both",
+      "net": {
         "layout": "$41",
         "reference": "XCC.PG"
       },
@@ -107,19 +120,7 @@
       "description": "nets were paired ambiguously; the comparer resolved it structurally (consider a hints.same_nets entry to pin this down)",
       "side": "both",
       "net": {
-        "layout": "$43",
-        "reference": "XCOK.NOKX"
-      },
-      "device": null,
-      "property": null
-    },
-    {
-      "category": "topology",
-      "severity": "warning",
-      "description": "nets were paired ambiguously; the comparer resolved it structurally (consider a hints.same_nets entry to pin this down)",
-      "side": "both",
-      "net": {
-        "layout": "$44",
+        "layout": "$42",
         "reference": "XCOK.VDD"
       },
       "device": null,
@@ -288,22 +289,22 @@
       "pin": false
     },
     {
-      "layout": "$43",
+      "layout": "$40",
       "reference": "XCOK.NOKX",
       "pin": false
     },
     {
-      "layout": "$44",
+      "layout": "$42",
       "reference": "XCOK.VDD",
       "pin": false
     },
     {
-      "layout": "$45",
+      "layout": "$43",
       "reference": "XR1.1",
       "pin": false
     },
     {
-      "layout": "$50",
+      "layout": "$48",
       "reference": "XR2.1",
       "pin": false
     },
@@ -313,7 +314,7 @@
       "pin": false
     },
     {
-      "layout": "$49",
+      "layout": "$47",
       "reference": "XR2.11",
       "pin": false
     },
@@ -323,7 +324,7 @@
       "pin": false
     },
     {
-      "layout": "$48",
+      "layout": "$46",
       "reference": "XR2.13",
       "pin": false
     },
@@ -333,7 +334,7 @@
       "pin": false
     },
     {
-      "layout": "$55",
+      "layout": "$53",
       "reference": "XR2.15",
       "pin": false
     },
@@ -343,7 +344,7 @@
       "pin": false
     },
     {
-      "layout": "$51",
+      "layout": "$49",
       "reference": "XR2.3",
       "pin": false
     },
@@ -353,7 +354,7 @@
       "pin": false
     },
     {
-      "layout": "$52",
+      "layout": "$50",
       "reference": "XR2.5",
       "pin": false
     },
@@ -363,7 +364,7 @@
       "pin": false
     },
     {
-      "layout": "$53",
+      "layout": "$51",
       "reference": "XR2.7",
       "pin": false
     },
@@ -373,7 +374,7 @@
       "pin": false
     },
     {
-      "layout": "$54",
+      "layout": "$52",
       "reference": "XR2.9",
       "pin": false
     },
@@ -383,7 +384,7 @@
       "pin": false
     },
     {
-      "layout": "$47",
+      "layout": "$45",
       "reference": "XRZ.1",
       "pin": false
     },
@@ -393,7 +394,7 @@
       "pin": false
     },
     {
-      "layout": "$46",
+      "layout": "$44",
       "reference": "XRZ.3",
       "pin": false
     }

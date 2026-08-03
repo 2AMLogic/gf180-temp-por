@@ -5,7 +5,7 @@
   "top": "bias_core",
   "dbu_um": 0.001,
   "netlist_path": "layout/reports/bias_core/extracted.spice",
-  "netlist_sha256": "693162542750eae5680a14e43c7b1bb35b8aa726f1daae0d23fa8bd090bd9dcf",
+  "netlist_sha256": "59a9f19fc921fca342e6dc85aed190c5485f477abc21c8d1b6f74a280f6f24fc",
   "status": "extracted",
   "device_count": 70,
   "net_count": 54,
@@ -537,8 +537,8 @@
       "name": "$45",
       "class": "cap_mim_2f0_m4m5_noshield",
       "nets": {
-        "a": "$43",
-        "b": "$44"
+        "a": "$40",
+        "b": "$42"
       },
       "params": {
         "c_f": 7.2e-14,
@@ -562,7 +562,7 @@
       "class": "ppolyf_u_1k",
       "nets": {
         "a": "VREF",
-        "b": "$50",
+        "b": "$48",
         "w": "vsubs"
       },
       "params": {
@@ -577,7 +577,7 @@
       "class": "ppolyf_u_1k",
       "nets": {
         "a": "$34",
-        "b": "$50",
+        "b": "$48",
         "w": "vsubs"
       },
       "params": {
@@ -592,7 +592,7 @@
       "class": "ppolyf_u_1k",
       "nets": {
         "a": "$34",
-        "b": "$51",
+        "b": "$49",
         "w": "vsubs"
       },
       "params": {
@@ -621,7 +621,7 @@
       "class": "ppolyf_u_1k",
       "nets": {
         "a": "$33",
-        "b": "$51",
+        "b": "$49",
         "w": "vsubs"
       },
       "params": {
@@ -636,7 +636,7 @@
       "class": "ppolyf_u_1k",
       "nets": {
         "a": "$33",
-        "b": "$52",
+        "b": "$50",
         "w": "vsubs"
       },
       "params": {
@@ -651,7 +651,7 @@
       "class": "ppolyf_u_1k",
       "nets": {
         "a": "$32",
-        "b": "$52",
+        "b": "$50",
         "w": "vsubs"
       },
       "params": {
@@ -666,7 +666,7 @@
       "class": "ppolyf_u_1k",
       "nets": {
         "a": "$32",
-        "b": "$53",
+        "b": "$51",
         "w": "vsubs"
       },
       "params": {
@@ -681,7 +681,7 @@
       "class": "ppolyf_u_1k",
       "nets": {
         "a": "$31",
-        "b": "$53",
+        "b": "$51",
         "w": "vsubs"
       },
       "params": {
@@ -696,7 +696,7 @@
       "class": "ppolyf_u_1k",
       "nets": {
         "a": "$31",
-        "b": "$54",
+        "b": "$52",
         "w": "vsubs"
       },
       "params": {
@@ -711,7 +711,7 @@
       "class": "ppolyf_u_1k",
       "nets": {
         "a": "$30",
-        "b": "$54",
+        "b": "$52",
         "w": "vsubs"
       },
       "params": {
@@ -726,7 +726,7 @@
       "class": "ppolyf_u_1k",
       "nets": {
         "a": "$30",
-        "b": "$49",
+        "b": "$47",
         "w": "vsubs"
       },
       "params": {
@@ -741,7 +741,7 @@
       "class": "ppolyf_u_1k",
       "nets": {
         "a": "$29",
-        "b": "$49",
+        "b": "$47",
         "w": "vsubs"
       },
       "params": {
@@ -756,7 +756,7 @@
       "class": "ppolyf_u_1k",
       "nets": {
         "a": "$29",
-        "b": "$48",
+        "b": "$46",
         "w": "vsubs"
       },
       "params": {
@@ -785,7 +785,7 @@
       "class": "ppolyf_u_1k",
       "nets": {
         "a": "$28",
-        "b": "$48",
+        "b": "$46",
         "w": "vsubs"
       },
       "params": {
@@ -800,7 +800,7 @@
       "class": "ppolyf_u_1k",
       "nets": {
         "a": "$28",
-        "b": "$55",
+        "b": "$53",
         "w": "vsubs"
       },
       "params": {
@@ -815,7 +815,7 @@
       "class": "ppolyf_u_1k",
       "nets": {
         "a": "$36",
-        "b": "$55",
+        "b": "$53",
         "w": "vsubs"
       },
       "params": {
@@ -830,7 +830,7 @@
       "class": "ppolyf_u_1k",
       "nets": {
         "a": "$25",
-        "b": "$47",
+        "b": "$45",
         "w": "vsubs"
       },
       "params": {
@@ -845,7 +845,7 @@
       "class": "ppolyf_u_1k",
       "nets": {
         "a": "$27",
-        "b": "$47",
+        "b": "$45",
         "w": "vsubs"
       },
       "params": {
@@ -860,7 +860,7 @@
       "class": "ppolyf_u_1k",
       "nets": {
         "a": "$27",
-        "b": "$46",
+        "b": "$44",
         "w": "vsubs"
       },
       "params": {
@@ -875,7 +875,7 @@
       "class": "ppolyf_u_1k",
       "nets": {
         "a": "$11",
-        "b": "$46",
+        "b": "$44",
         "w": "vsubs"
       },
       "params": {
@@ -890,7 +890,7 @@
       "class": "ppolyf_u_1k",
       "nets": {
         "a": "$23",
-        "b": "$45",
+        "b": "$43",
         "w": "vsubs"
       },
       "params": {
@@ -905,7 +905,7 @@
       "class": "ppolyf_u_1k",
       "nets": {
         "a": "$24",
-        "b": "$45",
+        "b": "$43",
         "w": "vsubs"
       },
       "params": {
@@ -1145,19 +1145,29 @@
       "device_count": 3
     },
     {
+      "name": "$40",
+      "pin": false,
+      "device_count": 1
+    },
+    {
       "name": "$41",
+      "pin": false,
+      "device_count": 1
+    },
+    {
+      "name": "$42",
       "pin": false,
       "device_count": 1
     },
     {
       "name": "$43",
       "pin": false,
-      "device_count": 1
+      "device_count": 2
     },
     {
       "name": "$44",
       "pin": false,
-      "device_count": 1
+      "device_count": 2
     },
     {
       "name": "$45",
@@ -1201,16 +1211,6 @@
     },
     {
       "name": "$53",
-      "pin": false,
-      "device_count": 2
-    },
-    {
-      "name": "$54",
-      "pin": false,
-      "device_count": 2
-    },
-    {
-      "name": "$55",
       "pin": false,
       "device_count": 2
     },
@@ -1264,6 +1264,260 @@
     "28 poly-layer shapes not part of any recognised nfet/pfet gate touch contact at 2+ separate points (the resistor-body signature) and carry no resistor-marker layer at all; this deck may not model the device class drawn here, and its terminals have been absorbed into ordinary interconnect as an unintended short -- see docs/cli/extract.md's 'Known limitation: unmodelled device geometry'."
   ],
   "black_box_regions": [],
+  "unmodelled_poly": [
+    {
+      "bbox_um": {
+        "left": -1.0,
+        "bottom": 42.8,
+        "right": 253.9,
+        "top": 43.2
+      },
+      "reason": "unmarked"
+    },
+    {
+      "bbox_um": {
+        "left": -1.0,
+        "bottom": 43.6,
+        "right": 253.9,
+        "top": 44.0
+      },
+      "reason": "unmarked"
+    },
+    {
+      "bbox_um": {
+        "left": -1.0,
+        "bottom": 44.4,
+        "right": 253.9,
+        "top": 44.8
+      },
+      "reason": "unmarked"
+    },
+    {
+      "bbox_um": {
+        "left": -1.0,
+        "bottom": 45.2,
+        "right": 256.5,
+        "top": 45.6
+      },
+      "reason": "unmarked"
+    },
+    {
+      "bbox_um": {
+        "left": -1.0,
+        "bottom": 46.0,
+        "right": 258.5,
+        "top": 46.4
+      },
+      "reason": "unmarked"
+    },
+    {
+      "bbox_um": {
+        "left": -1.0,
+        "bottom": 46.8,
+        "right": 260.5,
+        "top": 47.2
+      },
+      "reason": "unmarked"
+    },
+    {
+      "bbox_um": {
+        "left": -1.0,
+        "bottom": 47.6,
+        "right": 253.9,
+        "top": 48.0
+      },
+      "reason": "unmarked"
+    },
+    {
+      "bbox_um": {
+        "left": -1.0,
+        "bottom": 48.4,
+        "right": 253.9,
+        "top": 48.8
+      },
+      "reason": "unmarked"
+    },
+    {
+      "bbox_um": {
+        "left": -1.0,
+        "bottom": 49.2,
+        "right": 262.5,
+        "top": 49.6
+      },
+      "reason": "unmarked"
+    },
+    {
+      "bbox_um": {
+        "left": -1.0,
+        "bottom": 50.0,
+        "right": 264.5,
+        "top": 50.4
+      },
+      "reason": "unmarked"
+    },
+    {
+      "bbox_um": {
+        "left": -1.0,
+        "bottom": 51.6,
+        "right": 253.9,
+        "top": 52.0
+      },
+      "reason": "unmarked"
+    },
+    {
+      "bbox_um": {
+        "left": -1.0,
+        "bottom": 52.4,
+        "right": 253.9,
+        "top": 52.8
+      },
+      "reason": "unmarked"
+    },
+    {
+      "bbox_um": {
+        "left": -1.0,
+        "bottom": 53.2,
+        "right": 253.9,
+        "top": 53.6
+      },
+      "reason": "unmarked"
+    },
+    {
+      "bbox_um": {
+        "left": -1.0,
+        "bottom": 54.0,
+        "right": 253.9,
+        "top": 54.4
+      },
+      "reason": "unmarked"
+    },
+    {
+      "bbox_um": {
+        "left": -1.0,
+        "bottom": 54.8,
+        "right": 253.9,
+        "top": 55.2
+      },
+      "reason": "unmarked"
+    },
+    {
+      "bbox_um": {
+        "left": -1.0,
+        "bottom": 55.6,
+        "right": 253.9,
+        "top": 56.0
+      },
+      "reason": "unmarked"
+    },
+    {
+      "bbox_um": {
+        "left": -1.0,
+        "bottom": 56.4,
+        "right": 253.9,
+        "top": 56.8
+      },
+      "reason": "unmarked"
+    },
+    {
+      "bbox_um": {
+        "left": -1.0,
+        "bottom": 57.2,
+        "right": 253.9,
+        "top": 57.6
+      },
+      "reason": "unmarked"
+    },
+    {
+      "bbox_um": {
+        "left": -1.0,
+        "bottom": 58.0,
+        "right": 253.9,
+        "top": 58.4
+      },
+      "reason": "unmarked"
+    },
+    {
+      "bbox_um": {
+        "left": -1.0,
+        "bottom": 58.8,
+        "right": 253.9,
+        "top": 59.2
+      },
+      "reason": "unmarked"
+    },
+    {
+      "bbox_um": {
+        "left": -1.0,
+        "bottom": 59.6,
+        "right": 253.9,
+        "top": 60.0
+      },
+      "reason": "unmarked"
+    },
+    {
+      "bbox_um": {
+        "left": 255.3,
+        "bottom": -3.2,
+        "right": 424.9,
+        "top": -2.8
+      },
+      "reason": "unmarked"
+    },
+    {
+      "bbox_um": {
+        "left": 257.3,
+        "bottom": -2.4,
+        "right": 424.9,
+        "top": -2.0
+      },
+      "reason": "unmarked"
+    },
+    {
+      "bbox_um": {
+        "left": 259.3,
+        "bottom": -1.6,
+        "right": 424.9,
+        "top": -1.2
+      },
+      "reason": "unmarked"
+    },
+    {
+      "bbox_um": {
+        "left": 261.3,
+        "bottom": -0.8,
+        "right": 424.9,
+        "top": -0.4
+      },
+      "reason": "unmarked"
+    },
+    {
+      "bbox_um": {
+        "left": 263.3,
+        "bottom": 0.0,
+        "right": 424.9,
+        "top": 0.4
+      },
+      "reason": "unmarked"
+    },
+    {
+      "bbox_um": {
+        "left": 265.3,
+        "bottom": 0.8,
+        "right": 424.9,
+        "top": 1.2
+      },
+      "reason": "unmarked"
+    },
+    {
+      "bbox_um": {
+        "left": 265.3,
+        "bottom": 1.6,
+        "right": 424.9,
+        "top": 2.0
+      },
+      "reason": "unmarked"
+    }
+  ],
   "pdk": null,
   "provenance": {
     "klt_version": "0.1.0",
@@ -1271,8 +1525,12 @@
     "pdk": null,
     "deck": {
       "name": "gf180mcu",
-      "content_hash": "sha256:90a7f0ef3c555b20964260da411d12cd76823a90693da0ca27e8166bedf0137b"
-    }
+      "content_hash": "sha256:be1a89e0f899a68c60baeeedffe1b4d76b965bd763e1b16beed1c85937872b1d"
+    },
+    "input": {
+      "content_hash": "sha256:6d6236d05ae0cd822ebab5aa819194b3fdf709a17c9258b48b799671e2e23852"
+    },
+    "gds_sha256": "6d6236d05ae0cd822ebab5aa819194b3fdf709a17c9258b48b799671e2e23852"
   },
   "parasitics": null
 }

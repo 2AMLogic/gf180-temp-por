@@ -58,7 +58,11 @@
     "pdk": null,
     "deck": {
       "name": "gf180mcu",
-      "content_hash": "sha256:90a7f0ef3c555b20964260da411d12cd76823a90693da0ca27e8166bedf0137b"
-    }
+      "content_hash": "sha256:be1a89e0f899a68c60baeeedffe1b4d76b965bd763e1b16beed1c85937872b1d"
+    },
+    "input": {
+      "content_hash": "sha256:6d6236d05ae0cd822ebab5aa819194b3fdf709a17c9258b48b799671e2e23852"
+    },
+    "gds_sha256": "6d6236d05ae0cd822ebab5aa819194b3fdf709a17c9258b48b799671e2e23852"
   }
 }

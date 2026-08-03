@@ -46,8 +46,9 @@
     "pdk": null,
     "deck": {
       "name": "gf180mcu",
-      "content_hash": "sha256:dcd6c84a4e9f541f47907dbc493d00758b0eeb89f2dc54d9a9d3662587acb4d8"
-    }
+      "content_hash": "sha256:be1a89e0f899a68c60baeeedffe1b4d76b965bd763e1b16beed1c85937872b1d"
+    },
+    "input": null
   },
   "mismatches": [
     {
@@ -75,6 +76,373 @@
         "class": "pfet"
       },
       "property": null
+    }
+  ],
+  "net_correspondence": [
+    {
+      "layout": "CTAT",
+      "reference": "CTAT",
+      "pin": true
+    },
+    {
+      "layout": "EN",
+      "reference": "EN",
+      "pin": true
+    },
+    {
+      "layout": "ENB",
+      "reference": "ENB",
+      "pin": true
+    },
+    {
+      "layout": "IBIAS",
+      "reference": "IBIAS",
+      "pin": true
+    },
+    {
+      "layout": "M1D",
+      "reference": "M1D",
+      "pin": true
+    },
+    {
+      "layout": "M2D",
+      "reference": "M2D",
+      "pin": true
+    },
+    {
+      "layout": "M3D",
+      "reference": "M3D",
+      "pin": true
+    },
+    {
+      "layout": "N1",
+      "reference": "N1",
+      "pin": true
+    },
+    {
+      "layout": "N2",
+      "reference": "N2",
+      "pin": true
+    },
+    {
+      "layout": "NA",
+      "reference": "NA",
+      "pin": true
+    },
+    {
+      "layout": "NB",
+      "reference": "NB",
+      "pin": true
+    },
+    {
+      "layout": "NBG",
+      "reference": "NBG",
+      "pin": true
+    },
+    {
+      "layout": "NC",
+      "reference": "NC",
+      "pin": true
+    },
+    {
+      "layout": "ND",
+      "reference": "ND",
+      "pin": true
+    },
+    {
+      "layout": "NR",
+      "reference": "NR",
+      "pin": true
+    },
+    {
+      "layout": "NT",
+      "reference": "NT",
+      "pin": true
+    },
+    {
+      "layout": "$29",
+      "reference": "NW1",
+      "pin": false
+    },
+    {
+      "layout": "$28",
+      "reference": "NW2",
+      "pin": false
+    },
+    {
+      "layout": "$53",
+      "reference": "NWQ",
+      "pin": false
+    },
+    {
+      "layout": "NZ",
+      "reference": "NZ",
+      "pin": true
+    },
+    {
+      "layout": "PB",
+      "reference": "PB",
+      "pin": true
+    },
+    {
+      "layout": "PCAS",
+      "reference": "PCAS",
+      "pin": true
+    },
+    {
+      "layout": "PG",
+      "reference": "PG",
+      "pin": true
+    },
+    {
+      "layout": "PTAT",
+      "reference": "PTAT",
+      "pin": true
+    },
+    {
+      "layout": "T0",
+      "reference": "T0",
+      "pin": true
+    },
+    {
+      "layout": "T1",
+      "reference": "T1",
+      "pin": true
+    },
+    {
+      "layout": "T2",
+      "reference": "T2",
+      "pin": true
+    },
+    {
+      "layout": "T3",
+      "reference": "T3",
+      "pin": true
+    },
+    {
+      "layout": "T4",
+      "reference": "T4",
+      "pin": true
+    },
+    {
+      "layout": "T5",
+      "reference": "T5",
+      "pin": true
+    },
+    {
+      "layout": "VDD",
+      "reference": "VDD",
+      "pin": true
+    },
+    {
+      "layout": "VSS",
+      "reference": "VSS",
+      "pin": true
+    },
+    {
+      "layout": "vsubs",
+      "reference": "VSUBS",
+      "pin": true
+    },
+    {
+      "layout": "$70",
+      "reference": "XR1.1",
+      "pin": false
+    },
+    {
+      "layout": "$76",
+      "reference": "XR2F.1",
+      "pin": false
+    },
+    {
+      "layout": "$38",
+      "reference": "XR2F.10",
+      "pin": false
+    },
+    {
+      "layout": "$81",
+      "reference": "XR2F.11",
+      "pin": false
+    },
+    {
+      "layout": "$39",
+      "reference": "XR2F.12",
+      "pin": false
+    },
+    {
+      "layout": "$82",
+      "reference": "XR2F.13",
+      "pin": false
+    },
+    {
+      "layout": "$40",
+      "reference": "XR2F.14",
+      "pin": false
+    },
+    {
+      "layout": "$83",
+      "reference": "XR2F.15",
+      "pin": false
+    },
+    {
+      "layout": "$41",
+      "reference": "XR2F.16",
+      "pin": false
+    },
+    {
+      "layout": "$84",
+      "reference": "XR2F.17",
+      "pin": false
+    },
+    {
+      "layout": "$42",
+      "reference": "XR2F.18",
+      "pin": false
+    },
+    {
+      "layout": "$85",
+      "reference": "XR2F.19",
+      "pin": false
+    },
+    {
+      "layout": "$34",
+      "reference": "XR2F.2",
+      "pin": false
+    },
+    {
+      "layout": "$43",
+      "reference": "XR2F.20",
+      "pin": false
+    },
+    {
+      "layout": "$86",
+      "reference": "XR2F.21",
+      "pin": false
+    },
+    {
+      "layout": "$44",
+      "reference": "XR2F.22",
+      "pin": false
+    },
+    {
+      "layout": "$87",
+      "reference": "XR2F.23",
+      "pin": false
+    },
+    {
+      "layout": "$77",
+      "reference": "XR2F.3",
+      "pin": false
+    },
+    {
+      "layout": "$35",
+      "reference": "XR2F.4",
+      "pin": false
+    },
+    {
+      "layout": "$78",
+      "reference": "XR2F.5",
+      "pin": false
+    },
+    {
+      "layout": "$36",
+      "reference": "XR2F.6",
+      "pin": false
+    },
+    {
+      "layout": "$79",
+      "reference": "XR2F.7",
+      "pin": false
+    },
+    {
+      "layout": "$37",
+      "reference": "XR2F.8",
+      "pin": false
+    },
+    {
+      "layout": "$80",
+      "reference": "XR2F.9",
+      "pin": false
+    },
+    {
+      "layout": "$50",
+      "reference": "XR2T0.1",
+      "pin": false
+    },
+    {
+      "layout": "$51",
+      "reference": "XR2T1.1",
+      "pin": false
+    },
+    {
+      "layout": "$56",
+      "reference": "XR2T2.1",
+      "pin": false
+    },
+    {
+      "layout": "$60",
+      "reference": "XR2T3.1",
+      "pin": false
+    },
+    {
+      "layout": "$69",
+      "reference": "XR2T4.1",
+      "pin": false
+    },
+    {
+      "layout": "$88",
+      "reference": "XR2T5.1",
+      "pin": false
+    },
+    {
+      "layout": "$68",
+      "reference": "XRISO.1",
+      "pin": false
+    },
+    {
+      "layout": "$71",
+      "reference": "XRZ.1",
+      "pin": false
+    },
+    {
+      "layout": "$30",
+      "reference": "XRZ.2",
+      "pin": false
+    },
+    {
+      "layout": "$72",
+      "reference": "XRZ.3",
+      "pin": false
+    },
+    {
+      "layout": "$31",
+      "reference": "XRZ.4",
+      "pin": false
+    },
+    {
+      "layout": "$73",
+      "reference": "XRZ.5",
+      "pin": false
+    },
+    {
+      "layout": "$32",
+      "reference": "XRZ.6",
+      "pin": false
+    },
+    {
+      "layout": "$74",
+      "reference": "XRZ.7",
+      "pin": false
+    },
+    {
+      "layout": "$33",
+      "reference": "XRZ.8",
+      "pin": false
+    },
+    {
+      "layout": "$75",
+      "reference": "XRZ.9",
+      "pin": false
     }
   ]
 }

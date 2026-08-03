@@ -47,8 +47,9 @@
     "pdk": null,
     "deck": {
       "name": "gf180mcu",
-      "content_hash": "sha256:dcd6c84a4e9f541f47907dbc493d00758b0eeb89f2dc54d9a9d3662587acb4d8"
-    }
+      "content_hash": "sha256:be1a89e0f899a68c60baeeedffe1b4d76b965bd763e1b16beed1c85937872b1d"
+    },
+    "input": null
   },
   "mismatches": [
     {
@@ -85,6 +86,38 @@
       "net": null,
       "device": null,
       "property": null
+    }
+  ],
+  "net_correspondence": [
+    {
+      "layout": "BIAS_OK",
+      "reference": "BIAS_OK",
+      "pin": true
+    },
+    {
+      "layout": "BIAS_OKB",
+      "reference": "BIAS_OKB",
+      "pin": true
+    },
+    {
+      "layout": "$5",
+      "reference": "NW1",
+      "pin": false
+    },
+    {
+      "layout": "VDD",
+      "reference": "VDD",
+      "pin": true
+    },
+    {
+      "layout": "VSS",
+      "reference": "VSS",
+      "pin": true
+    },
+    {
+      "layout": "vsubs",
+      "reference": "VSUBS",
+      "pin": true
     }
   ]
 }
