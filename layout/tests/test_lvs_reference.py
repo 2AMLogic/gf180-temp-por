@@ -1467,6 +1467,8 @@ class GdsHashConsistencyTest(unittest.TestCase):
         failures = lr.check_gds_hash(self.reports_dir, self.cells_dir)
         self.assertEqual(len(failures), 1)
         self.assertIn("temp_core", failures[0])
+
+
 class DeckHashGateBootstrapTest(unittest.TestCase):
     """``run_checks.sh --regen-all`` (#108) is the deck-hash gate's bootstrap
     mode. The gate's own remediation is "regenerate every non-frozen cell's
