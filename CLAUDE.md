@@ -1,21 +1,24 @@
 # gf180-temp-por — agent instructions
 
-Private repo; proprietary 2AM Logic IP. Canary block.
+Canary block: a temperature sensor + power-on-reset pair on gf180mcu.
+Apache-2.0.
 
 - **PDK**: gf180mcu (open PDK). Open-source flow: xschem + ngspice for
   design/sim, klayout-tools (`klt`) for layout work.
 - **Friction protocol (the canary's job)**: every time klayout-tools is
   awkward, missing a capability, or wrong for what you need, file an issue
-  at `2AMLogic/klayout-tools` describing the need generically (never
-  include proprietary design details, spec values, or this repo's content
-  in the public issue — describe the tool gap, not the design).
+  at `2AMLogic/klayout-tools` describing the need generically — describe
+  the tool gap, not the design. A tool issue that only makes sense to
+  someone who has read this repo's spec is a bad tool issue.
 - **Verification is the product**: no claim without a testbench. PVT
   corners on every recorded result. `sim/` results are append-only
   evidence.
-- **Confidentiality**: this repo, its specs, and its results are Tier 2
-  (see marketing repo POSITIONING.md). The block's *name/existence* is
-  public; everything else here is not. Never copy content from here into
-  public repos, issues, or posts.
+- **Publication**: this repo is prepared to be public (#25) — the
+  visibility flip itself is an operator action, not an agent one. Write
+  every commit message, issue, and document here as if a stranger will
+  read it, because one will. Nothing about business positioning,
+  commercial terms, or the contents of other 2AM Logic repositories
+  belongs in this one.
 - Spec changes go through `spec/` with a decision record; agents do not
   relax the ratified spec to make results pass.
 - Harness bootstrap: copy the sim-harness pattern from
