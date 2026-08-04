@@ -76,8 +76,11 @@ fields:
 - **Claim** — which spec parameter/line this record substantiates, referenced
   by its row anchor in the target-spec table:
   `spec/target-spec.md#<row-id>` (e.g. `spec/target-spec.md#por-vth-rise`).
-  That table is still DRAFT until #1 ratifies it, so a claim against it is a
-  claim against a proposed target until then.
+  That table is **RATIFIED** ([DR-008](../spec/decision-records/DR-008-target-spec-ratification.md),
+  2026-07-31), but individual rows can still carry their own `pending #1` /
+  `TBD-#n` / `conditional #n` status tags per the table's own tagging scheme —
+  a claim against a tagged row is a claim against that row's still-open
+  status, not against the table as a whole.
 - **Netlist provenance** — `schematic` (`design/...`) or `extracted`
   (post-layout, `layout/...`). Required so post-layout re-runs are
   distinguishable from the original schematic-level record.
