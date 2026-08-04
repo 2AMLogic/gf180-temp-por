@@ -25,15 +25,30 @@ has:
 - begun recording PVT-corner simulation evidence (`sim/`), and
 - entered the block's top-level schematic hierarchy and pad interface in
   xschem, with a reproducible ngspice netlist export (`design/`), and
-- brought up a repeatable, klayout-tools-driven DRC/LVS flow, proven
-  clean on one real cell from the block (`layout/`).
+- brought up a repeatable, klayout-tools-driven DRC/LVS flow and drawn
+  all four of the block's sub-circuits — `bias_core`, `por_comparator`,
+  `por_output_chain` and `temp_core` — as real device geometry: DRC
+  clean, extracted, and LVS-matched against their schematic-derived
+  netlists, with the reports committed under `layout/reports/`
+  (issues #90, #91, #92, #93, all closed).
 
-The sub-circuits inside that hierarchy are still placeholders, and full
-testbench sign-off and layout have not happened yet — the DRC/LVS flow
-above is a working *flow*, not a drawn block. Every claim this
-project makes is expected to be backed by a testbench and by PVT corner
-data recorded in `sim/`, not asserted without
-evidence — until a stage is checked off above, treat it as not yet done.
+Those four sub-cells are no longer placeholders. Per the status block at
+the top of [`layout/README.md`](layout/README.md), every device in all
+four schematics is now drawn, extracted and compared — with one stated
+exception, `temp_core`'s single MiM cap, which the curated deck cannot
+extract and which is deliberately left outside the extracted cell.
+
+What has *not* happened is the block-level reassembly. `temp_por_top`'s
+committed assembly still predates all four of those cells' current
+geometry and is deliberately frozen (`FROZEN_DECK_CELLS` in
+[`layout/lvs_reference.py`](layout/lvs_reference.py)) until issue #97 —
+still open — reworks its floorplan for the grown sub-cells. So the block
+cannot be claimed DRC/LVS-clean as an assembled whole, and, inheriting
+`temp_core`'s undrawn MiM cap, cannot be LVS'd whole at all yet. Full
+testbench sign-off has not happened either. Every claim this project
+makes is expected to be backed by a testbench and by PVT corner data
+recorded in `sim/`, not asserted without evidence — until a stage is
+checked off above, treat it as not yet done.
 
 ## The agent-native build
 
