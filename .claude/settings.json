@@ -73,6 +73,35 @@
           {
             "type": "command",
             "command": "${CLAUDE_PROJECT_DIR}/.claude/skills/repo/hooks/guard-destructive.sh"
+          },
+          {
+            "type": "command",
+            "command": "${CLAUDE_PROJECT_DIR}/.loom/hooks/guard-loom-workflow.sh"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PROJECT_DIR}/.loom/hooks/skill-router.sh"
+          },
+          {
+            "type": "command",
+            "command": "${CLAUDE_PROJECT_DIR}/.loom/hooks/methodology-inject.sh"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PROJECT_DIR}/.loom/hooks/guard-background-subagents.sh"
           }
         ]
       }
