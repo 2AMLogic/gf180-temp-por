@@ -118,8 +118,6 @@ def standard_grid_rows(points: dict[str, dict[str, float]]) -> list[dict]:
 
 
 def render(record_id: str, rows: list[dict], when: str, author: str) -> str:
-    por_iq_vals = [r["por_iq_ua"] for r in rows]
-    total_vals = [r["iq_total_ua"] for r in rows]
     por_iq_fail = [r for r in rows if r["por_iq_ua"] > TARGET_POR_IQ_UA]
     total_fail = [r for r in rows if r["iq_total_ua"] > TARGET_IQ_TOTAL_UA]
     por_iq_worst = max(rows, key=lambda r: r["por_iq_ua"])

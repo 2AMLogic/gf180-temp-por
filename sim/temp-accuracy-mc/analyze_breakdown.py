@@ -97,7 +97,6 @@ K0_V_PER_K = 4.308842e-3
 #: Ratified [3sigma] limits, for the per-term "how much of the budget is this
 #: one term" column. spec/target-spec.md#temp-accuracy-untrimmed / -trimmed.
 BUDGET_UNTRIMMED_C = 3.0
-BUDGET_TRIMMED_C = 1.5
 
 _MEAS_RE = re.compile(r"^\s*m_(\w+)\s*=\s*([-+0-9.eE]+)\s*$")
 _CORNER_ID_RE = re.compile(r"^(?P<label>.+)_(?P<corner>[a-z_0-9]+)_(?P<temp>-?[\d.]+)c_"
