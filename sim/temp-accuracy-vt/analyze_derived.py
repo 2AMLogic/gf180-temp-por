@@ -89,6 +89,10 @@ EXPERIMENT_DIR = Path(__file__).resolve().parent
 CORNERS_DIR = EXPERIMENT_DIR / "corners"
 RECORDS_DIR = EXPERIMENT_DIR / "records"
 
+sys.path.insert(0, str(EXPERIMENT_DIR.parent))
+
+from harness.runner import parse_measurements  # noqa: E402
+
 # design/temp_core.md "V(T) transfer and output range": the declared nominal
 # transfer constant, K0 = 4.308842 mV/K (tt, 25 C). Used for the supply
 # cross-check; the trim derivation deliberately uses each corner's OWN K25.
@@ -105,7 +109,6 @@ TARGET_TRIMMED_C = 1.5  # spec/target-spec.md#temp-accuracy-trimmed (stretch)
 TARGET_SUPPLY_C = 0.33  # spec/target-spec.md#temp-supply-sensitivity
 NOMINAL_SUPPLY_V = "3.30"
 
-_MEAS_RE = re.compile(r"^\s*m_(\w+)\s*=\s*([-+]?[0-9.]+(?:[eE][-+]?[0-9]+)?)\s*$")
 _CORNER_ID_RE = re.compile(
     r"^(?P<process>[a-z_]+)_(?P<temp>-?\d+(?:\.\d+)?)c_(?P<supply>\d+\.\d+)v$"
 )
@@ -118,12 +121,7 @@ _CORNER_ID_RE = re.compile(
 
 def parse_log(path: Path) -> dict[str, float]:
     """The `m_<name> = <value>` lines one ngspice point printed."""
-    found: dict[str, float] = {}
-    for line in path.read_text().splitlines():
-        match = _MEAS_RE.match(line)
-        if match:
-            found[match.group(1)] = float(match.group(2))
-    return found
+    return parse_measurements(path.read_text())
 
 
 def load_points(record_id: str) -> dict[str, dict[str, float]]:

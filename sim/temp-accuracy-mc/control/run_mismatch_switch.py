@@ -43,7 +43,6 @@ Stdlib only, no virtualenv required.
 
 from __future__ import annotations
 
-import hashlib
 import json
 import os
 import re
@@ -100,9 +99,10 @@ VARIANTS: list[tuple[str, int | None, str, int, str]] = [
 
 _PRINT_RE = re.compile(r"^\s*(\S+)\s*=\s*([-+]?[0-9.]+(?:[eE][-+]?[0-9]+)?)\s*$")
 
-
-def sha256(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
+# The paths this script itself regenerates -- see git_describe()'s use below.
+GENERATED = tuple(
+    str((CONTROL_DIR / name).relative_to(REPO_ROOT)) for name in ("results.md", "decks", "logs")
+)
 
 
 def compose_deck(
@@ -179,32 +179,6 @@ def identical(a: dict[str, float], b: dict[str, float]) -> bool:
     deterministic deck are the same numbers, and anything else is the finding.
     """
     return all(a[expr] == b[expr] for expr, _, _ in PROBES)
-
-
-def git_describe() -> str:
-    """HEAD, plus whether anything OTHER than this script's own outputs is dirty.
-
-    Regenerating in place necessarily dirties `results.md`, `decks/` and
-    `logs/`, so counting them would report every re-run as taken against a
-    dirty tree -- the same trap `sim/harness/report.py` avoids by sampling git
-    before the run. What matters for provenance is the state of the *inputs*.
-    """
-
-    def _git(*args: str) -> str:
-        return subprocess.run(
-            ["git", *args], cwd=REPO_ROOT, capture_output=True, text=True, check=False
-        ).stdout.strip()
-
-    generated = tuple(
-        str((CONTROL_DIR / name).relative_to(REPO_ROOT)) for name in ("results.md", "decks", "logs")
-    )
-    other = [
-        line
-        for line in _git("status", "--porcelain").splitlines()
-        if not line[3:].strip('"').startswith(generated)
-    ]
-    state = "dirty" if other else "clean apart from this experiment's own outputs"
-    return f"{_git('rev-parse', 'HEAD')} ({state})"
 
 
 def main() -> int:
@@ -380,11 +354,11 @@ VDD = {VDD_V:g} V, plain `op`.
 - PDK: {pdk.variant} @ open_pdks `{pdk.version}` ({pdk.path}, found via {pdk.source})
 - ngspice: {ngspice_version}
 - Harness: sim/harness {HARNESS_VERSION} (corner sections and solver options only), python {sys.version.split()[0]}
-- git: `{git_describe()}`
+- git: `{runner.git_describe(REPO_ROOT, GENERATED)}`
 - Corner sections: {' '.join(corners_mod.CORNERS[CORNER].sections)}
 - Solver options (from `../testbench/tb.json`): {' '.join(options)}
-- `mismatch_switch.spice` sha256: `{sha256(FRAGMENT)}`
-- `design/netlist/temp_core.spice` sha256: `{sha256(DUT_NETLIST)}`
+- `mismatch_switch.spice` sha256: `{runner.sha256_file(FRAGMENT)}`
+- `design/netlist/temp_core.spice` sha256: `{runner.sha256_file(DUT_NETLIST)}`
 """
     (CONTROL_DIR / "results.md").write_text(body)
     print(f"wrote {(CONTROL_DIR / 'results.md').relative_to(REPO_ROOT)}")
