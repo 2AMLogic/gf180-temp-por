@@ -9,10 +9,18 @@ read the same full-81-point-grid ``records/*.md`` "rung" records, produced by
 place that grammar is parsed, rather than two independently-maintained
 copies.
 
-Exports ``CLAIM_RE``, ``ROW_RE``, ``TIMESTAMP_RE``, ``Rung``, and
-``parse_record()`` -- nothing here runs a simulation or makes a measurement
-of its own; it only reduces the ``pass/fail`` column and Claim text already
-written into each source record.
+Exports ``CLAIM_RE``, ``ROW_RE``, ``TIMESTAMP_RE``, ``DERIVED_SUFFIXES``,
+``is_source_record()``, ``Rung``, and ``parse_record()`` -- nothing here runs
+a simulation or makes a measurement of its own; it only reduces the
+``pass/fail`` column and Claim text already written into each source record.
+
+``DERIVED_SUFFIXES`` / ``is_source_record()`` are the one shared place that
+knows which ``records/*.md`` filename stems are themselves derived records
+(``analyze_boundary.py``'s ``-boundary`` and ``analyze_transition_band.py``'s
+``-transition-band``) rather than a raw ladder "rung" record ``parse_record``
+can actually parse. Both scripts glob the same ``records/`` directory and
+must skip every derived-record kind, not just their own, or they crash trying
+to parse a sibling script's output as an 81-point grid (#122).
 """
 
 from __future__ import annotations
@@ -20,6 +28,19 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 from pathlib import Path
+
+DERIVED_SUFFIXES = ("-boundary", "-transition-band")
+
+
+def is_source_record(path: Path) -> bool:
+    """True if ``path`` is a raw ladder rung record, not a derived one.
+
+    Only a true trailing-stem match excludes a record -- a rung record whose
+    id merely *contains* "boundary" or "transition-band" mid-string (not as
+    its own filename suffix) is still a source record and must be parsed.
+    """
+    return not any(path.stem.endswith(suffix) for suffix in DERIVED_SUFFIXES)
+
 
 CLAIM_RE = re.compile(
     r"\*\*Claim\*\*:.*?rung '?([a-z]-slew-([0-9.]+)mvus)'?|"
