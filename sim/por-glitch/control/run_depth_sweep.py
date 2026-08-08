@@ -34,7 +34,6 @@ Stdlib only, no virtualenv required.
 from __future__ import annotations
 
 import concurrent.futures
-import hashlib
 import json
 import os
 import subprocess
@@ -119,10 +118,6 @@ PROBES: list[tuple[str, str]] = [
 ]
 
 
-def sha256(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
-
-
 def compose_deck(
     pdk,
     corner_name: str,
@@ -191,29 +186,10 @@ def parse_trace(text: str) -> list[tuple[float, ...]]:
     return rows
 
 
-def git_describe() -> str:
-    def _git(*args: str, strip: bool = True) -> str:
-        out = subprocess.run(
-            ["git", *args], cwd=REPO_ROOT, capture_output=True, text=True, check=False
-        ).stdout
-        # `git status --porcelain` encodes the status in the FIRST TWO COLUMNS,
-        # and an unstaged modification leaves column 1 blank -- so stripping
-        # here would shift the first line's path left by one character and make
-        # the "is this one of my own outputs" filter below miss it, reporting a
-        # clean tree as dirty. Only strip when the caller wants a bare value.
-        return out.strip() if strip else out
-
-    generated = tuple(
-        str((CONTROL_DIR / n).relative_to(REPO_ROOT))
-        for n in ("results.md", "depth_results.md", "decks", "logs", "traces")
-    )
-    other = [
-        line
-        for line in _git("status", "--porcelain", strip=False).splitlines()
-        if not line[3:].strip('"').startswith(generated)
-    ]
-    state = "dirty" if other else "clean apart from this experiment's own outputs"
-    return f"{_git('rev-parse', 'HEAD')} ({state})"
+GENERATED = tuple(
+    str((CONTROL_DIR / n).relative_to(REPO_ROOT))
+    for n in ("results.md", "depth_results.md", "decks", "logs", "traces")
+)
 
 
 def run_one(args) -> tuple[str, dict]:
@@ -418,10 +394,10 @@ def main() -> int:
         f"- PDK: {pdk.variant} @ open_pdks `{pdk.version}` ({pdk.path}, found via {pdk.source})",
         f"- ngspice: {ngspice_version}",
         f"- Harness: sim/harness {HARNESS_VERSION} (corner sections and solver options only), python {sys.version.split()[0]}",
-        f"- git: `{git_describe()}`",
+        f"- git: `{runner.git_describe(REPO_ROOT, GENERATED)}`",
         f"- Solver options (from `../testbench/tb.json`): {' '.join(options)}",
-        f"- `depth_sweep.spice` sha256: `{sha256(FRAGMENT)}`",
-        f"- `design/netlist/temp_por_top.spice` sha256: `{sha256(DUT_NETLIST)}`",
+        f"- `depth_sweep.spice` sha256: `{runner.sha256_file(FRAGMENT)}`",
+        f"- `design/netlist/temp_por_top.spice` sha256: `{runner.sha256_file(DUT_NETLIST)}`",
         "",
     ]
     (CONTROL_DIR / "depth_results.md").write_text("\n".join(lines))

@@ -58,7 +58,6 @@ here.
 from __future__ import annotations
 
 import argparse
-import hashlib
 import math
 import sys
 import tempfile
@@ -3442,10 +3441,6 @@ def build(name: str, out_dir: Path) -> Path:
     return path
 
 
-def sha256(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
-
-
 def run(check: bool, only: str | None) -> int:
     names = [only] if only else sorted(CELLS)
     for name in names:
@@ -3468,7 +3463,10 @@ def run(check: bool, only: str | None) -> int:
                 )
                 continue
             path = build(name, CELLS_DIR)
-            print(f"wrote {path.relative_to(REPO_ROOT)}  sha256={sha256(path)[:16]}")
+            print(
+                f"wrote {path.relative_to(REPO_ROOT)}  "
+                f"sha256={lvsref.sha256_bytes(path.read_bytes())[:16]}"
+            )
         return 0
 
     failures = []
@@ -3490,14 +3488,16 @@ def run(check: bool, only: str | None) -> int:
             if not committed.exists():
                 failures.append(f"{name}: not committed (run without --check)")
                 continue
-            if sha256(fresh) != sha256(committed):
+            fresh_sha256 = lvsref.sha256_bytes(fresh.read_bytes())
+            committed_sha256 = lvsref.sha256_bytes(committed.read_bytes())
+            if fresh_sha256 != committed_sha256:
                 failures.append(
                     f"{name}: committed GDS is stale "
-                    f"(committed {sha256(committed)[:16]}, "
-                    f"rebuilt {sha256(fresh)[:16]})"
+                    f"(committed {committed_sha256[:16]}, "
+                    f"rebuilt {fresh_sha256[:16]})"
                 )
             else:
-                print(f"ok {name}.gds  sha256={sha256(committed)[:16]}")
+                print(f"ok {name}.gds  sha256={committed_sha256[:16]}")
 
     for line in failures:
         print(f"FAIL {line}")

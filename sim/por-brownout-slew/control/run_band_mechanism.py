@@ -81,7 +81,6 @@ Stdlib only, no virtualenv required.
 
 from __future__ import annotations
 
-import hashlib
 import json
 import os
 import re
@@ -96,7 +95,7 @@ REPO_ROOT = CONTROL_DIR.parents[2]
 
 sys.path.insert(0, str(REPO_ROOT / "sim"))
 
-from harness import HARNESS_VERSION, corners as corners_mod  # noqa: E402
+from harness import HARNESS_VERSION, corners as corners_mod, runner  # noqa: E402
 from harness.pdk import PdkNotFound, find_pdk  # noqa: E402
 
 # The corner family the band lives in. Unlike sim/por-brownout/control/,
@@ -147,10 +146,6 @@ RESETN_RATIO_KEY = "resetn_ratio_min_in_dip"
 # ngspice prints `name = value` for find/when and `name = value at= t` for
 # min/max; both forms have to parse or every min/max silently reads as absent.
 _MEAS_RE = re.compile(r"^\s*([a-z_0-9]+)\s*=\s*([-+0-9.eE]+)\s*(?:at=.*)?$")
-
-
-def sha256(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
 def load_manifest() -> dict:
@@ -426,7 +421,7 @@ def write_results(pdk, manifest, res: dict[str, dict[str, float]]) -> None:
     )
     lines.append(
         "- DUT netlist: `design/netlist/temp_por_top.spice` "
-        f"(sha256 `{sha256(ASSEMBLY_NETLIST)[:12]}…`)"
+        f"(sha256 `{runner.sha256_file(ASSEMBLY_NETLIST)[:12]}…`)"
     )
     lines.append(
         "- Diagnoses: the non-monotonic band reported in "

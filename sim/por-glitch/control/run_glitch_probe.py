@@ -27,7 +27,6 @@ Stdlib only, no virtualenv required.
 
 from __future__ import annotations
 
-import hashlib
 import json
 import os
 import subprocess
@@ -75,10 +74,6 @@ PROBES: list[tuple[str, str, str]] = [
 
 GLITCH_END_S = 20.0003e-3
 HALF_RAIL_THRESH = 1.65  # nominal-VDD/2, used as the crossing threshold for every node here
-
-
-def sha256(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
 def compose_deck(pdk, corner_name: str, temp_c: float, vdd: float, options: list[str], deck_dir: Path) -> str:
@@ -152,28 +147,9 @@ def find_crossings(rows: list[tuple[float, ...]], col: int, thresh: float, t0: f
     return crossings
 
 
-def git_describe() -> str:
-    def _git(*args: str, strip: bool = True) -> str:
-        out = subprocess.run(
-            ["git", *args], cwd=REPO_ROOT, capture_output=True, text=True, check=False
-        ).stdout
-        # `git status --porcelain` encodes the status in the FIRST TWO COLUMNS,
-        # and an unstaged modification leaves column 1 blank -- so stripping
-        # here would shift the first line's path left by one character and make
-        # the "is this one of my own outputs" filter below miss it, reporting a
-        # clean tree as dirty. Only strip when the caller wants a bare value.
-        return out.strip() if strip else out
-
-    generated = tuple(
-        str((CONTROL_DIR / name).relative_to(REPO_ROOT)) for name in ("results.md", "decks", "logs", "traces")
-    )
-    other = [
-        line
-        for line in _git("status", "--porcelain", strip=False).splitlines()
-        if not line[3:].strip('"').startswith(generated)
-    ]
-    state = "dirty" if other else "clean apart from this experiment's own outputs"
-    return f"{_git('rev-parse', 'HEAD')} ({state})"
+GENERATED = tuple(
+    str((CONTROL_DIR / name).relative_to(REPO_ROOT)) for name in ("results.md", "decks", "logs", "traces")
+)
 
 
 def main() -> int:
@@ -318,10 +294,10 @@ def main() -> int:
         f"- PDK: {pdk.variant} @ open_pdks `{pdk.version}` ({pdk.path}, found via {pdk.source})",
         f"- ngspice: {ngspice_version}",
         f"- Harness: sim/harness {HARNESS_VERSION} (corner sections and solver options only), python {sys.version.split()[0]}",
-        f"- git: `{git_describe()}`",
+        f"- git: `{runner.git_describe(REPO_ROOT, GENERATED)}`",
         f"- Solver options (from `../testbench/tb.json`): {' '.join(options)}",
-        f"- `glitch_probe.spice` sha256: `{sha256(FRAGMENT)}`",
-        f"- `design/netlist/temp_por_top.spice` sha256: `{sha256(DUT_NETLIST)}`",
+        f"- `glitch_probe.spice` sha256: `{runner.sha256_file(FRAGMENT)}`",
+        f"- `design/netlist/temp_por_top.spice` sha256: `{runner.sha256_file(DUT_NETLIST)}`",
         "",
     ]
     (CONTROL_DIR / "results.md").write_text("\n".join(lines))

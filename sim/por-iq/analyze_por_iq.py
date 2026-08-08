@@ -58,6 +58,10 @@ EXPERIMENT_DIR = Path(__file__).resolve().parent
 SOURCE_CORNERS_DIR = EXPERIMENT_DIR.parent / "temp-accuracy-vt" / "corners"
 RECORDS_DIR = EXPERIMENT_DIR / "records"
 
+sys.path.insert(0, str(EXPERIMENT_DIR.parent))
+
+from harness.runner import parse_measurements  # noqa: E402
+
 TARGET_POR_IQ_UA = 1.0  # spec/target-spec.md#por-iq
 TARGET_IQ_TOTAL_UA = 21.0  # spec/target-spec.md#iq-total
 
@@ -65,19 +69,14 @@ TARGET_IQ_TOTAL_UA = 21.0  # spec/target-spec.md#iq-total
 # temp-accuracy-vt's grid adds 25 C on top, only for its own trim derivation.
 STANDARD_TEMPS_C = (-40.0, 27.0, 125.0)
 
-_MEAS_RE = re.compile(r"^\s*m_(\w+)\s*=\s*([-+]?[0-9.]+(?:[eE][-+]?[0-9]+)?)\s*$")
 _CORNER_ID_RE = re.compile(
     r"^(?P<process>[a-z_]+)_(?P<temp>-?\d+(?:\.\d+)?)c_(?P<supply>\d+\.\d+)v$"
 )
 
 
 def parse_log(path: Path) -> dict[str, float]:
-    found: dict[str, float] = {}
-    for line in path.read_text().splitlines():
-        match = _MEAS_RE.match(line)
-        if match:
-            found[match.group(1)] = float(match.group(2))
-    return found
+    """The `m_<name> = <value>` lines one ngspice point printed."""
+    return parse_measurements(path.read_text())
 
 
 def load_points(record_id: str) -> dict[str, dict[str, float]]:

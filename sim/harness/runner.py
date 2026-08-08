@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import re
 import shutil
 import subprocess
@@ -131,6 +132,53 @@ def parse_measurements(text: str) -> dict[str, float]:
             except ValueError:  # pragma: no cover - regex already constrains this
                 continue
     return found
+
+
+def sha256_file(path: Path) -> str:
+    """The hex sha256 digest of ``path``'s contents.
+
+    Shared home for the per-experiment ``sha256(path)`` copies that used to
+    be redefined in every control/analysis script; see
+    ``layout/lvs_reference.sha256_bytes`` for the layout-side equivalent.
+    """
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def git_describe(repo_root: Path, generated: tuple[str, ...]) -> str:
+    """HEAD, plus whether anything OTHER than ``generated`` paths is dirty.
+
+    Regenerating a control script in place necessarily dirties its own
+    output paths (a ``results.md``, a ``decks/`` directory, raw ``logs/``,
+    and similar), so counting those as "dirty" would report every re-run as
+    taken against a dirty tree -- the same trap ``sim/harness/report.py``
+    avoids by sampling git before the run. What matters for provenance is
+    the state of the *inputs*: everything in the working tree except this
+    script's own declared outputs.
+
+    ``generated`` is a tuple of repo-root-relative path strings (as
+    ``str(path.relative_to(repo_root))``) that ``git status --porcelain``
+    entries are allowed to start with without counting as "dirty".
+    """
+
+    def _git(*args: str, strip: bool = True) -> str:
+        out = subprocess.run(
+            ["git", *args], cwd=repo_root, capture_output=True, text=True, check=False
+        ).stdout
+        # `git status --porcelain` encodes the status in the FIRST TWO
+        # COLUMNS, and an unstaged modification leaves column 1 blank -- so
+        # stripping here would shift the first line's path left by one
+        # character and make the "is this one of my own outputs" filter
+        # below miss it, reporting a clean tree as dirty. Only strip when
+        # the caller wants a bare value.
+        return out.strip() if strip else out
+
+    other = [
+        line
+        for line in _git("status", "--porcelain", strip=False).splitlines()
+        if not line[3:].strip('"').startswith(generated)
+    ]
+    state = "dirty" if other else "clean apart from this experiment's own outputs"
+    return f"{_git('rev-parse', 'HEAD')} ({state})"
 
 
 def run_point(
