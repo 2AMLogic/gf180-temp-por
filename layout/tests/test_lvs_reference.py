@@ -1293,14 +1293,23 @@ class DeckHashConsistencyTest(unittest.TestCase):
         self.assertIn("por_comparator", failures[0])
 
     def test_temp_por_top_frozen_exception_is_tolerated(self):
+        if "temp_por_top" not in lr.FROZEN_DECK_CELLS:
+            self.skipTest(
+                "temp_por_top is no longer frozen -- the exception this test "
+                "holds has nothing to exercise (see #111)"
+            )
         # temp_por_top may lag behind #97; every other cell must still agree.
-        self.assertIn("temp_por_top", lr.FROZEN_DECK_CELLS)
         self._write("por_comparator", "sha256:current")
         self._write("temp_core", "sha256:current")
         self._write("temp_por_top", "sha256:stale-behind-97")
         self.assertEqual(lr.check_deck_hash_consistency(self.reports_dir), [])
 
     def test_frozen_cell_disagreement_does_not_mask_a_real_non_frozen_split(self):
+        if "temp_por_top" not in lr.FROZEN_DECK_CELLS:
+            self.skipTest(
+                "temp_por_top is no longer frozen -- the exception this test "
+                "holds has nothing to exercise (see #111)"
+            )
         # The frozen exception must not become a blanket bypass: a real split
         # among the *non*-frozen cells still has to fail even with a frozen
         # cell present in the same directory.
@@ -1744,8 +1753,6 @@ class PinnedReportCellsTest(unittest.TestCase):
 
     def test_a_whole_repo_run_pins_every_frozen_cell(self):
         self.assertEqual(lr.pinned_report_cells([]), sorted(lr.FROZEN_CELLS))
-        # Not vacuous today: there is a freeze in force to be pinned.
-        self.assertTrue(lr.FROZEN_CELLS)
 
     def test_frozen_deck_cells_is_derived_from_frozen_cells_not_a_second_list(self):
         # run_checks.sh --regen-all excludes FROZEN_DECK_CELLS from the cells it
