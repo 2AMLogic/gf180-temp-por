@@ -289,6 +289,24 @@ the real script against a sandbox copy of the tree with a stub `klt` (no klt, no
 PDK, no klayout needed) and asserts all four properties, including that an
 injected DRC failure on the frozen cell still fails the run.
 
+**Why `--regen-all` behaves differently, on purpose.** `--regen-all` *skips* a
+frozen cell's checks entirely rather than running them into a scratch dir —
+different from the plain whole-repo run described above, which runs every
+check for real. The two modes have different jobs: `--regen-all` exists to
+*establish* one shared deck across every cell it touches, and a frozen cell is
+deliberately not on that deck yet (its own issue owns moving it), so there is
+nothing useful to compare a fresh run against. A plain run's job is the
+opposite — notice drift on every cell, frozen or not — so it always runs the
+checks and only changes where the bytes land.
+
+`FROZEN_DECK_CELLS` (which `--regen-all` and `--check-deck-hash` read) and
+`FROZEN_CELLS` (which the report guard above and the artefact-staleness gates
+read) are **one declaration**: `FROZEN_DECK_CELLS` is `frozenset(FROZEN_CELLS)`
+in `lvs_reference.py`, not a second hand-maintained set, so a cell frozen for
+one purpose is frozen for all of them and the two questions ("exclude from the
+deck-hash gate" vs. "don't overwrite this cell's committed reports") cannot
+silently disagree about which cells they mean.
+
 **To end a freeze**: delete its `FROZEN_CELLS` entry. Nothing else changes —
 both gates fall straight back to rebuild-and-compare, and the report guard goes
 quiet by itself.

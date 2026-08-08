@@ -1747,6 +1747,18 @@ class PinnedReportCellsTest(unittest.TestCase):
         # Not vacuous today: there is a freeze in force to be pinned.
         self.assertTrue(lr.FROZEN_CELLS)
 
+    def test_frozen_deck_cells_is_derived_from_frozen_cells_not_a_second_list(self):
+        # run_checks.sh --regen-all excludes FROZEN_DECK_CELLS from the cells it
+        # regenerates, then separately asks --pinned-report-cells (backed by
+        # FROZEN_CELLS) which of *those* cells to still treat as read-only --
+        # today that second check is a no-op only because --regen-all already
+        # excluded the same cells, which holds only if the two registries name
+        # exactly the same set. Asserting FROZEN_DECK_CELLS == frozenset(
+        # FROZEN_CELLS) here (rather than two independently maintained
+        # collections that happen to agree) is what keeps that true by
+        # construction instead of by coincidence.
+        self.assertEqual(lr.FROZEN_DECK_CELLS, frozenset(lr.FROZEN_CELLS))
+
     def test_naming_cells_explicitly_pins_nothing(self):
         # Naming a cell is the deliberate "regenerate it anyway" path, the same
         # override --cell already is for the two regeneration passes.
