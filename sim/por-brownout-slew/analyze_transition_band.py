@@ -41,67 +41,15 @@ bound.
 from __future__ import annotations
 
 import json
-import re
-from dataclasses import dataclass
 from pathlib import Path
+
+from _rung_record import Rung, parse_record
 
 EXPERIMENT_DIR = Path(__file__).resolve().parent
 RECORDS_DIR = EXPERIMENT_DIR / "records"
 CONTROL_JSON = EXPERIMENT_DIR / "control" / "results.json"
 
-# Same Claim-line grammar analyze_boundary.py parses, for the same reason:
-# each rung record's own Claim text is the only place the rung's slew rate
-# is recorded, since testbench/ is overwritten between rungs.
-CLAIM_RE = re.compile(
-    r"\*\*Claim\*\*:.*?rung '?([a-z]-slew-([0-9.]+)mvus)'?|"
-    r"\*\*Claim\*\*:.*?rung ([0-9.]+) mV/us"
-)
-ROW_RE = re.compile(
-    r"^\s*\|\s*`([a-z0-9_.\-]+)`\s*\|.*\|\s*(PASS|FAIL[^|]*)\s*\|\s*$"
-)
-TIMESTAMP_RE = re.compile(r"^# Record (\d{8}-\d{6}-[0-9a-f]+)\s*$")
-
 DERIVED_SUFFIXES = ("-boundary", "-transition-band")
-
-
-@dataclass
-class Rung:
-    record_id: str
-    label: str
-    slew_mvus: float
-    status: dict[str, bool]
-
-
-def parse_record(path: Path) -> Rung:
-    text = path.read_text()
-    record_id = next(
-        (
-            m.group(1)
-            for m in (TIMESTAMP_RE.match(line) for line in text.splitlines())
-            if m
-        ),
-        path.stem,
-    )
-    claim_line = next(
-        (line for line in text.splitlines() if line.startswith("- **Claim**")),
-        "",
-    )
-    m = CLAIM_RE.search(claim_line)
-    if not m:
-        raise ValueError(
-            f"{path}: could not parse rung/slew from Claim line: {claim_line!r}"
-        )
-    label = m.group(1) if m.group(1) else f"rung-{m.group(3)}mvus"
-    slew_mvus = float(m.group(2) if m.group(2) else m.group(3))
-
-    status: dict[str, bool] = {}
-    for line in text.splitlines():
-        rm = ROW_RE.match(line)
-        if rm:
-            status[rm.group(1)] = rm.group(2) == "PASS"
-    if len(status) != 81:
-        raise ValueError(f"{path}: expected 81 corner rows, got {len(status)}")
-    return Rung(record_id, label, slew_mvus, status)
 
 
 def load_rungs() -> list[Rung]:
