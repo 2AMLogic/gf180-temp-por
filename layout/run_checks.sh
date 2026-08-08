@@ -25,8 +25,10 @@
 # two controls fail independently (klayout-tools docs/cli/lvs.md, "Negative
 # controls"), so passing all three is what makes the clean run mean something.
 #
-# Every JSON report is written under layout/reports/ and committed as evidence.
-# The script is the single source of truth for the invocation -- prose in
+# Every JSON report is written under layout/reports/ and committed as evidence,
+# with one exception: a whole-repo run does not overwrite a *frozen* cell's
+# committed reports (see "frozen-cell reports" below and layout/README.md). The
+# script is the single source of truth for the invocation -- prose in
 # layout/README.md describes it, but this file is what gets run.
 
 set -euo pipefail
@@ -156,6 +158,51 @@ else
   done
 fi
 
+# --- frozen-cell reports -------------------------------------------------------
+#
+# A frozen cell (lvs_reference.FROZEN_CELLS) has its committed GDS and reference
+# netlist pinned, and its committed *reports* are the evidence recorded against
+# that pinned pair under the deck of the day it was checked. Rewriting them in a
+# routine whole-repo run re-stamps them onto today's deck, so a careless
+# `git add -A` ends the freeze silently -- the exact restamping the freeze
+# exists to prevent (#111).
+#
+# So for a whole-repo run this script still runs every check on a frozen cell --
+# a freeze is "do not compare against a fresh rebuild", never "stop running
+# DRC" -- but writes this run's reports into a scratch directory and diffs them
+# against the committed set instead of replacing it. The verdicts below are this
+# run's own and fail exactly as loudly as any other cell's; only the destination
+# of the bytes changes, which is why the guard cannot absorb a real failure.
+#
+# Naming the cell explicitly (`bash layout/run_checks.sh temp_por_top`) writes
+# its reports as usual -- the same "--cell overrides the freeze" convention
+# build_cells.py and lvs_reference.py already use for regeneration. With no
+# frozen cells the list is empty and every branch below is a no-op.
+PINNED_REPORT_CELLS="$(
+  python3 layout/lvs_reference.py --pinned-report-cells "$@" | tr '\n' ' '
+)"
+
+reports_pinned() {
+  case " $PINNED_REPORT_CELLS " in
+  *" $1 "*) return 0 ;;
+  *) return 1 ;;
+  esac
+}
+
+# One scratch root for the whole run: the frozen cells' unwritten reports and
+# every cell's negative-control workspace. Kept (not deleted) when a frozen
+# cell fails, so the report the FAIL line points at is still there to read.
+SCRATCH="$(mktemp -d)"
+keep_scratch=0
+cleanup_scratch() {
+  if [ "$keep_scratch" -eq 1 ]; then
+    red "kept this run's frozen-cell reports for inspection: $SCRATCH"
+  else
+    rm -rf "$SCRATCH"
+  fi
+}
+trap cleanup_scratch EXIT
+
 mkdir -p "$REPORTS"
 cat >"$REPORTS/environment.json" <<EOF
 {
@@ -253,13 +300,34 @@ python3 layout/lvs_reference.py --check-gds-hash
 # --- per-cell checks ---------------------------------------------------------
 
 status=0
+
+# Record a failed check for the cell being processed. Identical to `status=1`
+# except that a frozen cell's scratch reports survive the run, since the FAIL
+# line above it names a path inside $SCRATCH.
+cell_failed() {
+  status=1
+  if [ "$out" != "$committed" ]; then
+    keep_scratch=1
+  fi
+}
+
 for cell in "${CELLS[@]}"; do
   gds="layout/cells/${cell}.gds"
   request="layout/cells/${cell}.lvs.json"
-  out="$REPORTS/${cell}"
+  committed="$REPORTS/${cell}"
+  if reports_pinned "$cell"; then
+    out="$SCRATCH/reports/${cell}"
+  else
+    out="$committed"
+  fi
   mkdir -p "$out"
 
   info "==> $cell"
+  if [ "$out" != "$committed" ]; then
+    info "    (frozen: every check below really runs, but its reports go to a"
+    info "     scratch dir and are diffed -- $committed/ is left as committed."
+    info "     To regenerate it: bash layout/run_checks.sh $cell)"
+  fi
 
   # 1. DRC ---------------------------------------------------------------
   if klt drc "$gds" --deck "$DECK" --format json >"$out/drc.json"; then
@@ -267,7 +335,7 @@ for cell in "${CELLS[@]}"; do
     green "    DRC   clean   ($out/drc.json)"
   else
     red "    DRC   FAILED  ($out/drc.json)"
-    status=1
+    cell_failed
     continue
   fi
 
@@ -293,7 +361,7 @@ print(json.load(open(sys.argv[1]))['layout'].get('top_cell_pins', False))
     green "    EXTR  ok      ($out/extracted.spice)"
   else
     red "    EXTR  FAILED  ($out/extract.json)"
-    status=1
+    cell_failed
     continue
   fi
 
@@ -302,13 +370,17 @@ print(json.load(open(sys.argv[1]))['layout'].get('top_cell_pins', False))
     green "    LVS   match   ($out/lvs.json)"
   else
     red "    LVS   FAILED  ($out/lvs.json)"
-    status=1
+    cell_failed
     continue
   fi
 
   # 4. negative controls -------------------------------------------------
-  control_dir="$(mktemp -d)"
-  trap 'rm -rf "$control_dir"' EXIT
+  # Under $SCRATCH rather than its own mktemp -d, so the run has exactly one
+  # cleanup trap: a per-cell `trap ... EXIT` here would replace the frozen-cell
+  # scratch cleanup installed above and `trap - EXIT` would disarm it entirely.
+  control_dir="$SCRATCH/controls/${cell}"
+  rm -rf "$control_dir"
+  mkdir -p "$control_dir"
   for corruption in topology device-param passive-param; do
     ref="$control_dir/${cell}.${corruption}.spice"
     req="$control_dir/${cell}.${corruption}.request.json"
@@ -341,7 +413,7 @@ PY
       green "    CTRL  $corruption -> mismatch (expected)"
     else
       red "    CTRL  $corruption -> exit $code, expected 3 (mismatch)"
-      status=1
+      cell_failed
     fi
   done
   python3 - "$cell" "$control_dir" topology device-param passive-param \
@@ -381,7 +453,46 @@ json.dump({
 sys.stdout.write("\n")
 PY
   rm -rf "$control_dir"
-  trap - EXIT
+
+  # 5. frozen cells: diff instead of overwrite ---------------------------
+  # Every verdict above was this run's own; all that is left is to say how the
+  # reports it produced compare with the committed evidence, which stays as
+  # committed either way. A difference is expected while frozen (the committed
+  # set was recorded under an older deck, which is why FROZEN_DECK_CELLS
+  # tolerates it) -- it is reported, not failed, because the verdicts are what
+  # carry pass/fail and they already have.
+  if [ "$out" != "$committed" ]; then
+    drift="$(python3 - "$out" "$committed" \
+      drc.json extracted.spice extract.json lvs.json negative-controls.json <<'PY'
+import sys
+from pathlib import Path
+
+scratch, committed, *reports = sys.argv[1:]
+drift = []
+for name in reports:
+    kept = Path(committed, name)
+    if not kept.exists():
+        drift.append(f"{name}(not committed)")
+        continue
+    # `klt extract` records the -o path it was handed (`netlist_path`), so a
+    # scratch-dir run differs from the committed report by that string alone.
+    # Rewriting it back to where the report would have been written is what
+    # makes this a diff of the evidence and not of the guard's own doing.
+    fresh = Path(scratch, name).read_bytes()
+    fresh = fresh.replace(scratch.encode(), committed.encode())
+    if fresh != kept.read_bytes():
+        drift.append(name)
+print(" ".join(drift))
+PY
+    )"
+    if [ -n "$drift" ]; then
+      info "    FROZEN this run's reports differ from the committed ones: $drift"
+      info "           (expected while frozen -- the committed set was recorded"
+      info "            under an older deck; the verdicts above are this run's)"
+    else
+      green "    FROZEN this run reproduces the committed reports exactly"
+    fi
+  fi
 done
 
 # --- deferred deck-hash assertion (--regen-all only) --------------------------
