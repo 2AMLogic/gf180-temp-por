@@ -144,32 +144,72 @@ def main() -> int:
         "## Non-monotonic transition zone -- new finding, not resolved here"
     )
     lines.append("")
-    nm_corners = sorted({r[0] for r in rows if r[3]})
+    nm_rows = [r for r in rows if r[3]]
+    nm_corners = sorted({r[0] for r in nm_rows})
+
+    def _corner_family(cid: str) -> str:
+        """Process/temp prefix of a corner id, e.g. ``ss_-40c`` from
+        ``ss_-40c_3.30v`` -- the trailing supply-voltage component stripped.
+        Only used to name a *shared* family in prose when more than one
+        non-monotonic corner has the same prefix; falls back to the full
+        corner id if it doesn't end in the expected ``<...>v`` suffix.
+        """
+        prefix, _, suffix = cid.rpartition("_")
+        return prefix if prefix and suffix.endswith("v") else cid
+
+    if nm_rows:
+        # Band extent: the earliest (lowest mV/us) tested FAIL and the
+        # fastest (highest mV/us) tested PASS among just the non-monotonic
+        # corners' own brackets already computed above -- not re-measured.
+        band_lo = min(r[2] for r in nm_rows)
+        band_hi = max(r[1] for r in nm_rows)
+        families = sorted({_corner_family(c) for c in nm_corners})
+        if len(nm_corners) == 1:
+            where = f"corner `{nm_corners[0]}`"
+        elif len(families) == 1:
+            where = f"the `{families[0]}` family"
+        else:
+            where = "corners " + ", ".join(f"`{c}`" for c in nm_corners)
+        band_desc = (
+            f". Observed concretely at {where}, whose own per-corner "
+            f"bracket(s) in the table above span {band_lo:.6g}.."
+            f"{band_hi:.6g} mV/us on the tested ladder -- a non-monotonic "
+            "PASS/FAIL pattern in slew rate that plain bisection assumes "
+            "away."
+        )
+    else:
+        band_desc = ". No tested rung shows this pattern in the current ladder."
     lines.append(
         f"{len(nm_corners)} corner(s) show a FAIL at a rung numerically "
         "slower (safer, lower mV/us) than a rung they PASSED: "
         + (", ".join(f"`{c}`" for c in nm_corners) if nm_corners else "(none)")
-        + ". Observed concretely at the SS/-40C family between "
-        "3.40 mV/us (81/81 PASS, comfortable margin) and 3.4795 mV/us (all "
-        "3 SS/-40C supply points FAIL, deep in fail territory -- not a "
-        "near-threshold ambiguity) and 3.613 mV/us (only the 2.97 V point "
-        "of that family FAILs, the other two PASS) -- a non-monotonic "
-        "PASS/FAIL pattern in slew rate that plain bisection assumes away. "
-        "This is consistent with `design/bias_core.md`'s starved-loop "
-        "mechanism being a nonlinear relaxation dynamic (DR-011): near its "
-        "own critical timing, small changes in the falling edge's duration "
-        "can shift the phase relationship between the collapsing loop and "
-        "the measurement window non-monotonically, similar in kind (not "
-        "mechanism) to digital metastability's non-monotonic resolution "
-        "time near a decision threshold. The ratified bound above is chosen "
-        "on the SAFE side of this entire transition band (81/81 PASS at "
-        "3.40 mV/us, with matching robust margins -- see the source record "
-        "-- not merely a bisected midpoint one step above a single FAIL), "
-        "so it is not undermined by the non-monotonicity, but the zone "
-        "itself is a candidate for a follow-up characterization issue, "
-        "filed the way DR-011 filed #61 for a distinct finding surfaced by "
-        "the same investigation."
+        + band_desc
     )
+    if nm_rows:
+        total_corners = len(corner_ids)
+        lines.append("")
+        lines.append(
+            "**Interpretive commentary (hand-maintained; re-review if the "
+            "ladder or the non-monotonic band above changes):** this is "
+            "consistent with `design/bias_core.md`'s starved-loop mechanism "
+            "being a nonlinear relaxation dynamic (DR-011): near its own "
+            "critical timing, small changes in the falling edge's duration "
+            "can shift the phase relationship between the collapsing loop "
+            "and the measurement window non-monotonically, similar in kind "
+            "(not mechanism) to digital metastability's non-monotonic "
+            "resolution time near a decision threshold. The ratified bound "
+            "above is chosen on the SAFE side of this transition band "
+            f"({total_corners}/{total_corners} PASS at {ratified:.6g} "
+            "mV/us, with matching robust margins -- see the source record "
+            "-- not merely a bisected midpoint one step above a single "
+            "FAIL), so it is not undermined by the non-monotonicity. The "
+            "zone's shape has already been characterized in a follow-up "
+            "record (issue #74, see `analyze_transition_band.py`), filed "
+            "the way DR-011 filed #61 for a distinct finding surfaced by "
+            "the same investigation -- if the band above shifts enough that "
+            "#74's own characterization no longer covers it, that record "
+            "(not this one) is the one to extend."
+        )
     lines.append("")
     lines.append("---")
     lines.append("")
