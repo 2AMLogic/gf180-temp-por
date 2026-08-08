@@ -27,16 +27,14 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from _rung_record import parse_record
+from _rung_record import is_source_record, parse_record
 
 EXPERIMENT_DIR = Path(__file__).resolve().parent
 RECORDS_DIR = EXPERIMENT_DIR / "records"
 
 
 def main() -> int:
-    record_paths = sorted(
-        p for p in RECORDS_DIR.glob("*.md") if not p.stem.endswith("-boundary")
-    )
+    record_paths = sorted(p for p in RECORDS_DIR.glob("*.md") if is_source_record(p))
     if not record_paths:
         raise SystemExit(f"no records found under {RECORDS_DIR}")
 
