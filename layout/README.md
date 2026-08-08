@@ -115,8 +115,8 @@ meaningful relative to one `klt` deck revision, so every committed
 otherwise the evidence describes two different rule sets and a clean report
 for one cell says nothing about another's. Unscoped even for a single-cell
 run, since it is a property of the whole `layout/reports/` directory, not of
-any one cell; tolerates `temp_por_top` while it is intentionally frozen
-behind #97 (`lvs_reference.FROZEN_DECK_CELLS`):
+any one cell; tolerates whichever cell is currently listed in
+`lvs_reference.FROZEN_DECK_CELLS` (none, today) while its own issue reworks it:
 
 ```bash
 python3 layout/lvs_reference.py --check-deck-hash
@@ -192,13 +192,13 @@ is no longer possible.
 
 #### Frozen cells
 
-One cell — `temp_por_top` — is deliberately held behind its own sources: its
-committed assembly stays at the #72 sub-cell set because rebuilding it against
-today's grown sub-cells is DRC-dirty at the instance boundaries, and **#97**
-owns reworking the floorplan once for all of that rather than once per sub-cell
-change. `lvs_reference.py`'s `FROZEN_CELLS` table declares that, and **both**
-`--check` paths read it (`build_cells.py` imports the module), so a freeze is
-declared once and cannot drift between the two gates:
+No cell is frozen today — `temp_por_top` was the one example (held behind the
+#72 sub-cell set while #97 reworked its floorplan against the four grown
+sub-cells) and that freeze ended when #97 landed. The mechanism stays in place
+for the next cell that needs it: `lvs_reference.py`'s `FROZEN_CELLS` table
+declares a freeze, and **both** `--check` paths read it (`build_cells.py`
+imports the module), so a freeze is declared once and cannot drift between the
+two gates:
 
 ```python
 FROZEN_CELLS = {
@@ -1011,39 +1011,31 @@ for the full derivation and the gap sweep (0–105 µm past the old value) that
 picked a value with comfortable margin on both sides rather than the
 narrowest one that merely stopped complaining.
 
-**Two residual violations, and they are not this cell's.** Rebuilding with
-the re-derived floorplan drops the 92 placement-collision violations to
-**2** — both `poly2.enclosing.contact.1`, both at the same coordinates whether
-`por_comparator` is DRC'd standalone (`klt drc layout/cells/por_comparator.gds
---deck gf180mcu`) or assembled here. They are `por_comparator`'s own
-pre-existing divider-contact finding, reproducing on its committed,
-byte-identical GDS independent of anything this issue changed, and are
-tracked separately (#102/#103, both open at the time of writing) rather than
-fixed here — conflating a pre-existing bug in one sub-cell with a placement
-regression at the assembly level is exactly what this issue's own scope
-warns against. Once #102/#103 lands, rebuilding this assembly against the
-fixed `por_comparator.gds` needs no further floorplan change: the divider's
-contact geometry is a local fix, not a footprint change.
+**Zero residual violations.** Rebuilding with the re-derived floorplan first
+dropped the 92 placement-collision violations to 2 — both
+`poly2.enclosing.contact.1`, inherited from `por_comparator`'s own
+independent divider-contact finding (#102/#103), reproducing on its committed
+GDS whether DRC'd standalone or assembled here. That finding was fixed at the
+source (#105, landed in `por_comparator`'s own drawing) before this floorplan
+rework itself merged; rebuilding the assembly against the fixed
+`por_comparator.gds` needed no further floorplan change — the divider's
+contact geometry was a local fix, not a footprint change — and takes the
+count from 2 to 0.
 
 Recorded result (`layout/reports/temp_por_top/`):
 
 | Check | Result |
 | ----- | ------ |
-| `klt drc --deck gf180mcu` | **violations: 2** — both `poly2.enclosing.contact.1`, inherited unchanged from `por_comparator`'s own pre-existing, independent finding (#102/#103); 0 placement-collision violations (was 92 before the floorplan re-derivation) |
+| `klt drc --deck gf180mcu` | **clean** — 0 violations (was 92 before the floorplan re-derivation, then 2 inherited from #102/#103 until #105 fixed `por_comparator` at the source) |
 | `klt extract --deck gf180mcu --top-cell-pins` | 238 devices (71 nfet, 64 pfet, 50 `ppolyf_u`, 27 `ppolyf_u_1k`, 19 `bjt`, 7 `cap_mim_2f0_m4m5_noshield`), 159 nets, 6 pins |
 | `klt lvs` | **match** — 238/238 devices, 159/159 nets, 6/6 pins, 0 errors (16 warnings: 2 `device.body_unverified`, 14 ambiguous-pairing `topology` from the 7 MiM caps' isolated plate nets) |
 | negative control `topology` | detected (exit 3; `device.body_unverified` 2, `device.unmatched` 1, `topology` 16) |
 | negative control `device-param` | detected (exit 3; `device.body_unverified` 2, `device.property` 5, `topology` 16) |
 | negative control `passive-param` | detected (exit 3; `device.body_unverified` 2, `device.property` 11, `topology` 19) |
 
-`klt drc` reporting `violations` (exit 3) rather than `clean` means
-`bash layout/run_checks.sh temp_por_top` currently stops after DRC and does
-not re-run extraction/LVS/negative-controls itself (the script's documented
-short-circuit on a failed DRC step) — the extraction/LVS/negative-control rows
-above were produced with the same `klt extract`/`klt lvs` invocations run by
-hand, against the same committed GDS and request, so they are what the script
-would itself record once #102/#103 closes the last 2 violations and the
-script runs the rest of the pipeline unattended again.
+`bash layout/run_checks.sh temp_por_top` runs end to end unattended and
+exits 0 — DRC clean, extraction recorded, LVS match, every applicable
+negative control detected.
 
 The 6 pins are the ratified 5 pads plus the deck's `vsubs` global. That set is
 exactly what `layout.top_cell_pins` produces: the five Metal2 labels this cell
@@ -1350,9 +1342,8 @@ filed upstream per this repo's friction protocol.
   `por_comparator`'s report was regenerated once, under an older deck, and
   never again. #103 added `python3 layout/lvs_reference.py --check-deck-hash`
   (wired into `run_checks.sh`, unscoped even for a single-cell run) so this
-  fails loudly instead of drifting silently; it tolerates `temp_por_top`
-  while that cell is intentionally frozen behind #97 (see
-  `lvs_reference.FROZEN_DECK_CELLS`).
+  fails loudly instead of drifting silently; it tolerates whichever cell is
+  currently frozen (see `lvs_reference.FROZEN_DECK_CELLS`) — none, today.
 - **A report can also silently drift from *its own* GDS.** The deck-hash
   guard above catches two reports disagreeing with *each other*; it says
   nothing about whether a single report still describes the GDS committed
