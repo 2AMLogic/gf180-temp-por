@@ -42,10 +42,10 @@
       "36/10",
       "38/0",
       "49/0",
+      "62/0",
       "110/5",
       "117/5",
-      "117/10",
-      "200/0"
+      "117/10"
     ],
     "rules_skipped": [
       "metal5.space.1",
@@ -62,9 +62,6 @@
       "name": "gf180mcu",
       "content_hash": "sha256:be1a89e0f899a68c60baeeedffe1b4d76b965bd763e1b16beed1c85937872b1d"
     },
-    "input": {
-      "content_hash": "sha256:44978656f38fd30f2968ded8ef6519344fa0271027f856af48c6c5d62040aed9"
-    },
-    "gds_sha256": "44978656f38fd30f2968ded8ef6519344fa0271027f856af48c6c5d62040aed9"
+    "gds_sha256": "cfa19694b87948b218e34ba33f42c3b0b2b7ea17932c62292d780422ed34c584"
   }
 }

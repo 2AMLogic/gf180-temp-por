@@ -36,168 +36,208 @@ M31 xbias.NOKO xbias.NOKL VSS vsubs nfet L=4U W=2U
 M32 xbias.NOKO xbias.NKG VSS vsubs nfet L=1U W=2U
 M33 xbias.NOKX xbias.NOKO VSS vsubs nfet L=4U W=2U
 M34 BIAS_OK xbias.NOKX VSS vsubs nfet L=0.5U W=4U
-M35 xcmp.BIAS_OKB BIAS_OK VSS vsubs nfet L=0.5U W=1U
-M36 xcmp.BIAS_OKB BIAS_OK VDD xcmp.NW2 pfet L=0.5U W=2U
-M37 xcmp.NA xcmp.NA xcmp.VDDA xcmp.NW1 pfet L=1U W=4U
-M38 xcmp.CMPO xcmp.NA xcmp.VDDA xcmp.NW1 pfet L=1U W=4U
-M39 xcmp.VDDA xcmp.BIAS_OKB VDD xcmp.NW1 pfet L=0.5U W=4U
-M40 xcmp.N1 xcmp.CMPO VDD xcmp.NW1 pfet L=0.5U W=2U
-M41 POR_RAW xcmp.N1 VDD xcmp.NW1 pfet L=0.5U W=2U
-M42 xcmp.NA xcmp.SNS xcmp.TN vsubs nfet L=1U W=2U
-M43 xcmp.CMPO VREF xcmp.TN vsubs nfet L=1U W=2U
-M44 xcmp.TN xcmp.NBG VSS vsubs nfet L=10U W=1U
-M45 IBIAS xcmp.NBG VSS vsubs nfet L=2U W=2U
-M46 IBIAS BIAS_OK xcmp.NBG vsubs nfet L=0.5U W=2U
-M47 xcmp.NBG xcmp.BIAS_OKB VSS vsubs nfet L=0.5U W=2U
-M48 IBIAS xcmp.BIAS_OKB VSS vsubs nfet L=1U W=1U
-M49 xcmp.SNSB xcmp.N1 VSS vsubs nfet L=0.5U W=10U
-M50 xcmp.CMPO xcmp.BIAS_OKB VSS vsubs nfet L=1U W=2U
-M51 xcmp.N1 xcmp.CMPO VSS vsubs nfet L=0.5U W=1U
-M52 POR_RAW xcmp.N1 VSS vsubs nfet L=0.5U W=1U
-M53 IBIAS IBIAS VSS vsubs nfet L=4U W=4U
-M54 xpor.PDN xpor.PDN VDD xpor.NW1 pfet L=10U W=2U
-M55 xpor.PDN IBIAS VSS vsubs nfet L=25U W=0.5U
-M56 xpor.NDL xpor.NDL VSS vsubs nfet L=10U W=2U
-M57 xpor.NDGN xpor.NDL VSS vsubs nfet L=10U W=10U
-M58 xpor.NDG POR_RAW xpor.NDGN vsubs nfet L=0.5U W=1U
-M59 xpor.PGDG xpor.NDG VSS vsubs nfet L=0.5U W=2U
-M60 xpor.PGDGB xpor.PGDG VSS vsubs nfet L=2U W=0.5U
-M61 xpor.TIM xpor.PGDGB VSS vsubs nfet L=1U W=1U
-M62 xpor.ND1 xpor.NDL VSS vsubs nfet L=10U W=0.5U
-M63 xpor.TRIP xpor.ND1 VSS vsubs nfet L=1U W=1U
-M64 xpor.RSTB xpor.TRIP xpor.NNAND vsubs nfet L=0.5U W=2U
-M65 xpor.NNAND xpor.PGDG VSS vsubs nfet L=0.5U W=2U
-M66 RESETn xpor.RSTB VSS vsubs nfet L=0.5U W=10U
-M67 xpor.NDL xpor.PDN VDD xpor.NW1 pfet L=10U W=2U
-M68 xpor.NDGP xpor.PDN VDD xpor.NW1 pfet L=10U W=10U
-M69 xpor.NTS xpor.PDN VDD xpor.NW1 pfet L=10U W=0.5U
-M70 xpor.TRIP xpor.PDN VDD xpor.NW1 pfet L=10U W=0.5U
-M71 xpor.NDG POR_RAW xpor.NDGP xpor.NW1 pfet L=0.5U W=1U
-M72 xpor.PGDG xpor.NDG VDD xpor.NW1 pfet L=2U W=0.5U
-M73 xpor.PGDGB xpor.PGDG VDD xpor.NW1 pfet L=0.5U W=2U
-M74 xpor.TIM xpor.PGDGB xpor.NTS xpor.NW1 pfet L=1U W=2U
-M75 xpor.ND1 xpor.TIM VDD xpor.NW1 pfet L=1U W=2U
-M76 xpor.RSTB xpor.TRIP VDD xpor.NW1 pfet L=0.5U W=4U
-M77 xpor.RSTB xpor.PGDG VDD xpor.NW1 pfet L=0.5U W=4U
-M78 xpor.RSTB RESETn VDD xpor.NW1 pfet L=10U W=0.5U
-M79 RESETn xpor.RSTB VDD xpor.NW1 pfet L=1U W=1U
-C80 xpor.XCDG.NDG xpor.XCDG.VSS 2.42e-13 cap_mim_2f0_m4m5_noshield
-C81 xpor.XCTIM.1.TIM xpor.XCTIM.1.VSS 1.568e-12 cap_mim_2f0_m4m5_noshield
-C82 xpor.XCTIM.2.TIM xpor.XCTIM.2.VSS 1.568e-12 cap_mim_2f0_m4m5_noshield
-C83 xpor.XCTIM.3.TIM xpor.XCTIM.3.VSS 1.568e-12 cap_mim_2f0_m4m5_noshield
-C84 xpor.XCTIM.4.TIM xpor.XCTIM.4.VSS 1.568e-12 cap_mim_2f0_m4m5_noshield
-M85 IBIAS xtemp.NBG VSS vsubs nfet L=2U W=4U
-M86 IBIAS RESETn xtemp.NBG vsubs nfet L=0.5U W=2U
-M87 xtemp.NBG xtemp.ENB VSS vsubs nfet L=0.5U W=2U
-M88 xtemp.PB xtemp.NBG VSS vsubs nfet L=2U W=4U
-M89 xtemp.PB xtemp.PB VDD xtemp.NW1 pfet L=4U W=10U
-M90 xtemp.PCAS xtemp.NBG VSS vsubs nfet L=2U W=4U
-M91 xtemp.PCAS xtemp.PCAS VDD xtemp.NW1 pfet L=8U W=1U
-M92 xtemp.ENB RESETn VDD xtemp.NW1 pfet L=0.5U W=2U
-M93 xtemp.ENB RESETn VSS vsubs nfet L=0.5U W=1U
-M94 xtemp.NT xtemp.PB VDD xtemp.NW1 pfet L=4U W=20U
-M95 xtemp.N1 xtemp.NA xtemp.NT xtemp.NW2 pfet L=4U W=16U
-M96 xtemp.N1 xtemp.NA xtemp.NT xtemp.NW2 pfet L=4U W=16U
-M97 xtemp.N2 xtemp.NB xtemp.NT xtemp.NW2 pfet L=4U W=16U
-M98 xtemp.N2 xtemp.NB xtemp.NT xtemp.NW2 pfet L=4U W=16U
-M99 xtemp.N1 xtemp.N1 VSS vsubs nfet L=8U W=4U
-M100 xtemp.N1 xtemp.N1 VSS vsubs nfet L=8U W=4U
-M101 xtemp.N2 xtemp.N1 VSS vsubs nfet L=8U W=4U
-M102 xtemp.N2 xtemp.N1 VSS vsubs nfet L=8U W=4U
-M103 xtemp.PG xtemp.N2 VSS vsubs nfet L=8U W=8U
-M104 xtemp.PG xtemp.PB VDD xtemp.NW1 pfet L=4U W=10U
-M105 xtemp.M1D xtemp.PG VDD xtemp.NW1 pfet L=4U W=4U
-M106 xtemp.M1D xtemp.PG VDD xtemp.NW1 pfet L=4U W=4U
-M107 xtemp.NA xtemp.PCAS xtemp.M1D xtemp.NW1 pfet L=1U W=4U
-M108 xtemp.NA xtemp.PCAS xtemp.M1D xtemp.NW1 pfet L=1U W=4U
-M109 xtemp.M2D xtemp.PG VDD xtemp.NW1 pfet L=4U W=4U
-M110 xtemp.M2D xtemp.PG VDD xtemp.NW1 pfet L=4U W=4U
-M111 xtemp.NB xtemp.PCAS xtemp.M2D xtemp.NW1 pfet L=1U W=4U
-M112 xtemp.NB xtemp.PCAS xtemp.M2D xtemp.NW1 pfet L=1U W=4U
-M113 xtemp.M3D xtemp.PG VDD xtemp.NW1 pfet L=4U W=4U
-M114 xtemp.M3D xtemp.PG VDD xtemp.NW1 pfet L=4U W=4U
-M115 PTAT xtemp.PCAS xtemp.M3D xtemp.NW1 pfet L=1U W=4U
-M116 PTAT xtemp.PCAS xtemp.M3D xtemp.NW1 pfet L=1U W=4U
-M117 xtemp.ND xtemp.PB VDD xtemp.NW1 pfet L=8U W=1U
-M118 xtemp.ND xtemp.NR VSS vsubs nfet L=2U W=2U
-M119 xtemp.PG xtemp.ND VSS vsubs nfet L=1U W=4U
-M120 xtemp.ND xtemp.ENB VSS vsubs nfet L=0.5U W=2U
-M121 xtemp.PG RESETn VDD xtemp.NW1 pfet L=0.5U W=4U
-M122 PTAT xtemp.ENB VSS vsubs nfet L=1U W=1U
-M123 CTAT xtemp.ENB VSS vsubs nfet L=1U W=1U
-M124 xtemp.NR xtemp.PG VDD xtemp.NW1 pfet L=4U W=1U
-M125 xtemp.NR xtemp.NR VSS vsubs nfet L=2U W=2U
-M126 xtemp.N2 xtemp.ENB VSS vsubs nfet L=1U W=2U
-M127 xtemp.NT xtemp.ENB VSS vsubs nfet L=1U W=2U
-M128 xtemp.T5 VDD xtemp.T4 vsubs nfet L=0.5U W=32U
-M129 xtemp.T4 VSS xtemp.T3 vsubs nfet L=0.5U W=32U
-M130 xtemp.T3 VSS xtemp.T2 vsubs nfet L=0.5U W=32U
-M131 xtemp.T2 VSS xtemp.T1 vsubs nfet L=0.5U W=32U
-M132 xtemp.T1 VSS xtemp.T0 vsubs nfet L=0.5U W=32U
-M133 xtemp.T0 VSS VSS vsubs nfet L=0.5U W=32U
-MD134 xtemp.NT xtemp.NT xtemp.NT xtemp.NW2 pfet L=4U W=16U
-MD135 xtemp.NT xtemp.NT xtemp.NT xtemp.NW2 pfet L=4U W=16U
-MD136 VSS VSS VSS vsubs nfet L=8U W=4U
-MD137 VSS VSS VSS vsubs nfet L=8U W=4U
-MD138 VDD VDD VDD xtemp.NW1 pfet L=4U W=4U
-MD139 VDD VDD VDD xtemp.NW1 pfet L=4U W=4U
-R140 xtemp.NB xtemp.XR1.1 vsubs 10453.625 ppolyf_u
-R141 xtemp.XR1.1 xtemp.NC vsubs 10453.625 ppolyf_u
-R142 xtemp.NA xtemp.XRISO.1 vsubs 9716.875 ppolyf_u
-R143 xtemp.XRISO.1 CTAT vsubs 9716.875 ppolyf_u
-R144 xtemp.NZ xtemp.XRZ.1 vsubs 17500 ppolyf_u
-R145 xtemp.XRZ.1 xtemp.XRZ.2 vsubs 17500 ppolyf_u
-R146 xtemp.XRZ.2 xtemp.XRZ.3 vsubs 17500 ppolyf_u
-R147 xtemp.XRZ.3 xtemp.XRZ.4 vsubs 17500 ppolyf_u
-R148 xtemp.XRZ.4 xtemp.XRZ.5 vsubs 17500 ppolyf_u
-R149 xtemp.XRZ.5 xtemp.XRZ.6 vsubs 17500 ppolyf_u
-R150 xtemp.XRZ.6 xtemp.XRZ.7 vsubs 17500 ppolyf_u
-R151 xtemp.XRZ.7 xtemp.XRZ.8 vsubs 17500 ppolyf_u
-R152 xtemp.XRZ.8 xtemp.XRZ.9 vsubs 17500 ppolyf_u
-R153 xtemp.XRZ.9 xtemp.N2 vsubs 17500 ppolyf_u
-R154 PTAT xtemp.XR2F.1 vsubs 19341.875 ppolyf_u
-R155 xtemp.XR2F.1 xtemp.XR2F.2 vsubs 19341.875 ppolyf_u
-R156 xtemp.XR2F.2 xtemp.XR2F.3 vsubs 19341.875 ppolyf_u
-R157 xtemp.XR2F.3 xtemp.XR2F.4 vsubs 19341.875 ppolyf_u
-R158 xtemp.XR2F.4 xtemp.XR2F.5 vsubs 19341.875 ppolyf_u
-R159 xtemp.XR2F.5 xtemp.XR2F.6 vsubs 19341.875 ppolyf_u
-R160 xtemp.XR2F.6 xtemp.XR2F.7 vsubs 19341.875 ppolyf_u
-R161 xtemp.XR2F.7 xtemp.XR2F.8 vsubs 19341.875 ppolyf_u
-R162 xtemp.XR2F.8 xtemp.XR2F.9 vsubs 19341.875 ppolyf_u
-R163 xtemp.XR2F.9 xtemp.XR2F.10 vsubs 19341.875 ppolyf_u
-R164 xtemp.XR2F.10 xtemp.XR2F.11 vsubs 19341.875 ppolyf_u
-R165 xtemp.XR2F.11 xtemp.XR2F.12 vsubs 19341.875 ppolyf_u
-R166 xtemp.XR2F.12 xtemp.XR2F.13 vsubs 19341.875 ppolyf_u
-R167 xtemp.XR2F.13 xtemp.XR2F.14 vsubs 19341.875 ppolyf_u
-R168 xtemp.XR2F.14 xtemp.XR2F.15 vsubs 19341.875 ppolyf_u
-R169 xtemp.XR2F.15 xtemp.XR2F.16 vsubs 19341.875 ppolyf_u
-R170 xtemp.XR2F.16 xtemp.XR2F.17 vsubs 19341.875 ppolyf_u
-R171 xtemp.XR2F.17 xtemp.XR2F.18 vsubs 19341.875 ppolyf_u
-R172 xtemp.XR2F.18 xtemp.XR2F.19 vsubs 19341.875 ppolyf_u
-R173 xtemp.XR2F.19 xtemp.XR2F.20 vsubs 19341.875 ppolyf_u
-R174 xtemp.XR2F.20 xtemp.XR2F.21 vsubs 19341.875 ppolyf_u
-R175 xtemp.XR2F.21 xtemp.XR2F.22 vsubs 19341.875 ppolyf_u
-R176 xtemp.XR2F.22 xtemp.XR2F.23 vsubs 19341.875 ppolyf_u
-R177 xtemp.XR2F.23 xtemp.T5 vsubs 19341.875 ppolyf_u
-R178 xtemp.T5 xtemp.XR2T5.1 vsubs 20099.625 ppolyf_u
-R179 xtemp.XR2T5.1 xtemp.T4 vsubs 20099.625 ppolyf_u
-R180 xtemp.T4 xtemp.XR2T4.1 vsubs 10035.375 ppolyf_u
-R181 xtemp.XR2T4.1 xtemp.T3 vsubs 10035.375 ppolyf_u
-R182 xtemp.T3 xtemp.XR2T3.1 vsubs 5003.25 ppolyf_u
-R183 xtemp.XR2T3.1 xtemp.T2 vsubs 5003.25 ppolyf_u
-R184 xtemp.T2 xtemp.XR2T2.1 vsubs 2486.75 ppolyf_u
-R185 xtemp.XR2T2.1 xtemp.T1 vsubs 2486.75 ppolyf_u
-R186 xtemp.T1 xtemp.XR2T1.1 vsubs 1227.625 ppolyf_u
-R187 xtemp.XR2T1.1 xtemp.T0 vsubs 1227.625 ppolyf_u
-R188 xtemp.T0 xtemp.XR2T0.1 vsubs 599.375 ppolyf_u
-R189 xtemp.XR2T0.1 VSS vsubs 599.375 ppolyf_u
-Q190 vsubs xtemp.NWQ xtemp.NA bjt AE=100P
-Q191 vsubs xtemp.NWQ xtemp.NC bjt AE=100P
-Q192 vsubs xtemp.NWQ xtemp.NC bjt AE=100P
-Q193 vsubs xtemp.NWQ xtemp.NC bjt AE=100P
-Q194 vsubs xtemp.NWQ xtemp.NC bjt AE=100P
-Q195 vsubs xtemp.NWQ xtemp.NC bjt AE=100P
-Q196 vsubs xtemp.NWQ xtemp.NC bjt AE=100P
-Q197 vsubs xtemp.NWQ xtemp.NC bjt AE=100P
-Q198 vsubs xtemp.NWQ xtemp.NC bjt AE=100P
+R35 xbias.NBTOP xbias.XRT.1 vsubs 4375 ppolyf_u_1k
+R36 xbias.XRT.1 xbias.NB vsubs 4375 ppolyf_u_1k
+R37 xbias.NB xbias.XR1.1 vsubs 87500 ppolyf_u_1k
+R38 xbias.XR1.1 xbias.EC vsubs 87500 ppolyf_u_1k
+R39 VREF xbias.XR2.1 vsubs 128250 ppolyf_u_1k
+R40 xbias.XR2.1 xbias.XR2.2 vsubs 128250 ppolyf_u_1k
+R41 xbias.XR2.2 xbias.XR2.3 vsubs 128250 ppolyf_u_1k
+R42 xbias.XR2.3 xbias.XR2.4 vsubs 128250 ppolyf_u_1k
+R43 xbias.XR2.4 xbias.XR2.5 vsubs 128250 ppolyf_u_1k
+R44 xbias.XR2.5 xbias.XR2.6 vsubs 128250 ppolyf_u_1k
+R45 xbias.XR2.6 xbias.XR2.7 vsubs 128250 ppolyf_u_1k
+R46 xbias.XR2.7 xbias.XR2.8 vsubs 128250 ppolyf_u_1k
+R47 xbias.XR2.8 xbias.XR2.9 vsubs 128250 ppolyf_u_1k
+R48 xbias.XR2.9 xbias.XR2.10 vsubs 128250 ppolyf_u_1k
+R49 xbias.XR2.10 xbias.XR2.11 vsubs 128250 ppolyf_u_1k
+R50 xbias.XR2.11 xbias.XR2.12 vsubs 128250 ppolyf_u_1k
+R51 xbias.XR2.12 xbias.XR2.13 vsubs 128250 ppolyf_u_1k
+R52 xbias.XR2.13 xbias.XR2.14 vsubs 128250 ppolyf_u_1k
+R53 xbias.XR2.14 xbias.XR2.15 vsubs 128250 ppolyf_u_1k
+R54 xbias.XR2.15 xbias.ER vsubs 128250 ppolyf_u_1k
+R55 xbias.NZ xbias.XRZ.1 vsubs 127000 ppolyf_u_1k
+R56 xbias.XRZ.1 xbias.XRZ.2 vsubs 127000 ppolyf_u_1k
+R57 xbias.XRZ.2 xbias.XRZ.3 vsubs 127000 ppolyf_u_1k
+R58 xbias.XRZ.3 xbias.N2 vsubs 127000 ppolyf_u_1k
+Q59 vsubs xbias.NWQ xbias.NA bjt AE=100P
+Q60 vsubs xbias.NWQ xbias.EC bjt AE=100P
+Q61 vsubs xbias.NWQ xbias.EC bjt AE=100P
+Q62 vsubs xbias.NWQ xbias.EC bjt AE=100P
+Q63 vsubs xbias.NWQ xbias.EC bjt AE=100P
+Q64 vsubs xbias.NWQ xbias.EC bjt AE=100P
+Q65 vsubs xbias.NWQ xbias.EC bjt AE=100P
+Q66 vsubs xbias.NWQ xbias.EC bjt AE=100P
+Q67 vsubs xbias.NWQ xbias.EC bjt AE=100P
+Q68 vsubs xbias.NWQ xbias.ER bjt AE=100P
+C69 xbias.XCC.PG xbias.XCC.NZ 8e-13 cap_mim_2f0_m4m5_noshield
+C70 xbias.XCOK.VDD xbias.XCOK.NOKX 7.2e-14 cap_mim_2f0_m4m5_noshield
+M71 xcmp.BIAS_OKB BIAS_OK VSS vsubs nfet L=0.5U W=1U
+M72 xcmp.BIAS_OKB BIAS_OK VDD xcmp.NW2 pfet L=0.5U W=2U
+M73 xcmp.NA xcmp.NA xcmp.VDDA xcmp.NW1 pfet L=1U W=4U
+M74 xcmp.CMPO xcmp.NA xcmp.VDDA xcmp.NW1 pfet L=1U W=4U
+M75 xcmp.VDDA xcmp.BIAS_OKB VDD xcmp.NW1 pfet L=0.5U W=4U
+M76 xcmp.N1 xcmp.CMPO VDD xcmp.NW1 pfet L=0.5U W=2U
+M77 POR_RAW xcmp.N1 VDD xcmp.NW1 pfet L=0.5U W=2U
+M78 xcmp.NA xcmp.SNS xcmp.TN vsubs nfet L=1U W=2U
+M79 xcmp.CMPO VREF xcmp.TN vsubs nfet L=1U W=2U
+M80 xcmp.TN xcmp.NBG VSS vsubs nfet L=10U W=1U
+M81 IBIAS xcmp.NBG VSS vsubs nfet L=2U W=2U
+M82 IBIAS BIAS_OK xcmp.NBG vsubs nfet L=0.5U W=2U
+M83 xcmp.NBG xcmp.BIAS_OKB VSS vsubs nfet L=0.5U W=2U
+M84 IBIAS xcmp.BIAS_OKB VSS vsubs nfet L=1U W=1U
+M85 xcmp.SNSB xcmp.N1 VSS vsubs nfet L=0.5U W=10U
+M86 xcmp.CMPO xcmp.BIAS_OKB VSS vsubs nfet L=1U W=2U
+M87 xcmp.N1 xcmp.CMPO VSS vsubs nfet L=0.5U W=1U
+M88 POR_RAW xcmp.N1 VSS vsubs nfet L=0.5U W=1U
+R89 xcmp.SNS VDD vsubs 3948720 ppolyf_u_1k
+R90 xcmp.SNSB xcmp.SNS vsubs 3384615 ppolyf_u_1k
+R91 VSS xcmp.SNSB vsubs 387500 ppolyf_u_1k
+M92 IBIAS IBIAS VSS vsubs nfet L=4U W=4U
+M93 xpor.PDN xpor.PDN VDD xpor.NW1 pfet L=10U W=2U
+M94 xpor.PDN IBIAS VSS vsubs nfet L=25U W=0.5U
+M95 xpor.NDL xpor.NDL VSS vsubs nfet L=10U W=2U
+M96 xpor.NDGN xpor.NDL VSS vsubs nfet L=10U W=10U
+M97 xpor.NDG POR_RAW xpor.NDGN vsubs nfet L=0.5U W=1U
+M98 xpor.PGDG xpor.NDG VSS vsubs nfet L=0.5U W=2U
+M99 xpor.PGDGB xpor.PGDG VSS vsubs nfet L=2U W=0.5U
+M100 xpor.TIM xpor.PGDGB VSS vsubs nfet L=1U W=1U
+M101 xpor.ND1 xpor.NDL VSS vsubs nfet L=10U W=0.5U
+M102 xpor.TRIP xpor.ND1 VSS vsubs nfet L=1U W=1U
+M103 xpor.ND1 RESETn VSS vsubs nfet L=1U W=1U
+M104 xpor.RSTB xpor.TRIP xpor.NNAND vsubs nfet L=0.5U W=2U
+M105 xpor.NNAND xpor.PGDG VSS vsubs nfet L=0.5U W=2U
+M106 RESETn xpor.RSTB VSS vsubs nfet L=0.5U W=10U
+M107 xpor.NDL xpor.PDN VDD xpor.NW1 pfet L=10U W=2U
+M108 xpor.NDGP xpor.PDN VDD xpor.NW1 pfet L=10U W=10U
+M109 xpor.NTS xpor.PDN VDD xpor.NW1 pfet L=10U W=0.5U
+M110 xpor.TRIP xpor.PDN VDD xpor.NW1 pfet L=10U W=0.5U
+M111 xpor.NDG POR_RAW xpor.NDGP xpor.NW1 pfet L=0.5U W=1U
+M112 xpor.PGDG xpor.NDG VDD xpor.NW1 pfet L=2U W=0.5U
+M113 xpor.PGDGB xpor.PGDG VDD xpor.NW1 pfet L=0.5U W=2U
+M114 xpor.TIM xpor.PGDGB xpor.NTS xpor.NW1 pfet L=1U W=2U
+M115 xpor.ND1 xpor.TIM VDD xpor.NW1 pfet L=1U W=2U
+M116 xpor.RSTB xpor.TRIP VDD xpor.NW1 pfet L=0.5U W=4U
+M117 xpor.RSTB xpor.PGDG VDD xpor.NW1 pfet L=0.5U W=4U
+M118 xpor.RSTB RESETn VDD xpor.NW1 pfet L=10U W=0.5U
+M119 RESETn xpor.RSTB VDD xpor.NW1 pfet L=1U W=1U
+C120 xpor.XCDG.NDG xpor.XCDG.VSS 2.42e-13 cap_mim_2f0_m4m5_noshield
+C121 xpor.XCTIM.1.TIM xpor.XCTIM.1.VSS 1.568e-12 cap_mim_2f0_m4m5_noshield
+C122 xpor.XCTIM.2.TIM xpor.XCTIM.2.VSS 1.568e-12 cap_mim_2f0_m4m5_noshield
+C123 xpor.XCTIM.3.TIM xpor.XCTIM.3.VSS 1.568e-12 cap_mim_2f0_m4m5_noshield
+C124 xpor.XCTIM.4.TIM xpor.XCTIM.4.VSS 1.568e-12 cap_mim_2f0_m4m5_noshield
+M125 IBIAS xtemp.NBG VSS vsubs nfet L=2U W=4U
+M126 IBIAS RESETn xtemp.NBG vsubs nfet L=0.5U W=2U
+M127 xtemp.NBG xtemp.ENB VSS vsubs nfet L=0.5U W=2U
+M128 xtemp.PB xtemp.NBG VSS vsubs nfet L=2U W=4U
+M129 xtemp.PB xtemp.PB VDD xtemp.NW1 pfet L=4U W=10U
+M130 xtemp.PCAS xtemp.NBG VSS vsubs nfet L=2U W=4U
+M131 xtemp.PCAS xtemp.PCAS VDD xtemp.NW1 pfet L=8U W=1U
+M132 xtemp.ENB RESETn VDD xtemp.NW1 pfet L=0.5U W=2U
+M133 xtemp.ENB RESETn VSS vsubs nfet L=0.5U W=1U
+M134 xtemp.NT xtemp.PB VDD xtemp.NW1 pfet L=4U W=20U
+M135 xtemp.N1 xtemp.NA xtemp.NT xtemp.NW2 pfet L=4U W=16U
+M136 xtemp.N1 xtemp.NA xtemp.NT xtemp.NW2 pfet L=4U W=16U
+M137 xtemp.N2 xtemp.NB xtemp.NT xtemp.NW2 pfet L=4U W=16U
+M138 xtemp.N2 xtemp.NB xtemp.NT xtemp.NW2 pfet L=4U W=16U
+M139 xtemp.N1 xtemp.N1 VSS vsubs nfet L=8U W=4U
+M140 xtemp.N1 xtemp.N1 VSS vsubs nfet L=8U W=4U
+M141 xtemp.N2 xtemp.N1 VSS vsubs nfet L=8U W=4U
+M142 xtemp.N2 xtemp.N1 VSS vsubs nfet L=8U W=4U
+M143 xtemp.PG xtemp.N2 VSS vsubs nfet L=8U W=8U
+M144 xtemp.PG xtemp.PB VDD xtemp.NW1 pfet L=4U W=10U
+M145 xtemp.M1D xtemp.PG VDD xtemp.NW1 pfet L=4U W=4U
+M146 xtemp.M1D xtemp.PG VDD xtemp.NW1 pfet L=4U W=4U
+M147 xtemp.NA xtemp.PCAS xtemp.M1D xtemp.NW1 pfet L=1U W=4U
+M148 xtemp.NA xtemp.PCAS xtemp.M1D xtemp.NW1 pfet L=1U W=4U
+M149 xtemp.M2D xtemp.PG VDD xtemp.NW1 pfet L=4U W=4U
+M150 xtemp.M2D xtemp.PG VDD xtemp.NW1 pfet L=4U W=4U
+M151 xtemp.NB xtemp.PCAS xtemp.M2D xtemp.NW1 pfet L=1U W=4U
+M152 xtemp.NB xtemp.PCAS xtemp.M2D xtemp.NW1 pfet L=1U W=4U
+M153 xtemp.M3D xtemp.PG VDD xtemp.NW1 pfet L=4U W=4U
+M154 xtemp.M3D xtemp.PG VDD xtemp.NW1 pfet L=4U W=4U
+M155 PTAT xtemp.PCAS xtemp.M3D xtemp.NW1 pfet L=1U W=4U
+M156 PTAT xtemp.PCAS xtemp.M3D xtemp.NW1 pfet L=1U W=4U
+M157 xtemp.ND xtemp.PB VDD xtemp.NW1 pfet L=8U W=1U
+M158 xtemp.ND xtemp.NR VSS vsubs nfet L=2U W=2U
+M159 xtemp.PG xtemp.ND VSS vsubs nfet L=1U W=4U
+M160 xtemp.ND xtemp.ENB VSS vsubs nfet L=0.5U W=2U
+M161 xtemp.PG RESETn VDD xtemp.NW1 pfet L=0.5U W=4U
+M162 PTAT xtemp.ENB VSS vsubs nfet L=1U W=1U
+M163 CTAT xtemp.ENB VSS vsubs nfet L=1U W=1U
+M164 xtemp.NR xtemp.PG VDD xtemp.NW1 pfet L=4U W=1U
+M165 xtemp.NR xtemp.NR VSS vsubs nfet L=2U W=2U
+M166 xtemp.N2 xtemp.ENB VSS vsubs nfet L=1U W=2U
+M167 xtemp.NT xtemp.ENB VSS vsubs nfet L=1U W=2U
+M168 xtemp.T5 VDD xtemp.T4 vsubs nfet L=0.5U W=32U
+M169 xtemp.T4 VSS xtemp.T3 vsubs nfet L=0.5U W=32U
+M170 xtemp.T3 VSS xtemp.T2 vsubs nfet L=0.5U W=32U
+M171 xtemp.T2 VSS xtemp.T1 vsubs nfet L=0.5U W=32U
+M172 xtemp.T1 VSS xtemp.T0 vsubs nfet L=0.5U W=32U
+M173 xtemp.T0 VSS VSS vsubs nfet L=0.5U W=32U
+MD174 xtemp.NT xtemp.NT xtemp.NT xtemp.NW2 pfet L=4U W=16U
+MD175 xtemp.NT xtemp.NT xtemp.NT xtemp.NW2 pfet L=4U W=16U
+MD176 VSS VSS VSS vsubs nfet L=8U W=4U
+MD177 VSS VSS VSS vsubs nfet L=8U W=4U
+MD178 VDD VDD VDD xtemp.NW1 pfet L=4U W=4U
+MD179 VDD VDD VDD xtemp.NW1 pfet L=4U W=4U
+R180 xtemp.NB xtemp.XR1.1 vsubs 10453.625 ppolyf_u
+R181 xtemp.XR1.1 xtemp.NC vsubs 10453.625 ppolyf_u
+R182 xtemp.NA xtemp.XRISO.1 vsubs 9716.875 ppolyf_u
+R183 xtemp.XRISO.1 CTAT vsubs 9716.875 ppolyf_u
+R184 xtemp.NZ xtemp.XRZ.1 vsubs 17500 ppolyf_u
+R185 xtemp.XRZ.1 xtemp.XRZ.2 vsubs 17500 ppolyf_u
+R186 xtemp.XRZ.2 xtemp.XRZ.3 vsubs 17500 ppolyf_u
+R187 xtemp.XRZ.3 xtemp.XRZ.4 vsubs 17500 ppolyf_u
+R188 xtemp.XRZ.4 xtemp.XRZ.5 vsubs 17500 ppolyf_u
+R189 xtemp.XRZ.5 xtemp.XRZ.6 vsubs 17500 ppolyf_u
+R190 xtemp.XRZ.6 xtemp.XRZ.7 vsubs 17500 ppolyf_u
+R191 xtemp.XRZ.7 xtemp.XRZ.8 vsubs 17500 ppolyf_u
+R192 xtemp.XRZ.8 xtemp.XRZ.9 vsubs 17500 ppolyf_u
+R193 xtemp.XRZ.9 xtemp.N2 vsubs 17500 ppolyf_u
+R194 PTAT xtemp.XR2F.1 vsubs 19341.875 ppolyf_u
+R195 xtemp.XR2F.1 xtemp.XR2F.2 vsubs 19341.875 ppolyf_u
+R196 xtemp.XR2F.2 xtemp.XR2F.3 vsubs 19341.875 ppolyf_u
+R197 xtemp.XR2F.3 xtemp.XR2F.4 vsubs 19341.875 ppolyf_u
+R198 xtemp.XR2F.4 xtemp.XR2F.5 vsubs 19341.875 ppolyf_u
+R199 xtemp.XR2F.5 xtemp.XR2F.6 vsubs 19341.875 ppolyf_u
+R200 xtemp.XR2F.6 xtemp.XR2F.7 vsubs 19341.875 ppolyf_u
+R201 xtemp.XR2F.7 xtemp.XR2F.8 vsubs 19341.875 ppolyf_u
+R202 xtemp.XR2F.8 xtemp.XR2F.9 vsubs 19341.875 ppolyf_u
+R203 xtemp.XR2F.9 xtemp.XR2F.10 vsubs 19341.875 ppolyf_u
+R204 xtemp.XR2F.10 xtemp.XR2F.11 vsubs 19341.875 ppolyf_u
+R205 xtemp.XR2F.11 xtemp.XR2F.12 vsubs 19341.875 ppolyf_u
+R206 xtemp.XR2F.12 xtemp.XR2F.13 vsubs 19341.875 ppolyf_u
+R207 xtemp.XR2F.13 xtemp.XR2F.14 vsubs 19341.875 ppolyf_u
+R208 xtemp.XR2F.14 xtemp.XR2F.15 vsubs 19341.875 ppolyf_u
+R209 xtemp.XR2F.15 xtemp.XR2F.16 vsubs 19341.875 ppolyf_u
+R210 xtemp.XR2F.16 xtemp.XR2F.17 vsubs 19341.875 ppolyf_u
+R211 xtemp.XR2F.17 xtemp.XR2F.18 vsubs 19341.875 ppolyf_u
+R212 xtemp.XR2F.18 xtemp.XR2F.19 vsubs 19341.875 ppolyf_u
+R213 xtemp.XR2F.19 xtemp.XR2F.20 vsubs 19341.875 ppolyf_u
+R214 xtemp.XR2F.20 xtemp.XR2F.21 vsubs 19341.875 ppolyf_u
+R215 xtemp.XR2F.21 xtemp.XR2F.22 vsubs 19341.875 ppolyf_u
+R216 xtemp.XR2F.22 xtemp.XR2F.23 vsubs 19341.875 ppolyf_u
+R217 xtemp.XR2F.23 xtemp.T5 vsubs 19341.875 ppolyf_u
+R218 xtemp.T5 xtemp.XR2T5.1 vsubs 20099.625 ppolyf_u
+R219 xtemp.XR2T5.1 xtemp.T4 vsubs 20099.625 ppolyf_u
+R220 xtemp.T4 xtemp.XR2T4.1 vsubs 10035.375 ppolyf_u
+R221 xtemp.XR2T4.1 xtemp.T3 vsubs 10035.375 ppolyf_u
+R222 xtemp.T3 xtemp.XR2T3.1 vsubs 5003.25 ppolyf_u
+R223 xtemp.XR2T3.1 xtemp.T2 vsubs 5003.25 ppolyf_u
+R224 xtemp.T2 xtemp.XR2T2.1 vsubs 2486.75 ppolyf_u
+R225 xtemp.XR2T2.1 xtemp.T1 vsubs 2486.75 ppolyf_u
+R226 xtemp.T1 xtemp.XR2T1.1 vsubs 1227.625 ppolyf_u
+R227 xtemp.XR2T1.1 xtemp.T0 vsubs 1227.625 ppolyf_u
+R228 xtemp.T0 xtemp.XR2T0.1 vsubs 599.375 ppolyf_u
+R229 xtemp.XR2T0.1 VSS vsubs 599.375 ppolyf_u
+Q230 vsubs xtemp.NWQ xtemp.NA bjt AE=100P
+Q231 vsubs xtemp.NWQ xtemp.NC bjt AE=100P
+Q232 vsubs xtemp.NWQ xtemp.NC bjt AE=100P
+Q233 vsubs xtemp.NWQ xtemp.NC bjt AE=100P
+Q234 vsubs xtemp.NWQ xtemp.NC bjt AE=100P
+Q235 vsubs xtemp.NWQ xtemp.NC bjt AE=100P
+Q236 vsubs xtemp.NWQ xtemp.NC bjt AE=100P
+Q237 vsubs xtemp.NWQ xtemp.NC bjt AE=100P
+Q238 vsubs xtemp.NWQ xtemp.NC bjt AE=100P
 .ENDS temp_por_top

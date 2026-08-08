@@ -790,23 +790,7 @@ CELLS["temp_por_top"] = {
 #:
 #: Removal condition: delete the entry when its ``issue`` lands. Nothing else
 #: has to change -- both gates fall straight back to rebuild-and-compare.
-FROZEN_CELLS = {
-    "temp_por_top": {
-        "issue": "#97",
-        "why": (
-            "block assembly held at the #72 sub-cell set (#91/#99): rebuilding "
-            "it against today's grown sub-cells is 92 DRC violations at the "
-            "instance boundaries, which #97 owns"
-        ),
-        # sha256 of the committed artefacts as of c076733.
-        "gds_sha256": (
-            "44978656f38fd30f2968ded8ef6519344fa0271027f856af48c6c5d62040aed9"
-        ),
-        "reference_sha256": (
-            "fd2dc1d1b5e19118045d5a76dc07ea4287d3344446414bb8ef45df00f95440f7"
-        ),
-    },
-}
+FROZEN_CELLS: dict[str, dict[str, str]] = {}
 
 
 class FrozenVerdict(NamedTuple):

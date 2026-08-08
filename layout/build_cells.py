@@ -2776,11 +2776,34 @@ def _temp_core_pnp_array(b: CellBuilder, channel: _Channel, x0: float, y0: float
 #: order the floorplan sketch reads: ``temp_core`` alone on top (the
 #: temp-sensor domain), then the always-on POR domain left to right below the
 #: seam with ``bias_core`` at its seam-facing left edge.
+#:
+#: ``por_output_chain``'s ``dx`` moved 820 -> 920 for #97: #91 grew
+#: ``por_comparator`` from its #69-era 313 um-wide placeholder to a real
+#: 445.0 um (``-5.5..439.5`` local, landing at absolute x 444.5..889.5 at its
+#: own ``dx=450``), which ate all 57 um of the original gap to
+#: ``por_output_chain`` at ``dx=820`` (absolute left 814.5) and then some --
+#: a 75 um instance-boundary overlap that DRC'd dirty at 92 violations
+#: (``contact.space.1`` x79, ``poly2.enclosing.contact.1`` x9 of them at the
+#: overlap -- the other 2 are ``por_comparator``'s own pre-existing,
+#: independent divider-contact violations, tracked separately in #102/#103,
+#: not a placement defect -- and ``contact.width.1`` x2). ``bias_core``'s own
+#: #90 growth (to 434.9 um wide) still clears ``por_comparator``'s left edge
+#: at ``dx=450`` with a 15.1 um gap, so that boundary needed no change. The
+#: new ``dx=920`` reopens a clean ~25 um gap past ``por_comparator``'s grown
+#: right edge (889.5 -> instance left 914.5), confirmed DRC-clean at the
+#: instance boundary by sweeping the gap from 0 to 105 um past the old value
+#: and taking a point with comfortable margin on both sides (90-105 um all
+#: verified clean of placement-collision violations) rather than the
+#: narrowest value that merely stops complaining. This only widens the gap
+#: between ``por_comparator`` and ``por_output_chain``; every other adjacency
+#: floorplan.md's ranked plan asks for (``temp_core`` alone above the seam,
+#: ``bias_core`` at the POR row's seam-facing left edge, ``por_output_chain``
+#: at the row's ``RESETn``-facing right edge) is unchanged.
 TOP_PLACEMENT = (
     ("temp_core", "temp_por_top_temp_core", 0.0, 0.0),
     ("bias_core", "temp_por_top_bias_core", 0.0, -400.0),
     ("por_comparator", "temp_por_top_por_comparator", 450.0, -400.0),
-    ("por_output_chain", "temp_por_top_por_output_chain", 820.0, -400.0),
+    ("por_output_chain", "temp_por_top_por_output_chain", 920.0, -400.0),
 )
 
 #: Which pin of which instance each crossing net has to reach. Names are the
@@ -2845,7 +2868,12 @@ TOP_MARGIN_X = {
 #: spread across its length: the moat is one continuous shape, so one tie is
 #: electrically sufficient -- the other two exist so a single broken via
 #: cannot silently float the whole seam (which no automated check in this flow
-#: would catch; see ``layout/README.md`` -> "Known deck limits").
+#: would catch; see ``layout/README.md`` -> "Known deck limits"). Unchanged by
+#: #97's ``por_output_chain`` move: 960 still sits comfortably inside the
+#: widened seam (``TOP_SEAM_X1`` is now 1188) and clear of every escape
+#: column ``_top_escape_columns`` allocates near the shifted instance (the
+#: nearest, ``POR_RAW``'s, lands at x = 980.45 -- 20+ um away, verified by
+#: rebuilding with the new placement).
 TOP_SEAM_TIE_X = (-68.0, 420.0, 960.0)
 
 TOP_WIRE_W = 0.44  # Metal2/Metal3 route width (>= metal2/3.width.1's 0.28)
@@ -2859,23 +2887,30 @@ TOP_VSS_RAIL_HALF = 1.5  # half-height of the VSS rail (inside the ring)
 #: edge moved out from y = 114 to y = 254 when #93 folded ``temp_core``'s
 #: passives into the cell: the resistor bank and the PNP array stand above the
 #: device rows, so the temp-sensor domain is ~125 um taller than it was. The
-#: POR domain below the seam is untouched, and so is every x.
-TOP_PERIM = (-140.0, -540.0, 1094.0, 254.0)
-TOP_RAIL_X0, TOP_RAIL_X1 = -134.0, 1088.0
+#: right edge moved out from x = 1094 to x = 1194 for #97, the same +100 um
+#: as ``por_output_chain``'s ``dx`` above, so the ring/rail keep the same
+#: margin past that instance's grown-gap right edge that they held before.
+#: Every other edge, and the whole POR domain floor, is untouched.
+TOP_PERIM = (-140.0, -540.0, 1194.0, 254.0)
+TOP_RAIL_X0, TOP_RAIL_X1 = -134.0, 1188.0
 TOP_VDD_RAIL_Y = 240.0
 TOP_VSS_RAIL_Y = -538.0
 
 #: The domain-seam moat: one continuous VSS-tied p-substrate strip along the
 #: full seam between the two domains, unbroken (see the module comment above
-#: on why it needs no notch).
+#: on why it needs no notch). ``TOP_SEAM_X1`` moves with ``TOP_RAIL_X1`` (#97)
+#: so the moat still reaches the same margin past the perimeter ring's right
+#: segment that it did before ``por_output_chain`` moved.
 TOP_SEAM_Y = -108.0
-TOP_SEAM_X0, TOP_SEAM_X1 = -134.0, 1088.0
+TOP_SEAM_X0, TOP_SEAM_X1 = -134.0, 1188.0
 
 #: ``PTAT``/``CTAT`` leave ``temp_core`` westward on their own Metal2 tracks
 #: and stop here, just inside the perimeter ring's left segment.
 TOP_LEFT_PAD_X = -120.0
-#: ``RESETn``'s pad, just inside the perimeter ring's right segment.
-TOP_RIGHT_PAD_X = 1080.0
+#: ``RESETn``'s pad, just inside the perimeter ring's right segment. Moves
+#: with ``TOP_RAIL_X1``/``TOP_PERIM`` (#97) to keep the same 8 um margin
+#: inside the rail edge.
+TOP_RIGHT_PAD_X = 1180.0
 
 #: The ratified 5-pad pinout, in ``design/netlist/temp_por_top.spice``'s own
 #: ``.subckt temp_por_top`` order. ``design/netlist.py --check`` asserts this
@@ -3195,14 +3230,17 @@ def temp_por_top(b: CellBuilder) -> None:
     What remains a design-review claim is the same one every cell in this repo
     carries: that VSS is the right net to tie them to.
 
-    Device coverage is no longer MOS-only: this cell inherits ``temp_core``'s
-    PNP array and R2 gain ladder (#93) and ``por_output_chain``'s two MiM caps
-    (#92) unchanged, extraction being flat. What still is not drawn anywhere in
-    the four sub-circuits -- ``bias_core``'s PNPs/resistors/MiM caps,
-    ``por_comparator``'s sense divider, ``temp_core``'s own MiM cap -- is still
-    outside this compare too (see ``layout/lvs_reference.py``'s
-    ``temp_por_top`` manifest for the list, and ``layout/README.md`` ->
-    "Known deck limits" for what that leaves unproven).
+    Device coverage: this cell inherits every one of the four sub-circuits'
+    drawn devices unchanged, extraction being flat -- ``temp_core``'s PNP
+    array and R2 gain ladder (#93), ``por_output_chain``'s two MiM caps and
+    its ``XMRLK`` release latch (#92, issue #56), ``por_comparator``'s sense
+    divider (#91) and ``bias_core``'s PNPs/resistors/MiM caps (#90), reunited
+    with the rest of this assembly by #97's floorplan re-derivation. What
+    still is not drawn anywhere in the four sub-circuits -- only
+    ``temp_core``'s own MiM cap -- is still outside this compare too (see
+    ``layout/lvs_reference.py``'s ``temp_por_top`` manifest, and
+    ``layout/README.md`` -> "Known deck limits" for what that leaves
+    unproven).
     """
     routes = _TopRoutes(b)
 
