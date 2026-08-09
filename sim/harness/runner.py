@@ -228,6 +228,35 @@ def parse_bare_measurements(text: str) -> dict[str, float]:
     return found
 
 
+def run_deck(name: str, text: str, control_dir: Path) -> dict[str, float]:
+    """Write ``text`` as ``<control_dir>/decks/<name>.spice``, run ngspice on
+    it, log the raw output to ``<control_dir>/logs/<name>.log``, and return
+    its bare-name measurements (``parse_bare_measurements`` above).
+
+    Shared home for the per-experiment ``run_deck(name, text)`` copies that
+    used to be redefined, byte-for-byte identical apart from where
+    ``CONTROL_DIR`` pointed, in
+    sim/por-brownout/control/run_dip_rootcause.py and
+    sim/por-brownout-slew/control/run_band_mechanism.py.
+    """
+    deck_dir = control_dir / "decks"
+    log_dir = control_dir / "logs"
+    deck_dir.mkdir(exist_ok=True)
+    log_dir.mkdir(exist_ok=True)
+    deck_path = deck_dir / f"{name}.spice"
+    deck_path.write_text(text)
+    proc = subprocess.run(
+        [NGSPICE, "-b", deck_path.name],
+        capture_output=True,
+        text=True,
+        cwd=deck_dir,
+        check=False,
+    )
+    output = proc.stdout + "\n" + proc.stderr
+    (log_dir / f"{name}.log").write_text(output)
+    return parse_bare_measurements(output)
+
+
 def find_crossings(
     rows: list[tuple[float, ...]],
     col: int,
