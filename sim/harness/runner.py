@@ -11,7 +11,7 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from .corners import PvtPoint
+from .corners import Corner, PvtPoint
 from .pdk import Pdk
 from .testbench import Testbench
 
@@ -62,6 +62,25 @@ def ngspice_version() -> str:
     return out.strip().splitlines()[0] if out.strip() else "unknown"
 
 
+def deck_preamble(pdk: Pdk, corner: Corner, temp_c: float, options: list[str]) -> list[str]:
+    """The pdk-include + corner ``.lib`` + ``.temp`` + ``.options`` ngspice
+    deck fragment shared by every call site that composes a corner-swept
+    deck: the design's own ``compose_deck()`` below, plus the three
+    ``control/`` root-cause scripts that build their own decks against the
+    same corner/temp/options axes (``sim/por-glitch/control/run_glitch_probe.py``,
+    ``sim/por-glitch/control/run_depth_sweep.py``,
+    ``sim/por-ramp-rate/control/run_chatter_probe.py``). Line shapes match
+    exactly what those four call sites used to derive independently, so
+    switching a caller over to this helper does not change any generated
+    deck's text.
+    """
+    lines: list[str] = [f'.include "{pdk.design_include}"']
+    lines += [f'.lib "{pdk.model_lib}" {section}' for section in corner.sections]
+    lines += ["", f".temp {temp_c!r}"]
+    lines += [f".options {option}" for option in options]
+    return lines
+
+
 def compose_deck(tb: Testbench, pdk: Pdk, point: PvtPoint) -> str:
     """Build the complete, self-contained ngspice deck for one PVT point."""
     lines: list[str] = [
@@ -80,17 +99,8 @@ def compose_deck(tb: Testbench, pdk: Pdk, point: PvtPoint) -> str:
     lines += [
         "",
         "* ---- gf180mcu models ------------------------------------------------",
-        f'.include "{pdk.design_include}"',
     ]
-    for section in point.corner.sections:
-        lines.append(f'.lib "{pdk.model_lib}" {section}')
-
-    lines += [
-        "",
-        f".temp {point.temp_c!r}",
-    ]
-    for option in tb.options:
-        lines.append(f".options {option}")
+    lines += deck_preamble(pdk, point.corner, point.temp_c, tb.options)
 
     lines += [
         "",
