@@ -79,7 +79,7 @@ import hashlib
 import json
 import re
 import sys
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from pathlib import Path
 from typing import NamedTuple
 
@@ -1014,9 +1014,20 @@ def resistor_segments(
     return [best[2]] * best[1]
 
 
-def parse_devices(body: list[str]) -> dict[str, dict]:
-    """Parse ``X<name> d g s b <model> k=v ...`` MOS cards into a dict by name."""
-    devices: dict[str, dict] = {}
+def _parse_cards(
+    body: list[str], classify: Callable[[str], str | None]
+) -> dict[str, dict]:
+    """Shared ``X<name> node... <model> k=v ...`` SPICE X-card parsing loop.
+
+    Splits each line's whitespace-separated fields, partitions ``key=value``
+    params (lowercased key, quote-stripped value) into ``params``, and calls
+    ``classify(field)`` on each remaining field until it returns non-``None``
+    -- that field becomes ``model`` and everything collected before it
+    becomes ``nodes``. Fields after ``model`` is found (other than further
+    ``k=v`` params) are dropped. A line whose fields never satisfy
+    ``classify`` is skipped entirely (not a card this deck can model).
+    """
+    cards: dict[str, dict] = {}
     for line in body:
         fields = line.split()
         if not fields[0].upper().startswith("X"):
@@ -1028,14 +1039,19 @@ def parse_devices(body: list[str]) -> dict[str, dict]:
             if "=" in field:
                 key, _, value = field.partition("=")
                 params[key.lower()] = value.strip("'\"")
-            elif model is None and field in DEVICE_CLASS:
+            elif model is None and classify(field) is not None:
                 model = field
             elif model is None:
                 nodes.append(field)
         if model is None:
-            continue  # not a device this deck can model (resistor, cap, BJT...)
-        devices[fields[0]] = {"nodes": nodes, "model": model, "params": params}
-    return devices
+            continue
+        cards[fields[0]] = {"nodes": nodes, "model": model, "params": params}
+    return cards
+
+
+def parse_devices(body: list[str]) -> dict[str, dict]:
+    """Parse ``X<name> d g s b <model> k=v ...`` MOS cards into a dict by name."""
+    return _parse_cards(body, lambda field: field if field in DEVICE_CLASS else None)
 
 
 def parse_capacitors(body: list[str]) -> dict[str, dict]:
@@ -1046,26 +1062,7 @@ def parse_capacitors(body: list[str]) -> dict[str, dict]:
     recognises that this repo draws as more than one instance per manifest
     entry (``m=`` -- see :func:`cap_units`).
     """
-    caps: dict[str, dict] = {}
-    for line in body:
-        fields = line.split()
-        if not fields[0].upper().startswith("X"):
-            continue
-        params: dict[str, str] = {}
-        nodes: list[str] = []
-        model: str | None = None
-        for field in fields[1:]:
-            if "=" in field:
-                key, _, value = field.partition("=")
-                params[key.lower()] = value.strip("'\"")
-            elif model is None and field in CAP_CLASS:
-                model = field
-            elif model is None:
-                nodes.append(field)
-        if model is None:
-            continue  # not a capacitor this deck can model
-        caps[fields[0]] = {"nodes": nodes, "model": model, "params": params}
-    return caps
+    return _parse_cards(body, lambda field: field if field in CAP_CLASS else None)
 
 
 def parse_passives(body: list[str]) -> dict[str, dict]:
@@ -1079,32 +1076,20 @@ def parse_passives(body: list[str]) -> dict[str, dict]:
     is skipped here and picked up by nothing, which is exactly what
     ``layout/README.md`` records as still outside the compare.
     """
-    passives: dict[str, dict] = {}
-    for line in body:
-        fields = line.split()
-        if not fields[0].upper().startswith("X"):
-            continue
-        params: dict[str, str] = {}
-        nodes: list[str] = []
-        model: str | None = None
-        for field in fields[1:]:
-            if "=" in field:
-                key, _, value = field.partition("=")
-                params[key.lower()] = value.strip("'\"")
-            elif model is not None:
-                continue
-            elif field in RESISTOR_CLASS or BIPOLAR_NAME_RE.match(field):
-                model = field
-            else:
-                nodes.append(field)
-        if model is None:
-            continue
-        kind = "resistor" if model in RESISTOR_CLASS else "bipolar"
-        passives[fields[0]] = {
+
+    def classify(field: str) -> str | None:
+        if field in RESISTOR_CLASS or BIPOLAR_NAME_RE.match(field):
+            return field
+        return None
+
+    passives = _parse_cards(body, classify)
+    for name, device in passives.items():
+        kind = "resistor" if device["model"] in RESISTOR_CLASS else "bipolar"
+        passives[name] = {
             "kind": kind,
-            "nodes": nodes,
-            "model": model,
-            "params": params,
+            "nodes": device["nodes"],
+            "model": device["model"],
+            "params": device["params"],
         }
     return passives
 
