@@ -60,7 +60,6 @@ Stdlib only, no virtualenv required.
 
 from __future__ import annotations
 
-import json
 import os
 import sys
 from concurrent.futures import ThreadPoolExecutor
@@ -72,7 +71,7 @@ REPO_ROOT = CONTROL_DIR.parents[2]
 
 sys.path.insert(0, str(REPO_ROOT / "sim"))
 
-from harness import HARNESS_VERSION, corners as corners_mod, runner  # noqa: E402
+from harness import HARNESS_VERSION, cliutil, corners as corners_mod, runner  # noqa: E402
 from harness.pdk import PdkNotFound, find_pdk  # noqa: E402
 
 # The one PVT point the control is taken at. tt / 27 C / 3.30 V is the
@@ -145,10 +144,6 @@ DWELLS_MS = [0.05, 0.2, 0.5, 1.0, 2.0, 5.0]
 # rail spends below it -- which is longer than the programmed dwell by the
 # two edge transits.
 VPOR_FALL_MIN_V = 2.22
-
-
-def load_manifest() -> dict:
-    return json.loads(MANIFEST.read_text())
 
 
 def deck_header(pdk, options: list[str]) -> list[str]:
@@ -312,7 +307,7 @@ def main() -> int:
         print(exc, file=sys.stderr)
         return 1
 
-    manifest = load_manifest()
+    manifest = cliutil.load_manifest(MANIFEST)
     options = manifest["options"]
 
     nets_dir = CONTROL_DIR / "nets"

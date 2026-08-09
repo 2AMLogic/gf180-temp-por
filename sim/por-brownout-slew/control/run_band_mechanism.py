@@ -93,7 +93,7 @@ REPO_ROOT = CONTROL_DIR.parents[2]
 
 sys.path.insert(0, str(REPO_ROOT / "sim"))
 
-from harness import HARNESS_VERSION, corners as corners_mod, runner  # noqa: E402
+from harness import HARNESS_VERSION, cliutil, corners as corners_mod, runner  # noqa: E402
 from harness.pdk import PdkNotFound, find_pdk  # noqa: E402
 
 # The corner family the band lives in. Unlike sim/por-brownout/control/,
@@ -140,10 +140,6 @@ VPOR_FALL_MIN_V = 2.22
 # and the bound ../testbench/tb.json checks `resetn_ratio_min_in_dip`
 # against. Read here rather than restated: see load_bounds().
 RESETN_RATIO_KEY = "resetn_ratio_min_in_dip"
-
-
-def load_manifest() -> dict:
-    return json.loads(MANIFEST.read_text())
 
 
 def edge_s(vdd: float, slew_mvus: float) -> float:
@@ -277,7 +273,7 @@ def main(argv: list[str] | None = None) -> int:
         print(exc, file=sys.stderr)
         return 1
 
-    manifest = load_manifest()
+    manifest = cliutil.load_manifest(MANIFEST)
     options = manifest["options"]
 
     if report_only:
