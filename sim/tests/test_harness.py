@@ -386,6 +386,43 @@ class ParseWrdataTraceTests(unittest.TestCase):
         self.assertEqual(runner.parse_wrdata_trace(three_probe_line, 2), [])
 
 
+class RemoveNetlistDeviceTests(unittest.TestCase):
+    # Mirrors the real convention: a device line optionally followed by
+    # ngspice '+' continuation lines, embedded among unrelated lines.
+    TEXT = (
+        "* preamble\n"
+        "XOTHER A B C nfet_03v3\n"
+        "XMRLK ND1 RESETn VSS VSS nfet_03v3\n"
+        "+ l=0.28u w=3u\n"
+        "+ m=1\n"
+        "XLAST D E F pfet_03v3\n"
+    )
+
+    def test_deletes_the_matching_line_and_its_continuations(self):
+        self.assertEqual(
+            runner.remove_netlist_device(self.TEXT, "XMRLK ND1 RESETn VSS VSS nfet_03v3", "dut.spice"),
+            "* preamble\nXOTHER A B C nfet_03v3\nXLAST D E F pfet_03v3\n",
+        )
+
+    def test_a_line_with_no_continuations_is_deleted_alone(self):
+        text = "A\nXHEAD rest of line\nB\n"
+        self.assertEqual(
+            runner.remove_netlist_device(text, "XHEAD", "dut.spice"), "A\nB\n"
+        )
+
+    def test_no_match_raises_with_the_source_named(self):
+        with self.assertRaises(SystemExit) as ctx:
+            runner.remove_netlist_device("no such device here\n", "XMRLK", "dut.spice")
+        self.assertIn("found 0", str(ctx.exception))
+        self.assertIn("dut.spice", str(ctx.exception))
+
+    def test_multiple_matches_raises_with_the_count(self):
+        text = "XMRLK one\nXMRLK two\n"
+        with self.assertRaises(SystemExit) as ctx:
+            runner.remove_netlist_device(text, "XMRLK", "dut.spice")
+        self.assertIn("found 2", str(ctx.exception))
+
+
 class _StubPoint:
     def __init__(self, corner_id):
         self.corner_id = corner_id

@@ -314,6 +314,32 @@ def parse_wrdata_trace(text: str, n_probes: int) -> list[tuple[float, ...]]:
     return rows
 
 
+def remove_netlist_device(text: str, head: str, source: Path | str) -> str:
+    """``text`` with the one device instance line starting with ``head``
+    (plus any ``+`` continuation lines beneath it) deleted.
+
+    Raises ``SystemExit`` if ``head`` does not identify exactly one line, so
+    a schematic change that renames or duplicates the device fails loudly
+    instead of silently editing the wrong thing (or nothing). ``source`` is
+    only used to name the offending file in that error.
+
+    Shared home for the per-experiment "delete the committed netlist's one
+    keeper-device line" copies that used to be redefined in
+    sim/por-ramp-rate/control/run_chatter_probe.py and
+    sim/por-glitch/control/run_depth_sweep.py.
+    """
+    lines = text.splitlines(keepends=True)
+    idx = [i for i, ln in enumerate(lines) if ln.startswith(head)]
+    if len(idx) != 1:
+        raise SystemExit(f"expected exactly one '{head}...' line in {source}, found {len(idx)}")
+    i = idx[0]
+    end = i + 1
+    while end < len(lines) and lines[end].startswith("+"):
+        end += 1
+    del lines[i:end]
+    return "".join(lines)
+
+
 def sha256_file(path: Path) -> str:
     """The hex sha256 digest of ``path``'s contents.
 
