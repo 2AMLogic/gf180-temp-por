@@ -49,7 +49,6 @@ target-spec.md section 5.
 from __future__ import annotations
 
 import argparse
-import re
 import sys
 from pathlib import Path
 
@@ -60,6 +59,7 @@ RECORDS_DIR = EXPERIMENT_DIR / "records"
 sys.path.insert(0, str(EXPERIMENT_DIR.parent))
 
 from harness.cliutil import add_author_arg, now_iso  # noqa: E402
+from harness.corners import parse_corner_id  # noqa: E402
 from harness.runner import load_points  # noqa: E402
 
 TARGET_POR_IQ_UA = 1.0  # spec/target-spec.md#por-iq
@@ -69,18 +69,13 @@ TARGET_IQ_TOTAL_UA = 21.0  # spec/target-spec.md#iq-total
 # temp-accuracy-vt's grid adds 25 C on top, only for its own trim derivation.
 STANDARD_TEMPS_C = (-40.0, 27.0, 125.0)
 
-_CORNER_ID_RE = re.compile(
-    r"^(?P<process>[a-z_]+)_(?P<temp>-?\d+(?:\.\d+)?)c_(?P<supply>\d+\.\d+)v$"
-)
-
-
 def standard_grid_rows(points: dict[str, dict[str, float]]) -> list[dict]:
     rows: list[dict] = []
     for corner_id, measured in sorted(points.items()):
-        match = _CORNER_ID_RE.match(corner_id)
-        if not match:
+        fields = parse_corner_id(corner_id)
+        if fields is None:
             continue
-        temp_c = float(match.group("temp"))
+        process, temp_c, supply = fields
         if not any(abs(temp_c - t) < 1e-6 for t in STANDARD_TEMPS_C):
             continue  # drop the 25 C trim-reference plane -- not part of #14's grid
         if "iq_por_ua" not in measured or "iq_total_ua" not in measured:
@@ -88,9 +83,9 @@ def standard_grid_rows(points: dict[str, dict[str, float]]) -> list[dict]:
         rows.append(
             {
                 "corner_id": corner_id,
-                "process": match.group("process"),
+                "process": process,
                 "temp_c": temp_c,
-                "supply": match.group("supply"),
+                "supply": supply,
                 "por_iq_ua": measured["iq_por_ua"],
                 "iq_total_ua": measured["iq_total_ua"],
                 "temp_iq_ua": measured.get("temp_iq_ua"),

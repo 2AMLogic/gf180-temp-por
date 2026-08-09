@@ -73,6 +73,57 @@ class CornerTests(unittest.TestCase):
         self.assertIn("ss_-40c_2.97v", ids)
         self.assertIn("ff_125c_3.63v", ids)
 
+    def test_parse_corner_id_splits_the_ratified_naming(self):
+        self.assertEqual(corners.parse_corner_id("tt_27c_3.30v"), ("tt", 27.0, "3.30"))
+        self.assertEqual(corners.parse_corner_id("ss_-40c_2.97v"), ("ss", -40.0, "2.97"))
+        self.assertEqual(corners.parse_corner_id("bjt_ff_125c_3.63v"), ("bjt_ff", 125.0, "3.63"))
+        self.assertEqual(corners.parse_corner_id("tt_25.5c_3.30v"), ("tt", 25.5, "3.30"))
+
+    def test_parse_corner_id_returns_the_supply_verbatim(self):
+        """The supply stays a string: it is a grouping key and a table cell.
+
+        PvtPoint.corner_id always writes two decimals, so `"3.30"` is what a
+        real record carries -- but the parser hands back whatever the id
+        spelled rather than normalising it to a float.
+        """
+        self.assertEqual(corners.parse_corner_id("tt_27c_3.30v"), ("tt", 27.0, "3.30"))
+        self.assertEqual(corners.parse_corner_id("tt_27c_3.3v"), ("tt", 27.0, "3.3"))
+
+    def test_parse_corner_id_round_trips_every_point_of_the_default_grid(self):
+        """The parser is the exact inverse of PvtPoint.corner_id."""
+        grid = corners.build_grid(
+            corners.resolve_corners(None),
+            corners.DEFAULT_TEMPERATURES_C,
+            corners.supply_points(),
+        )
+        self.assertEqual(len(grid), 81)
+        for point in grid:
+            with self.subTest(corner_id=point.corner_id):
+                parsed = corners.parse_corner_id(point.corner_id)
+                self.assertIsNotNone(parsed)
+                process, temp_c, supply = parsed
+                self.assertEqual(process, point.corner.name)
+                self.assertAlmostEqual(temp_c, point.temp_c)
+                self.assertAlmostEqual(float(supply), point.vdd)
+
+    def test_parse_corner_id_returns_none_for_foreign_ids(self):
+        """Callers skip names in other shapes instead of catching an exception.
+
+        The Monte Carlo per-sample id (`<label>_<corner>_<temp>c_<vdd>v_s<n>`,
+        sim/temp-accuracy-mc/) is deliberately NOT a ratified corner id.
+        """
+        for foreign in (
+            "",
+            "tt_27c",
+            "tt_27_3.30v",
+            "tt_27c_3v",  # supply needs a decimal point
+            "TT_27c_3.30v",  # process corners are lower case
+            "mc_tt_27c_3.30v_s7",  # Monte Carlo per-sample id
+            "summary.json",
+        ):
+            with self.subTest(corner_id=foreign):
+                self.assertIsNone(corners.parse_corner_id(foreign))
+
 
 class TestbenchTests(unittest.TestCase):
     def setUp(self):

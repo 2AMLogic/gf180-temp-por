@@ -81,7 +81,6 @@ of data the source record already collected. That is why the grid carries
 from __future__ import annotations
 
 import argparse
-import re
 import sys
 from pathlib import Path
 
@@ -92,6 +91,7 @@ RECORDS_DIR = EXPERIMENT_DIR / "records"
 sys.path.insert(0, str(EXPERIMENT_DIR.parent))
 
 from harness.cliutil import add_author_arg, now_iso  # noqa: E402
+from harness.corners import parse_corner_id  # noqa: E402
 from harness.runner import load_points  # noqa: E402
 
 # design/temp_core.md "V(T) transfer and output range": the declared nominal
@@ -110,21 +110,17 @@ TARGET_TRIMMED_C = 1.5  # spec/target-spec.md#temp-accuracy-trimmed (stretch)
 TARGET_SUPPLY_C = 0.33  # spec/target-spec.md#temp-supply-sensitivity
 NOMINAL_SUPPLY_V = "3.30"
 
-_CORNER_ID_RE = re.compile(
-    r"^(?P<process>[a-z_]+)_(?P<temp>-?\d+(?:\.\d+)?)c_(?P<supply>\d+\.\d+)v$"
-)
-
-
 def parse_corner_ids(points: dict[str, dict[str, float]]) -> dict[str, tuple[str, float, str]]:
+    """Map each parseable corner id to its ``(process, temp_c, supply)``.
+
+    Ids that are not in the harness's ratified naming are dropped, so the
+    derivations below only ever group points they can place on the grid.
+    """
     parsed: dict[str, tuple[str, float, str]] = {}
     for corner_id in points:
-        match = _CORNER_ID_RE.match(corner_id)
-        if match:
-            parsed[corner_id] = (
-                match.group("process"),
-                float(match.group("temp")),
-                match.group("supply"),
-            )
+        fields = parse_corner_id(corner_id)
+        if fields is not None:
+            parsed[corner_id] = fields
     return parsed
 
 
