@@ -103,11 +103,8 @@ def compose_deck(pdk, gmin: str | None, options: list[str], deck_dir: Path) -> s
         "",
         f".param vdd_val={VDD_V!r}",
         "",
-        f'.include "{pdk.design_include}"',
     ]
-    lines += [f'.lib "{pdk.model_lib}" {section}' for section in corner.sections]
-    lines += ["", f".temp {TEMP_C!r}"]
-    lines += [f".options {option}" for option in options]
+    lines += runner.deck_preamble(pdk, corner, TEMP_C, options)
     if gmin is not None:
         lines.append(f".options gmin={gmin}")
     lines += [

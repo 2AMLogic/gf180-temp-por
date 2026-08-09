@@ -163,11 +163,8 @@ def deck_header(pdk, options: list[str]) -> list[str]:
         f".param vdd_val={VDD_V!r}",
         f".param temp_c={TEMP_C!r}",
         "",
-        f'.include "{pdk.design_include}"',
     ]
-    lines += [f'.lib "{pdk.model_lib}" {section}' for section in corner.sections]
-    lines += ["", f".temp {TEMP_C!r}"]
-    lines += [f".options {option}" for option in options]
+    lines += runner.deck_preamble(pdk, corner, TEMP_C, options)
     return lines
 
 
