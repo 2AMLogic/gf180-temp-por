@@ -742,6 +742,32 @@ def _terminal_x(tile: dict, terminal: str) -> float:
     raise ValueError(f"unknown terminal {terminal!r}")
 
 
+def _make_riser(b: CellBuilder, vdd_y1: float, vss_y0: float, track_y: dict):
+    """Build a ``riser(x_centre, net, y_low, y_high)`` closure for one cell frame.
+
+    One Metal1 riser from a device terminal to its rail or track, bound to
+    the calling cell's own supply-rail y-coordinates and Poly2 track map.
+    """
+
+    def riser(x_centre: float, net: str, y_low: float, y_high: float) -> None:
+        if net == "VDD":
+            y_high = vdd_y1
+        elif net == "VSS":
+            y_low = vss_y0
+        else:
+            y_high = track_y[net] + 0.2
+            b.contact(x_centre, track_y[net])
+        b.box(
+            METAL1,
+            x_centre - RISER_W_UM / 2.0,
+            y_low,
+            x_centre + RISER_W_UM / 2.0,
+            y_high,
+        )
+
+    return riser
+
+
 def _draw_tiles(b: CellBuilder, tiles: list[dict], riser) -> None:
     """Draw one single-finger MOS per tile, and riser out its three terminals.
 
@@ -1058,22 +1084,7 @@ def bias_core(b: CellBuilder) -> None:
         for index, net in enumerate(BIAS_CORE_PASSIVE_CROSSING)
     }
 
-    def riser(x_centre: float, net: str, y_low: float, y_high: float) -> None:
-        """One Metal1 riser from a device terminal to its rail or track."""
-        if net == "VDD":
-            y_high = vdd_y1
-        elif net == "VSS":
-            y_low = vss_y0
-        else:
-            y_high = track_y[net] + 0.2
-            b.contact(x_centre, track_y[net])
-        b.box(
-            METAL1,
-            x_centre - RISER_W_UM / 2.0,
-            y_low,
-            x_centre + RISER_W_UM / 2.0,
-            y_high,
-        )
+    riser = _make_riser(b, vdd_y1, vss_y0, track_y)
 
     # --- devices -----------------------------------------------------------
     _draw_tiles(b, tiles, riser)
@@ -1388,22 +1399,7 @@ def por_output_chain(b: CellBuilder) -> None:
     if mim_x1 + clear > gx1:
         raise ValueError("the drawn MiM block does not fit inside the guard ring")
 
-    def riser(x_centre: float, net: str, y_low: float, y_high: float) -> None:
-        """One Metal1 riser from a device terminal to its rail or track."""
-        if net == "VDD":
-            y_high = vdd_y1
-        elif net == "VSS":
-            y_low = vss_y0
-        else:
-            y_high = track_y[net] + 0.2
-            b.contact(x_centre, track_y[net])
-        b.box(
-            METAL1,
-            x_centre - RISER_W_UM / 2.0,
-            y_low,
-            x_centre + RISER_W_UM / 2.0,
-            y_high,
-        )
+    riser = _make_riser(b, vdd_y1, vss_y0, track_y)
 
     # --- devices -----------------------------------------------------------
     _draw_tiles(b, tiles, riser)
@@ -1872,22 +1868,7 @@ def por_comparator(b: CellBuilder) -> None:
     gy0 = min(vss_y0, DIVIDER_BASE_Y_UM) - clear
     gy1 = math.ceil((max(vdd_y1, div_y1) + clear) * 2.0) / 2.0
 
-    def riser(x_centre: float, net: str, y_low: float, y_high: float) -> None:
-        """One Metal1 riser from a device terminal to its rail or track."""
-        if net == "VDD":
-            y_high = vdd_y1
-        elif net == "VSS":
-            y_low = vss_y0
-        else:
-            y_high = track_y[net] + 0.2
-            b.contact(x_centre, track_y[net])
-        b.box(
-            METAL1,
-            x_centre - RISER_W_UM / 2.0,
-            y_low,
-            x_centre + RISER_W_UM / 2.0,
-            y_high,
-        )
+    riser = _make_riser(b, vdd_y1, vss_y0, track_y)
 
     # --- devices -----------------------------------------------------------
     for tile in tiles:
