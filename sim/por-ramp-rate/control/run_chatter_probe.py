@@ -187,22 +187,6 @@ def compose_deck(
     return "\n".join(lines)
 
 
-def parse_trace(text: str) -> list[tuple[float, ...]]:
-    rows: list[tuple[float, ...]] = []
-    for line in text.splitlines():
-        parts = line.split()
-        if len(parts) != 2 * len(PROBES):
-            continue
-        try:
-            vals = [float(x) for x in parts]
-        except ValueError:
-            continue
-        t = vals[0]
-        row = (t,) + tuple(vals[1 + 2 * i] for i in range(len(PROBES)))
-        rows.append(row)
-    return rows
-
-
 def find_crossings(rows: list[tuple[float, ...]], col: int, thresh: float) -> list[tuple[float, str]]:
     crossings: list[tuple[float, str]] = []
     prev = None
@@ -286,7 +270,7 @@ def main() -> int:
             trace_text = raw_trace.read_text()
             trace_path.write_text(trace_text)
             raw_trace.unlink()
-            rows = parse_trace(trace_text)
+            rows = runner.parse_wrdata_trace(trace_text, len(PROBES))
             if not rows:
                 print(f"{run_id}: could not parse any rows from trace.csv", file=sys.stderr)
                 return 2

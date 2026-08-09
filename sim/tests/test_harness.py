@@ -216,6 +216,57 @@ class ParseTests(unittest.TestCase):
         )
 
 
+class ParseWrdataTraceTests(unittest.TestCase):
+    def test_parses_a_well_formed_multi_probe_trace(self):
+        # wrdata emits "t v0 t v1 t v2 ..." -- one (t, value) pair per probe.
+        text = "\n".join(
+            [
+                "0.000000e+00 1.0 0.000000e+00 2.0 0.000000e+00 3.0",
+                "1.000000e-06 1.1 1.000000e-06 2.1 1.000000e-06 3.1",
+            ]
+        )
+        self.assertEqual(
+            runner.parse_wrdata_trace(text, 3),
+            [(0.0, 1.0, 2.0, 3.0), (1e-6, 1.1, 2.1, 3.1)],
+        )
+
+    def test_skips_a_line_with_the_wrong_field_count(self):
+        text = "\n".join(
+            [
+                "0.000000e+00 1.0 0.000000e+00 2.0",  # short: only 1 probe's worth
+                "1.000000e-06 1.1 1.000000e-06 2.1 1.000000e-06 3.1",
+            ]
+        )
+        self.assertEqual(runner.parse_wrdata_trace(text, 3), [(1e-6, 1.1, 2.1, 3.1)])
+
+    def test_skips_a_line_with_a_non_numeric_field(self):
+        text = "\n".join(
+            [
+                "0.000000e+00 not_a_number 0.000000e+00 2.0",
+                "1.000000e-06 1.1 1.000000e-06 2.1",
+            ]
+        )
+        self.assertEqual(runner.parse_wrdata_trace(text, 2), [(1e-6, 1.1, 2.1)])
+
+    def test_empty_trace_text_yields_no_rows(self):
+        self.assertEqual(runner.parse_wrdata_trace("", 3), [])
+
+    def test_n_probes_genuinely_generalizes_arity(self):
+        # A 2-probe caller (e.g. run_depth_sweep.py's 6-tuple PROBES) and a
+        # 3-probe caller (run_glitch_probe.py / run_chatter_probe.py) must
+        # both parse correctly from the same function, driven only by the
+        # n_probes argument -- not a hardcoded arity.
+        two_probe_line = "0.0 1.0 0.0 2.0"
+        three_probe_line = "0.0 1.0 0.0 2.0 0.0 3.0"
+        self.assertEqual(runner.parse_wrdata_trace(two_probe_line, 2), [(0.0, 1.0, 2.0)])
+        self.assertEqual(
+            runner.parse_wrdata_trace(three_probe_line, 3), [(0.0, 1.0, 2.0, 3.0)]
+        )
+        # Wrong arity for the given text is correctly rejected either way.
+        self.assertEqual(runner.parse_wrdata_trace(two_probe_line, 3), [])
+        self.assertEqual(runner.parse_wrdata_trace(three_probe_line, 2), [])
+
+
 class _StubPoint:
     def __init__(self, corner_id):
         self.corner_id = corner_id
