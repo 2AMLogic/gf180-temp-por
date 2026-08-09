@@ -62,7 +62,6 @@ from __future__ import annotations
 
 import json
 import os
-import subprocess
 import sys
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -303,25 +302,6 @@ def cell_deck(pdk, options, name, ibias_a) -> str:
     return "\n".join(lines)
 
 
-def run_deck(name: str, text: str) -> dict[str, float]:
-    deck_dir = CONTROL_DIR / "decks"
-    log_dir = CONTROL_DIR / "logs"
-    deck_dir.mkdir(exist_ok=True)
-    log_dir.mkdir(exist_ok=True)
-    deck_path = deck_dir / f"{name}.spice"
-    deck_path.write_text(text)
-    proc = subprocess.run(
-        ["ngspice", "-b", deck_path.name],
-        capture_output=True,
-        text=True,
-        cwd=deck_dir,
-        check=False,
-    )
-    output = proc.stdout + "\n" + proc.stderr
-    (log_dir / f"{name}.log").write_text(output)
-    return runner.parse_bare_measurements(output)
-
-
 def fmt(value, digits=4, unit="", missing="—"):
     if value is None:
         return missing
@@ -388,7 +368,7 @@ def main() -> int:
         results = dict(
             zip(
                 [name for name, _ in jobs],
-                pool.map(lambda job: run_deck(*job), jobs),
+                pool.map(lambda job: runner.run_deck(*job, CONTROL_DIR), jobs),
             )
         )
     for name in results:
