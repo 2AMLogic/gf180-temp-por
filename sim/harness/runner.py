@@ -162,6 +162,30 @@ def parse_measurements(text: str) -> dict[str, float]:
     return found
 
 
+def load_points(corners_dir: Path, record_id: str) -> dict[str, dict[str, float]]:
+    """corner-id -> measurements, for one record-id's raw per-point logs
+    under ``corners_dir``.
+
+    Shared home for the per-experiment ``load_points()`` copies that used
+    to be redefined in sim/temp-accuracy-vt/analyze_derived.py (reading
+    ``CORNERS_DIR``) and sim/por-iq/analyze_por_iq.py (reading
+    ``SOURCE_CORNERS_DIR``) -- identical apart from which corners
+    directory each experiment's raw logs live under, now a parameter.
+    """
+    log_dir = corners_dir / record_id
+    if not log_dir.is_dir():
+        raise FileNotFoundError(
+            f"no raw logs at {log_dir} -- run "
+            f"'python3 sim/run_corners.py temp-accuracy-vt' first"
+        )
+    points = {
+        p.stem: parse_measurements(p.read_text()) for p in sorted(log_dir.glob("*.log"))
+    }
+    if not points:
+        raise FileNotFoundError(f"no *.log files under {log_dir}")
+    return points
+
+
 def parse_prints(text: str) -> dict[str, float]:
     """Parse bare ``print <expr>`` output: ``<expr> = <value>``, one line per
     probe, as emitted by an ``.op`` control block (as opposed to
