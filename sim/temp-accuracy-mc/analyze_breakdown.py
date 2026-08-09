@@ -88,6 +88,7 @@ sys.path.insert(0, str(REPO_ROOT / "sim"))
 from harness.montecarlo import _TRIM_LSB_FRAC as TRIM_LSB_FRAC  # noqa: E402
 from harness.montecarlo import _TRIM_REFERENCE_K as TRIM_REFERENCE_K  # noqa: E402
 from harness.montecarlo import derive_temp_trim  # noqa: E402
+from harness.runner import parse_measurements  # noqa: E402
 
 #: design/temp_core.md "V(T) transfer and output range": the declared nominal
 #: transfer constant K0 = 4.308842 mV/K (tt, 25 C). Same constant the deck's
@@ -98,21 +99,8 @@ K0_V_PER_K = 4.308842e-3
 #: one term" column. spec/target-spec.md#temp-accuracy-untrimmed / -trimmed.
 BUDGET_UNTRIMMED_C = 3.0
 
-_MEAS_RE = re.compile(r"^\s*m_(\w+)\s*=\s*([-+0-9.eE]+)\s*$")
 _CORNER_ID_RE = re.compile(r"^(?P<label>.+)_(?P<corner>[a-z_0-9]+)_(?P<temp>-?[\d.]+)c_"
                            r"(?P<vdd>[\d.]+)v_s(?P<sample>\d+)$")
-
-
-def parse_log(path: Path) -> dict[str, float]:
-    values: dict[str, float] = {}
-    for line in path.read_text(errors="replace").splitlines():
-        match = _MEAS_RE.match(line)
-        if match:
-            try:
-                values[match.group(1)] = float(match.group(2))
-            except ValueError:
-                continue
-    return values
 
 
 def load_samples(record_id: str) -> dict[str, list[dict[str, float]]]:
@@ -125,7 +113,7 @@ def load_samples(record_id: str) -> dict[str, list[dict[str, float]]]:
         match = _CORNER_ID_RE.match(path.stem)
         if not match:
             continue
-        values = parse_log(path)
+        values = parse_measurements(path.read_text(errors="replace"))
         if not values:
             continue
         values.update(derive_temp_trim(values))
