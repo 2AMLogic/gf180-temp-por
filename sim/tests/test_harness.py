@@ -216,6 +216,82 @@ class ParseTests(unittest.TestCase):
         )
 
 
+class ParsePrintsTests(unittest.TestCase):
+    def test_parses_bare_print_output(self):
+        # `print <expr>` (as opposed to `print m_<name>`, which
+        # parse_measurements above covers): the raw expression is the key,
+        # with no `m_` prefix.
+        text = "\n".join(
+            [
+                "Circuit: * x",
+                "@m.xdut.xmoka.m0[id] = 4.728e-09",
+                "V(NOKO) = 1.643330117",
+                "not a match at all",
+                "V(bad) = not_a_number",
+            ]
+        )
+        self.assertEqual(
+            runner.parse_prints(text),
+            {"@m.xdut.xmoka.m0[id]": 4.728e-09, "V(NOKO)": 1.643330117},
+        )
+
+    def test_empty_text_yields_no_values(self):
+        self.assertEqual(runner.parse_prints(""), {})
+
+
+class ParseBareMeasurementsTests(unittest.TestCase):
+    def test_parses_find_when_output(self):
+        # `.measure ... find`/`when` output: "name = value", no `at=` suffix.
+        text = "\n".join(["t_vpor = 1.234500e-03", "vref_pre = 1.197791048"])
+        self.assertEqual(
+            runner.parse_bare_measurements(text),
+            {"t_vpor": 1.2345e-03, "vref_pre": 1.197791048},
+        )
+
+    def test_parses_min_max_output_with_trailing_at(self):
+        # `.measure ... min`/`max` output additionally appends "at= <time>",
+        # which must not prevent the value from parsing.
+        text = "praw_r_min = 4.500000e-01 at= 2.030000e-03"
+        self.assertEqual(runner.parse_bare_measurements(text), {"praw_r_min": 0.45})
+
+    def test_non_matching_and_non_numeric_lines_are_skipped(self):
+        text = "\n".join(
+            [
+                "Circuit: * x",
+                "rst_min = not_a_number",
+                "t_rst = 5.0e-04",
+            ]
+        )
+        self.assertEqual(runner.parse_bare_measurements(text), {"t_rst": 5.0e-04})
+
+    def test_empty_text_yields_no_values(self):
+        self.assertEqual(runner.parse_bare_measurements(""), {})
+
+
+class FindCrossingsTests(unittest.TestCase):
+    ROWS = [
+        (0.0, 0.0),
+        (1.0, 0.0),
+        (2.0, 2.0),  # rises through thresh=1 between t=1 and t=2
+        (3.0, 2.0),
+        (4.0, -1.0),  # falls through thresh=1 between t=3 and t=4
+    ]
+
+    def test_finds_rise_and_fall_with_no_t0(self):
+        # run_chatter_probe.py's call shape: no t0, scan every row.
+        self.assertEqual(
+            runner.find_crossings(self.ROWS, 1, 1.0),
+            [(2.0, "rise"), (4.0, "fall")],
+        )
+
+    def test_t0_skips_crossings_before_the_given_timestamp(self):
+        # run_glitch_probe.py's call shape: skip until t0.
+        self.assertEqual(
+            runner.find_crossings(self.ROWS, 1, 1.0, t0=2.5),
+            [(4.0, "fall")],
+        )
+
+
 class ParseWrdataTraceTests(unittest.TestCase):
     def test_parses_a_well_formed_multi_probe_trace(self):
         # wrdata emits "t v0 t v1 t v2 ..." -- one (t, value) pair per probe.

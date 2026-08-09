@@ -187,20 +187,6 @@ def compose_deck(
     return "\n".join(lines)
 
 
-def find_crossings(rows: list[tuple[float, ...]], col: int, thresh: float) -> list[tuple[float, str]]:
-    crossings: list[tuple[float, str]] = []
-    prev = None
-    for row in rows:
-        if prev is None:
-            prev = row
-            continue
-        a, b = prev[col], row[col]
-        if (a - thresh) * (b - thresh) < 0:
-            crossings.append((row[0], "rise" if b > a else "fall"))
-        prev = row
-    return crossings
-
-
 def value_at(rows: list[tuple[float, ...]], col: int, t: float) -> float:
     """Linear interpolation of column ``col`` at time ``t``."""
     prev = rows[0]
@@ -275,13 +261,14 @@ def main() -> int:
                 print(f"{run_id}: could not parse any rows from trace.csv", file=sys.stderr)
                 return 2
 
-            resetn_crossings = find_crossings(rows, col["RESETn"], RELEASE_THRESH)
+            resetn_crossings = runner.find_crossings(rows, col["RESETn"], RELEASE_THRESH)
             window = None
             if len(resetn_crossings) >= 2:
                 window = (resetn_crossings[-1][0] - resetn_crossings[0][0]) * 1e6  # us
 
             per_signal_counts = {
-                label: len(find_crossings(rows, col[label], RELEASE_THRESH)) for label in LOGIC_NODES
+                label: len(runner.find_crossings(rows, col[label], RELEASE_THRESH))
+                for label in LOGIC_NODES
             }
 
             # The shared-bias step: sample 20 us BEFORE the first release edge

@@ -62,7 +62,6 @@ from __future__ import annotations
 
 import json
 import os
-import re
 import subprocess
 import sys
 from concurrent.futures import ThreadPoolExecutor
@@ -147,10 +146,6 @@ DWELLS_MS = [0.05, 0.2, 0.5, 1.0, 2.0, 5.0]
 # rail spends below it -- which is longer than the programmed dwell by the
 # two edge transits.
 VPOR_FALL_MIN_V = 2.22
-
-# ngspice prints `name = value` for find/when and `name = value at= t` for
-# min/max; both forms have to parse or every min/max silently reads as absent.
-_MEAS_RE = re.compile(r"^\s*([a-z_0-9]+)\s*=\s*([-+0-9.eE]+)\s*(?:at=.*)?$")
 
 
 def load_manifest() -> dict:
@@ -324,15 +319,7 @@ def run_deck(name: str, text: str) -> dict[str, float]:
     )
     output = proc.stdout + "\n" + proc.stderr
     (log_dir / f"{name}.log").write_text(output)
-    found: dict[str, float] = {}
-    for line in output.splitlines():
-        match = _MEAS_RE.match(line)
-        if match:
-            try:
-                found[match.group(1)] = float(match.group(2))
-            except ValueError:
-                continue
-    return found
+    return runner.parse_bare_measurements(output)
 
 
 def fmt(value, digits=4, unit="", missing="—"):

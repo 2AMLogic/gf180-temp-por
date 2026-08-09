@@ -45,7 +45,6 @@ from __future__ import annotations
 
 import json
 import os
-import re
 import subprocess
 import sys
 import textwrap
@@ -96,8 +95,6 @@ VARIANTS: list[tuple[str, int | None, str, int, str]] = [
     ("on-seedB", 1, "after", SEED_B, f"**on**, seed {SEED_B}"),
     ("on-before-includes-seedA", 1, "before", SEED_A, f"on *before* the .include, seed {SEED_A}"),
 ]
-
-_PRINT_RE = re.compile(r"^\s*(\S+)\s*=\s*([-+]?[0-9.]+(?:[eE][-+]?[0-9]+)?)\s*$")
 
 # The paths this script itself regenerates -- see git_describe()'s use below.
 GENERATED = tuple(
@@ -158,18 +155,6 @@ def compose_deck(
     return "\n".join(lines)
 
 
-def parse_prints(text: str) -> dict[str, float]:
-    found: dict[str, float] = {}
-    for line in text.splitlines():
-        match = _PRINT_RE.match(line)
-        if match:
-            try:
-                found[match.group(1)] = float(match.group(2))
-            except ValueError:  # pragma: no cover - regex already constrains this
-                continue
-    return found
-
-
 def fmt(value: float) -> str:
     return f"{value:.10g} V"
 
@@ -209,7 +194,7 @@ def main() -> int:
         )
         output = proc.stdout + "\n" + proc.stderr
         log_path.write_text(output)
-        values = parse_prints(output)
+        values = runner.parse_prints(output)
         missing = [expr for expr, _, _ in PROBES if expr not in values]
         if missing:
             print(f"{name}: ngspice produced no value for {', '.join(missing)}", file=sys.stderr)

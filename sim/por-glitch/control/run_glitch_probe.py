@@ -112,24 +112,6 @@ def compose_deck(pdk, corner_name: str, temp_c: float, vdd: float, options: list
     return "\n".join(lines)
 
 
-def find_crossings(rows: list[tuple[float, ...]], col: int, thresh: float, t0: float) -> list[tuple[float, str]]:
-    """Every threshold crossing of ``rows[:, col]`` at or after ``t0``."""
-    crossings: list[tuple[float, str]] = []
-    prev = None
-    for row in rows:
-        if row[0] < t0:
-            prev = row
-            continue
-        if prev is None:
-            prev = row
-            continue
-        a, b = prev[col], row[col]
-        if (a - thresh) * (b - thresh) < 0:
-            crossings.append((row[0], "rise" if b > a else "fall"))
-        prev = row
-    return crossings
-
-
 GENERATED = tuple(
     str((CONTROL_DIR / name).relative_to(REPO_ROOT)) for name in ("results.md", "decks", "logs", "traces")
 )
@@ -185,7 +167,9 @@ def main() -> int:
             r[col["PGDG"]] for r in rows if 20.0000e-3 <= r[0] <= GLITCH_END_S + 5e-6
         )
         tim_just_after = next(r[col["TIM"]] for r in rows if r[0] >= GLITCH_END_S)
-        resetn_crossings = find_crossings(rows, col["RESETn"], HALF_RAIL_THRESH, GLITCH_END_S)
+        resetn_crossings = runner.find_crossings(
+            rows, col["RESETn"], HALF_RAIL_THRESH, GLITCH_END_S
+        )
         # first RESETn low->high crossing after the glitch = the regenerated pulse's release edge
         release_t = next((t for t, direction in resetn_crossings if direction == "rise"), None)
         pulse_width_ms = (release_t - GLITCH_END_S) * 1e3 if release_t is not None else None

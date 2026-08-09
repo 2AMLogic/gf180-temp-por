@@ -83,7 +83,6 @@ from __future__ import annotations
 
 import json
 import os
-import re
 import subprocess
 import sys
 from concurrent.futures import ThreadPoolExecutor
@@ -142,10 +141,6 @@ VPOR_FALL_MIN_V = 2.22
 # and the bound ../testbench/tb.json checks `resetn_ratio_min_in_dip`
 # against. Read here rather than restated: see load_bounds().
 RESETN_RATIO_KEY = "resetn_ratio_min_in_dip"
-
-# ngspice prints `name = value` for find/when and `name = value at= t` for
-# min/max; both forms have to parse or every min/max silently reads as absent.
-_MEAS_RE = re.compile(r"^\s*([a-z_0-9]+)\s*=\s*([-+0-9.eE]+)\s*(?:at=.*)?$")
 
 
 def load_manifest() -> dict:
@@ -257,18 +252,6 @@ def deck(pdk, options: list[str], vdd: float, slew_mvus: float,
     return "\n".join(lines)
 
 
-def parse_measurements(output: str) -> dict[str, float]:
-    found: dict[str, float] = {}
-    for line in output.splitlines():
-        match = _MEAS_RE.match(line)
-        if match:
-            try:
-                found[match.group(1)] = float(match.group(2))
-            except ValueError:
-                continue
-    return found
-
-
 def run_deck(name: str, text: str) -> dict[str, float]:
     deck_dir = CONTROL_DIR / "decks"
     log_dir = CONTROL_DIR / "logs"
@@ -285,7 +268,7 @@ def run_deck(name: str, text: str) -> dict[str, float]:
     )
     output = proc.stdout + "\n" + proc.stderr
     (log_dir / f"{name}.log").write_text(output)
-    return parse_measurements(output)
+    return runner.parse_bare_measurements(output)
 
 
 def read_logs() -> dict[str, dict[str, float]]:
@@ -298,7 +281,7 @@ def read_logs() -> dict[str, dict[str, float]]:
     """
     log_dir = CONTROL_DIR / "logs"
     return {
-        path.stem: parse_measurements(path.read_text())
+        path.stem: runner.parse_bare_measurements(path.read_text())
         for path in sorted(log_dir.glob("*.log"))
     }
 
