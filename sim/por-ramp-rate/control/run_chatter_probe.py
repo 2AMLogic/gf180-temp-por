@@ -118,19 +118,7 @@ def arm_netlist(drop_keeper: bool, temp_core_en: str | None) -> str:
     """The committed top netlist with this arm's one-line edit applied."""
     text = DUT_NETLIST.read_text()
     if drop_keeper:
-        lines = text.splitlines(keepends=True)
-        idx = [i for i, ln in enumerate(lines) if ln.startswith(KEEPER_HEAD)]
-        if len(idx) != 1:
-            raise SystemExit(
-                f"expected exactly one '{KEEPER_HEAD}...' line in {DUT_NETLIST}, found {len(idx)}"
-            )
-        i = idx[0]
-        # the device spans its own line plus the '+' continuation beneath it
-        end = i + 1
-        while end < len(lines) and lines[end].startswith("+"):
-            end += 1
-        del lines[i:end]
-        text = "".join(lines)
+        text = runner.remove_netlist_device(text, KEEPER_HEAD, DUT_NETLIST)
     if temp_core_en is not None:
         if TEMP_CORE_INST not in text:
             raise SystemExit(f"expected '{TEMP_CORE_INST}' in {DUT_NETLIST}")
