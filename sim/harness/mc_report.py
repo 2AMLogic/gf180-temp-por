@@ -32,10 +32,8 @@ deterministic PVT grid.
 
 from __future__ import annotations
 
-import datetime as _dt
 from pathlib import Path
 
-from . import HARNESS_VERSION
 from .cliutil import fmt as _fmt
 from .montecarlo import BindingPoint, McPoint
 from .pdk import Pdk
@@ -72,7 +70,6 @@ def build_mc_record(
     git: dict | None = None,
 ) -> dict:
     n_ok = sum(1 for r in results if r.status == "ok")
-    measure_names = list(tb.measure) + list(derived_measures)
 
     # A binding point "fails" if the parametric [3sigma] bound of ANY of its
     # measurements with a spec limit crosses that limit. The record's overall

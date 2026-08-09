@@ -1402,7 +1402,7 @@ class GdsHashConsistencyTest(unittest.TestCase):
     def test_stale_drc_json_is_a_failure(self):
         # Reproduces the #102 scenario: a committed report whose recorded
         # digest disagrees with the actual committed GDS.
-        digest = self._gds("por_comparator")
+        self._gds("por_comparator")
         self._write(
             "por_comparator", "drc.json", {"provenance": {"gds_sha256": "stale" * 12}}
         )

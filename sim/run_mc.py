@@ -82,7 +82,7 @@ def cmd_list() -> int:
     for directory in tb_mod.discover(SIM_DIR):
         try:
             tb = tb_mod.load(directory)
-        except Exception as exc:  # noqa: BLE001
+        except Exception:  # noqa: BLE001
             continue
         if not tb.mc:
             continue
