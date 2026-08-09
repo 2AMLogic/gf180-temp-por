@@ -10,7 +10,9 @@ measurement-parsing helpers already consolidated into
 
 from __future__ import annotations
 
+import argparse
 import json
+from datetime import datetime, timezone
 from pathlib import Path
 
 from .testbench import MANIFEST_NAME, TESTBENCH_DIRNAME, discover
@@ -19,6 +21,20 @@ from .testbench import MANIFEST_NAME, TESTBENCH_DIRNAME, discover
 def load_manifest(path: Path) -> dict:
     """Load and parse a testbench manifest (``tb.json``) from ``path``."""
     return json.loads(path.read_text())
+
+
+def now_iso() -> str:
+    """UTC timestamp, second precision, for record ``when`` fields."""
+    return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
+
+
+def add_author_arg(
+    parser: argparse.ArgumentParser, default: str = "agent-builder"
+) -> None:
+    """Add the ``--author`` option shared by the record-derivation CLIs."""
+    parser.add_argument(
+        "--author", default=default, help="author for the record header"
+    )
 
 
 def fmt(value) -> str:

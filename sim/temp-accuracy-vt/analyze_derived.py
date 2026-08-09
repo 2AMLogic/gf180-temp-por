@@ -91,6 +91,7 @@ RECORDS_DIR = EXPERIMENT_DIR / "records"
 
 sys.path.insert(0, str(EXPERIMENT_DIR.parent))
 
+from harness.cliutil import add_author_arg, now_iso  # noqa: E402
 from harness.runner import load_points  # noqa: E402
 
 # design/temp_core.md "V(T) transfer and output range": the declared nominal
@@ -452,7 +453,7 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="write records/<record-id>-derived.md (default: print to stdout)",
     )
-    parser.add_argument("--author", default="agent-builder", help="author for the record header")
+    add_author_arg(parser)
     args = parser.parse_args(argv)
 
     points = load_points(CORNERS_DIR, args.record_id)
@@ -465,9 +466,7 @@ def main(argv: list[str] | None = None) -> int:
     vt = derive_vt(points, parsed)
     supply = derive_supply_window(points, parsed)
 
-    import datetime as _dt
-
-    when = _dt.datetime.now(_dt.timezone.utc).replace(microsecond=0).isoformat()
+    when = now_iso()
     text = render(args.record_id, trimmed, vt, supply, when, args.author)
 
     if args.write:

@@ -67,7 +67,6 @@ Stdlib only, no virtualenv required.
 from __future__ import annotations
 
 import argparse
-import datetime as _dt
 import math
 import re
 import statistics
@@ -85,6 +84,7 @@ sys.path.insert(0, str(REPO_ROOT / "sim"))
 # prints, so the raw logs do not carry it. Re-apply the *same* hook the source
 # record used rather than reimplementing the trim model here -- two copies of
 # that formula is exactly how the two records would drift apart.
+from harness.cliutil import add_author_arg, now_iso  # noqa: E402
 from harness.montecarlo import _TRIM_LSB_FRAC as TRIM_LSB_FRAC  # noqa: E402
 from harness.montecarlo import _TRIM_REFERENCE_K as TRIM_REFERENCE_K  # noqa: E402
 from harness.montecarlo import derive_temp_trim  # noqa: E402
@@ -465,7 +465,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("record_id", help="the temp-accuracy-mc <record-id> to derive from")
     parser.add_argument("--write", action="store_true",
                         help="write records/<record-id>-breakdown.md (default: stdout)")
-    parser.add_argument("--author", default="agent-builder", help="author for the record header")
+    add_author_arg(parser)
     args = parser.parse_args(argv)
 
     try:
@@ -491,7 +491,7 @@ def main(argv: list[str] | None = None) -> int:
         sorted(points.items(), key=lambda kv: (kv[1]["temp_c"], kv[1]["vdd"]))
     )
 
-    when = _dt.datetime.now(_dt.timezone.utc).replace(microsecond=0).isoformat()
+    when = now_iso()
     text = render(args.record_id, points, when, args.author)
 
     if args.write:
