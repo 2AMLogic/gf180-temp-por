@@ -31,6 +31,7 @@ accuracy. See ``spec/decision-records/DR-006-sim-harness-port.md``.
 from __future__ import annotations
 
 import itertools
+import re
 from dataclasses import dataclass, field
 
 # Default PVT axes. CLAUDE.md mandates these on every recorded result.
@@ -185,6 +186,40 @@ class PvtPoint:
             "vdd": self.vdd,
             "corner_id": self.corner_id,
         }
+
+
+#: The inverse of :attr:`PvtPoint.corner_id`. The harness owns the forward
+#: direction of the ratified ``<process>_<temp>c_<supply>v`` naming, so it
+#: owns taking it back apart too -- analysis scripts should not each
+#: hand-roll their own reverse-parser for the same format.
+_CORNER_ID_RE = re.compile(
+    r"^(?P<process>[a-z_]+)_(?P<temp>-?\d+(?:\.\d+)?)c_(?P<supply>\d+\.\d+)v$"
+)
+
+
+def parse_corner_id(corner_id: str) -> tuple[str, float, str] | None:
+    """Split a ratified corner id back into ``(process, temp_c, supply)``.
+
+    The inverse of :attr:`PvtPoint.corner_id`: analysis scripts that read a
+    record's ``corners/<record-id>/<corner-id>.log`` names back off disk
+    recover the PVT coordinates of each point from the id alone.
+
+    Returns ``None`` -- rather than raising -- for anything that is not a
+    corner id in the ratified naming, so callers can skip foreign or
+    differently-shaped names with a plain ``if``.
+
+    The supply comes back as the *string* it was written as (``"3.30"``, not
+    ``3.3``): it is used as a grouping key and printed into published
+    tables, and the two-decimal form is what the id itself carries.
+    """
+    match = _CORNER_ID_RE.match(corner_id)
+    if match is None:
+        return None
+    return (
+        match.group("process"),
+        float(match.group("temp")),
+        match.group("supply"),
+    )
 
 
 def build_grid(
