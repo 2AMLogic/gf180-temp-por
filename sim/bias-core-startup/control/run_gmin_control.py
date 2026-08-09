@@ -35,7 +35,6 @@ from __future__ import annotations
 
 import json
 import os
-import re
 import subprocess
 import sys
 import textwrap
@@ -77,8 +76,6 @@ VARIANTS: list[tuple[str, str | None, str]] = [
     ("gmin-default", None, "ngspice default (`gmin = 1e-12`)"),
     ("gmin-1e-9", "1e-9", "the superseded deck (`gmin = 1e-9`)"),
 ]
-
-_PRINT_RE = re.compile(r"^\s*(\S+)\s*=\s*([-+]?[0-9.]+(?:[eE][-+]?[0-9]+)?)\s*$")
 
 # The paths this script itself regenerates -- see git_describe()'s use below.
 GENERATED = tuple(
@@ -128,18 +125,6 @@ def compose_deck(pdk, gmin: str | None, options: list[str], deck_dir: Path) -> s
     return "\n".join(lines)
 
 
-def parse_prints(text: str) -> dict[str, float]:
-    found: dict[str, float] = {}
-    for line in text.splitlines():
-        match = _PRINT_RE.match(line)
-        if match:
-            try:
-                found[match.group(1)] = float(match.group(2))
-            except ValueError:  # pragma: no cover - regex already constrains this
-                continue
-    return found
-
-
 def fmt(expr: str, value: float) -> str:
     """Volts to 4 significant decimals, currents in nA to 3 decimals."""
     if expr.startswith("@"):
@@ -177,7 +162,7 @@ def main() -> int:
         )
         output = proc.stdout + "\n" + proc.stderr
         log_path.write_text(output)
-        values = parse_prints(output)
+        values = runner.parse_prints(output)
         missing = [expr for expr, _, _ in PROBES if expr not in values]
         if missing:
             print(f"{name}: ngspice produced no value for {', '.join(missing)}", file=sys.stderr)

@@ -22,6 +22,24 @@ DEFAULT_TIMEOUT_S = 300
 _MEAS_RE = re.compile(r"^\s*m_(\w+)\s*=\s*([-+]?[0-9.]+(?:[eE][-+]?[0-9]+)?)\s*$")
 _ERROR_RE = re.compile(r"^\s*(?:Error|ERROR|Fatal|fatal error|doAnalyses:)", re.MULTILINE)
 
+# `print <expr>` output for a bare (non `m_`-prefixed) probe, e.g. an `.op`
+# node voltage or current: "@m.xdut.xmoka.m0[id] = 6.9043645202e-01". Shared
+# home for the per-experiment `parse_prints()` copies that used to be
+# redefined in sim/bias-core-startup/control/run_gmin_control.py and
+# sim/temp-accuracy-mc/control/run_mismatch_switch.py.
+_PRINT_RE = re.compile(r"^\s*(\S+)\s*=\s*([-+]?[0-9.]+(?:[eE][-+]?[0-9]+)?)\s*$")
+
+# ngspice `.measure` output for the bare-name-with-optional-`at=` convention:
+# `name = value` for find/when, `name = value at= t` for min/max. A
+# *different* naming convention than `_MEAS_RE` above (which requires the
+# `m_` prefix `let`-aliased in compose_deck()) -- this one matches `.measure`
+# statements written directly against `name`, as used by control scripts
+# that don't route through `compose_deck()`. Shared home for the per-
+# experiment `_MEAS_RE` + measurement-parsing loop copies that used to be
+# redefined in sim/por-brownout/control/run_dip_rootcause.py and
+# sim/por-brownout-slew/control/run_band_mechanism.py.
+_BARE_MEAS_RE = re.compile(r"^\s*([a-z_0-9]+)\s*=\s*([-+0-9.eE]+)\s*(?:at=.*)?$")
+
 
 class NgspiceMissing(RuntimeError):
     pass
@@ -132,6 +150,79 @@ def parse_measurements(text: str) -> dict[str, float]:
             except ValueError:  # pragma: no cover - regex already constrains this
                 continue
     return found
+
+
+def parse_prints(text: str) -> dict[str, float]:
+    """Parse bare ``print <expr>`` output: ``<expr> = <value>``, one line per
+    probe, as emitted by an ``.op`` control block (as opposed to
+    ``parse_measurements`` above, which requires the ``m_`` prefix
+    ``compose_deck()`` writes).
+
+    Shared home for the per-experiment ``parse_prints()`` copies that used to
+    be redefined in sim/bias-core-startup/control/run_gmin_control.py and
+    sim/temp-accuracy-mc/control/run_mismatch_switch.py.
+    """
+    found: dict[str, float] = {}
+    for line in text.splitlines():
+        match = _PRINT_RE.match(line)
+        if match:
+            try:
+                found[match.group(1)] = float(match.group(2))
+            except ValueError:  # pragma: no cover - regex already constrains this
+                continue
+    return found
+
+
+def parse_bare_measurements(text: str) -> dict[str, float]:
+    """Parse ngspice ``.measure`` output under the bare-name convention
+    (``_BARE_MEAS_RE`` above) -- as opposed to ``parse_measurements``, which
+    requires the ``m_`` prefix.
+
+    Shared home for the per-experiment ``_MEAS_RE``/``parse_measurements()``
+    copies that used to be redefined in
+    sim/por-brownout/control/run_dip_rootcause.py (inlined in ``run_deck()``)
+    and sim/por-brownout-slew/control/run_band_mechanism.py.
+    """
+    found: dict[str, float] = {}
+    for line in text.splitlines():
+        match = _BARE_MEAS_RE.match(line)
+        if match:
+            try:
+                found[match.group(1)] = float(match.group(2))
+            except ValueError:
+                continue
+    return found
+
+
+def find_crossings(
+    rows: list[tuple[float, ...]],
+    col: int,
+    thresh: float,
+    t0: float | None = None,
+) -> list[tuple[float, str]]:
+    """Every threshold crossing of ``rows[:, col]``, optionally restricted to
+    rows at or after ``t0``.
+
+    Shared home for the per-experiment ``find_crossings()`` copies that used
+    to be redefined in sim/por-glitch/control/run_glitch_probe.py (which
+    passed a ``t0`` skip-until-timestamp) and
+    sim/por-ramp-rate/control/run_chatter_probe.py (which scanned every row).
+    ``t0=None`` (the default) reproduces the latter's no-skip behavior.
+    """
+    crossings: list[tuple[float, str]] = []
+    prev = None
+    for row in rows:
+        if t0 is not None and row[0] < t0:
+            prev = row
+            continue
+        if prev is None:
+            prev = row
+            continue
+        a, b = prev[col], row[col]
+        if (a - thresh) * (b - thresh) < 0:
+            crossings.append((row[0], "rise" if b > a else "fall"))
+        prev = row
+    return crossings
 
 
 def parse_wrdata_trace(text: str, n_probes: int) -> list[tuple[float, ...]]:
