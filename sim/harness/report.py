@@ -28,6 +28,7 @@ import sys
 from pathlib import Path
 
 from . import HARNESS_VERSION
+from .cliutil import fmt as _fmt
 from .corners import (
     DEFAULT_SUPPLY_TOLERANCE,
     DEFAULT_TEMPERATURES_C,
@@ -325,17 +326,6 @@ def build_record(
         "summary": summary,
         "points": [r.as_dict() for r in results],
     }
-
-
-def _fmt(value) -> str:
-    """Human-readable scalar for the Markdown record."""
-    if value is None:
-        return "n/a"
-    if isinstance(value, float):
-        if value != 0 and (abs(value) < 1e-3 or abs(value) >= 1e5):
-            return f"{value:.6e}"
-        return f"{value:.6g}"
-    return str(value)
 
 
 class RecordExists(RuntimeError):
