@@ -5,7 +5,9 @@ copy-pasted across ``sim/run_mc.py``, ``sim/harness/cli.py``,
 ``sim/harness/report.py`` and ``sim/harness/mc_report.py`` (issue #135) --
 this is their one shared home, alongside the sha256/git_describe/
 measurement-parsing helpers already consolidated into
-``sim/harness/runner.py`` (#130).
+``sim/harness/runner.py`` (#130). The exit-code constants and the
+record-provisioning / status-to-exit-code helpers below closed the same gap
+for ``sim/run_mc.py`` vs. ``sim/harness/cli.py`` (#168).
 """
 
 from __future__ import annotations
@@ -16,6 +18,13 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from .testbench import MANIFEST_NAME, TESTBENCH_DIRNAME, discover
+
+# Exit codes shared by the record-derivation CLIs (sim/run_corners.py via
+# sim/harness/cli.py, and sim/run_mc.py).
+EXIT_OK = 0
+EXIT_CHECK_FAILED = 1
+EXIT_SIM_ERROR = 2
+EXIT_ENVIRONMENT = 3
 
 
 def load_manifest(path: Path) -> dict:
@@ -81,3 +90,39 @@ def resolve_tb_path(argument: str, sim_dir: Path) -> Path:
         + ".\nAvailable: "
         + ", ".join(p.name for p in discover(sim_dir))
     )
+
+
+def provision_record(
+    repo_root: Path,
+    work_dir: Path,
+    records_dir: Path,
+    experiment_dir: Path,
+    experiment_name: str,
+    no_write: bool,
+) -> tuple[str, Path, Path | None, dict, datetime]:
+    """Allocate a record id and derive its workdir/log_dir, as both
+    ``sim/run_corners.py`` (via ``sim/harness/cli.py``) and ``sim/run_mc.py``
+    do at the top of their ``run()``.
+
+    Returns ``(record_id, workdir, log_dir, git, started)``. ``log_dir`` is
+    ``None`` when ``no_write`` is set (debugging runs write no evidence).
+    """
+    # Local import: sim/harness/report.py imports this module (for `fmt()`),
+    # so importing it at module scope here would be circular.
+    from . import report as report_mod
+
+    started = datetime.now(timezone.utc)
+    git = report_mod.git_provenance(repo_root)
+    record_id = report_mod.allocate_record_id(repo_root, records_dir, started, git=git)
+    workdir = work_dir / experiment_name / record_id
+    log_dir = None if no_write else experiment_dir / report_mod.CORNERS_DIR / record_id
+    return record_id, workdir, log_dir, git, started
+
+
+def exit_code_for_status(status: str) -> int:
+    """Translate a record's ``status`` field into the CLI's exit code."""
+    if status == "error":
+        return EXIT_SIM_ERROR
+    if status == "fail":
+        return EXIT_CHECK_FAILED
+    return EXIT_OK

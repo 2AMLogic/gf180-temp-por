@@ -40,10 +40,10 @@ from harness.montecarlo import ManifestError  # noqa: E402
 from harness.pdk import PdkNotFound, find_pdk  # noqa: E402
 from harness.runner import NgspiceMissing, ngspice_version  # noqa: E402
 
-EXIT_OK = 0
-EXIT_CHECK_FAILED = 1
-EXIT_SIM_ERROR = 2
-EXIT_ENVIRONMENT = 3
+EXIT_OK = cliutil.EXIT_OK
+EXIT_CHECK_FAILED = cliutil.EXIT_CHECK_FAILED
+EXIT_SIM_ERROR = cliutil.EXIT_SIM_ERROR
+EXIT_ENVIRONMENT = cliutil.EXIT_ENVIRONMENT
 
 _fmt = cliutil.fmt
 
@@ -130,11 +130,9 @@ def run(args: argparse.Namespace) -> int:
     records_dir = experiment_dir / report.RECORDS_DIR
 
     jobs = args.jobs or min(8, (os.cpu_count() or 2))
-    started = _dt.datetime.now(_dt.timezone.utc)
-    git = report.git_provenance(REPO_ROOT)
-    record_id = report.allocate_record_id(REPO_ROOT, records_dir, started, git=git)
-    workdir = WORK_DIR / tb.experiment / record_id
-    log_dir = None if args.no_write else experiment_dir / report.CORNERS_DIR / record_id
+    record_id, workdir, log_dir, git, started = cliutil.provision_record(
+        REPO_ROOT, WORK_DIR, records_dir, experiment_dir, tb.experiment, args.no_write,
+    )
 
     if not args.quiet:
         print(f"experiment: {tb.experiment}" + (f"  ({tb.description})" if tb.description else ""))
@@ -217,11 +215,7 @@ def run(args: argparse.Namespace) -> int:
     print(f"work dir  : {workdir}")
     print(f"status    : {record['status'].upper()}")
 
-    if record["status"] == "error":
-        return EXIT_SIM_ERROR
-    if record["status"] == "fail":
-        return EXIT_CHECK_FAILED
-    return EXIT_OK
+    return cliutil.exit_code_for_status(record["status"])
 
 
 def main(argv: list[str] | None = None) -> int:

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import argparse
-import datetime as _dt
 import os
 import sys
 import time
@@ -17,10 +16,10 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 SIM_DIR = REPO_ROOT / "sim"
 WORK_DIR = SIM_DIR / ".work"
 
-EXIT_OK = 0
-EXIT_CHECK_FAILED = 1
-EXIT_SIM_ERROR = 2
-EXIT_ENVIRONMENT = 3
+EXIT_OK = cliutil.EXIT_OK
+EXIT_CHECK_FAILED = cliutil.EXIT_CHECK_FAILED
+EXIT_SIM_ERROR = cliutil.EXIT_SIM_ERROR
+EXIT_ENVIRONMENT = cliutil.EXIT_ENVIRONMENT
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -226,14 +225,13 @@ def run(args: argparse.Namespace) -> int:
     records_dir = experiment_dir / report.RECORDS_DIR
 
     jobs = args.jobs or min(8, (os.cpu_count() or 2))
-    started = _dt.datetime.now(_dt.timezone.utc)
     # Sample git state *before* the run: the harness writes its own per-corner
     # logs into the tracked evidence tree, so sampling afterwards would mark
-    # every record as taken against a dirty tree.
-    git = report.git_provenance(REPO_ROOT)
-    record_id = report.allocate_record_id(REPO_ROOT, records_dir, started, git=git)
-    workdir = WORK_DIR / tb.experiment / record_id
-    log_dir = None if args.no_write else experiment_dir / report.CORNERS_DIR / record_id
+    # every record as taken against a dirty tree. (cliutil.provision_record
+    # samples git first internally, preserving that ordering.)
+    record_id, workdir, log_dir, git, started = cliutil.provision_record(
+        REPO_ROOT, WORK_DIR, records_dir, experiment_dir, tb.experiment, args.no_write,
+    )
 
     if not args.quiet:
         print(f"experiment: {tb.experiment}"
@@ -332,11 +330,7 @@ def run(args: argparse.Namespace) -> int:
     print(f"work dir  : {workdir}")
     print(f"status    : {record['status'].upper()}")
 
-    if record["status"] == "error":
-        return EXIT_SIM_ERROR
-    if record["status"] == "fail":
-        return EXIT_CHECK_FAILED
-    return EXIT_OK
+    return cliutil.exit_code_for_status(record["status"])
 
 
 def main(argv: list[str] | None = None) -> int:
