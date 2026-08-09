@@ -148,11 +148,8 @@ def compose_deck(
         f".param t_rise={t_rise!r}",
         f".param stop_s={STOP_S!r}",
         "",
-        f'.include "{pdk.design_include}"',
     ]
-    lines += [f'.lib "{pdk.model_lib}" {section}' for section in corner.sections]
-    lines += ["", f".temp {temp_c!r}"]
-    lines += [f".options {option}" for option in options]
+    lines += runner.deck_preamble(pdk, corner, temp_c, options)
     lines += [
         "",
         f'.include "{os.path.relpath(FRAGMENT, deck_dir)}"',
