@@ -142,6 +142,23 @@ marker_comment() {
     printf '{"created_at":"%s","body":"Looks good.\\n\\n<!-- loom:fallback-evaluated sha=%s -->"}' "$1" "$2"
 }
 
+# A fallback-mode evaluation comment that OMITS the exact HTML marker — the
+# shape ~42 of PR #118's 44 fallback comments actually took (#144). The lede
+# is what the guard's heuristic detector keys on.
+unmarked_fallback_comment() {
+    # unmarked_fallback_comment <created_at> [lede]
+    local lede="${2:-Evaluated in fallback mode (no loom: labels on this PR, so leaving labels untouched).}"
+    printf '{"created_at":"%s","body":"%s\\n\\n**Scope check:** the diff matches the PR description exactly."}' "$1" "$lede"
+}
+
+# An ordinary PR comment with no fallback-mode framing at all — must NOT be
+# counted (guards against the heuristic over-counting into false SKIPs).
+plain_comment() {
+    # plain_comment <created_at> [body]
+    local body="${2:-Thanks for the review, pushed a fixup addressing the naming nit.}"
+    printf '{"created_at":"%s","body":"%s"}' "$1" "$body"
+}
+
 reset_state() {
     rm -f "$STUB_DIR"/pr-*.json "$STUB_DIR"/comments-*.json
     rm -f "$STUB_DIR"/pr-view-fail-* "$STUB_DIR"/comments-fail-*
@@ -369,6 +386,135 @@ run_guard 111 --cap 20
 assert_eq "0" "$RC" "(j2) stderr on BOTH calls, cap not reached -> exit 0"
 assert_eq "EVALUATE" "$(get_field "$OUT" DECISION)" "(j2) DECISION=EVALUATE with stderr on both calls"
 assert_eq "1" "$(get_field "$OUT" MARKER_COUNT)" "(j2) MARKER_COUNT=1 counted correctly despite dual stderr"
+
+# --- #144: marker-less fallback comments must still count ------------------
+#
+# Regression corpus modeled on gf180-temp-por PR #118: 44 fallback-mode Judge
+# comments accumulated over ~2 days, but only a couple of them ended with the
+# exact `<!-- loom:fallback-evaluated sha=... -->` marker (appending it was
+# pure prompt compliance). The pre-#144 guard counted ONLY the marked ones, so
+# it reported MARKER_COUNT=1, the default cap of 20 never fired, and the PR
+# stayed in the fallback queue indefinitely.
+#
+# (k) fails against the pre-#144 script by construction: with only the strict
+# detector it sees exactly ONE marker (whose SHA differs from the head SHA,
+# so no dedup either) -> EVALUATE / exit 0 / MARKER_COUNT=1. With the
+# heuristic detector it sees 25 -> lifetime cap / exit 11.
+reset_state
+cat > "$STUB_DIR/pr-112.json" <<'EOF'
+{"author":{"is_bot":false},"headRefOid":"c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c"}
+EOF
+{
+  echo "["
+  marker_comment "$(hours_ago 48)" "0000aaaa0000aaaa0000aaaa0000aaaa0000aaa"
+  # 24 marker-less fallback-mode comments, wording drifting the way real ones
+  # do — the guard must count them all.
+  LEDES=(
+    "Evaluated in fallback mode (no loom: labels on this PR, so leaving labels untouched)."
+    "Reviewed in fallback mode (no loom:review-requested label on this PR)."
+    "**Fallback-mode evaluation** (no loom:review-requested label on this PR)."
+    "Evaluated as an unlabeled PR per the fallback queue process."
+    "Fallback-mode review (no loom: labels present, so leaving labels untouched)."
+    "## Evaluation (fallback mode - unlabeled PR, no loom:* labels touched)"
+  )
+  for i in $(seq 1 24); do
+    echo ","
+    unmarked_fallback_comment "$(hours_ago $(( 47 - i )))" "${LEDES[$(( i % 6 ))]}"
+  done
+  echo "]"
+} > "$STUB_DIR/comments-112.json"
+run_guard 112
+assert_eq "11" "$RC" "(k) marker-less fallback comments count toward the lifetime cap -> exit 11"
+assert_eq "SKIP" "$(get_field "$OUT" DECISION)" "(k) DECISION=SKIP"
+assert_eq "25" "$(get_field "$OUT" MARKER_COUNT)" "(k) MARKER_COUNT=25 (1 marked + 24 marker-less)"
+assert_eq "1" "$(get_field "$OUT" MARKER_COUNT_STRICT)" "(k) MARKER_COUNT_STRICT=1 exposes how few carried the marker"
+
+# (k2) No false positives: ordinary PR discussion, plus a comment that only
+#      mentions "fallback mode" deep in its body (outside the lede window),
+#      must NOT be counted. Over-counting here would SKIP a PR that has never
+#      been evaluated at all.
+reset_state
+cat > "$STUB_DIR/pr-113.json" <<'EOF'
+{"author":{"is_bot":false},"headRefOid":"c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c"}
+EOF
+PAD="This comment is a long design discussion about the guard script and its counting behavior, deliberately padded well past the lede window so that the phrase it eventually uses cannot be picked up by the anchored heuristic detector; it is here to prove the anchoring actually anchors and does not simply scan the whole body for a substring. "
+{
+  echo "["
+  plain_comment "$(hours_ago 10)"
+  echo ","
+  plain_comment "$(hours_ago 9)" "CI is green now - rebased onto main and re-ran the PVT smoke."
+  echo ","
+  plain_comment "$(hours_ago 8)" "${PAD}Anyway, the counter should not treat fallback mode mentions here as evaluations."
+  echo "]"
+} > "$STUB_DIR/comments-113.json"
+run_guard 113 --cap 2
+assert_eq "0" "$RC" "(k2) non-evaluation comments are not counted -> exit 0"
+assert_eq "EVALUATE" "$(get_field "$OUT" DECISION)" "(k2) DECISION=EVALUATE"
+assert_eq "0" "$(get_field "$OUT" MARKER_COUNT)" "(k2) MARKER_COUNT=0 (no false positives from prose or deep mentions)"
+
+# (k3) SHA dedup still keys off the STRICT marker only. Marker-less fallback
+#      comments carry no SHA, so they must inflate the count without breaking
+#      the #5058 dedup: here the newest STRICT marker matches the head SHA and
+#      three marker-less comments follow it, so the decision must still be the
+#      dedup skip (exit 12), not the cap and not EVALUATE.
+reset_state
+HEAD_SHA_K3="c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c"
+cat > "$STUB_DIR/pr-114.json" <<EOF
+{"author":{"is_bot":false},"headRefOid":"$HEAD_SHA_K3"}
+EOF
+{
+  echo "["
+  marker_comment "$(hours_ago 20)" "0000bbbb0000bbbb0000bbbb0000bbbb0000bbb"
+  echo ","
+  marker_comment "$(hours_ago 15)" "$HEAD_SHA_K3"
+  echo ","
+  unmarked_fallback_comment "$(hours_ago 10)"
+  echo ","
+  unmarked_fallback_comment "$(hours_ago 8)"
+  echo ","
+  unmarked_fallback_comment "$(hours_ago 6)"
+  echo "]"
+} > "$STUB_DIR/comments-114.json"
+run_guard 114 --cap 20
+assert_eq "12" "$RC" "(k3) SHA dedup unaffected by marker-less comments -> exit 12"
+assert_contains "$OUT" "already evaluated in fallback mode at current head SHA" "(k3) REASON names SHA dedup, not the cap"
+assert_eq "5" "$(get_field "$OUT" MARKER_COUNT)" "(k3) MARKER_COUNT=5 counts marked + marker-less"
+assert_eq "2" "$(get_field "$OUT" MARKER_COUNT_STRICT)" "(k3) MARKER_COUNT_STRICT=2"
+
+# (k4) A comment matching BOTH detectors (carries the marker AND opens with
+#      fallback-mode prose — the shape post-fallback-comment.sh produces) is
+#      counted exactly ONCE, not twice.
+reset_state
+cat > "$STUB_DIR/pr-115.json" <<'EOF'
+{"author":{"is_bot":false},"headRefOid":"c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c"}
+EOF
+cat > "$STUB_DIR/comments-115.json" <<'EOF'
+[{"created_at":"2026-01-01T00:00:00Z","body":"Evaluated in fallback mode (no loom: labels).\n\nLooks good.\n\n<!-- loom:fallback-evaluated sha=0000cccc0000cccc0000cccc0000cccc0000ccc -->"}]
+EOF
+run_guard 115 --cap 20
+assert_eq "1" "$(get_field "$OUT" MARKER_COUNT)" "(k4) comment matching both detectors counted once (union, not sum)"
+assert_eq "1" "$(get_field "$OUT" MARKER_COUNT_STRICT)" "(k4) MARKER_COUNT_STRICT=1 for the same comment"
+
+# (k5) Velocity alert also sees marker-less comments — the #144 undercount
+#      silenced the alert as well as the cap (PR #118 showed VELOCITY_ALERT=0
+#      while accumulating ~20 fallback comments a day).
+reset_state
+cat > "$STUB_DIR/pr-116.json" <<'EOF'
+{"author":{"is_bot":false},"headRefOid":"c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c"}
+EOF
+{
+  echo "["
+  unmarked_fallback_comment "$(hours_ago 3)"
+  echo ","
+  unmarked_fallback_comment "$(hours_ago 2)"
+  echo ","
+  unmarked_fallback_comment "$(hours_ago 1)"
+  echo "]"
+} > "$STUB_DIR/comments-116.json"
+run_guard 116 --cap 20 --velocity-threshold 3 --velocity-window-hours 4
+assert_eq "1" "$(get_field "$OUT" VELOCITY_ALERT)" "(k5) VELOCITY_ALERT=1 from marker-less comments alone"
+assert_eq "3" "$(get_field "$OUT" VELOCITY_COUNT)" "(k5) VELOCITY_COUNT=3"
+assert_eq "0" "$(get_field "$OUT" MARKER_COUNT_STRICT)" "(k5) MARKER_COUNT_STRICT=0 — none carried the marker"
 
 # --- Summary -------------------------------------------------------------
 echo ""

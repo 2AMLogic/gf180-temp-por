@@ -21,15 +21,49 @@
 #      result set through any Loom-side action. Skip permanently, independent
 #      of the cap or velocity below. (#5455 AC "structurally exclude PRs the
 #      fallback queue can never advance")
-#   2. LIFETIME CAP — total `loom:fallback-evaluated` marker comments on the
-#      PR, counted across ALL head SHAs over the PR's full history (not just
-#      the current SHA), has reached --cap. See "Why the cap is per-PR-
-#      lifetime, not per-SHA" below. (#5455 AC "hard per-PR cap ... independent
-#      of marker/SHA state")
+#   2. LIFETIME CAP — total fallback-mode evaluation comments on the PR,
+#      counted across ALL head SHAs over the PR's full history (not just the
+#      current SHA), has reached --cap. See "Why the cap is per-PR-lifetime,
+#      not per-SHA" below. (#5455 AC "hard per-PR cap ... independent of
+#      marker/SHA state")
 #   3. SHA DEDUP — the existing #5058 mechanism: the most recent marker's SHA
 #      already equals the PR's current head SHA, i.e. nothing has changed
 #      since the last evaluation.
 #   4. Otherwise: OK to evaluate.
+#
+# What counts as a "fallback-mode evaluation comment" (#144):
+#   Two independent detectors, unioned per comment (a comment matching both is
+#   counted ONCE):
+#     STRICT   — the body contains the exact
+#                `<!-- loom:fallback-evaluated sha=<sha> -->` HTML marker.
+#     HEURISTIC — the body's opening lede (first $LEDE_CHARS characters)
+#                matches /fallback[- ]?(mode|queue|review|evaluation)/i.
+#
+#   Why the heuristic exists: before #144 only STRICT was counted, and the
+#   marker is appended by free-text prompt compliance — a Judge pass that
+#   free-forms its sign-off silently falls outside the cap. gf180-temp-por
+#   PR #118 accumulated 44 fallback-mode comments over ~2 days of which only
+#   **2** carried the exact marker, so this script reported MARKER_COUNT=1
+#   (later 2) and the default cap of 20 never fired. Under the heuristic the
+#   same corpus scores 43/44. The remaining miss is a bare
+#   "Correction/retraction of my previous comment" follow-up that never
+#   self-identifies as fallback-mode at all — genuinely undetectable from
+#   prose, which is why #144 ALSO added `post-fallback-comment.sh` to append
+#   the STRICT marker programmatically instead of by prompt compliance. The
+#   heuristic is the backstop for comments already in the wild (and for any
+#   future pass that bypasses the helper); the helper is the durable fix.
+#
+#   Anchoring to the lede (rather than the whole body) keeps an unrelated
+#   comment that merely *discusses* the fallback queue further down from
+#   inflating the count. A residual false positive is still possible and is
+#   deliberately tolerated: over-counting only ever SKIPs an unlabeled PR out
+#   of an opportunistic queue, whereas under-counting reproduces the
+#   199-comment livelock this script exists to bound.
+#
+#   MARKER_COUNT_STRICT is emitted alongside MARKER_COUNT so a human reading
+#   the output can tell how much of the total came from the heuristic. Only
+#   STRICT comments carry a SHA, so SHA dedup (decision 3) still keys off the
+#   most recent STRICT marker only.
 #
 # Independent of the decision above: VELOCITY ALERT. If the marker-comment
 # count within the trailing --velocity-window-hours meets or exceeds
@@ -66,9 +100,10 @@
 #   DECISION=EVALUATE|SKIP
 #   REASON=<short human-readable reason>
 #   HEAD_SHA=<current head sha>
-#   MARKER_COUNT=<lifetime loom:fallback-evaluated marker count>
+#   MARKER_COUNT=<lifetime fallback-evaluation comment count: STRICT ∪ HEURISTIC>
+#   MARKER_COUNT_STRICT=<subset of the above carrying the exact HTML marker>
 #   VELOCITY_ALERT=0|1
-#   VELOCITY_COUNT=<marker count within the trailing velocity window>
+#   VELOCITY_COUNT=<MARKER_COUNT within the trailing velocity window>
 #
 # Exit codes:
 #   0  = DECISION=EVALUATE (proceed with fallback-mode review)
@@ -135,12 +170,20 @@ for bin in gh jq; do
   command -v "$bin" >/dev/null 2>&1 || { echo "ERROR: '$bin' not found on PATH" >&2; exit 1; }
 done
 
+# Heuristic detector for fallback-mode evaluation comments that omit the exact
+# HTML marker (#144). Applied case-insensitively to the first $LEDE_CHARS
+# characters of a comment body only — see the "What counts as a fallback-mode
+# evaluation comment" note in the header for why it is lede-anchored.
+FALLBACK_LEDE_RE='fallback[- ]?(mode|queue|review|evaluation)'
+LEDE_CHARS=300
+
 emit() {
-  local decision="$1" reason="$2" head_sha="$3" marker_count="$4" velocity_alert="$5" velocity_count="$6"
+  local decision="$1" reason="$2" head_sha="$3" marker_count="$4" marker_count_strict="$5" velocity_alert="$6" velocity_count="$7"
   echo "DECISION=$decision"
   echo "REASON=$reason"
   echo "HEAD_SHA=$head_sha"
   echo "MARKER_COUNT=$marker_count"
+  echo "MARKER_COUNT_STRICT=$marker_count_strict"
   echo "VELOCITY_ALERT=$velocity_alert"
   echo "VELOCITY_COUNT=$velocity_count"
 }
@@ -171,7 +214,7 @@ if [[ -z "$HEAD_SHA" ]]; then
 fi
 
 if [[ "$IS_BOT" == "true" ]]; then
-  emit "SKIP" "bot-author (outside Loom label workflow; fallback queue cannot advance it)" "$HEAD_SHA" 0 0 0
+  emit "SKIP" "bot-author (outside Loom label workflow; fallback queue cannot advance it)" "$HEAD_SHA" 0 0 0 0
   exit 10
 fi
 
@@ -186,20 +229,35 @@ COMMENTS_JSON="$(gh api "repos/{owner}/{repo}/issues/$PR/comments" --paginate 2>
   exit 1
 }
 
-# One "<ISO-8601 created_at>\t<sha>" line per marker comment, oldest first
-# (matches --paginate's page order). `test(...)` guards the `capture(...)`
-# call so a non-matching comment body is filtered out via `select` rather
-# than raising a per-item jq error.
-MARKER_LINES="$(jq -r '
+# One "<ISO-8601 created_at>\t<sha-or-empty>\t<strict|heuristic>" line per
+# fallback-mode evaluation comment, oldest first (matches --paginate's page
+# order). The filter walks each comment ONCE and selects it if EITHER detector
+# fires, so a comment that both carries the marker and says "fallback mode" in
+# its lede yields exactly one line — the union is deduped by construction,
+# with no need to key on comment id. `test(...)` guards the `capture(...)`
+# call so a non-matching body is filtered out via `select` rather than
+# raising a per-item jq error.
+MARKER_LINES="$(jq -r --arg lede_re "$FALLBACK_LEDE_RE" --argjson lede_chars "$LEDE_CHARS" '
   .[]
-  | select(.body != null and (.body | test("<!-- loom:fallback-evaluated sha=[0-9a-f]+ -->")))
-  | [.created_at, (.body | capture("<!-- loom:fallback-evaluated sha=(?<sha>[0-9a-f]+) -->").sha)]
+  | select(.body != null)
+  | (.body | test("<!-- loom:fallback-evaluated sha=[0-9a-f]+ -->")) as $strict
+  | select($strict or (.body[0:$lede_chars] | test($lede_re; "i")))
+  | [
+      .created_at,
+      (if $strict then (.body | capture("<!-- loom:fallback-evaluated sha=(?<sha>[0-9a-f]+) -->").sha) else "" end),
+      (if $strict then "strict" else "heuristic" end)
+    ]
   | @tsv
 ' <<<"$COMMENTS_JSON" 2>/dev/null || true)"
 
 MARKER_COUNT=0
+MARKER_COUNT_STRICT=0
 if [[ -n "$MARKER_LINES" ]]; then
   MARKER_COUNT="$(wc -l <<<"$MARKER_LINES" | tr -d ' ')"
+  # `grep -c` prints 0 and exits 1 on no-match; `|| true` keeps `set -e` happy.
+  MARKER_COUNT_STRICT="$(grep -c $'\tstrict$' <<<"$MARKER_LINES" || true)"
+  MARKER_COUNT_STRICT="$(tr -dc '0-9' <<<"$MARKER_COUNT_STRICT")"
+  MARKER_COUNT_STRICT="${MARKER_COUNT_STRICT:-0}"
 fi
 
 # --- Step 3: velocity check (independent of the decision below) ------------
@@ -214,7 +272,7 @@ NOW_EPOCH="$(date -u +%s)"
 WINDOW_SECONDS=$(( VELOCITY_WINDOW_HOURS * 3600 ))
 VELOCITY_COUNT=0
 if [[ -n "$MARKER_LINES" ]]; then
-  while IFS=$'\t' read -r created_at _sha; do
+  while IFS=$'\t' read -r created_at _sha _kind; do
     [[ -z "$created_at" ]] && continue
     ts="$(iso_to_epoch "$created_at")"
     [[ -z "$ts" ]] && continue
@@ -231,23 +289,26 @@ fi
 
 # --- Step 4: lifetime cap ---------------------------------------------------
 if (( MARKER_COUNT >= CAP )); then
-  emit "SKIP" "lifetime fallback-evaluation cap reached ($MARKER_COUNT >= $CAP markers across all head SHAs)" \
-    "$HEAD_SHA" "$MARKER_COUNT" "$VELOCITY_ALERT" "$VELOCITY_COUNT"
+  emit "SKIP" "lifetime fallback-evaluation cap reached ($MARKER_COUNT >= $CAP fallback comments across all head SHAs; $MARKER_COUNT_STRICT carried the exact marker)" \
+    "$HEAD_SHA" "$MARKER_COUNT" "$MARKER_COUNT_STRICT" "$VELOCITY_ALERT" "$VELOCITY_COUNT"
   exit 11
 fi
 
-# --- Step 5: SHA dedup (#5058) — most recent marker, if any -----------------
+# --- Step 5: SHA dedup (#5058) — most recent STRICT marker, if any ----------
+# Only STRICT comments carry a SHA, so heuristic-only matches are skipped here
+# (they contribute to the cap/velocity totals above, but there is no SHA in
+# them to compare against HEAD_SHA).
 LAST_MARKER_SHA=""
 if [[ -n "$MARKER_LINES" ]]; then
-  LAST_MARKER_SHA="$(tail -n 1 <<<"$MARKER_LINES" | cut -f2)"
+  LAST_MARKER_SHA="$(grep $'\tstrict$' <<<"$MARKER_LINES" | tail -n 1 | cut -f2 || true)"
 fi
 
 if [[ -n "$LAST_MARKER_SHA" && "$LAST_MARKER_SHA" == "$HEAD_SHA" ]]; then
   emit "SKIP" "already evaluated in fallback mode at current head SHA (no new commits)" \
-    "$HEAD_SHA" "$MARKER_COUNT" "$VELOCITY_ALERT" "$VELOCITY_COUNT"
+    "$HEAD_SHA" "$MARKER_COUNT" "$MARKER_COUNT_STRICT" "$VELOCITY_ALERT" "$VELOCITY_COUNT"
   exit 12
 fi
 
 # --- Otherwise: proceed ------------------------------------------------------
-emit "EVALUATE" "no skip condition matched" "$HEAD_SHA" "$MARKER_COUNT" "$VELOCITY_ALERT" "$VELOCITY_COUNT"
+emit "EVALUATE" "no skip condition matched" "$HEAD_SHA" "$MARKER_COUNT" "$MARKER_COUNT_STRICT" "$VELOCITY_ALERT" "$VELOCITY_COUNT"
 exit 0

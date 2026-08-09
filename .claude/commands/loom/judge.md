@@ -672,6 +672,23 @@ skip/evaluate decision itself is now a real script,
 `.loom/scripts/judge-fallback-guard.sh`** — correctness no longer depends on
 the model re-deriving multi-step bash from prose each pass.
 
+**Second incident, same failure class (#144)**: gf180-temp-por PR #118
+accumulated **44 fallback-mode Judge comments over ~2 days** with the guard
+above already installed and working — because only **2** of those 44 comments
+actually ended with the `<!-- loom:fallback-evaluated sha=... -->` marker the
+cap counts. The other 42 said "Evaluated in fallback mode…" in their own
+words and were invisible to the counter, so `MARKER_COUNT` stayed at 1 and the
+cap of 20 never fired. Appending the marker was the *last* thing left living
+in free-text prompt compliance, and it did not hold. Two changes closed it:
+
+- **Post the comment with `.loom/scripts/post-fallback-comment.sh`** (below),
+  which appends the marker programmatically. Write review prose; do not hand-
+  write the marker.
+- **`judge-fallback-guard.sh` now also counts marker-less comments** whose
+  opening lede matches `/fallback[- ]?(mode|queue|review|evaluation)/i`, as a
+  backstop for anything that bypasses the helper. It reports
+  `MARKER_COUNT_STRICT` alongside `MARKER_COUNT` so the split is visible.
+
 **Fallback search**:
 ```bash
 # Find PRs without any loom: labels (cached — see "Cached Forge Reads")
@@ -692,12 +709,18 @@ It prints `KEY=VALUE` lines and exits with a code that names the decision:
 |------|------------|---------|
 | `0`  | `EVALUATE` | No skip condition matched — proceed with fallback-mode review |
 | `10` | `SKIP` | PR author is a bot (`is_bot: true` — Dependabot, Renovate, `github-actions[bot]`, …). Outside the Loom label workflow by construction: the fallback path never labels it, so it can never leave this query's result set through any Loom-side action. Skipped **permanently**, checked **before** the cap. |
-| `11` | `SKIP` | **Lifetime cap reached** — `MARKER_COUNT` (total `loom:fallback-evaluated` markers across the PR's *entire* comment history, **not scoped to the current head SHA**) has reached `--cap` (default 20). See "Why the cap is per-PR-lifetime, not per-SHA" below. |
-| `12` | `SKIP` | SHA dedup (#5058) — the most recent marker's SHA already equals the current head SHA; nothing changed since the last evaluation. |
+| `11` | `SKIP` | **Lifetime cap reached** — `MARKER_COUNT` (total fallback-mode evaluation comments across the PR's *entire* comment history, **not scoped to the current head SHA**) has reached `--cap` (default 20). See "Why the cap is per-PR-lifetime, not per-SHA" below. |
+| `12` | `SKIP` | SHA dedup (#5058) — the most recent *marked* comment's SHA already equals the current head SHA; nothing changed since the last evaluation. |
 | `1`  | — | Environment/`gh` error — treat exactly like any other fallback-queue `gh` failure (see the Pre-Iteration Environment Check above); **never** interpret this as "no work available". |
 
+`MARKER_COUNT` is the union of two detectors, deduped per comment (#144): the
+exact `<!-- loom:fallback-evaluated sha=... -->` marker (`MARKER_COUNT_STRICT`,
+also emitted), plus any comment whose opening lede reads as a fallback-mode
+evaluation. Only marked comments carry a SHA, so exit `12` still keys off the
+most recent *marked* comment alone.
+
 Also read `VELOCITY_ALERT` from the output — **independent of `DECISION`**: if
-`VELOCITY_ALERT=1` (the PR's marker-comment count within the trailing
+`VELOCITY_ALERT=1` (the PR's fallback-comment count within the trailing
 `--velocity-window-hours`, default 4h, meets or exceeds `--velocity-threshold`,
 default 8), surface it loudly regardless of whether the PR was evaluated or
 skipped — e.g. a fleet handoff (`.loom/scripts/fleet-send.sh --type handoff`)
@@ -710,8 +733,8 @@ accumulated on a *single, unchanged* head SHA over 37 hours, so a per-SHA cap
 alone would have bounded that specific incident — but a per-SHA-only cap does
 not bound a PR that repeatedly force-pushes trivial commits, each reset
 resetting a per-SHA counter back to zero. `judge-fallback-guard.sh` counts
-markers across the PR's *entire* comment history regardless of how many times
-the head SHA has changed, so the lifetime total only ever goes up. The
+fallback comments across the PR's *entire* comment history regardless of how
+many times the head SHA has changed, so the lifetime total only ever goes up. The
 SHA-based dedup (exit `12`) still runs on top of the lifetime cap for its
 original purpose (skip re-evaluation of an unchanged PR between ticks) — it
 no longer has to be the *only* bound.
@@ -744,8 +767,9 @@ Pre-Iteration Environment Check (gh repo view)
                     │     │        (exit iteration if none remain)
                     │     ├─→ exit 1 (gh/env error)? → Exit with error, same as
                     │     │        any other fallback-queue gh failure
-                    │     └─→ exit 0 (EVALUATE)? → Evaluate and post comment
-                    │              (with updated marker ending); also act on
+                    │     └─→ exit 0 (EVALUATE)? → Evaluate, then post the
+                    │              comment via post-fallback-comment.sh (it
+                    │              appends the marker); also act on
                     │              VELOCITY_ALERT=1 if present, independent of
                     │              this branch
                     │
@@ -831,21 +855,29 @@ else
     # ... run checks, evaluate code ...
 
     # Provide feedback but DO NOT add workflow labels.
-    # NOTE: this heredoc is deliberately UNQUOTED (`<<EOF`, not `<<'EOF'`) so
-    # $CURRENT_HEAD_SHA expands into the marker. With a quoted delimiter the
-    # marker would post the literal string "sha=$CURRENT_HEAD_SHA", which can
-    # never equal a real head SHA — the dedup read above would then match
-    # nothing and every pass would re-evaluate. Keep any other `$` or backticks
-    # out of this body, or escape them.
-    gh pr comment $UNLABELED_PR --body "$(cat <<EOF
+    #
+    # Post through post-fallback-comment.sh, NEVER a bare `gh pr comment`
+    # (#144). The script resolves the head SHA and appends
+    # `<!-- loom:fallback-evaluated sha=... -->` itself, so the marker that
+    # drives the lifetime cap is no longer something a free-text pass has to
+    # remember — on PR #118 only 2 of 44 fallback comments remembered, and the
+    # cap silently never fired. Write review prose only; the marker is not
+    # yours to type.
+    #
+    # The body arrives on STDIN (`-`), so backticks, `$`, and code fences in
+    # your review prose are posted literally with no shell expansion. Pass
+    # --sha "$CURRENT_HEAD_SHA" (already read out of the guard's HEAD_SHA
+    # above) to skip a redundant `gh pr view`. Add --dry-run to inspect the
+    # composed body without posting.
+    ./.loom/scripts/post-fallback-comment.sh "$UNLABELED_PR" --sha "$CURRENT_HEAD_SHA" - <<'EOF'
+Evaluated in fallback mode (no loom:review-requested label on this PR, so no
+workflow labels are being applied).
+
 Code evaluation feedback...
 
-Note: This PR was evaluated in fallback mode (no loom:review-requested label).
-Consider adding loom:review-requested if you want it in the evaluation queue.
-
-<!-- loom:fallback-evaluated sha=$CURRENT_HEAD_SHA -->
+Consider adding loom:review-requested if you want this PR in the evaluation
+queue.
 EOF
-)"
   else
     # Reached either because the fallback queue was empty, or because every
     # unlabeled PR in it was SKIPPED by judge-fallback-guard.sh (bot author,
@@ -864,6 +896,10 @@ fi
 - Bounded: a bot-authored PR (e.g. Dependabot) is excluded structurally, and
   any other PR the queue cannot advance is bounded by a per-PR-lifetime cap
   rather than re-evaluated indefinitely (#5455)
+- The bound is enforced end to end, not by prompt compliance:
+  `post-fallback-comment.sh` writes the marker the cap counts, and
+  `judge-fallback-guard.sh` also counts marker-less fallback comments so a
+  pass that bypasses the helper still registers (#144)
 
 ## Worktree-Aware Code Access
 
