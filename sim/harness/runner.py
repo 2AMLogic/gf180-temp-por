@@ -134,6 +134,32 @@ def parse_measurements(text: str) -> dict[str, float]:
     return found
 
 
+def parse_wrdata_trace(text: str, n_probes: int) -> list[tuple[float, ...]]:
+    """Parse ngspice ``wrdata`` output: ``t v0 t v1 t v2 ...``, one repeated
+    ``(t, value)`` pair per probe.
+
+    Shared home for the per-experiment ``parse_trace(text)`` copies that used
+    to be redefined in every control script tracing internal nodes with
+    ``wrdata`` (as opposed to ``print``, which ``parse_measurements`` above
+    covers). ``n_probes`` is the caller's probe count -- each row is expected
+    to have exactly ``2 * n_probes`` whitespace-separated fields; malformed or
+    short rows are skipped rather than raising.
+    """
+    rows: list[tuple[float, ...]] = []
+    for line in text.splitlines():
+        parts = line.split()
+        if len(parts) != 2 * n_probes:
+            continue
+        try:
+            vals = [float(x) for x in parts]
+        except ValueError:
+            continue
+        t = vals[0]
+        row = (t,) + tuple(vals[1 + 2 * i] for i in range(n_probes))
+        rows.append(row)
+    return rows
+
+
 def sha256_file(path: Path) -> str:
     """The hex sha256 digest of ``path``'s contents.
 

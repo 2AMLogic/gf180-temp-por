@@ -172,20 +172,6 @@ def compose_deck(
     return "\n".join(lines)
 
 
-def parse_trace(text: str) -> list[tuple[float, ...]]:
-    rows: list[tuple[float, ...]] = []
-    for line in text.splitlines():
-        parts = line.split()
-        if len(parts) != 2 * len(PROBES):
-            continue
-        try:
-            vals = [float(x) for x in parts]
-        except ValueError:
-            continue
-        rows.append((vals[0],) + tuple(vals[1 + 2 * i] for i in range(len(PROBES))))
-    return rows
-
-
 GENERATED = tuple(
     str((CONTROL_DIR / n).relative_to(REPO_ROOT))
     for n in ("results.md", "depth_results.md", "decks", "logs", "traces")
@@ -218,7 +204,7 @@ def run_one(args) -> tuple[str, dict]:
     text = raw.read_text()
     (trace_dir / f"sweep_{run_id}.csv").write_text(text)
     raw.unlink()
-    rows = parse_trace(text)
+    rows = runner.parse_wrdata_trace(text, len(PROBES))
     if not rows:
         raise SystemExit(f"{run_id}: could not parse any rows from {trace_name}")
 
