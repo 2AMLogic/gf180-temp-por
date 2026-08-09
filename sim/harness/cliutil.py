@@ -10,9 +10,15 @@ measurement-parsing helpers already consolidated into
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 from .testbench import MANIFEST_NAME, TESTBENCH_DIRNAME, discover
+
+
+def load_manifest(path: Path) -> dict:
+    """Load and parse a testbench manifest (``tb.json``) from ``path``."""
+    return json.loads(path.read_text())
 
 
 def fmt(value) -> str:
