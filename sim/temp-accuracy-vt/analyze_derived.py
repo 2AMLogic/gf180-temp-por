@@ -91,7 +91,7 @@ RECORDS_DIR = EXPERIMENT_DIR / "records"
 
 sys.path.insert(0, str(EXPERIMENT_DIR.parent))
 
-from harness.runner import parse_measurements  # noqa: E402
+from harness.runner import load_points  # noqa: E402
 
 # design/temp_core.md "V(T) transfer and output range": the declared nominal
 # transfer constant, K0 = 4.308842 mV/K (tt, 25 C). Used for the supply
@@ -112,30 +112,6 @@ NOMINAL_SUPPLY_V = "3.30"
 _CORNER_ID_RE = re.compile(
     r"^(?P<process>[a-z_]+)_(?P<temp>-?\d+(?:\.\d+)?)c_(?P<supply>\d+\.\d+)v$"
 )
-
-
-# --------------------------------------------------------------------------
-# reading the source record's raw logs
-# --------------------------------------------------------------------------
-
-
-def parse_log(path: Path) -> dict[str, float]:
-    """The `m_<name> = <value>` lines one ngspice point printed."""
-    return parse_measurements(path.read_text())
-
-
-def load_points(record_id: str) -> dict[str, dict[str, float]]:
-    """corner-id -> measurements, for one record-id's raw per-point logs."""
-    log_dir = CORNERS_DIR / record_id
-    if not log_dir.is_dir():
-        raise FileNotFoundError(
-            f"no raw logs at {log_dir} -- run "
-            f"'python3 sim/run_corners.py temp-accuracy-vt' first"
-        )
-    points = {p.stem: parse_log(p) for p in sorted(log_dir.glob("*.log"))}
-    if not points:
-        raise FileNotFoundError(f"no *.log files under {log_dir}")
-    return points
 
 
 def parse_corner_ids(points: dict[str, dict[str, float]]) -> dict[str, tuple[str, float, str]]:
@@ -479,7 +455,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--author", default="agent-builder", help="author for the record header")
     args = parser.parse_args(argv)
 
-    points = load_points(args.record_id)
+    points = load_points(CORNERS_DIR, args.record_id)
     parsed = parse_corner_ids(points)
     if not parsed:
         print("no parseable corner-ids in that record", file=sys.stderr)

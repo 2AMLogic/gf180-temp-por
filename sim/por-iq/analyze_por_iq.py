@@ -60,7 +60,7 @@ RECORDS_DIR = EXPERIMENT_DIR / "records"
 
 sys.path.insert(0, str(EXPERIMENT_DIR.parent))
 
-from harness.runner import parse_measurements  # noqa: E402
+from harness.runner import load_points  # noqa: E402
 
 TARGET_POR_IQ_UA = 1.0  # spec/target-spec.md#por-iq
 TARGET_IQ_TOTAL_UA = 21.0  # spec/target-spec.md#iq-total
@@ -72,24 +72,6 @@ STANDARD_TEMPS_C = (-40.0, 27.0, 125.0)
 _CORNER_ID_RE = re.compile(
     r"^(?P<process>[a-z_]+)_(?P<temp>-?\d+(?:\.\d+)?)c_(?P<supply>\d+\.\d+)v$"
 )
-
-
-def parse_log(path: Path) -> dict[str, float]:
-    """The `m_<name> = <value>` lines one ngspice point printed."""
-    return parse_measurements(path.read_text())
-
-
-def load_points(record_id: str) -> dict[str, dict[str, float]]:
-    log_dir = SOURCE_CORNERS_DIR / record_id
-    if not log_dir.is_dir():
-        raise FileNotFoundError(
-            f"no raw logs at {log_dir} -- run "
-            f"'python3 sim/run_corners.py temp-accuracy-vt' first"
-        )
-    points = {p.stem: parse_log(p) for p in sorted(log_dir.glob("*.log"))}
-    if not points:
-        raise FileNotFoundError(f"no *.log files under {log_dir}")
-    return points
 
 
 def standard_grid_rows(points: dict[str, dict[str, float]]) -> list[dict]:
@@ -255,7 +237,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--author", default="agent-builder", help="author for the record header")
     args = parser.parse_args(argv)
 
-    points = load_points(args.record_id)
+    points = load_points(SOURCE_CORNERS_DIR, args.record_id)
     rows = standard_grid_rows(points)
     if not rows:
         print("no standard-grid points with iq_por_ua/iq_total_ua found", file=sys.stderr)
