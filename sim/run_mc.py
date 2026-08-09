@@ -35,7 +35,7 @@ WORK_DIR = SIM_DIR / ".work"
 
 sys.path.insert(0, str(SIM_DIR))
 
-from harness import HARNESS_VERSION, mc_report, montecarlo, report, testbench as tb_mod  # noqa: E402
+from harness import HARNESS_VERSION, cliutil, mc_report, montecarlo, report, testbench as tb_mod  # noqa: E402
 from harness.montecarlo import ManifestError  # noqa: E402
 from harness.pdk import PdkNotFound, find_pdk  # noqa: E402
 from harness.runner import NgspiceMissing, ngspice_version  # noqa: E402
@@ -45,33 +45,7 @@ EXIT_CHECK_FAILED = 1
 EXIT_SIM_ERROR = 2
 EXIT_ENVIRONMENT = 3
 
-
-def _has_manifest(candidate: Path) -> bool:
-    if candidate.is_file() and candidate.name == tb_mod.MANIFEST_NAME:
-        return True
-    if (candidate / tb_mod.MANIFEST_NAME).is_file():
-        return True
-    return (candidate / tb_mod.TESTBENCH_DIRNAME / tb_mod.MANIFEST_NAME).is_file()
-
-
-def _resolve_tb_path(argument: str) -> Path:
-    candidates = [Path(argument), SIM_DIR / argument]
-    for candidate in candidates:
-        if _has_manifest(candidate):
-            return candidate
-    raise FileNotFoundError(
-        f"no experiment {argument!r}; tried: " + ", ".join(str(c) for c in candidates)
-    )
-
-
-def _fmt(value) -> str:
-    if value is None:
-        return "n/a"
-    if isinstance(value, float):
-        if value != 0 and (abs(value) < 1e-3 or abs(value) >= 1e5):
-            return f"{value:.6e}"
-        return f"{value:.6g}"
-    return str(value)
+_fmt = cliutil.fmt
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -126,7 +100,7 @@ def cmd_list() -> int:
 
 
 def run(args: argparse.Namespace) -> int:
-    tb_path = _resolve_tb_path(args.testbench)
+    tb_path = cliutil.resolve_tb_path(args.testbench, SIM_DIR)
     tb = tb_mod.load(tb_path)
     if not tb.mc:
         print(

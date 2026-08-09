@@ -36,6 +36,7 @@ import datetime as _dt
 from pathlib import Path
 
 from . import HARNESS_VERSION
+from .cliutil import fmt as _fmt
 from .montecarlo import BindingPoint, McPoint
 from .pdk import Pdk
 from .report import (
@@ -48,18 +49,6 @@ from .report import (
 )
 from .runner import PointResult
 from .testbench import Testbench
-
-
-def _fmt(value) -> str:
-    if value is None:
-        return "n/a"
-    if isinstance(value, bool):
-        return "yes" if value else "no"
-    if isinstance(value, float):
-        if value != 0 and (abs(value) < 1e-3 or abs(value) >= 1e5):
-            return f"{value:.6e}"
-        return f"{value:.6g}"
-    return str(value)
 
 
 def build_mc_record(
