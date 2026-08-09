@@ -672,6 +672,20 @@ skip/evaluate decision itself is now a real script,
 `.loom/scripts/judge-fallback-guard.sh`** — correctness no longer depends on
 the model re-deriving multi-step bash from prose each pass.
 
+**Follow-on gap this section also guards against (#144)**: the cap/dedup
+script above only ever counts a comment as an evaluation if its body carries
+the exact `<!-- loom:fallback-evaluated sha=... --> ` marker — and appending
+that marker was, until #144, still a free-form step inside a `gh pr comment`
+heredoc. On PR #118 (this repo), ~44 of ~45 fallback-mode comments over ~54h
+omitted the exact marker (close paraphrases instead), so `MARKER_COUNT`
+stayed at 1 and the cap/velocity alert never engaged despite the volume.
+`judge-fallback-guard.sh` now also recognizes marker-less "evaluated in
+fallback mode" comments as an immediate backstop on the *read* side, and
+**posting a fallback-mode comment MUST go through
+`.loom/scripts/post-fallback-comment.sh`** (see the example workflow below),
+which appends the marker programmatically on the *write* side — do not
+hand-type the marker into a `gh pr comment --body`/heredoc call.
+
 **Fallback search**:
 ```bash
 # Find PRs without any loom: labels (cached — see "Cached Forge Reads")
@@ -831,21 +845,26 @@ else
     # ... run checks, evaluate code ...
 
     # Provide feedback but DO NOT add workflow labels.
-    # NOTE: this heredoc is deliberately UNQUOTED (`<<EOF`, not `<<'EOF'`) so
-    # $CURRENT_HEAD_SHA expands into the marker. With a quoted delimiter the
-    # marker would post the literal string "sha=$CURRENT_HEAD_SHA", which can
-    # never equal a real head SHA — the dedup read above would then match
-    # nothing and every pass would re-evaluate. Keep any other `$` or backticks
-    # out of this body, or escape them.
-    gh pr comment $UNLABELED_PR --body "$(cat <<EOF
+    # NOTE (#144): the marker is appended by post-fallback-comment.sh, NOT by
+    # hand-typing `<!-- loom:fallback-evaluated sha=... --> ` into the body.
+    # PR #118 (this repo) accumulated ~45 fallback-mode comments over ~54h of
+    # which only ONE carried that exact marker — the other ~44 were close
+    # paraphrases an LLM produced instead of faithfully reproducing a heredoc
+    # every single pass — so judge-fallback-guard.sh's lifetime cap and
+    # velocity alert never tripped. Write your review prose to a scratch file
+    # and hand it to the helper; it resolves the current head SHA itself (or
+    # accepts $CURRENT_HEAD_SHA via --head-sha) and appends the marker
+    # programmatically, so correctness no longer depends on the model
+    # re-typing the marker string verbatim on every fallback pass.
+    REVIEW_BODY_FILE="$(mktemp)"
+    cat > "$REVIEW_BODY_FILE" <<'EOF'
 Code evaluation feedback...
 
 Note: This PR was evaluated in fallback mode (no loom:review-requested label).
 Consider adding loom:review-requested if you want it in the evaluation queue.
-
-<!-- loom:fallback-evaluated sha=$CURRENT_HEAD_SHA -->
 EOF
-)"
+    ./.loom/scripts/post-fallback-comment.sh "$UNLABELED_PR" "$REVIEW_BODY_FILE" --head-sha "$CURRENT_HEAD_SHA"
+    rm -f "$REVIEW_BODY_FILE"
   else
     # Reached either because the fallback queue was empty, or because every
     # unlabeled PR in it was SKIPPED by judge-fallback-guard.sh (bot author,

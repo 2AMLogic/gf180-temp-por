@@ -142,6 +142,14 @@ marker_comment() {
     printf '{"created_at":"%s","body":"Looks good.\\n\\n<!-- loom:fallback-evaluated sha=%s -->"}' "$1" "$2"
 }
 
+# markerless_comment <created_at> - a fallback-mode evaluation comment that
+# follows judge.md's standard prose ("evaluated in fallback mode") but was
+# NOT posted with the exact `<!-- loom:fallback-evaluated sha=... --> `
+# marker — modeling the ~44 non-conforming comments on PR #118 (#144).
+markerless_comment() {
+    printf '{"created_at":"%s","body":"Code evaluation feedback...\\n\\nNote: This PR was evaluated in fallback mode (no loom:review-requested label).\\nConsider adding loom:review-requested if you want it in the evaluation queue."}' "$1"
+}
+
 reset_state() {
     rm -f "$STUB_DIR"/pr-*.json "$STUB_DIR"/comments-*.json
     rm -f "$STUB_DIR"/pr-view-fail-* "$STUB_DIR"/comments-fail-*
@@ -369,6 +377,80 @@ run_guard 111 --cap 20
 assert_eq "0" "$RC" "(j2) stderr on BOTH calls, cap not reached -> exit 0"
 assert_eq "EVALUATE" "$(get_field "$OUT" DECISION)" "(j2) DECISION=EVALUATE with stderr on both calls"
 assert_eq "1" "$(get_field "$OUT" MARKER_COUNT)" "(j2) MARKER_COUNT=1 counted correctly despite dual stderr"
+
+# (k) Regression for #144: a PR-#118-shaped comment history — 44 marker-less
+#     "evaluated in fallback mode" comments (the non-conforming shape) plus 1
+#     correctly-marked comment — must be counted as 45 fallback evaluations,
+#     NOT 1. Before #144's fix, MARKER_COUNT only ever counted the exact
+#     marker, so this exact shape reported MARKER_COUNT=1 on the real PR
+#     #118 despite ~45 actual fallback-mode passes. A high --cap (50) keeps
+#     the cap itself out of the way so this test isolates MARKER_COUNT.
+reset_state
+cat > "$STUB_DIR/pr-112.json" <<'EOF'
+{"author":{"is_bot":false},"headRefOid":"c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c"}
+EOF
+{
+  echo "["
+  first=1
+  for h in $(seq 100 -1 57); do
+    [[ "$first" -eq 1 ]] && first=0 || echo ","
+    markerless_comment "$(hours_ago "$h")"
+  done
+  echo ","
+  marker_comment "$(hours_ago 5)" "5555555555555555555555555555555555555e"
+  echo "]"
+} > "$STUB_DIR/comments-112.json"
+NUM_MARKERLESS=$(seq 100 -1 57 | wc -l | tr -d ' ')
+run_guard 112 --cap 50
+assert_eq "0" "$RC" "(k) PR-#118-shaped history, cap not reached (--cap 50) -> exit 0"
+assert_eq "EVALUATE" "$(get_field "$OUT" DECISION)" "(k) DECISION=EVALUATE"
+assert_eq "$((NUM_MARKERLESS + 1))" "$(get_field "$OUT" MARKER_COUNT)" \
+    "(k) MARKER_COUNT reflects ALL fallback-mode comments ($((NUM_MARKERLESS + 1))), not just the 1 exactly-marked one (the #144 bug)"
+
+# (k2) Same PR-#118-shaped history, but with the REAL default cap (20) —
+#      before #144 this PR would never have tripped the lifetime cap
+#      (MARKER_COUNT stuck at 1); after the fix it must SKIP via the cap.
+run_guard 112 --cap 20
+assert_eq "11" "$RC" "(k2) Same history with the default cap (20) -> now correctly SKIPs (exit 11)"
+assert_eq "SKIP" "$(get_field "$OUT" DECISION)" "(k2) DECISION=SKIP once marker-less comments are counted"
+assert_contains "$OUT" "lifetime fallback-evaluation cap reached" "(k2) REASON names the lifetime cap"
+
+# (k3) A comment history that is ENTIRELY marker-less (no exact marker at
+#      all, e.g. every fallback pass so far predates #144's fix) must still
+#      be counted — proving the heuristic backstop does not require at least
+#      one conforming comment to activate.
+reset_state
+cat > "$STUB_DIR/pr-113.json" <<'EOF'
+{"author":{"is_bot":false},"headRefOid":"d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d"}
+EOF
+{
+  echo "["
+  markerless_comment "$(hours_ago 10)"
+  echo ","
+  markerless_comment "$(hours_ago 8)"
+  echo ","
+  markerless_comment "$(hours_ago 6)"
+  echo "]"
+} > "$STUB_DIR/comments-113.json"
+run_guard 113 --cap 20
+assert_eq "0" "$RC" "(k3) All-marker-less history, cap not reached -> exit 0"
+assert_eq "EVALUATE" "$(get_field "$OUT" DECISION)" "(k3) DECISION=EVALUATE"
+assert_eq "3" "$(get_field "$OUT" MARKER_COUNT)" "(k3) MARKER_COUNT=3 counted purely from marker-less comments"
+
+# (k4) A comment unrelated to fallback evaluation at all (e.g. ordinary PR
+#      discussion) must NOT be swept up by the broadened heuristic — the
+#      "evaluated in fallback mode" phrase must actually be present.
+reset_state
+cat > "$STUB_DIR/pr-114.json" <<'EOF'
+{"author":{"is_bot":false},"headRefOid":"e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e"}
+EOF
+cat > "$STUB_DIR/comments-114.json" <<'EOF'
+[{"created_at":"2026-01-01T00:00:00Z","body":"Thanks for the PR, looks good to me!"}]
+EOF
+run_guard 114 --cap 20
+assert_eq "0" "$RC" "(k4) Unrelated comment, no fallback phrase -> exit 0"
+assert_eq "EVALUATE" "$(get_field "$OUT" DECISION)" "(k4) DECISION=EVALUATE"
+assert_eq "0" "$(get_field "$OUT" MARKER_COUNT)" "(k4) MARKER_COUNT=0 - unrelated comment not counted"
 
 # --- Summary -------------------------------------------------------------
 echo ""
