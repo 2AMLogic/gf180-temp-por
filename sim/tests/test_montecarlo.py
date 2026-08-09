@@ -314,8 +314,6 @@ class RecordRenderingTests(unittest.TestCase):
         import json
         import tempfile
 
-        from harness.corners import CORNERS
-
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
         root = Path(self.tmp.name)
