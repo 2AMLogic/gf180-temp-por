@@ -41,30 +41,6 @@
 # the bound almost wasn't enough. (#5455 AC "emit a signal when comment
 # velocity crosses a threshold")
 #
-# Marker-less fallback comments also count toward MARKER_COUNT (#144):
-#   PR #118 (this repo) accumulated ~45 fallback-mode Judge comments over
-#   ~54h, of which only ONE ended with the exact
-#   `<!-- loom:fallback-evaluated sha=... -->` marker — so MARKER_COUNT read
-#   1 and neither the lifetime cap nor the velocity alert ever tripped,
-#   despite the volume this script exists to bound. Appending that exact
-#   marker was (before #144) a free-form step an LLM had to faithfully
-#   reproduce on every fallback pass with nothing enforcing it — the same
-#   prompt-compliance failure mode #5455 moved OUT of prose for the
-#   dedup/cap decision itself, just relocated into the marker-append step.
-#   As a backstop, MARKER_LINES below also recognizes a comment as a
-#   fallback-mode evaluation if its body contains the case-insensitive
-#   phrase "evaluated in fallback mode" (the standard prose every fallback
-#   comment — marked or not — has always carried, per judge.md's template)
-#   even when the exact marker is absent. Such a comment still counts toward
-#   MARKER_COUNT/VELOCITY_COUNT (closing the undercount this issue reports),
-#   but — having no SHA to compare — never contributes to Step 5's SHA-based
-#   dedup; only an exact-marker comment can do that. This is an immediate,
-#   heuristic backstop for the historical undercount, not a substitute for
-#   reliably posting the marker going forward — see
-#   `.loom/scripts/post-fallback-comment.sh`, which appends the marker
-#   programmatically so future fallback comments do not depend on a model
-#   reproducing it verbatim.
-#
 # Why the cap is per-PR-lifetime, not per-SHA:
 #   #4972's 199 comments accumulated on a SINGLE fixed head SHA
 #   (7e74f3134d51576274e302664f05151f37ce1aca) over 37 hours — so a per-SHA
@@ -210,32 +186,14 @@ COMMENTS_JSON="$(gh api "repos/{owner}/{repo}/issues/$PR/comments" --paginate 2>
   exit 1
 }
 
-# One "<ISO-8601 created_at>\t<sha>" line per fallback-evaluation comment,
-# oldest first (matches --paginate's page order). A comment is classified in
-# priority order, exact marker first:
-#   1. Has the exact `<!-- loom:fallback-evaluated sha=... -->` marker -> emit
-#      its created_at + the captured sha (participates in SHA dedup, Step 5).
-#   2. No exact marker, but the body contains the case-insensitive phrase
-#      "evaluated in fallback mode" (#144 backstop, see header comment above)
-#      -> emit its created_at + an EMPTY sha field (counts toward
-#      MARKER_COUNT/VELOCITY_COUNT only; an empty sha can never equal a real
-#      head SHA, so it is inert for Step 5's dedup).
-#   3. Neither -> not a fallback-evaluation comment; dropped via `select`.
-# `if/elif` (rather than two independent `select`s) makes the two patterns
-# mutually exclusive so a normally-marked comment — whose body also always
-# contains the "evaluated in fallback mode" prose per judge.md's template —
-# is counted exactly once, not twice.
+# One "<ISO-8601 created_at>\t<sha>" line per marker comment, oldest first
+# (matches --paginate's page order). `test(...)` guards the `capture(...)`
+# call so a non-matching comment body is filtered out via `select` rather
+# than raising a per-item jq error.
 MARKER_LINES="$(jq -r '
   .[]
-  | select(.body != null)
-  | . as $c
-  | if ($c.body | test("<!-- loom:fallback-evaluated sha=[0-9a-f]+ -->")) then
-      [$c.created_at, ($c.body | capture("<!-- loom:fallback-evaluated sha=(?<sha>[0-9a-f]+) -->").sha)]
-    elif ($c.body | test("evaluated in fallback mode"; "i")) then
-      [$c.created_at, ""]
-    else
-      empty
-    end
+  | select(.body != null and (.body | test("<!-- loom:fallback-evaluated sha=[0-9a-f]+ -->")))
+  | [.created_at, (.body | capture("<!-- loom:fallback-evaluated sha=(?<sha>[0-9a-f]+) -->").sha)]
   | @tsv
 ' <<<"$COMMENTS_JSON" 2>/dev/null || true)"
 
