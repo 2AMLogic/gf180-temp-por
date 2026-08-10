@@ -43,6 +43,11 @@ XSCHEMRC = DESIGN_DIR / "xschemrc"
 sys.path.insert(0, str(REPO_ROOT / "sim"))
 from harness.pdk import PdkNotFound, find_pdk  # noqa: E402
 
+sys.path.insert(0, str(REPO_ROOT / "layout"))
+# needs REPO_ROOT/layout on sys.path
+from lvs_reference import ReferenceError as _LvsReferenceError  # noqa: E402
+from lvs_reference import subckt_ports as _subckt_ports  # noqa: E402
+
 TOP_CELL = "temp_por_top"
 
 # The ratified top-level pinout, in netlist port order. Sourced from the
@@ -53,7 +58,6 @@ TOP_CELL = "temp_por_top"
 # DR-003 is the reason there is nothing else: fixed >=1 ms pulse, no config pins.
 RATIFIED_TOP_PORTS = ["VDD", "VSS", "PTAT", "CTAT", "RESETn"]
 
-SUBCKT_RE = re.compile(r"^\.subckt\s+(\S+)\s*(.*)$", re.IGNORECASE)
 SYM_PIN_RE = re.compile(r"^B\s+\d+\s+\S+\s+\S+\s+\S+\s+\S+\s*\{(.*)\}\s*$")
 SCH_PIN_RE = re.compile(r"^C\s+\{devices/(i|o|io)pin\.sym\}\s+.*?\{(.*)\}\s*$")
 
@@ -152,11 +156,19 @@ def schematic_ports(cell: str) -> list[str]:
 
 
 def subckt_ports(netlist: str, cell: str) -> list[str]:
-    for line in netlist.splitlines():
-        match = SUBCKT_RE.match(line.strip())
-        if match and match.group(1) == cell:
-            return match.group(2).split()
-    raise ExportError(f".subckt {cell} not found in its own netlist")
+    """The formal port list of ``.subckt <cell> ...`` in ``netlist``.
+
+    Thin adapter over ``layout/lvs_reference.py``'s ``subckt_ports`` -- the one
+    shared parser for this SPICE primitive, which already handles ``+``
+    continuations and comment-stripping that a from-scratch regex here would
+    not (see the module docstring of ``layout/lvs_reference.py``). Only the
+    exception type is translated, so callers keep seeing this module's own
+    ``ExportError``.
+    """
+    try:
+        return _subckt_ports(netlist, cell)
+    except _LvsReferenceError as exc:
+        raise ExportError(f".subckt {cell} not found in its own netlist") from exc
 
 
 def instance_lines(netlist: str, cell: str) -> list[list[str]]:
