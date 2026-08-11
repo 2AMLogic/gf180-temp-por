@@ -357,6 +357,9 @@ being resolved or absorbed inside the re-run issues themselves:
 | `bias-core-designer-check` / `bias-core-startup` regress: post-brownout `VREF` reproducibility and `BIAS_OK` droop/dip push past their bounds at several cold/fast-process corners | #84 (`bias_core.md`) | [#185](https://github.com/2AMLogic/gf180-temp-por/issues/185) | Open |
 | `por-hysteresis` fails the 250 mV ceiling at the single worst full-assembly corner (`ss_-40c_3.63v`, 261.09 mV) | #85 (`por_comparator.md`) | [#187](https://github.com/2AMLogic/gf180-temp-por/issues/187) | Open |
 | Deglitch dwell's qualifying-dip floor has visibly less headroom post-layout than the schematic ever measured (root-caused, no ratified check fails) | #86 (`por_output_chain.md`, #182) | [#199](https://github.com/2AMLogic/gf180-temp-por/issues/199), [#200](https://github.com/2AMLogic/gf180-temp-por/issues/200) | Open |
+| `sim/por-iq/`'s publishing script still checks the withdrawn <1 µA ceiling, and its post-layout re-derivation is unblocked now that #83 has landed | #18 (this roll-up) | [#207](https://github.com/2AMLogic/gf180-temp-por/issues/207) | Open |
+| Three of this set's extracted records — and two of the schematic baselines they are compared against — are stamped "not citable as a clean-tree result" | #18 (this roll-up) | [#209](https://github.com/2AMLogic/gf180-temp-por/issues/209) | Open |
+| `spec/target-spec.md#area`'s measured post-layout number was never recorded; the drawn assembly measures ~1.06 mm² against a ≤0.05 mm² planning bound | #18 (this roll-up) | [#211](https://github.com/2AMLogic/gf180-temp-por/issues/211) | Open |
 
 Everything else that fails on the extracted netlist failed identically
 before the re-run (`por-brownout` at 0/81 per DR-011's falling-slew root
@@ -364,13 +367,116 @@ cause, `por-glitch` at 0/81 per DR-014/DR-017's known glitch response) and is
 not re-routed here — the extraction confirms, rather than changes, those
 already-owned findings.
 
+### 5. Suite coverage: what "the full suite" actually means here
+
+#18 asks for the *full* suite, so the accounting of what was and was not
+re-run belongs in the roll-up rather than being left implicit.
+
+`sim/` holds **20 experiment directories carrying a `testbench/tb.json`** —
+the corner/Monte-Carlo runner's unit of work. **19 of the 20 now also carry a
+`testbench-postlayout/` sibling and at least one record whose `Netlist
+provenance` field reads `extracted (…)`**, against one of the five netlists in
+`layout/postlayout/`. The complete set, and the document that interprets each,
+is:
+
+| Domain | Experiments re-run against the extracted netlist | Interpreted in |
+| --- | --- | --- |
+| Temp sensing (#83) | `temp-core-designer-check`, `temp-core-startup`, `temp-accuracy-vt`, `temp-accuracy-mc` | [`temp_core.md`](temp_core.md) → "Post-layout re-run (issue #83)" |
+| Bias / reference core (#84) | `bias-core-designer-check`, `bias-core-startup`, `bias-core-ibias-sharing` | [`bias_core.md`](bias_core.md) → "Post-layout re-run (issue #84)" |
+| POR comparator / threshold (#85) | `por-comparator-designer-check`, `por-threshold-mc`, `por-vth` | [`por_comparator.md`](por_comparator.md) → "Post-layout re-run (issue #85)" |
+| POR output chain (#86, #182) | `por-output-chain-pulse`, `por-output-chain-deglitch`, `por-output-chain-floor` | [`por_output_chain.md`](por_output_chain.md) → "Post-layout re-run (issue #86)" and "Root cause of the deglitch asymmetry" |
+| Full-assembly POR dynamics (#87) | `por-ramp-rate`, `por-brownout`, `por-brownout-slew`, `por-brownout-spurious`, `por-glitch`, `temp-por-top-release` | this document, above |
+
+The one experiment with **no** post-layout re-run is `sim/smoke-bias/`, and
+that is correct rather than an omission: its own `tb.json` claim field reads
+"None — harness self-verification, not a spec claim", and its DUT is a
+synthetic acceptance deck (ideal divider + a PDK poly-R/nfet bias leg + a
+diode-connected vertical PNP) that exists nowhere in the layout. There is no
+geometry to extract, so a post-layout re-run of it would not mean anything.
+
+Two further directories sit outside the runner's discovery and so outside the
+table above. `sim/devchar/` is the grandfathered pre-harness device
+characterization `sim/README.md` explicitly leaves as-is. `sim/por-iq/` is a
+*derivation* with no testbench of its own — it reduces
+`sim/temp-accuracy-vt/`'s raw per-point logs — and it is **the one experiment
+directory in `sim/` whose newest record is still schematic-sourced after this
+whole re-run**. That is a publication gap rather than an evidence gap
+(`por-iq`'s post-layout number is recorded in `temp-por-top-release`'s
+extracted record and cited from the spec row), and it is routed to #207 along
+with the withdrawn-<1 µA ceiling that directory's script still checks.
+
+**On the spec table itself**: only two rows of `spec/target-spec.md` cite
+post-layout evidence in their own text today —
+[`por-hysteresis`](../spec/target-spec.md#por-hysteresis) (pointing at #187)
+and [`por-iq`](../spec/target-spec.md#por-iq) (via DR-018 and #87). Every other
+row still names only its schematic-level record. Annotating each row
+individually is deliberately *not* attempted here: one roll-up a reader can
+check against [`layout/postlayout/AUDIT.md`](../layout/postlayout/AUDIT.md) and
+the record index above is more auditable than two dozen hand-edited per-row
+provenance notes that would then drift independently. The two rows that do
+carry a post-layout citation carry it because something *changed* there — a
+routed regression and a re-cost — which is the case the spec table needs to
+surface.
+
+There is one exception worth naming separately, because it is a row the
+post-layout gate was specifically supposed to close and did not:
+[`area`](../spec/target-spec.md#area) still reads `[TBD-#17]` with a
+`≤0.05 mm²` planning bound whose own note says it is "a planning bound to be
+replaced by the measured post-layout number." The layout is drawn and
+assembled, #17 is closed, and that measured number is recorded nowhere in this
+repository. A one-command measurement (`klt stats layout/cells/temp_por_top.gds`)
+puts the drawn assembly's bounding box at **1334 × 794 µm = 1.059 mm²**, ~21×
+the planning bound (the sum of the four sub-cells' own boxes, 0.342 mm², is
+still ~7× it), which is consistent with the poly-ladder area
+[`layout/floorplan.md`](../layout/floorplan.md) already predicted would consume
+"essentially the whole block's ≤0.05 mm² wave-1 planning budget" on its own.
+Recording it — and deciding which of the three defensible area conventions the
+row means — is a decision record plus an operator ruling, not something this
+verification roll-up may settle, so it is routed to #211 rather than written
+into the spec here.
+
+### 6. Provenance: five records in this set are stamped "not citable as a clean-tree result"
+
+`sim/harness/report.py` appends `— **taken against a dirty working tree** at
+commit <sha>; not citable as a clean-tree result` to a record's `Netlist
+provenance` field when the run was taken against uncommitted work. Auditing
+that field across every record in `sim/*/records/` puts five of the
+post-layout set in that category, and — the part that propagates — two of the
+**schematic baselines** the post-layout records are compared against:
+
+- **Sole post-layout evidence for their experiment, stamped**:
+  `bias-core-designer-check`'s `20260811-063744-5ff219c`,
+  `bias-core-startup`'s `20260811-062115-5ff219c`, and
+  `por-output-chain-floor`'s `20260811-055424-d0ee17d`. The first two are
+  #185's entire post-layout evidence base.
+- **Stamped but superseded by a clean-tree record**:
+  `por-output-chain-deglitch`'s `20260811-055634-d0ee17d` and
+  `20260811-094940-4249351`, both superseded by the clean-tree
+  `20260811-095259-865cea8` that the #182 section of
+  [`por_output_chain.md`](por_output_chain.md) cites.
+- **Stamped schematic baselines**: `por-brownout-slew`'s
+  `20260802-134958-dd0cd60` — which is the baseline behind **#188's headline
+  80/81 → 75/81 number** — and `temp-core-designer-check`'s
+  `20260801-073732-8b7e57f`, whose comparison is benign (216/216 at both ends).
+
+A delta is only as citable as the weaker of its two ends, so this bounds how
+some of this suite's numbers may be quoted: the *direction* of every finding
+above stands, and the qualitative changes (a corner that stops re-asserting
+`RESETn` at all, a check that crosses a ratified ceiling) are untouched by it,
+but a handful of precise deltas rest on a record the harness itself marks
+non-citable. `sim/` is append-only, so none of this is fixable in place;
+what is missing is a stated citation policy for the stamp plus clean-tree
+re-runs of the three sole-evidence decks (all per-cell, i.e. cheap). Routed to
+#209, with the #188-specific consequence called out there rather than
+re-litigated in that issue.
+
 ### Verdict: #18 closes now
 
 **#18 closes with this roll-up, rather than staying open as a living
-tracking issue pending #188/#185/#187/#199/#200.** The literal wording of
-#18's acceptance criteria ("full suite green ... across all PVT corners") is
-not met, and this roll-up does not pretend otherwise — four issues above
-remain open. But #18's own text also says a regression "re-opens the
+tracking issue pending #185/#187/#188/#199/#200/#207/#209/#211.** The literal
+wording of #18's acceptance criteria ("full suite green ... across all PVT
+corners") is not met, and this roll-up does not pretend otherwise — seven
+issues in the table above remain open. But #18's own text also says a regression "re-opens the
 corresponding design issue," not "keeps #18 open," and that mechanism is what
 this suite's own history shows working: #82 closed without waiting on
 #83-#87; #67 (the layout decomposition) closed once its five sub-issues
@@ -385,13 +491,22 @@ should read that regression's own issue, not this one.
 
 What #18 close *does* certify, and only this: the parasitic-extracted netlist
 exists for all five cells and the assembly (#82), every testbench in the
-pre-layout suite has been re-run against it at least once (#83-#87), every
-regression found in doing so has an owning issue (table above), and the three
-watch items #18's own body named explicitly have each been reported rather
-than silently rounded to "clean" — the sensing core's high-impedance-node
-loading (per-node ΣC/ΣR reported in `temp_core.md`'s "Parasitic loading on
-the high-impedance nodes"; too small by two-to-six orders of magnitude to
-move any spec row), the ~2 % reset-timing lengthening this loading and
-`por_output_chain`'s own timing capacitors produce (point 2), and
-cross-domain IR/coupling, which this repo's extraction model cannot show at
-all (point 1).
+pre-layout suite that has a DUT in the layout at all has been re-run against
+it at least once (#83-#87; the one exclusion and why it is correct is point 5),
+every regression and gap found in doing so has an owning issue (table above),
+and the three watch items #18's own body named explicitly have each been
+reported rather than silently rounded to "clean" — the sensing core's
+high-impedance-node loading (per-node ΣC/ΣR reported in `temp_core.md`'s
+"Parasitic loading on the high-impedance nodes"; too small by two-to-six
+orders of magnitude to move any spec row), the ~2 % reset-timing lengthening
+this loading and `por_output_chain`'s own timing capacitors produce (point 2),
+and cross-domain IR/coupling, which this repo's extraction model cannot show
+at all (point 1).
+
+What it explicitly does **not** certify: that the block is post-layout-*clean*
+(it is not — see the routing table), that any ratified row's verdict has been
+upgraded on post-layout evidence (none has; three rows carry a post-layout
+citation and two of those carry it because something got worse), or that the
+extraction model used here is a substitute for real PEX (point 1). The
+maturity-ladder wording in [`README.md`](../README.md) § Status is written to
+those limits.

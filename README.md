@@ -15,40 +15,63 @@ agents driving an open-source flow end to end.
 ## Status: early-stage, in progress
 
 Nothing here should be read as a finished or measured result — there is
-no silicon yet, and no completed layout. As of this writing the project
-has:
+no silicon yet, and no tapeout-ready sign-off. As of this writing the
+project has:
 
 - ratified a target specification and architecture direction through a
   series of recorded decisions (`spec/decision-records/`),
 - characterized the relevant gf180mcu devices (vertical PNP, resistor
   flavors, MOS options) against a bootstrap simulation harness,
-- begun recording PVT-corner simulation evidence (`sim/`), and
+- recorded PVT-corner simulation evidence for the schematic-level design
+  (`sim/`, append-only),
 - entered the block's top-level schematic hierarchy and pad interface in
-  xschem, with a reproducible ngspice netlist export (`design/`), and
+  xschem, with a reproducible ngspice netlist export (`design/`),
 - brought up a repeatable, klayout-tools-driven DRC/LVS flow and drawn
   all four of the block's sub-circuits — `bias_core`, `por_comparator`,
-  `por_output_chain` and `temp_core` — as real device geometry: DRC
-  clean, extracted, and LVS-matched against their schematic-derived
-  netlists, with the reports committed under `layout/reports/`
-  (issues #90, #91, #92, #93, all closed).
+  `por_output_chain` and `temp_core` — plus the top-level assembly
+  `temp_por_top`, as real device geometry: DRC clean and LVS-matched
+  against their schematic-derived netlists, with the reports committed
+  under `layout/reports/` (issues #90, #91, #92, #93 for the cells and
+  #97 for the reassembly, all closed), and
+- re-run the whole verification suite against a parasitic-extracted
+  netlist of that layout, recorded as new append-only evidence in `sim/`
+  (issue #18 and its children #82–#87).
 
-Those four sub-cells are no longer placeholders. Per the status block at
-the top of [`layout/README.md`](layout/README.md), every device in all
-four schematics is now drawn, extracted and compared — with one stated
-exception, `temp_core`'s single MiM cap, which the curated deck cannot
-extract and which is deliberately left outside the extracted cell.
+**Where that leaves the layout.** It is drawn and assembled. DRC is
+clean on all five cells including `temp_por_top` (238 devices, 159
+nets), and each is LVS-matched device-for-device and net-for-net against
+its schematic-derived reference netlist. One device is deliberately
+excluded from that compare — `temp_core`'s MiM compensation cap `XCC`,
+which the curated extraction deck cannot model in this block's m3m4
+flavour (issue #177) — so the assembly is **not** LVS'd *whole*, and
+that cap is spliced back in at its schematic value wherever a simulation
+needs it. Guard-ring and well-tie *correctness* is checked by nothing in
+this flow, because the deck has no tap or well-label layer; the status
+block at the top of [`layout/README.md`](layout/README.md) carries that
+and the rest of the known deck limits.
 
-What has *not* happened is the block-level reassembly. `temp_por_top`'s
-committed assembly still predates all four of those cells' current
-geometry and is deliberately frozen (`FROZEN_DECK_CELLS` in
-[`layout/lvs_reference.py`](layout/lvs_reference.py)) until issue #97 —
-still open — reworks its floorplan for the grown sub-cells. So the block
-cannot be claimed DRC/LVS-clean as an assembled whole, and, inheriting
-`temp_core`'s undrawn MiM cap, cannot be LVS'd whole at all yet. Full
-testbench sign-off has not happened either. Every claim this project
-makes is expected to be backed by a testbench and by PVT corner data
-recorded in `sim/`, not asserted without evidence — until a stage is
-checked off above, treat it as not yet done.
+**Post-layout verification has run, and the suite is not green.** The
+roll-up is
+[`design/temp_por_top.md`](design/temp_por_top.md) § "Closing roll-up for
+issue #18": every testbench with a DUT in the layout has been re-run
+against the extracted netlist across the full 81-point PVT grid, and the
+results are recorded rather than summarized away. Reset timing lengthens
+by a uniform ~2 %, which costs no ratified corner. Several ratified rows
+still fail — some from before layout (`spec/` decision records DR-011 and
+DR-014/DR-017 own those), some newly under extraction — and each is
+routed to its own open issue rather than absorbed. One target was
+re-costed against measured evidence through a decision record (DR-018),
+not quietly relaxed. And the block's cross-domain IR-drop and crosstalk
+question is **not answered by anything in this repository**: the
+extraction available today emits per-net lumped R/C to substrate only,
+with no DC rail path and no net-to-net capacitance, so no record in
+`sim/` may be read as IR or coupling evidence — a clean-looking result
+on that axis means "not tested", not "tested and passed".
+
+Full testbench sign-off has not happened. Every claim this project makes
+is expected to be backed by a testbench and by PVT corner data recorded
+in `sim/`, not asserted without evidence — until a stage is checked off
+above, treat it as not yet done.
 
 ## The agent-native build
 
