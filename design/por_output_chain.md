@@ -19,7 +19,7 @@ evidence run, not from an estimate:
 | Evidence | What it substantiates |
 | --- | --- |
 | [`sim/por-output-chain-pulse/`](../sim/por-output-chain-pulse/) — record `20260802-205904-bdc077d` (re-run on the post-#56 cell; `20260801-031819-fce635f` measured it before `XMRLK`) | [`por-reset-pulse`](../spec/target-spec.md#por-reset-pulse) ≥1 ms at nominal **and 3× IBIAS**, the deasserted level (push-pull, [`por-drive`](../spec/target-spec.md#por-drive)), no early release, and this cell's own share of [`por-iq`](../spec/target-spec.md#por-iq) in both the asserted and released states |
-| [`sim/por-output-chain-deglitch/`](../sim/por-output-chain-deglitch/) — record `20260802-205904-bdc077d` (re-run on the post-#56 cell; `20260801-032128-309621f` measured it before `XMRLK`) | the deglitch **dwell time** ([`por-brownout`](../spec/target-spec.md#por-brownout)'s `[TBD-#12]`) at nominal **and half** IBIAS, capture of a *qualifying* 10 µs dip, regeneration of the full pulse after it, and the no-early/no-double-pulse chatter edge case |
+| [`sim/por-output-chain-deglitch/`](../sim/por-output-chain-deglitch/) — record `20260802-205904-bdc077d` (re-run on the post-#56 cell; `20260801-032128-309621f` measured it before `XMRLK`) | the deglitch **dwell time** ([`por-brownout`](../spec/target-spec.md#por-brownout)'s `[TBD-#12]`) at nominal **and half** IBIAS, capture of a *qualifying* dip at the row's `T_dip,min` (30 µs since [DR-027](../spec/decision-records/DR-027-por-brownout-tdip-recost.md)/#251; 10 µs before it), regeneration of the full pulse after it, and the no-early/no-double-pulse chatter edge case |
 | [`sim/por-output-chain-floor/`](../sim/por-output-chain-floor/) — record `20260802-205904-bdc077d` (re-run on the post-#56 cell; `20260801-032940-d59d7c4` measured it before `XMRLK`) | [`por-reset-valid-floor`](../spec/target-spec.md#por-reset-valid-floor) against a slow 0 V → VDD ramp, with `POR_RAW` held low **and** driven to the rail, plus [`por-polarity`](../spec/target-spec.md#por-polarity) (degrades to *asserted* near 0 V) |
 
 All three are **81-point PVT grids** (9 process corners × −40/27/125 °C ×
@@ -185,10 +185,29 @@ excursion shorter than the dwell never reaches `PGDG`. The dwell that matters
 for [`por-brownout`](../spec/target-spec.md#por-brownout) is the
 `POR_RAW`-**falling** one (`NDG` rising, `XMDGPT` charging `CDG`).
 
-- **Upper bound**: the dwell must stay under `T_dip,min` = 10 µs, or a
+- **Upper bound**: the dwell must stay under `T_dip,min`, or a
   qualifying brownout dip is *rejected* and the row is unsatisfiable. It
   scales as 1/`IBIAS`, so the bound has to hold at the slow end of whatever
   `IBIAS` tolerance #11 lands on.
+
+  > **`T_dip,min` is 30 µs, not 10 µs, since 2026-08-11** ([DR-027](../spec/decision-records/DR-027-por-brownout-tdip-recost.md),
+  > operator, #236; pinned by measurement in #251). Everything below this
+  > note that compares a dwell against **10 µs** is reasoning from the
+  > *outgoing* ceiling and is left as written — it is the record of what was
+  > decided when, and the sizing conclusions it reaches were correct against
+  > the bound in force at the time. What changed is *not* this cell: #11's
+  > `IBIAS` question landed at **0.182× nominal** ([DR-024](../spec/decision-records/DR-024-por-output-chain-real-ibias-delivery.md)),
+  > not the idealised 0.5× the 10 µs ceiling was set against, and at that
+  > current the dwell is **6.14–23.11 µs** across the grid and both netlist
+  > levels (`sim/por-output-chain-deglitch/control/dwell_results.md`, #251) —
+  > over the old ceiling and under the new one, with +29.8 % margin. Two
+  > consequences worth naming rather than leaving implicit: the *ceiling* is
+  > no longer the comfortable side of this design's margin by the factor the
+  > sections below assume, and the `CDG`-sizing trade-off those sections close
+  > out (13 µm × 13 µm was rejected for an **11.68 µs** ceiling against 10 µs)
+  > deserves re-examination against 30 µs — which is a design question, not a
+  > consequence of the re-cost, and is tracked separately rather than acted on
+  > here.
 - **Lower bound**: a dwell only marginally longer than the transient it is
   meant to reject does not reject it. This is not theoretical — the first cut
   used `CDG` = 7 µm × 7 µm (98 fF), giving a **1.07 µs** dwell at FF / +125 °C,
@@ -297,7 +316,7 @@ asks for down there. Only **geometry** does, which is why the output pair is
 | Row | Requirement | Measured (81-point grid) | Binding point | Verdict |
 | --- | --- | --- | --- | --- |
 | [`por-reset-pulse`](../spec/target-spec.md#por-reset-pulse) | ≥1 ms, no maximum | **4.217 … 7.755 ms** at nominal `IBIAS`; **1.580 … 2.823 ms** at 3× `IBIAS` | min at **FF / −40 °C / 2.97 V** | **PASS** — 4.2× margin at nominal, 1.58× with a 3× `IBIAS` error |
-| [`por-brownout`](../spec/target-spec.md#por-brownout) `[TBD-#12]` | deglitch dwell ≤ 10 µs | **1.86 … 4.58 µs** at nominal `IBIAS`; **3.61 … 8.88 µs** at half | max at **SS / −40 °C / 3.63 V** (as the row predicts) | **PASS** — the published dwell is **4.58 µs worst-case**, 2.2× under `T_dip,min` |
+| [`por-brownout`](../spec/target-spec.md#por-brownout) — the `[TBD-#12]` this row owed, **filled by #251** | deglitch dwell ≤ `T_dip,min` = **30 µs** ([DR-027](../spec/decision-records/DR-027-por-brownout-tdip-recost.md); was 10 µs when this row was first written) | **1.86 … 4.58 µs** at nominal `IBIAS`; **3.61 … 8.88 µs** at the idealised half; **6.14 … 23.11 µs** at the `IBIAS` the assembly really delivers ([DR-024](../spec/decision-records/DR-024-por-output-chain-real-ibias-delivery.md), 0.182× nominal — the arm `T_dip,min` is now cut from) | max at **SS / −40 °C** at every bias (as the row predicts) | **PASS** — the published dwell against the ratified bound is **23.11 µs worst-case**, 1.30× under `T_dip,min`; the 4.58 µs nominal-bias figure is not the binding one |
 | [`por-brownout`](../spec/target-spec.md#por-brownout) | a qualifying 10 µs dip re-asserts and regenerates the full pulse | `RESETn` back to a valid low in **1.84 … 4.57 µs** end-to-end; stays asserted for the rest of the run | — | **PASS** |
 | [`por-reset-valid-floor`](../spec/target-spec.md#por-reset-valid-floor) | `V(RESETn) ≤ min(0.1 × VDD, 0.3 V)` for all VDD ≥ 0 | max ratio **0.0055 × VDD**; max absolute **1.74 mV** | ratio at **SF / +125 °C**, absolute at **SS / −40 °C** | **PASS** — 18× under the ratio limit, 172× under the absolute one |
 | [`por-polarity`](../spec/target-spec.md#por-polarity) | active low, degrades to *asserted* near 0 V | held ≤1.74 mV through the whole 0 V → VDD ramp, with `POR_RAW` low **and** driven to the rail | — | **PASS** |
@@ -1058,8 +1077,20 @@ still fits, 12 µm × 12 µm, buys the floor back only to 1.25 µs while leaving
 2.3 % of ceiling headroom at a single corner of a grid whose own dwell spread
 is 112 %; that is not margin, it is a coin flip.
 
+> **Read against 30 µs, this paragraph's arithmetic changes and its conclusion
+> is no longer self-evident.** [DR-027](../spec/decision-records/DR-027-por-brownout-tdip-recost.md)
+> (#236, pinned by #251) re-cost `T_dip,min` from 10 µs to **30 µs**, under
+> which 13 µm × 13 µm's 11.68 µs ceiling — the size rejected here — fits, as
+> does 14 µm × 14 µm's 13.75 µs. The trade-off this section closes out is
+> therefore **re-opened by the re-cost**, and the same measurement that
+> re-opened it also moves the *other* side of the ledger: at the `IBIAS` the
+> assembly really delivers the as-drawn ceiling is 23.11 µs, not 8.02 µs, so a
+> larger `CDG` would spend real margin rather than free headroom. Which size
+> wins is a design question this note does not settle and #251 did not act on —
+> it is left visible rather than left implied.
+
 **So `CDG` is not resized, and no decision record is filed** — nothing ratified
-moves. `por-brownout`'s 10 µs ceiling is met post-layout with 19.7 % headroom
+moved *at the time this section was written*. `por-brownout`'s 10 µs ceiling is met post-layout with 19.7 % headroom
 on the full grid (`20260811-095259-865cea8`; the 19.8 % in the table above is
 this control deck's own single-corner re-measurement of the same point)
 and stays exactly where [DR-008](../spec/decision-records/DR-008-target-spec-ratification.md)

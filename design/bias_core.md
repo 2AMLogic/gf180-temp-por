@@ -790,7 +790,7 @@ Two consequences worth stating plainly:
   which `design/bias_core.md` inherited, names the wrong variable: the
   collapse is dynamic, not static.
 - **Waiting does not help.** Held below VPOR↓,min for 5 ms at a 1 µs edge —
-  500× `T_dip,min` — the loop never recovers while the rail stays down, so
+  500× the then-ratified 10 µs `T_dip,min`, 167× the 30 µs [DR-027](../spec/decision-records/DR-027-por-brownout-tdip-recost.md) re-cost it to — the loop never recovers while the rail stays down, so
   reset still never asserts. Only the *recovery* edge restarts it.
 
 The boundary above was originally a **one-corner** number, not fit to ratify
