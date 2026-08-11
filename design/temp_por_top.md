@@ -54,6 +54,19 @@ clean result to lose — stays fully green: all four ratified ramp endpoints
 release at or above `VPOR↑,min` with no chatter at any of the 81 points, and
 the release rail moves by at most +0.11 %.
 
+**Caveat on the `por-brownout-slew` row's schematic baseline** (per
+[#209](https://github.com/2AMLogic/gf180-temp-por/issues/209)):
+`20260802-134958-dd0cd60` is stamped "taken against a dirty working tree …
+not citable as a clean-tree result" in its own `Netlist provenance` field.
+The 80/81 → 75/81 direction and the failing-corner set are unaffected — this
+is a full-assembly transient, not a per-cell deck, so it was not re-run
+purely to clear the stamp — but the precise "80" half of that count rests on
+a non-citable baseline per `sim/README.md`'s citation policy. #188's own
+falling-slew re-cost ([DR-019](../spec/decision-records/DR-019-brownout-falling-slew-postlayout-recost.md))
+does not depend on this row: it was measured from scratch against a clean
+tree (`sim/por-brownout-slew/records/20260811-110825-73ef5e3.md` and
+siblings), not from this comparison.
+
 ### What "extracted" means for this assembly
 
 Per [`layout/postlayout/AUDIT.md`](../layout/postlayout/AUDIT.md)'s
@@ -447,7 +460,7 @@ being resolved or absorbed inside the re-run issues themselves:
 | `por-hysteresis` fails the 250 mV ceiling at the single worst full-assembly corner (`ss_-40c_3.63v`, 261.09 mV) | #85 (`por_comparator.md`) | [#187](https://github.com/2AMLogic/gf180-temp-por/issues/187) | Open |
 | Deglitch dwell's qualifying-dip floor has visibly less headroom post-layout than the schematic ever measured (root-caused, no ratified check fails) | #86 (`por_output_chain.md`, #182) | [#199](https://github.com/2AMLogic/gf180-temp-por/issues/199), [#200](https://github.com/2AMLogic/gf180-temp-por/issues/200) | Open |
 | `sim/por-iq/`'s publishing script still checks the withdrawn <1 µA ceiling, and its post-layout re-derivation is unblocked now that #83 has landed | #18 (this roll-up) | [#207](https://github.com/2AMLogic/gf180-temp-por/issues/207) | **Closed** — script now checks the DR-018-recosted <3.0 µA ceiling, and `sim/por-iq/records/20260811-084152-68c0017-por-iq-derived.md` is the post-layout-derived record, 81/81 PASS on both rows |
-| Three of this set's extracted records — and two of the schematic baselines they are compared against — are stamped "not citable as a clean-tree result" | #18 (this roll-up) | [#209](https://github.com/2AMLogic/gf180-temp-por/issues/209) | Open |
+| Three of this set's extracted records — and two of the schematic baselines they are compared against — are stamped "not citable as a clean-tree result" | #18 (this roll-up) | [#209](https://github.com/2AMLogic/gf180-temp-por/issues/209) | **Closed** — `sim/README.md` states the citation policy and `sim/tests/test_stamped_record_citations.py` enforces it; clean-tree successors now exist for all three sole-evidence extracted records (`bias-core-designer-check`, `bias-core-startup`, `por-output-chain-floor`, re-cited in `design/bias_core.md` / `design/por_output_chain.md`); the `por-brownout-slew` schematic baseline is caveated explicitly above rather than re-run (full-assembly transient, not a cheap per-cell deck) |
 | `spec/target-spec.md#area`'s measured post-layout number was never recorded; the drawn assembly measures ~1.06 mm² against a ≤0.05 mm² planning bound | #18 (this roll-up) | [#211](https://github.com/2AMLogic/gf180-temp-por/issues/211) | **Closed** — resolved by [DR-022](../spec/decision-records/DR-022-area-post-layout-measurement.md), recording the measured 1.059 mm² footprint and the planning bound as not met (21.2× over); evidence wired into `layout/run_checks.sh` as regenerable `layout/reports/<cell>/stats.json` |
 
 Everything else that fails on the extracted netlist failed identically
@@ -533,40 +546,67 @@ planning budget" on its own. The planning bound is retained, unchanged, and
 recorded as **not met** rather than deleted or silently relaxed; no circuit
 or layout change resulted from settling this.
 
-### 6. Provenance: five records in this set are stamped "not citable as a clean-tree result"
+### 6. Provenance: five records in this set were stamped "not citable as a clean-tree result" — audited and resolved by #209
 
 `sim/harness/report.py` appends `— **taken against a dirty working tree** at
 commit <sha>; not citable as a clean-tree result` to a record's `Netlist
 provenance` field when the run was taken against uncommitted work. Auditing
-that field across every record in `sim/*/records/` puts five of the
-post-layout set in that category, and — the part that propagates — two of the
-**schematic baselines** the post-layout records are compared against:
+that field across every record in `sim/*/records/` (as first done when this
+roll-up was written) put five of the post-layout set in that category, and —
+the part that propagates — two of the **schematic baselines** the
+post-layout records are compared against:
 
 - **Sole post-layout evidence for their experiment, stamped**:
   `bias-core-designer-check`'s `20260811-063744-5ff219c`,
   `bias-core-startup`'s `20260811-062115-5ff219c`, and
-  `por-output-chain-floor`'s `20260811-055424-d0ee17d`. The first two are
+  `por-output-chain-floor`'s `20260811-055424-d0ee17d`. The first two were
   #185's entire post-layout evidence base.
-- **Stamped but superseded by a clean-tree record**:
+- **Stamped but already superseded by a clean-tree record**:
   `por-output-chain-deglitch`'s `20260811-055634-d0ee17d` and
   `20260811-094940-4249351`, both superseded by the clean-tree
   `20260811-095259-865cea8` that the #182 section of
   [`por_output_chain.md`](por_output_chain.md) cites.
 - **Stamped schematic baselines**: `por-brownout-slew`'s
-  `20260802-134958-dd0cd60` — which is the baseline behind **#188's headline
-  80/81 → 75/81 number** — and `temp-core-designer-check`'s
-  `20260801-073732-8b7e57f`, whose comparison is benign (216/216 at both ends).
+  `20260802-134958-dd0cd60` — the baseline behind this document's own
+  `por-brownout-slew` row above — and `temp-core-designer-check`'s
+  `20260801-073732-8b7e57f`, whose comparison is benign (216/216 at both
+  ends).
 
-A delta is only as citable as the weaker of its two ends, so this bounds how
-some of this suite's numbers may be quoted: the *direction* of every finding
-above stands, and the qualitative changes (a corner that stops re-asserting
-`RESETn` at all, a check that crosses a ratified ceiling) are untouched by it,
-but a handful of precise deltas rest on a record the harness itself marks
-non-citable. `sim/` is append-only, so none of this is fixable in place;
-what is missing is a stated citation policy for the stamp plus clean-tree
-re-runs of the three sole-evidence decks (all per-cell, i.e. cheap). Routed to
-#209, with the #188-specific consequence called out there rather than
-re-litigated in that issue.
+A delta is only as citable as the weaker of its two ends, so this bounded how
+some of this suite's numbers could be quoted: the *direction* of every
+finding stood regardless, and the qualitative changes (a corner that stops
+re-asserting `RESETn` at all, a check that crosses a ratified ceiling) were
+never in question, but a handful of precise deltas rested on a record the
+harness itself marked non-citable. `sim/` is append-only, so none of this was
+fixable in place.
+
+**Resolved by [#209](https://github.com/2AMLogic/gf180-temp-por/issues/209).**
+`sim/README.md` now states the citation policy the previous paragraph was
+missing (§ "Citing a 'taken against a dirty working tree' record"). All three
+sole-evidence decks are per-cell, cheap re-runs — `bias-core-designer-check`,
+`bias-core-startup` and `por-output-chain-floor` were each re-run on a clean
+tree, reproduced their stamped predecessor's numbers exactly, and are now the
+records `design/bias_core.md` and `design/por_output_chain.md` cite.
+`por-output-chain-deglitch` already had its clean-tree successor
+(`20260811-095259-865cea8`); `design/por_output_chain.md`'s post-layout table
+now cites it directly instead of the stamped `…-055634-…`. The two schematic
+baselines are full-assembly / designer-check decks rather than cheap per-cell
+ones, so neither was re-run purely to clear the stamp: `por-brownout-slew`'s
+`…-dd0cd60` is caveated explicitly at its one citation site (above); DR-019's
+own falling-slew re-cost does not depend on it, having been measured fresh
+against a clean tree. `temp-core-designer-check`'s `…-8b7e57f` is cited only
+for the qualitative "unchanged" finding in `design/temp_core.md`, which the
+citation policy permits without a caveat.
+
+**And the policy is enforced rather than merely written down**, because this
+recurred while #209 was open: PR #222 (issue #185) minted two more stamped
+records on the replacement 30 ms `bias-core-designer-check` deck —
+`20260811-114539-9fcede8` (extracted) and `20260811-114349-9fcede8`
+(schematic) — and cited them in `design/bias_core.md` with no caveat. That
+deck is a 30 ms × 81-point transient rather than a cheap per-cell one, so
+those two are caveated at the citation site rather than re-run, and
+`sim/tests/test_stamped_record_citations.py` now fails CI on any
+`design/*.md` section that cites a stamped record without naming the caveat.
 
 ### Verdict: #18 closes now
 

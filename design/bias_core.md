@@ -973,7 +973,7 @@ states the `IBIAS` window that cell can tolerate without a resize —
 0.44×–4.7× nominal — and issue #199 asks whether this cell's actual output
 falls inside it. It does, on the evidence already in this table: `ibias_na`'s
 post-layout minimum/maximum
-([`sim/bias-core-designer-check/records/20260811-063744-5ff219c.md`](../sim/bias-core-designer-check/records/20260811-063744-5ff219c.md),
+([`sim/bias-core-designer-check/records/20260811-123635-eb0f4ef.md`](../sim/bias-core-designer-check/records/20260811-123635-eb0f4ef.md),
 297.089 / 1117.85 nA) are **0.594× / 2.236×** nominal, both inside that
 envelope with margin on each side. No change follows for this cell; see
 `design/por_output_chain.md`, "#199: the two hand-offs, answered", for the
@@ -1299,9 +1299,18 @@ re-simulated.
 
 | Evidence (`Netlist provenance: extracted`) | Result | vs. schematic baseline |
 | --- | --- | --- |
-| [`sim/bias-core-designer-check/records/20260811-063744-5ff219c.md`](../sim/bias-core-designer-check/records/20260811-063744-5ff219c.md) | FAIL (as expected — see below) | **regressed**: two new failure modes, see #185 |
-| [`sim/bias-core-startup/records/20260811-062115-5ff219c.md`](../sim/bias-core-startup/records/20260811-062115-5ff219c.md) | FAIL | **regressed**: one new marginal failure, see #185 |
+| [`sim/bias-core-designer-check/records/20260811-123635-eb0f4ef.md`](../sim/bias-core-designer-check/records/20260811-123635-eb0f4ef.md) | FAIL (as expected — see below) | **regressed**: two new failure modes, see #185 |
+| [`sim/bias-core-startup/records/20260811-125228-e403f89.md`](../sim/bias-core-startup/records/20260811-125228-e403f89.md) | FAIL | **regressed**: one new marginal failure, see #185 |
 | [`sim/bias-core-ibias-sharing/records/20260811-060715-5ff219c.md`](../sim/bias-core-ibias-sharing/records/20260811-060715-5ff219c.md) | PASS, 81/81 | unchanged — matches [`sim/bias-core-ibias-sharing/records/20260801-152327-b72c10c.md`](../sim/bias-core-ibias-sharing/records/20260801-152327-b72c10c.md) |
+
+The designer-check and startup rows above cite clean-tree re-runs rather than
+this cell's first post-layout pass: `20260811-063744-5ff219c` and
+`20260811-062115-5ff219c` were both minted against uncommitted work and are
+each their experiment's *sole* post-layout evidence, so a stamped-only
+citation was not an option here per `sim/README.md`'s citation policy.
+`20260811-123635-eb0f4ef` and `20260811-125228-e403f89` reproduce their
+numbers exactly on a clean tree — see
+[#209](https://github.com/2AMLogic/gf180-temp-por/issues/209).
 
 `bias-core-designer-check`'s two documented, on-purpose failures reproduce
 **unchanged**: `iq_por_ua` (38/81 points, [Iq apportionment](#iq-apportionment))
@@ -1370,10 +1379,24 @@ Evidence minted for this issue, all on the replacement 30 ms deck:
 | [`sim/bias-core-designer-check/control/results.md`](../sim/bias-core-designer-check/control/results.md) | control | anatomy of the superseded deck + the 120 ms latch test |
 | [`sim/bias-core-startup/control/dip_results.md`](../sim/bias-core-startup/control/dip_results.md) | control | `BIAS_OK`'s dead-rail discharge curve, both netlists |
 
+**Provenance caveat on the two 30 ms records** (per `sim/README.md`,
+"Citing a 'taken against a dirty working tree' record", and
+[#209](https://github.com/2AMLogic/gf180-temp-por/issues/209)): both
+`20260811-114539-9fcede8` and `20260811-114349-9fcede8` were minted against
+an uncommitted working tree and carry the harness's *"not citable as a
+clean-tree result"* stamp in their own **Netlist provenance** field. The
+direction-of-change conclusions this section draws from them — which checks
+stop failing, which start telling the truth, and that the schematic and
+extracted netlists move the same way — are citable as they stand. The precise
+30 ms figures quoted below are not yet clean-tree numbers; no ratified bound
+was moved on them, and no clean-tree successor exists yet because this deck
+is a 30 ms × 81-point transient rather than one of the cheap per-cell decks
+#209 re-ran.
+
 `sim/bias-core-startup/` and `sim/bias-core-ibias-sharing/` are untouched by
 this issue — no testbench and no DUT netlist under either of them changed —
 so their post-layout records
-([`20260811-062115-5ff219c`](../sim/bias-core-startup/records/20260811-062115-5ff219c.md),
+([`20260811-125228-e403f89`](../sim/bias-core-startup/records/20260811-125228-e403f89.md),
 [`20260811-060715-5ff219c`](../sim/bias-core-ibias-sharing/records/20260811-060715-5ff219c.md),
 the latter 81/81 PASS) stand as taken.
 
@@ -1387,7 +1410,7 @@ window to *inside* it. **The 2 ms deck was shorter than the phenomenon it
 was measuring**, and three other numbers in the same record say so
 independently, before any new simulation is run:
 
-| Symptom in record [`20260811-063744-5ff219c`](../sim/bias-core-designer-check/records/20260811-063744-5ff219c.md) | What it means |
+| Symptom in record [`20260811-123635-eb0f4ef`](../sim/bias-core-designer-check/records/20260811-123635-eb0f4ef.md) | What it means |
 | --- | --- |
 | `t_bo_recover_us` **negative at 34 of 81 points** (down to −6.136 µs) | A recovery that completes *before the rail returns* is impossible. `when v(bias_okb)=1.4 rise=last` had no genuine post-collapse crossing inside 2 ms to find, so it returned the capacitive blip `BIAS_OK` makes while the rail's own 10 µs return ramp drags the high-impedance node up through 1.4 V. The check was reporting a measurement failure as a PASS. |
 | `t_false_ok_fast_us` **clustered at 1503–1988 µs at 14 points**, `t_false_ok_brownout_us` at 1508–1577 µs at 14 points | Saturation against the 0→2 ms integration window, not a measured duration. This document's own [starved-loop window](#the-starved-loop-window) section already recorded a **4.4 ms** parked window at `sf`/−40 °C — longer than the deck measuring it. |
@@ -1465,7 +1488,7 @@ precisely the number `t_false_ok_brownout_us` exists to report.
 Both columns are `Netlist provenance: extracted`, same PDK, same 81-point grid;
 only the deck differs.
 
-| check | 2 ms deck ([`20260811-063744-5ff219c`](../sim/bias-core-designer-check/records/20260811-063744-5ff219c.md)) | 30 ms deck (this issue) |
+| check | 2 ms deck ([`20260811-123635-eb0f4ef`](../sim/bias-core-designer-check/records/20260811-123635-eb0f4ef.md)) | 30 ms deck (this issue) |
 | --- | --- | --- |
 | `bo_shallow_ppm` | **12/81 FAIL**, down to −6.54·10⁵ ppm | **0/81 FAIL**, whole grid 0…2.5 ppm |
 | `bo_deep_ppm` | **21/81 FAIL**, down to −6.50·10⁵ ppm | **1/81 FAIL** (`sf_-40c_3.63v`), rest 0…0.83 ppm |
