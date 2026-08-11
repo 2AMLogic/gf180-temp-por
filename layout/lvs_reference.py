@@ -1713,11 +1713,16 @@ def check_deck_hash_consistency(reports_dir: Path = REPORTS_DIR) -> list[str]:
 #: reports -- a cell whose GDS moves without its extraction being re-run fails
 #: here rather than shipping a post-layout netlist of a layout that no longer
 #: exists.
+#: ``stats.json`` (``klt stats``, #211 -- spec/target-spec.md#area's evidence)
+#: gained the same spliced ``provenance.gds_sha256`` for the same reason: a
+#: footprint/area number that no longer matches the committed GDS is exactly
+#: the kind of silent drift this gate exists to catch.
 GDS_HASH_FIELDS: dict[str, tuple[str, ...]] = {
     "drc.json": ("provenance", "gds_sha256"),
     "extract.json": ("provenance", "gds_sha256"),
     "extracted-parasitics.json": ("provenance", "gds_sha256"),
     "lvs.json": ("environment", "layout_sha256"),
+    "stats.json": ("provenance", "gds_sha256"),
 }
 
 

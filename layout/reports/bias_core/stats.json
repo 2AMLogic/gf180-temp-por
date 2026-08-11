@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "file": "layout/cells/bias_core.gds",
+  "dbu_um": 0.001,
+  "top_cell": "bias_core",
+  "bbox_um": {
+    "left": -5.5,
+    "bottom": -9.700000000000001,
+    "right": 429.40000000000003,
+    "top": 276.0,
+    "width": 434.90000000000003,
+    "height": 285.7
+  },
+  "total": {
+    "area_um2": 82618.3192,
+    "density": 0.6649311936739628,
+    "polygon_count": 3573,
+    "vertex_count": 14292
+  },
+  "layers": null,
+  "provenance": {
+    "gds_sha256": "6d6236d05ae0cd822ebab5aa819194b3fdf709a17c9258b48b799671e2e23852"
+  }
+}

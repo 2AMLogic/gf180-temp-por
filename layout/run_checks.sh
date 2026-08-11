@@ -15,12 +15,16 @@
 #   3. runs `klt extract --deck gf180mcu` and records the layout netlist,
 #   4. runs `klt lvs` against the schematic-derived reference and requires
 #      a match,
-#   5. re-runs LVS against deliberately-corrupted references (one topology
+#   5. runs `klt stats` and records the cell's bounding-box footprint and
+#      total drawn (union-of-layers) polygon area -- the regenerable source
+#      of truth for spec/target-spec.md#area, so that row's number can never
+#      drift from the committed GDS the way a hand-typed one would,
+#   6. re-runs LVS against deliberately-corrupted references (one topology
 #      defect, one MOS device-parameter defect, and -- on a cell that has
 #      passives -- one resistor/bipolar parameter defect) and requires every
 #      applicable one to be reported as a mismatch.
 #
-# Step 5 is not decoration. A mis-wired LVS invocation that silently compares
+# Step 6 is not decoration. A mis-wired LVS invocation that silently compares
 # nothing also reports "match", so a clean run on its own is not evidence; the
 # two controls fail independently (klayout-tools docs/cli/lvs.md, "Negative
 # controls"), so passing all three is what makes the clean run mean something.
@@ -374,7 +378,21 @@ print(json.load(open(sys.argv[1]))['layout'].get('top_cell_pins', False))
     continue
   fi
 
-  # 4. negative controls -------------------------------------------------
+  # 5. footprint / drawn-area stats ---------------------------------------
+  # `klt stats` needs no `--deck` (it reads geometry only, not device
+  # recognition), so it carries no `provenance.deck` block and is outside
+  # the deck-hash consistency gate above -- only the GDS-hash drift gate
+  # applies to it (see GDS_HASH_FIELDS in layout/lvs_reference.py).
+  if klt stats "$gds" --format json >"$out/stats.json"; then
+    splice_gds_hash "$gds" "$out/stats.json"
+    green "    STATS ok      ($out/stats.json)"
+  else
+    red "    STATS FAILED  ($out/stats.json)"
+    cell_failed
+    continue
+  fi
+
+  # 6. negative controls -------------------------------------------------
   # Under $SCRATCH rather than its own mktemp -d, so the run has exactly one
   # cleanup trap: a per-cell `trap ... EXIT` here would replace the frozen-cell
   # scratch cleanup installed above and `trap - EXIT` would disarm it entirely.
@@ -454,7 +472,7 @@ sys.stdout.write("\n")
 PY
   rm -rf "$control_dir"
 
-  # 5. frozen cells: diff instead of overwrite ---------------------------
+  # 7. frozen cells: diff instead of overwrite ---------------------------
   # Every verdict above was this run's own; all that is left is to say how the
   # reports it produced compare with the committed evidence, which stays as
   # committed either way. A difference is expected while frozen (the committed
@@ -463,7 +481,7 @@ PY
   # carry pass/fail and they already have.
   if [ "$out" != "$committed" ]; then
     drift="$(python3 - "$out" "$committed" \
-      drc.json extracted.spice extract.json lvs.json negative-controls.json <<'PY'
+      drc.json extracted.spice extract.json lvs.json stats.json negative-controls.json <<'PY'
 import sys
 from pathlib import Path
 

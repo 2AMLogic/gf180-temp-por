@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "file": "layout/cells/temp_por_top.gds",
+  "dbu_um": 0.001,
+  "top_cell": "temp_por_top",
+  "bbox_um": {
+    "left": -140.0,
+    "bottom": -540.0,
+    "right": 1194.0,
+    "top": 254.0,
+    "width": 1334.0,
+    "height": 794.0
+  },
+  "total": {
+    "area_um2": 369261.93960000004,
+    "density": 0.3486247489605323,
+    "polygon_count": 18557,
+    "vertex_count": 74228
+  },
+  "layers": null,
+  "provenance": {
+    "gds_sha256": "cfa19694b87948b218e34ba33f42c3b0b2b7ea17932c62292d780422ed34c584"
+  }
+}
