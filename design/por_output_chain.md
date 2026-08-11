@@ -1117,6 +1117,26 @@ extremes talking past each other. `IBIAS`'s deterministic-corner spread —
 it has already published. Question 2 is closed: favorable, no ratified value
 moves, no resize follows.
 
+> **Correction (issue #221, [DR-024](../spec/decision-records/DR-024-por-output-chain-real-ibias-delivery.md)):
+> the paragraph above is wrong about what `ibias_na` measures.**
+> `sim/bias-core-designer-check/`'s `ibias_na` is `bias_core`'s output into a
+> **single** 2 µm / 2 µm diode load standing in for `por_comparator` alone
+> ([`sim/bias-core-designer-check/testbench/stimulus.spice`](../sim/bias-core-designer-check/testbench/stimulus.spice)) —
+> it never instantiates `por_output_chain`, so it is not the current this
+> cell actually receives once the shared node is loaded by up to three
+> consumer diodes at once, per [DR-010](../spec/decision-records/DR-010-shared-ibias-disabled-consumer-contract.md).
+> [`sim/por-output-chain-ibias-sharing/`](../sim/por-output-chain-ibias-sharing/)
+> (#221) instantiates all four cells and meters every consumer leg
+> individually; it measures **0.344×–1.155× nominal `RESETn`-asserted and
+> 0.182×–0.608× nominal `RESETn`-released**, both well under the 0.44× floor
+> derived above, worst at `ss_-40c_2.97v` released (0.182×) — identically at
+> both netlist levels. [Hand-off to #11](#hand-off-to-11-the-ibias-envelope-is-the-real-constraint)'s
+> ceiling stress DUT is re-cut to this real number by DR-024, which now
+> **fails** 79/81 (schematic) / 57/81 (post-layout) points on the deglitch
+> ceiling check — see DR-024 for the full evidence, why the two cheapest
+> circuit-level fixes do not close inside `por-iq`'s DR-018 ceiling, and the
+> two follow-up issues it routes the remaining levers to.
+
 **#14's `POR_RAW` chatter width — not measurable from any deck committed so
 far, and not something a post-processing pass can extract.** Question 1 asks
 for the real-world width of a `POR_RAW` excursion near `por_comparator`'s
