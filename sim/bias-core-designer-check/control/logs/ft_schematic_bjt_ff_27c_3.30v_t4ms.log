@@ -51,8 +51,8 @@ bias_ok                            -7.5884e-21
 vib#branch                        -8.57595e-43
 vsup#branch                       -5.02684e-30
 
- Reference value :  4.34644e-03
- Reference value :  1.16375e-02
+ Reference value :  4.54644e-03
+ Reference value :  1.20000e-02
 No. of Data Rows : 2466
 vref_settle         =  1.19316e+00
 vref_up             =  1.20260e+00
