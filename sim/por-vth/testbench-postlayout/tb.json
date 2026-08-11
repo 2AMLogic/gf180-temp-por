@@ -1,0 +1,91 @@
+{
+  "name": "por-vth",
+  "description": "Full-assembly (real bias_core VREF, not idealised) release/assert threshold pair and hysteresis extraction of temp_por_top: one DUT, one 0->2 V fast / 2 V->VDD->2 V quasi-static triangle-wave ramp, measured on the internal POR_RAW node. Post-layout composite netlist.",
+  "claim": "spec/target-spec.md#por-vth-rise, #por-vth-fall, #por-hysteresis -- corner-worst-case (deterministic, not Monte Carlo) full-assembly extraction, AS DRAWN, complementing sim/por-comparator-designer-check/'s post-layout idealised-VREF/IBIAS cell-level record with bias_core's real corner-dependent VREF in the loop. Deterministic corners only: design.ngspice sets sw_stat_mismatch=0, so the [3sigma] mismatch share stays #15's job and these rows remain conditional #15. UNLIKE the schematic-level record, the comparator's own RTOP/RBOT/RHYS divider is the real drawn-and-extracted ppolyf_u_1k resistor (layout/postlayout/AUDIT.md: temp_por_top, 238/239 devices drawn, one ideal device outside this claim's path -- see netlist_provenance_note), so a clean result says 'the resistor ratio as physically drawn, driven by the real bias_core reference, holds up', not merely 'MOS-side parasitic loading doesn't move the threshold'.",
+  "netlist": "tb_por_vth_postlayout.spice",
+  "nominal_supply_v": 3.3,
+  "supply_tolerance": 0.1,
+  "temperatures_c": [
+    -40,
+    27,
+    125
+  ],
+  "corners": [
+    "full"
+  ],
+  "options": [
+    "reltol=1e-5",
+    "abstol=1e-15",
+    "vntol=1e-9"
+  ],
+  "analyses": [
+    "tran 10u 17m",
+    "meas tran vpor_rise find v(vdd) when v(xdut.por_raw)=1.5 rise=1",
+    "meas tran vpor_rise_last find v(vdd) when v(xdut.por_raw)=1.5 rise=last",
+    "meas tran vpor_fall find v(vdd) when v(xdut.por_raw)=1.5 fall=1",
+    "meas tran vpor_fall_last find v(vdd) when v(xdut.por_raw)=1.5 fall=last",
+    "meas tran vref_settle_early find v(xdut.vref) at=5.5m",
+    "meas tran vref_settle_late find v(xdut.vref) at=10.9m",
+    "meas tran por_raw_top find v(xdut.por_raw) at=10.9m",
+    "meas tran vdd_top find v(vdd) at=10.9m"
+  ],
+  "measure": {
+    "vpor_rise_v": "vpor_rise",
+    "vpor_fall_v": "vpor_fall",
+    "v_hys_mv": "(vpor_rise-vpor_fall)*1e3",
+    "rise_chatter_mv": "(vpor_rise_last-vpor_rise)*1e3",
+    "fall_chatter_mv": "(vpor_fall-vpor_fall_last)*1e3",
+    "vref_settle_early_v": "vref_settle_early",
+    "vref_settle_late_v": "vref_settle_late",
+    "vref_settle_drift_mv": "(vref_settle_late-vref_settle_early)*1e3",
+    "por_raw_hi_droop_mv": "(vdd_top-por_raw_top)*1e3"
+  },
+  "checks": {
+    "vpor_rise_v": {
+      "min": 2.47,
+      "max": 2.73,
+      "description": "spec/target-spec.md#por-vth-rise (VPOR-uparrow, release threshold), full assembly, real bias_core VREF. Max binds at SS/-40C, min binds at FF/+125C per the ratified table."
+    },
+    "vpor_fall_v": {
+      "min": 2.22,
+      "max": 2.63,
+      "description": "spec/target-spec.md#por-vth-fall (VPOR-downarrow, assert threshold), same corner point as vpor_rise_v (same deck, same corner libs, same .temp, same rail)."
+    },
+    "v_hys_mv": {
+      "min": 100.0,
+      "max": 250.0,
+      "description": "spec/target-spec.md#por-hysteresis: V_hys = VPOR-uparrow - VPOR-downarrow, both edges measured at the same corner point, full assembly."
+    },
+    "rise_chatter_mv": {
+      "min": -0.005,
+      "max": 0.005,
+      "description": "Anti-chatter guard on the release edge (first vs. last rising crossing on the up-ramp). A correct comparator crosses exactly once."
+    },
+    "fall_chatter_mv": {
+      "min": -0.005,
+      "max": 0.005,
+      "description": "Same guard on the assert edge (first vs. last falling crossing on the down-ramp)."
+    },
+    "vref_settle_early_v": {
+      "min": 1.0,
+      "max": 1.35,
+      "description": "bias_core's real VREF 0.5 ms after the up-ramp reaches full rail, informative -- confirms the threshold measured above is riding on a settled reference, not a startup transient."
+    },
+    "vref_settle_late_v": {
+      "min": 1.0,
+      "max": 1.35,
+      "description": "same, 0.1 ms before the down-ramp starts (still at full rail, settled)."
+    },
+    "vref_settle_drift_mv": {
+      "min": -2.0,
+      "max": 2.0,
+      "description": "harness/settling-integrity guard: VREF must not still be moving between the two samples 5.4 ms apart on a static rail."
+    },
+    "por_raw_hi_droop_mv": {
+      "max": 50.0,
+      "description": "POR_RAW's released-high level against the rail at the same instant, informative/integrity: the comparator's decision node must be a solid rail-referenced high before the down-ramp begins."
+    }
+  },
+  "netlist_provenance": "extracted",
+  "netlist_provenance_note": "layout/postlayout/temp_por_top.spice (klt 0.2.0, klt lvs net correspondence match 159/159 nets -- #82/#180). layout/postlayout/AUDIT.md's temp_por_top row: 238 drawn devices, 1 ideal (not drawn): xtemp's XCC MiM cap (cap_mim_2f0_m3m4_noshield) on xtemp__PG/xtemp__NZ, reserved floor area in temp_core -- outside the VDD-SNS-SNSB-VSS/VREF/POR_RAW path this record's checks measure, so it does not weaken this record's threshold/hysteresis claim. 23 body/plate net(s) (Nwell/substrate ties, including xcmp__NW1/xcmp__NW2 -> VDD for por_comparator's own two Nwells) tied to the net the schematic puts them on -- not drawn interconnect. 27 ppolyf_u_1k resistors (including xcmp's RTOP/RBOT/RHYS) extract under the deck's ppolyf_u_3k sheet-rho option (klayout-tools#323, deck naming only -- same drawn geometry either way); 7 MiM caps extract as cap_mim_2f0_m4m5_noshield vs. the schematic's cap_mim_2f0_m3m4_noshield (klayout-tools#315, same 2.0 fF/um^2 device, deck naming only). POR_RAW/SNS/SNSB (this record's own probe/divider nets) extract as anonymous nets and are reattached by klt lvs's net correspondence, not by a drawn label -- see PR #180's smoke table (por_comparator's sns_v/snsb_v and temp_por_top's t_release_ms/resetn_final_v rows) for the connectivity check this record's threshold numbers rely on."
+}

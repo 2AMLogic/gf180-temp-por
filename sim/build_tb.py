@@ -118,6 +118,13 @@ POSTLAYOUT_FRAGMENTS: dict[str, tuple[str, tuple[str, ...]]] = {
         "tb_ibias_sharing.spice",
         ("bias_core", "temp_core", "por_comparator"),
     ),
+    # #85's por_comparator/threshold-domain post-layout re-runs.
+    "por-comparator-designer-check": (
+        "tb_por_comparator_postlayout.spice",
+        ("por_comparator",),
+    ),
+    "por-threshold-mc": ("tb_por_threshold_mc_postlayout.spice", ("por_comparator",)),
+    "por-vth": ("tb_por_vth_postlayout.spice", ("temp_por_top",)),
 }
 
 

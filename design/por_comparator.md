@@ -499,6 +499,16 @@ required to change it.
 
 ## Layout — partially drawn (#69)
 
+> **Update (#91, #82/#180, #85):** the sense divider this section describes
+> as "deliberately not drawn" was drawn for real in #91 and is now extracted,
+> LVS-verified and simulated post-layout as of #82/#180/#85 — see
+> [`layout/README.md` § `por_comparator`](../layout/README.md#por_comparator--the-por-threshold-comparator-69-sense-divider-91)
+> for the current layout state and this document's new
+> [Post-layout re-run](#post-layout-re-run-issue-85) section below for the
+> resulting evidence. The account below is preserved for the
+> deferred-drawing rationale it documents; its "not drawn" layout-status
+> claims are superseded.
+
 The MOS portion of this cell is drawn and verified:
 [`layout/cells/por_comparator.gds`](../layout/cells/por_comparator.gds), with
 the recorded DRC/extract/LVS reports under
@@ -536,6 +546,119 @@ drawn there are a design-review claim, not a checked one
 (klayout-tools#281); [`layout/README.md`](../layout/README.md) § "The cells
 under test" states the full boundary.
 
+## Post-layout re-run (issue #85)
+
+The three testbenches this document cites were re-run against the
+**composite/extracted** netlists
+[`layout/postlayout/por_comparator.spice`](../layout/postlayout/por_comparator.spice)
+and [`layout/postlayout/temp_por_top.spice`](../layout/postlayout/temp_por_top.spice)
+(#82/PR #180's direct-extraction flow: `klt extract --parasitics` plus
+`klt lvs`'s net-correspondence map, `klt 0.2.0`) instead of the schematic
+exports, via the `testbench-postlayout/` convention #86 established:
+
+| Evidence | Netlist provenance | DUT |
+| --- | --- | --- |
+| [`sim/por-comparator-designer-check/records/20260811-073514-eb36e2c.md`](../sim/por-comparator-designer-check/records/20260811-073514-eb36e2c.md) | extracted | `por_comparator` alone, idealised `VREF`/`IBIAS` |
+| [`sim/por-threshold-mc/records/20260811-074902-e3e220f.md`](../sim/por-threshold-mc/records/20260811-074902-e3e220f.md) | extracted | `por_comparator` alone, Monte Carlo local mismatch |
+| [`sim/por-vth/records/20260811-073945-12473c3.md`](../sim/por-vth/records/20260811-073945-12473c3.md) | extracted | `temp_por_top`, real `bias_core`-driven `VREF`/`IBIAS` |
+
+It does not replace the schematic-level section above — both stand as
+independent evidence, per `sim/README.md`'s append-only convention.
+
+**The `VDD`–`SNS`–`SNSB`–`VSS` divider string is connected correctly in the
+extracted netlist.** `SNS`/`SNSB` extract as anonymous nets (no drawn label
+reaches them), so this is not something a name match alone proves; `klt
+lvs`'s `net_correspondence` output (klayout-tools#311) reattaches the
+correct name from its own LVS-verified device/net match, and PR #180's smoke
+table reproduces the schematic's exact `sns_v`/`snsb_v` (1.61228 V /
+0.165661 V, 0.00 % delta) as a result. The cell-level record above measures
+`sns_released_v` directly across the full grid (1.45091–1.77351 V, tracking
+the corner-dependent `VREF` gain exactly as the schematic predicts) — the
+connectivity the threshold numbers below rely on.
+
+**The resistor ratio as physically drawn holds up, not just "parasitics
+don't move the threshold".** `RTOP`/`RBOT`/`RHYS` are **not** schematic-ideal
+splices in this netlist: #91 drew the divider for real, and
+`layout/postlayout/AUDIT.md` confirms all 3 `ppolyf_u_1k` resistors extract
+as real two-terminal devices (`por_comparator`: 21/21 devices drawn, no ideal
+device; `temp_por_top`: 238/239, the one exception — `temp_core`'s `XCC` MiM
+cap — sitting outside this cell's own signal path). So a clean result below
+is a claim about the divider **as physically drawn**, not merely that
+MOS-side parasitic loading leaves an assumed-ideal ratio unmoved.
+
+### Cell-level (idealised `VREF`/`IBIAS`, `por_comparator` alone)
+
+**All PASS**, same 81-point PVT grid as the schematic-level record:
+
+| Spec row | Window | Measured min | Measured max | Worst-case margin |
+| --- | --- | --- | --- | --- |
+| [`por-vth-rise`](../spec/target-spec.md#por-vth-rise) VPOR↑ | 2.47 / 2.60 / 2.73 V | 2.59461 V (`ff_125c_2.97v`) | 2.60219 V (`ss_-40c_3.63v`) | +125 mV / +128 mV |
+| [`por-vth-fall`](../spec/target-spec.md#por-vth-fall) VPOR↓ | 2.22 / 2.45 / 2.63 V | 2.44087 V (`res_ss_125c_3.63v`) | 2.44649 V (`res_ff_-40c_2.97v`) | +221 mV / +184 mV |
+| [`por-hysteresis`](../spec/target-spec.md#por-hysteresis) V_hys | 100 / 150 / 250 mV | 150.728 mV (`ff_125c_2.97v`) | 158.014 mV (`ss_125c_3.63v`) | +50.7 mV / +92.0 mV |
+| [`por-iq`](../spec/target-spec.md#por-iq) | < 1 µA | 0.646 µA (`ss_-40c_2.97v`) | 0.792 µA (`ff_125c_3.63v`) | 208 nA |
+
+Every measured value tracks the schematic-level cell record to within a few
+mV — expected, since a DC/quasi-static operating point is close to
+parasitic-invariant by construction (`layout/README.md`, "The DC quantities
+agree with the schematic to five or six digits"). Iq is reproduced to
+sub-nA precision (146–292 nA own draw, 646–792 nA rule-1 total — identical
+to the schematic-level numbers in [Iq budget](#iq-budget) above).
+
+**Local mismatch, Monte Carlo (N = 500 per binding point).** Same
+drawn-and-extracted `por_comparator` netlist, `sw_stat_mismatch=1` at
+each of the five ratified binding points. **2500/2500 samples, overall
+PASS.** Comparator input-referred offset σ = 6.02–6.51 mV, VPOR↑ σ =
+13.1–14.1 mV, VPOR↓ σ = 12.1–13.1 mV, V_hys σ = 1.00–1.18 mV — all within a
+few tenths of the schematic-level MC record's own spread, and every
+mean ± 3σ band stays inside its ratified window at 100 % empirical yield
+(worst case: V_hys 3σ = 173.674 mV at `vth-rise-max`, 76.3 mV of margin to
+the 250 mV ceiling).
+
+### Full-assembly (`bias_core`-driven `VREF`/`IBIAS`, `temp_por_top`)
+
+**80/81 PASS, 1 FAIL**, same 81-point PVT grid as the schematic-level
+full-assembly record:
+
+| Spec row | Window | Measured min | Measured max | Worst-case margin |
+| --- | --- | --- | --- | --- |
+| [`por-vth-rise`](../spec/target-spec.md#por-vth-rise) VPOR↑ | 2.47 / 2.60 / 2.73 V | 2.58574 V (`bjt_ff_125c_2.97v`) | 2.64873 V (`ss_-40c_3.63v`) | +116 mV / +81.3 mV |
+| [`por-vth-fall`](../spec/target-spec.md#por-vth-fall) VPOR↓ | 2.22 / 2.45 / 2.63 V | 2.37928 V (`res_ss_-40c_3.63v`) | 2.44714 V (`bjt_ss_125c_2.97v`) | +159 mV / +183 mV |
+| [`por-hysteresis`](../spec/target-spec.md#por-hysteresis) V_hys | 100 / 150 / 250 mV | 169.34 mV (`ff_125c_2.97v`) | **261.092 mV (`ss_-40c_3.63v`)** | +69.3 mV / **−11.1 mV (FAIL)** |
+
+**Regression: `por-hysteresis` fails at the single worst-case corner,
+`ss_-40c_3.63v`.** The schematic-level full-assembly record already left
+only 1.26 mV of margin there (248.74 mV measured against the 250 mV
+ceiling — see [Results against the ratified targets](#results-against-the-ratified-targets)
+above). Post-layout, both edges move apart at that corner (VPOR↑ +4.20 mV,
+VPOR↓ −8.16 mV against the schematic-level record), widening V_hys by
+12.35 mV — just enough to cross the ceiling. The same corner family (`ss`,
+coldest/highest-supply) shows the same-sign, similar-magnitude growth
+elsewhere in the grid (e.g. `res_ss_-40c_3.63v`: 236.68 → 248.52 mV, +11.8 mV,
+still passing with 1.48 mV left) — a systematic shift, not an isolated
+outlier. It does **not** show up in the cell-level record above (V_hys
+157.249 mV at the identical corner, comfortably inside [100, 250] mV) or in
+the post-layout Monte Carlo record (worst case 173.674 mV): the mechanism
+needs the full-assembly path's real, corner-dependent `bias_core` VREF/IBIAS
+in the loop, not the divider extraction or local mismatch alone.
+
+Per this document's own error-budget accounting (the divider ratio is the
+part this cell owns; `VREF` accuracy is `bias_core`'s), and per #85's
+acceptance criteria that a post-layout regression against the schematic-level
+record is flagged and routed rather than silently absorbed: this finding is
+tracked as [issue #187](https://github.com/2AMLogic/gf180-temp-por/issues/187),
+not fixed here — #85 is verification-only. `spec/target-spec.md#por-hysteresis`
+carries a matching pointer; its `ratifiable` verdict stands on the
+schematic-level evidence above pending #187.
+
+### Reproducing this section's evidence
+
+```bash
+python3 sim/build_tb.py --check                                      # postlayout fragments <-> layout/postlayout/*.spice
+python3 sim/run_corners.py sim/por-comparator-designer-check/testbench-postlayout -j 8
+python3 sim/run_mc.py sim/por-threshold-mc/testbench-postlayout       -j 8
+python3 sim/run_corners.py sim/por-vth/testbench-postlayout           -j 8
+```
+
 ## Reproducing the evidence
 
 ```bash
@@ -557,4 +680,5 @@ not overwrite `20260801-015413-5dfccf2`.
 | Ramp-rate envelope, brownout re-assertion, reset-pulse interaction on a real bring-up sequence | POR testbench suite, #14 |
 | ~~Monte Carlo mismatch on the three `[3σ]` threshold rows~~ — **done**, `sim/por-threshold-mc/` record `20260802-083749-3b9b414`; all three pass | ~~#15~~ |
 | Matching strategy for the whole block, measured area | #17 |
-| Drawing the sense divider — blocked on the extraction deck growing non-MOS device coverage (klayout-tools#219/#222) | see [Layout](#layout--partially-drawn-69) |
+| ~~Drawing the sense divider~~ — **done**, #91; extracted and simulated post-layout, #82/#180/#85 | see [Layout](#layout--partially-drawn-69), [Post-layout re-run](#post-layout-re-run-issue-85) |
+| Root-causing / fixing the post-layout `por-hysteresis` regression at `ss_-40c_3.63v` | #187 |

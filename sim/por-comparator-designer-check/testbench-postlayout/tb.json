@@ -1,0 +1,124 @@
+{
+  "name": "por-comparator-designer-check",
+  "description": "Designer-level PVT check of design/por_comparator.sch: release/assert threshold pair and hysteresis from a slow VDD ramp in both directions, single-transition (no-chatter) proof on both edges, settled Iq with BIAS_OK asserted and deasserted, and the observed below-operating-floor behaviour of POR_RAW. Post-layout composite netlist.",
+  "claim": "spec/target-spec.md#por-vth-rise, #por-vth-fall, #por-hysteresis, #por-iq -- designer-level (deterministic-corner, not Monte Carlo) evidence that the comparator + hysteresis network, AS DRAWN, lands inside the ratified min/typ/max windows, with both edges of a pair measured at the same corner point. Deterministic corners only: design.ngspice sets sw_stat_mismatch=0, so this bounds the SYSTEMATIC/corner term only -- the [3sigma] mismatch share these rows carry is issue #15's Monte Carlo job, and target-spec.md marks them 'conditional #15' for exactly that reason. IBIAS/VREF are idealised fixed stimuli standing in for bias_core (#11, still a placeholder), so the VREF-referred share of the threshold error is NOT in this record. Post-layout re-run (#85) against layout/postlayout/por_comparator.spice (#82/PR #180, direct klt extraction): RTOP/RBOT/RHYS are real drawn-and-extracted ppolyf_u_1k resistors, not a schematic-ideal splice, since #91 drew the divider for real and every device in this cell is drawn (0 ideal, layout/postlayout/AUDIT.md) -- so a clean result says the resistor ratio AS PHYSICALLY DRAWN holds up, not merely that MOS-side parasitic loading leaves an assumed-ideal ratio unmoved. See design/por_comparator.md's post-layout section for the schematic-vs-extracted delta.",
+  "netlist": "tb_por_comparator_postlayout.spice",
+  "nominal_supply_v": 3.3,
+  "supply_tolerance": 0.1,
+  "temperatures_c": [-40, 27, 125],
+  "corners": ["full"],
+  "options": ["reltol=1e-6", "abstol=1e-15", "vntol=1e-9"],
+  "analyses": [
+    "tran 5u 10m",
+    "meas tran vpor_rise find v(vddup) when v(por_rawup)=1.5 rise=1",
+    "meas tran vpor_rise_last find v(vddup) when v(por_rawup)=1.5 rise=last",
+    "meas tran vpor_rise_vrefhi find v(vddur) when v(por_rawur)=1.5 rise=1",
+    "meas tran vpor_fall find v(vdddn) when v(por_rawdn)=1.5 fall=1",
+    "meas tran vpor_fall_last find v(vdddn) when v(por_rawdn)=1.5 fall=last",
+    "meas tran por_at_0p5v find v(por_rawup) when v(vddup)=0.5 rise=1",
+    "meas tran por_at_1v find v(por_rawup) when v(vddup)=1.0 rise=1",
+    "meas tran por_at_2v find v(por_rawup) when v(vddup)=2.0 rise=1",
+    "meas tran por_reassert find v(por_rawdn) when v(vdddn)=2.0 fall=1",
+    "meas tran por_top find v(por_rawup) at=9.9m",
+    "meas tran vdd_top find v(vddup) at=9.9m",
+    "meas tran por_bot find v(por_rawdn) at=9.9m",
+    "meas tran sns_top find v(xiq.sns) at=5m",
+    "meas tran iq_run find i(vsupiq) at=5m",
+    "meas tran iq_own find i(vsupown) at=5m",
+    "meas tran iq_dis find i(vsupdis) at=5m"
+  ],
+  "measure": {
+    "vpor_rise_v": "vpor_rise",
+    "vpor_fall_v": "vpor_fall",
+    "v_hys_mv": "(vpor_rise-vpor_fall)*1e3",
+    "vref_gain_frac": "((vpor_rise_vrefhi-vpor_rise)/vpor_rise)/0.05",
+    "rise_chatter_mv": "(vpor_rise_last-vpor_rise)*1e3",
+    "fall_chatter_mv": "(vpor_fall-vpor_fall_last)*1e3",
+    "por_hi_droop_mv": "(vdd_top-por_top)*1e3",
+    "por_reassert_mv": "por_reassert*1e3",
+    "por_tail_mv": "por_bot*1e3",
+    "por_at_0p5v_mv": "por_at_0p5v*1e3",
+    "por_at_1v_mv": "por_at_1v*1e3",
+    "por_at_2v_mv": "por_at_2v*1e3",
+    "sns_released_v": "sns_top",
+    "iq_run_ua": "-iq_run*1e6",
+    "iq_own_ua": "-iq_own*1e6",
+    "iq_dis_ua": "-iq_dis*1e6"
+  },
+  "checks": {
+    "vpor_rise_v": {
+      "min": 2.47,
+      "max": 2.73,
+      "description": "spec/target-spec.md#por-vth-rise (VPOR-uparrow, release threshold). Max binds at SS/-40C, min binds at FF/+125C per the ratified table; this record sweeps the full 81-point grid so both binding corners are measured directly, not inferred. VREF is idealised at 1.2 V here, so this is the DIVIDER+COMPARATOR share of the window only."
+    },
+    "vpor_fall_v": {
+      "min": 2.22,
+      "max": 2.63,
+      "description": "spec/target-spec.md#por-vth-fall (VPOR-downarrow, assert threshold), constructed from VPOR-uparrow and V_hys in the ratified table -- checked here as its own measured row, at the SAME corner point as vpor_rise_v (same deck, same corner libs, same .temp, same rail)."
+    },
+    "v_hys_mv": {
+      "min": 100.0,
+      "max": 250.0,
+      "description": "spec/target-spec.md#por-hysteresis: V_hys = VPOR-uparrow - VPOR-downarrow, both edges measured at the same corner point. Floored at 100 mV, capped at 250 mV so V_hys does not drag VPOR-downarrow below the por-digital-min-vdd self-consistency floor. V_hys = VREF*RTOP*RHYS/(RBOT*(RBOT+RHYS)) -- a same-flavour resistor ratio, so the +/-25 % ppolyf_u_3k sheet corner and its -1545 ppm/C TC cancel rather than multiply through."
+    },
+    "vref_gain_frac": {
+      "min": 0.97,
+      "max": 1.03,
+      "description": "Measured fractional sensitivity of VPOR-uparrow to VREF: a second rising ramp is run with VREF 5 % high, and this reports (dVPOR/VPOR)/(dVREF/VREF). It must be 1.00 by topology (the threshold is VREF times a resistor ratio), and measuring it is what makes the error-budget hand-off to bias_core (#11) evidence instead of algebra."
+    },
+    "rise_chatter_mv": {
+      "min": -0.001,
+      "max": 0.001,
+      "description": "Anti-chatter guard on the RELEASE edge: the difference between the LAST and the FIRST rising crossing of POR_RAW=VDD/2 on the same ramp."
+    },
+    "fall_chatter_mv": {
+      "min": -0.001,
+      "max": 0.001,
+      "description": "Same guard on the ASSERT edge (last vs. first falling crossing on the falling ramp)."
+    },
+    "por_hi_droop_mv": {
+      "max": 1.0,
+      "description": "VDD - V(POR_RAW) at the top of the rising ramp: POR_RAW must be a hard rail-to-rail HIGH once released, not a partially-resolved analog level, since #12's deglitch/pulse stage consumes it as a logic signal."
+    },
+    "por_reassert_mv": {
+      "max": 300.0,
+      "description": "V(POR_RAW) on the FALLING ramp once VDD has come back down to 2.0 V -- below VPOR-downarrow at every corner but still above the comparator's own operating floor."
+    },
+    "por_tail_mv": {
+      "min": -150.0,
+      "max": 150.0,
+      "description": "Informative, no correctness claim: V(POR_RAW) at the very end of the falling ramp, where VDD is near ground and both output-inverter devices are far below Vt."
+    },
+    "por_at_2v_mv": {
+      "max": 300.0,
+      "description": "Edge case / documentation check (not a ratified spec row): POR_RAW with VDD held at 2.0 V on the rising ramp -- above the comparator's own operating floor but below VPOR-uparrow. Must read a solid not-released."
+    },
+    "por_at_1v_mv": {
+      "max": 500.0,
+      "description": "Edge case / documentation check: POR_RAW at VDD = 1.0 V, i.e. below the comparator's own operating floor, where DR-004/DR-005 leave the output explicitly undefined by construction."
+    },
+    "por_at_0p5v_mv": {
+      "max": 500.0,
+      "description": "Same edge-case probe at VDD = 0.5 V, deep below the operating floor. Deliberately an ABSOLUTE-voltage guard, not a fraction of the rail."
+    },
+    "sns_released_v": {
+      "min": 1.4,
+      "max": 1.85,
+      "description": "The SNS divider tap in the settled/released state. Not a spec row -- confirms the SNS/SNSB anonymous-net correspondence (klt lvs net_correspondence, #82/#180) reconnects the divider string correctly: this must track the corner-dependent VREF gain exactly as the schematic predicts."
+    },
+    "iq_run_ua": {
+      "max": 1.0,
+      "description": "spec/target-spec.md#por-iq (<1 uA), settled/released state at this point's rail. Per DR-007's Iq accounting rule 1 this deliberately INCLUDES the full 500 nA idealised IBIAS reference the testbench pushes into the pin."
+    },
+    "iq_own_ua": {
+      "max": 0.5,
+      "description": "The cell's own draw from its own VDD pin, with the idealised IBIAS reference sourced from a SEPARATE rail."
+    },
+    "iq_dis_ua": {
+      "max": 1.0,
+      "description": "Iq with BIAS_OK held low throughout (pre-bias-core-valid state), at this point's rail. Also the worst-case DIVIDER state: BIAS_OK low clamps CMPO low, so N1 is high, so MHSW shorts RHYS out -- the divider's low-resistance (higher-current) configuration -- while the rail is at its maximum."
+    }
+  },
+  "netlist_provenance": "extracted",
+  "netlist_provenance_note": "layout/postlayout/por_comparator.spice (klt 0.2.0, klt lvs net correspondence match 18/18 nets -- #82/#180). layout/postlayout/AUDIT.md's por_comparator row: 3 body/plate net(s) (NW1, NW2 -> VDD; vsubs -> VSS) tied to the net the schematic puts them on -- the extraction deck's connectivity stack does not reach an Nwell or the substrate ring, so those 3 nets carry no drawn-interconnect parasitic; every one of the 21 drawn devices (12 nfet_03v3 + 6 pfet_03v3 + 3 ppolyf_u_1k, including RTOP/RBOT/RHYS) is real, no ideal device. The 3 ppolyf_u_1k resistors extract under the deck's ppolyf_u_3k sheet-rho option (klayout-tools#323, deck naming only -- same drawn geometry either way). SNS/SNSB (the VDD-SNS-SNSB-VSS sense divider taps) extract as anonymous nets and are reattached by klt lvs's net correspondence, not by a drawn label -- see PR #180's smoke table (sns_v/snsb_v: 0.00% delta vs. schematic) for the connectivity check this record's threshold numbers rely on."
+}
