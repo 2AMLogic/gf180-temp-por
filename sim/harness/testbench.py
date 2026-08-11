@@ -64,6 +64,16 @@ class Testbench:
     #: Shape: ``{"n": 500, "seed_base": <int>, "binding_points":
     #: [{"label": str, "corner": str, "temp_c": float, "vdd": float}, ...]}``.
     mc: dict = field(default_factory=dict)
+    #: "schematic" (``design/...``) or "extracted" (post-layout,
+    #: ``layout/postlayout/<cell>.spice``) -- sim/README.md's "Netlist
+    #: provenance" record field (issue #86). Defaults to "schematic" so every
+    #: pre-existing manifest is unaffected.
+    netlist_provenance: str = "schematic"
+    #: Required by sim/README.md for an "extracted" record: the caveat the
+    #: post-layout netlist's own header carries (untied nets, still-ideal
+    #: devices -- see layout/postlayout/AUDIT.md). Appended verbatim after
+    #: the provenance sentence. Empty for schematic-provenance testbenches.
+    netlist_provenance_note: str = ""
 
     @property
     def experiment(self) -> str:
@@ -98,6 +108,8 @@ class Testbench:
             "manifest_sha256": self.manifest_sha256,
             "nominal_supply_v": self.nominal_supply_v,
             "supply_tolerance": self.supply_tolerance,
+            "netlist_provenance": self.netlist_provenance,
+            "netlist_provenance_note": self.netlist_provenance_note,
         }
 
 
@@ -156,7 +168,14 @@ def load(directory: str | Path) -> Testbench:
         checks=dict(manifest.get("checks", {})),
         options=tuple(manifest.get("options", ())),
         mc=dict(manifest.get("mc", {})),
+        netlist_provenance=manifest.get("netlist_provenance", "schematic"),
+        netlist_provenance_note=manifest.get("netlist_provenance_note", ""),
     )
+    if tb.netlist_provenance not in ("schematic", "extracted"):
+        raise ValueError(
+            f"{manifest_path}: netlist_provenance must be 'schematic' or 'extracted', "
+            f"got {tb.netlist_provenance!r}"
+        )
     validate_netlist(tb)
     return tb
 

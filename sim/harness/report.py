@@ -447,7 +447,16 @@ def render_record(record: dict, experiment: str) -> str:
     git = env["git"]
     pdk = env["pdk"]
 
-    provenance = f"schematic (`sim/{experiment}/{TESTBENCH_DIR}/{tb['netlist']}`)"
+    # tb["directory"] is the actual testbench subdirectory name (usually
+    # "testbench"; "testbench-postlayout" etc. for an extracted-provenance
+    # sibling directory, #86) -- fall back to the ratified default for
+    # records built before this field existed.
+    testbench_dir = tb.get("directory") or TESTBENCH_DIR
+    provenance_kind = tb.get("netlist_provenance") or "schematic"
+    provenance = f"{provenance_kind} (`sim/{experiment}/{testbench_dir}/{tb['netlist']}`)"
+    note = tb.get("netlist_provenance_note") or ""
+    if note:
+        provenance += f" — {note}"
     if git["dirty"]:
         provenance += (
             f" — **taken against a dirty working tree** at commit `{git['commit']}`; "
@@ -470,8 +479,8 @@ def render_record(record: dict, experiment: str) -> str:
     lines += _result_lines(record)
     lines += [
         "- **Links**:",
-        f"  - Testbench: `sim/{experiment}/{TESTBENCH_DIR}/{tb['netlist']}`, "
-        f"`sim/{experiment}/{TESTBENCH_DIR}/tb.json`",
+        f"  - Testbench: `sim/{experiment}/{testbench_dir}/{tb['netlist']}`, "
+        f"`sim/{experiment}/{testbench_dir}/tb.json`",
         f"  - Netlist snapshot: `sim/{experiment}/{SNAPSHOT_DIR}/{record_id}.spice`",
         f"  - Raw logs: `sim/{experiment}/{CORNERS_DIR}/{record_id}/`",
         f"- **Timestamp / author**: {record['started_utc']}, {env['user']}",
