@@ -292,7 +292,7 @@ def render(coeffs: dict[tuple[str, str], dict], pdk, options: list[str]) -> str:
         tau_up = [r["tau_up_us"] for r in rows]
         tau_dn = [r["tau_dn_us"] for r in rows]
         worst_up = max(rows, key=lambda r: r["tau_up_us"])
-        worst_dn = max(rows, key=lambda r: r["tau_dn_us"])
+        worst_dn = min(rows, key=lambda r: r["tau_dn_us"])
         best_up = min(rows, key=lambda r: r["tau_up_us"])
         out += [
             f"## {dut} — {len(rows)}/81 corners",

@@ -158,9 +158,9 @@ xdut.vss__par                                0
 vib#branch                        -2.76085e-44
 vsup#branch                       -9.41341e-30
 
- Reference value :  1.98625e-03
- Reference value :  5.97250e-03
- Reference value :  9.94750e-03
+ Reference value :  1.91125e-03
+ Reference value :  5.83250e-03
+ Reference value :  9.73750e-03
 No. of Data Rows : 2467
 vref_settle         =  1.19325e+00
 vref_up             =  1.20268e+00

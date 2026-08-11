@@ -159,14 +159,14 @@ vib#branch                        -3.54182e-31
 vsup#branch                         6.7178e-31
 
  Reference value :  1.95558e-03
- Reference value :  5.80558e-03
- Reference value :  9.62058e-03
- Reference value :  1.34606e-02
- Reference value :  1.73525e-02
- Reference value :  2.12775e-02
- Reference value :  2.51225e-02
- Reference value :  2.89875e-02
- Reference value :  3.29425e-02
+ Reference value :  5.72058e-03
+ Reference value :  9.43558e-03
+ Reference value :  1.31506e-02
+ Reference value :  1.73075e-02
+ Reference value :  2.14425e-02
+ Reference value :  2.52575e-02
+ Reference value :  2.93425e-02
+ Reference value :  3.34575e-02
 No. of Data Rows : 7268
 vref_settle         =  1.19942e+00
 vref_up             =  1.20104e+00

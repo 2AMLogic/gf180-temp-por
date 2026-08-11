@@ -25,7 +25,7 @@ Two `tramp` points per (netlist, corner) give a rate (V/s) pair per direction. `
 ## schematic — 81/81 corners
 
 - Up-ramp coefficient: **17.31 … 47.45 us** (worst: `ss_-40c_2.97v` at 47.45 us, best: `ff_125c_3.63v` at 17.31 us)
-- Down-ramp coefficient magnitude: **17.54 … 51.08 us** (worst: `ff_125c_2.97v` at -17.54 us)
+- Down-ramp coefficient magnitude: **17.54 … 51.08 us** (worst: `ss_-40c_3.63v` at -51.08 us)
 
 | corner | temp (C) | VDD (V) | tau_up (us) | tau_dn (us) | VREF settled (V) |
 |---|---:|---:|---:|---:|---:|
@@ -114,7 +114,7 @@ Two `tramp` points per (netlist, corner) give a rate (V/s) pair per direction. `
 ## postlayout — 81/81 corners
 
 - Up-ramp coefficient: **17.31 … 47.40 us** (worst: `ss_-40c_2.97v` at 47.40 us, best: `ff_125c_3.63v` at 17.31 us)
-- Down-ramp coefficient magnitude: **17.59 … 51.27 us** (worst: `ff_125c_2.97v` at -17.59 us)
+- Down-ramp coefficient magnitude: **17.59 … 51.27 us** (worst: `ss_-40c_3.63v` at -51.27 us)
 
 | corner | temp (C) | VDD (V) | tau_up (us) | tau_dn (us) | VREF settled (V) |
 |---|---:|---:|---:|---:|---:|
