@@ -295,6 +295,20 @@ Record `20260801-015413-5dfccf2`, 81 points, all PASS. Rows quoted from
 | [`por-hysteresis`](../spec/target-spec.md#por-hysteresis) V_hys | 100 / 150 / 250 mV | 146.564 mV (`ff_125c_2.97v`) | 153.750 mV (`ss_-40c_3.63v`) | +46.6 mV / +96.3 mV |
 | [`por-iq`](../spec/target-spec.md#por-iq) | < 1 µA | 0.646 µA (`ss_-40c_2.97v`) | 0.792 µA (`ff_125c_3.63v`) | 208 nA |
 
+> **Deck fixed, #206.** Like `sim/por-vth/`, this deck's own ramp held
+> duration fixed (10 ms), so `dVDD/dt` was a function of `vdd_val`
+> (297/330/363 V/s) — the same confound, with a much smaller coefficient here
+> because `VREF`/`IBIAS` are idealised fixed sources with no output impedance
+> for a moving rail to displace. Fixed for consistency at a constant
+> `dvdd_dt_v_per_s` (297 V/s, this deck's own 2.97 V corner). Re-run:
+> [`20260811-132202-9f48a3d`](../sim/por-comparator-designer-check/records/20260811-132202-9f48a3d.md)
+> (schematic, `v_hys_mv` 146.564–151.885 mV, 81/81 PASS) and
+> [`20260811-132502-1a28d73`](../sim/por-comparator-designer-check/records/20260811-132502-1a28d73.md)
+> (post-layout, 150.728–155.467 mV, 81/81 PASS) — materially unchanged from
+> the record below, as expected given the small coefficient. That record
+> stays the one this section's binding-corner and same-die tables below
+> quote from; it is not superseded, only complemented.
+
 **The measured binding corners are the ones the ratified table names.**
 VPOR↑,max lands at SS / −40 °C and VPOR↑,min at FF / +125 °C exactly as
 `por-vth-rise` predicts, and `por-iq` binds at FF / +125 °C / 3.63 V as its
@@ -817,6 +831,48 @@ both files byte-for-byte (per-run wall-clock times, the one field no log
 carries, are preserved from the committed `results.json`), so checking the
 generated tables costs a reviewer nothing but the read.
 
+### The deck itself is now fixed at a constant `dVDD/dt` (issue #206)
+
+Everything above diagnoses `sim/por-vth/`'s *historical* stimulus — the one
+that traversed `vdd_val − 2.0 V` in a fixed 4 ms, so its ramp rate was itself
+a function of the supply. That stimulus is unchanged by this section (DR-021
+deliberately left it alone, "so the root-cause reasoning and the deck change
+are reviewed separately"). Issue #206 is that separate review: the deck now
+derives its ramp duration from a manifest, constant `dvdd_dt_v_per_s`
+(`tramp = (vdd_val − 2.0) / dvdd_dt_v_per_s`), chosen at 242.5 V/s — the old
+scheme's own 2.97 V corner, per
+[`sim/por-vth/control/rate_selection_results.md`](../sim/por-vth/control/rate_selection_results.md)
+— plus a quasi-staticity guard segment (a second cycle at half that rate,
+whose own `V_hys` must track the primary segment's within a measured bound).
+
+Both grids now **PASS 81/81**, at every one of the three rows this section
+discusses:
+
+| Spec row | Window | Schematic (`20260811-125410-c8a41a4`) | Post-layout (`20260811-131325-c23be4a`) |
+| --- | --- | --- | --- |
+| [`por-vth-rise`](../spec/target-spec.md#por-vth-rise) VPOR↑ | 2.47 / 2.60 / 2.73 V | 2.58384–2.63001 V | 2.58574–2.63222 V |
+| [`por-vth-fall`](../spec/target-spec.md#por-vth-fall) VPOR↓ | 2.22 / 2.45 / 2.63 V | 2.40536–2.45092 V | 2.40102–2.44714 V |
+| [`por-hysteresis`](../spec/target-spec.md#por-hysteresis) V_hys | 100 / 150 / 250 mV | 164.633–206.847 mV | 169.340–215.655 mV |
+
+The `ss_-40c_3.63v` point this section built its whole decomposition around
+now reads **215.655 mV** post-layout at the deck's own 242.5 V/s (was
+261.092 mV at 407.5 V/s under the confounded deck) — **34.3 mV inside the
+250 mV ceiling**, and consistent with the decomposition above: 143.3 mV of
+static hysteresis plus the residual rate term this deck's own quasi-static
+rate still carries. `VPOR↑` is bit-identical across the whole supply axis at
+every PVT point on both grids, exactly as arm C above predicted once
+`dVDD/dt` stopped varying with `vdd_val`.
+
+**Nothing here relaxes DR-021.** The ratified 100/150/250 mV window is
+unchanged, and the historical records
+([`20260801-233802-32fbaa0`](../sim/por-vth/records/20260801-233802-32fbaa0.md),
+[`20260811-073945-12473c3`](../sim/por-vth/records/20260811-073945-12473c3.md))
+stand, append-only, as exactly what the old fixed-duration deck measured —
+DR-021's decomposition of *that* reading is still correct and still the
+record of why it read what it did. The two new records above are the
+*current* evidence for these three rows, run against the corrected,
+genuinely quasi-static stimulus.
+
 ## Reproducing the evidence
 
 ```bash
@@ -840,5 +896,5 @@ not overwrite `20260801-015413-5dfccf2`.
 | Matching strategy for the whole block, measured area | #17 |
 | ~~Drawing the sense divider~~ — **done**, #91; extracted and simulated post-layout, #82/#180/#85 | see [Layout](#layout--partially-drawn-69), [Post-layout re-run](#post-layout-re-run-issue-85) |
 | ~~Root-causing / fixing the post-layout `por-hysteresis` regression at `ss_-40c_3.63v`~~ — **done**, #187: the reading is 55 % hysteresis / 37 % `VREF` ramp displacement / 8 % comparator delay; no design change, [DR-021](../spec/decision-records/DR-021-por-hysteresis-quasi-static-scope.md) | see [Most of the full-assembly `V_hys` reading is not hysteresis](#most-of-the-full-assembly-v_hys-reading-is-not-hysteresis-issue-187) |
-| Re-cutting `sim/por-vth/` at a fixed `dVDD/dt` so its supply axis stops confounding rate, and giving it a quasi-staticity guard on the measurand | #206 |
+| ~~Re-cutting `sim/por-vth/` at a fixed `dVDD/dt` so its supply axis stops confounding rate, and giving it a quasi-staticity guard on the measurand~~ — **done**, #206: both grids now pass 81/81 | see [The deck itself is now fixed at a constant `dVDD/dt`](#the-deck-itself-is-now-fixed-at-a-constant-dvdddt-issue-206) |
 | Stiffening `VREF` against a ramping rail — the largest of the three terms above, and `bias_core`'s design, not this cell's | #11, #208 |
