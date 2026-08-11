@@ -60,8 +60,17 @@ against the previous rung's windows. `gen_rung.py` therefore emits both from
 the same `render_manifest()` output; the only differences are the netlist
 name, the two provenance fields `sim/harness/testbench.py` requires for
 `"extracted"`, and the appended POST-LAYOUT sentences — exactly the delta #87
-landed by hand, which the generator reproduces byte-for-byte for the
+landed by hand, which the generator reproduced byte-for-byte for the
 `n-slew-3.46mvus` rung it was written against.
+
+One sentence of that delta has since been re-worded, so the byte-for-byte
+correspondence holds against #87's manifest as of commit `442ffd9` and not
+after it: #87's claim text opened "Post-layout re-run (#87, under #18)",
+which is a true sentence about the rung #87 itself ran and a false one about
+every later rung the same generator emits (the post-layout ladder below the
+ratified bound was run for #188, not #87). It now names the harness — "the
+#86/#87 extracted-netlist harness (under #18)" — which stays true whichever
+issue commissions the rung.
 
 ## Search strategy used (issue #60's design notes)
 

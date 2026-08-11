@@ -105,7 +105,8 @@ POSTLAYOUT_DESCRIPTION_SUFFIX = (
     "not the schematic export -- same stimulus, same manifest, same 81-point grid."
 )
 POSTLAYOUT_CLAIM_SUFFIX = (
-    " Post-layout re-run (#87, under #18) against layout/postlayout/temp_por_top.spice "
+    " Post-layout run on the #86/#87 extracted-netlist harness (under #18) against "
+    "layout/postlayout/temp_por_top.spice "
     "(#82/PR #180 -- direct klt extraction, 'klt extract --parasitics' plus klt lvs's "
     "net correspondence, 159/159 nets paired): the same four-cell assembly with the real "
     "drawn interconnect R/C in the loop, including the cross-domain routing over the "
