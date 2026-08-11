@@ -22,23 +22,46 @@ corner).
 ## Workflow: adding a rung
 
 ```bash
-# 1. Generate the rung's stimulus + tb.json (overwrites testbench/ in place —
-#    testbench/ is not versioned per record, per sim/README.md; only the
-#    frozen netlist-snapshots/<record-id>.spice preserves what actually ran)
+# 1. Generate the rung's stimulus + BOTH tb.json manifests (overwrites
+#    testbench/ and testbench-postlayout/ in place — neither is versioned per
+#    record, per sim/README.md; only the frozen
+#    netlist-snapshots/<record-id>.spice preserves what actually ran)
 python3 sim/por-brownout-slew/testbench/gen_rung.py \
-    --slew-mvus 3.40 --label k-slew-3.40mvus
+    --slew-mvus 3.40 --label k-slew-3.40mvus \
+    --postlayout-supersedes 20260802-120940-3c3e728
 
-# 2. Rebuild the frozen testbench netlist from the current stimulus
+# 2. Rebuild the frozen testbench netlists (schematic + post-layout) from the
+#    current stimulus
 python3 sim/build_tb.py por-brownout-slew
 
 # 3. Run the full 81-point grid, minting a new append-only record
 python3 sim/run_corners.py por-brownout-slew -j 16 \
     --claim "spec/target-spec.md#por-brownout clause (c) -- dVDD/dt|fall,max characterization, rung k-slew-3.40mvus"
+
+# 3b. …or the same rung against the EXTRACTED netlist (#86/#87), which reads
+#     testbench-postlayout/tb.json rather than testbench/tb.json
+python3 sim/run_corners.py sim/por-brownout-slew/testbench-postlayout -j 16 \
+    --supersedes 20260802-120940-3c3e728
 ```
 
 Each record's own `Claim` line embeds the rung label and slew rate it ran,
 so nothing about which rung produced which record is lost even though
 `testbench/` itself is overwritten between rungs.
+
+**Why the generator writes the post-layout manifest too (#188).**
+`sim/build_tb.py`'s `POSTLAYOUT_FRAGMENTS` builds the extracted-netlist
+*fragment* into `testbench-postlayout/`, but `sim/README.md` describes that
+directory's `tb.json` as hand-authored — which is fine for an experiment
+whose manifest is written once, and wrong for this one, whose manifest is
+**regenerated per rung** (every rung shifts the per-supply measurement
+windows, because the edge duration that realizes a given slew depends on the
+rung). A hand-maintained post-layout copy would silently run the new rung
+against the previous rung's windows. `gen_rung.py` therefore emits both from
+the same `render_manifest()` output; the only differences are the netlist
+name, the two provenance fields `sim/harness/testbench.py` requires for
+`"extracted"`, and the appended POST-LAYOUT sentences — exactly the delta #87
+landed by hand, which the generator reproduces byte-for-byte for the
+`n-slew-3.46mvus` rung it was written against.
 
 ## Search strategy used (issue #60's design notes)
 
