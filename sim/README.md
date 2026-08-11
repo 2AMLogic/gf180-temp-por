@@ -319,6 +319,16 @@ nodes the caller names as high-impedance, which is what #18's acceptance
 criteria mean by reporting parasitic loading "explicitly, not just
 pass/fail".
 
+**The index of which experiments have an extracted record, and what the
+whole set does and does not establish, is
+[`design/temp_por_top.md`](../design/temp_por_top.md) § "Closing roll-up for
+issue #18".** Read it before citing any single post-layout record: it names
+the one experiment with no post-layout re-run (and why that is correct), the
+one device still schematic-ideal in every extracted netlist, the records
+stamped "not citable as a clean-tree result", and the two effects — rail IR
+drop and net-to-net coupling — that **no** record in this directory is
+capable of evidencing today, whatever it appears to show.
+
 ## Pre-harness evidence (`sim/devchar/`, issue #4)
 
 Issue #4's device-characterization sweeps were written before this harness
