@@ -353,8 +353,34 @@ release. Its coefficient is worth stating because #14 needs it —
 > **Ramp-rate feedthrough.** The mirror gate `PG` has to track `VDD`, so the
 > Miller capacitor injects `Cc·dVDD/dt` into the amplifier's stage-1 output,
 > which the loop can only absorb as an input-referred offset of
-> `(Cc/gm1)·dVDD/dt`. The coefficient is **≈ 2.4 µs** times the ramp rate,
-> and its sign is always toward more loop current, i.e. `VREF` high.
+> `(Cc/gm1)·dVDD/dt`.
+>
+> **Measured directly on `bias_core` alone — not inferred from a downstream
+> threshold — across the full 81-point PVT grid, on both ramp directions**
+> ([issue #208](https://github.com/2AMLogic/gf180-temp-por/issues/208),
+> [`control/ramp_feedthrough_results.md`](../sim/bias-core-designer-check/control/ramp_feedthrough_results.md)).
+> This supersedes the single **≈ 2.4 µs** figure this note previously quoted,
+> which undershoots the measured coefficient at **every** corner in the
+> grid — not only at the `ss`/-40 °C corner issue #208 was filed from:
+>
+> | | Up-ramp (`VREF` high) | Down-ramp (`VREF` low) |
+> | --- | --- | --- |
+> | Schematic | **17.31…47.45 µs** | **17.54…51.08 µs** |
+> | Extracted | **17.31…47.40 µs** | **17.59…51.27 µs** |
+>
+> The coefficient's **sign reverses with ramp direction** — toward more loop
+> current (`VREF` high) on a rising rail, toward less (`VREF` low) on a
+> falling one — rather than "always toward more loop current", which this
+> note previously stated on the strength of a rising-ramp-only measurement.
+> The worst corner in both directions is `ss`/-40 °C, which independently
+> reproduces [`sim/por-vth/control/results.md`](../sim/por-vth/control/results.md)'s
+> own **~49 µs** figure (measured indirectly, through the full four-cell
+> assembly, issue #187/#218/[DR-021](../spec/decision-records/DR-021-por-hysteresis-quasi-static-scope.md))
+> to within ~1 µs on both netlists — two independent methodologies agreeing
+> at the one point they share. `ff`/125 °C is the best corner in both
+> directions, at roughly a third of `ss`/-40 °C's magnitude: the coefficient
+> tracks the reference's own node impedances, which rise at cold/slow
+> corners for the same reason a nA-scale bias network's settling time does.
 
 `BIAS_OK` itself asserts at `t_ok_us` = **193…307 µs** into the 500 µs ramp,
 with the reference then **45…407 mV** from its settled value
@@ -834,19 +860,29 @@ assert rail sits within 9 mV of 160 mV below whichever `VDD` it started
 from, while the supply itself moves by 660 mV across the grid's three
 points — a ratiometric trip, not a threshold pinned to a device voltage.
 
-The obvious candidate explanation — this section's own ≈2.4 µs × ramp-rate
-`VREF` feedthrough coefficient, extended to a falling edge — **does not
-close quantitatively**. At `tt`/27 °C/3.30 V the coefficient predicts
-5.5–18.4 mV of `VREF` offset at the two confirmed-spurious rates; the
-measured `VREF` at the assert instant is **467 mV low** (7.67 mV/µs branch)
-and **81 mV low** (2.30 mV/µs branch) relative to its 1.1993 V settled
-value — one to two orders of magnitude larger, and (per this cell's own
-`VPOR-downarrow = VREF · (RTOP+RBOT+RHYS)/(RBOT+RHYS)` algebra in
-`design/por_comparator.md`) in the **wrong direction**: a depressed `VREF`
-predicts a *lower* assert threshold, not a higher one. DR-013 states this
-explicitly rather than accepting a qualitative family resemblance: neither
-this coefficient nor the static divider relationship explains the effect,
-and the true dynamic mechanism is an open item.
+The obvious candidate explanation — this section's own ramp-rate `VREF`
+feedthrough coefficient, extended to a falling edge — **substantially closes
+once corner- and direction-matched, though not completely**
+([DR-025](../spec/decision-records/DR-025-bias-core-ramp-feedthrough-grid-and-dr013-recheck.md),
+issue #208). DR-013's original check used the single ≈2.4 µs figure this
+section used to quote, which "Ramp-rate feedthrough" above now shows was
+wrong at every corner in the grid, applied with the rising-edge sign to a
+falling event. Using the corner- and direction-matched coefficient instead —
+**−30.7 µs** at `tt`/27 °C/3.30 V (schematic), not +2.4 µs — the predicted
+`VREF` offset is **−235 mV** at the 7.67 mV/µs branch and **−71 mV** at the
+2.30 mV/µs branch, against DR-013's own measured **−467 mV** and **−81 mV**:
+within a factor of ~2 and within 13 % respectively, not one to two orders of
+magnitude off, and now the **same sign** — `VREF` depressed in both the
+prediction and the measurement. That resolves the "wrong order of magnitude"
+and "wrong sign of the `VREF` offset" objections DR-013 raised.
+
+**It does not resolve the separate paradox DR-013 also raised.** A depressed
+`VREF` still predicts, via the static `VPOR-downarrow = VREF ·
+(RTOP+RBOT+RHYS)/(RBOT+RHYS)` divider algebra in `design/por_comparator.md`,
+a *lower* assert threshold — yet the assert rail measures *above*
+`VPOR-uparrow,max`. That is a property of the comparator/divider's dynamic
+response during a fast dip, not of this cell's own reference feedthrough,
+and it remains unidentified — see DR-025.
 
 ### Not the same defect as `por-ramp-rate`'s release-edge chatter (issue #56)
 

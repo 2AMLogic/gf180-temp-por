@@ -25,6 +25,14 @@ sim/.work/
 # them) -- so, unlike control/logs/*.log, they are not the evidence itself.
 sim/*/control/traces/
 
+# Per-run .spiceinit a control script writes into its own decks/ dir to
+# force single-threaded ngspice (see sim/harness/runner.py's
+# write_run_spiceinit(), #216). It carries the HOST's own $HOME/.spiceinit
+# forward verbatim, so its content is machine-local, not evidence -- unlike
+# the decks/ .spice files beside it, which are the deterministic committed
+# input.
+sim/*/control/decks/.spiceinit
+
 # Machine-local PDK override (sim/pdk.json is the committed default).
 sim/pdk.local.json
 # >>> loom-managed (do not edit) >>>
