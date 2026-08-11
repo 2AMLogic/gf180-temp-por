@@ -1,0 +1,109 @@
+
+Note: Compatibility modes selected: hs a
+
+
+Circuit: * starved-window control -- bias_core.spice @ tt/27.0 c/3.63 v
+
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+Initial Transient Solution
+--------------------------
+
+Node                                   Voltage
+----                                   -------
+vddst                                     3.63
+nibst                                 0.716549
+ibiasst                               0.716549
+xst.na                                0.570071
+xst.pg                                 2.85393
+xst.nbtop                             0.572804
+vrefst                                 1.19898
+xst.nbg                               0.579298
+xst.xrt.11                            0.572802
+xst.xrt.21                             0.57008
+xst.nb                                0.570078
+xst.xr1.11                            0.570076
+xst.xr1.21                            0.516174
+xst.ec                                0.516172
+xst.xr2.11                             1.19898
+xst.xr2.21                            0.569961
+xst.er                                0.569959
+xst.pb                                 2.84833
+xst.nt                                 1.85939
+xst.n1                                0.546185
+xst.n2                                0.542107
+xst.nz                                0.542107
+xst.xrz.11                            0.542107
+xst.xrz.21                            0.542107
+xst.ks1                                2.52416
+xst.ks2                                1.62606
+xst.ks3                               0.919662
+xst.ks4                               0.385435
+xst.nkg                             2.3202e-05
+xst.nkm                               0.553283
+xst.tok                                1.86094
+xst.noko                               1.71039
+xst.nokl                              0.522544
+xst.nokx                           0.000186741
+bias_okst                                 3.63
+vddb                                         0
+nibb                                         0
+ibiasb                                       0
+xb.na                                        0
+xb.pg                                        0
+xb.nbtop                                     0
+vrefb                                        0
+xb.nbg                                       0
+xb.xrt.11                                    0
+xb.xrt.21                                    0
+xb.nb                                        0
+xb.xr1.11                                    0
+xb.xr1.21                                    0
+xb.ec                                        0
+xb.xr2.11                                    0
+xb.xr2.21                                    0
+xb.er                                        0
+xb.pb                                        0
+xb.nt                                        0
+xb.n1                                        0
+xb.n2                                        0
+xb.nz                                        0
+xb.xrz.11                                    0
+xb.xrz.21                                    0
+xb.ks1                                       0
+xb.ks2                                       0
+xb.ks3                                       0
+xb.ks4                                       0
+xb.nkg                                       0
+xb.nkm                                       0
+xb.tok                                       0
+xb.noko                                      0
+xb.nokl                                      0
+xb.nokx                                      0
+bias_okb                                     0
+eb                                     1.19898
+fob                                          0
+bfob#branch                                  0
+beb#branch                                   0
+vibb#branch                                  0
+vsupb#branch                                 0
+vibst#branch                       5.56773e-07
+vsupst#branch                     -1.00585e-06
+
+ Reference value :  1.02394e-04
+ Reference value :  6.76365e-04
+ Reference value :  1.21334e-03
+ Reference value :  1.89191e-03
+ Reference value :  2.45497e-03
+ Reference value :  3.54297e-03
+ Reference value :  4.49847e-03
+ Reference value :  5.48647e-03
+No. of Data Rows : 1982
+Note: Simulation executed from .control section 
+
+Warning: m=xx on .subckt line will override multiplier m hierarchy!
+
+Note: Starting dynamic gmin stepping
+Note: Dynamic gmin stepping completed

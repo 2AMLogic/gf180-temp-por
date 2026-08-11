@@ -1,7 +1,7 @@
 {
   "name": "bias-core-designer-check",
   "description": "Designer-level PVT check of design/bias_core.sch: settled VREF and IBIAS, always-on quiescent current against spec/target-spec.md#por-iq, absence of a degenerate zero-current state (DC operating point plus cold start, shallow brownout and full rail collapse), reference settling time and dropout voltage, and the rail at which the assembled block would release given BIAS_OK's gating. Post-layout re-run (issue #84, part of #18): DUT swapped from design/bias_core.sch's exported netlist to layout/postlayout/bias_core.spice.",
-  "claim": "Post-layout re-run of the schematic-level record in sim/bias-core-designer-check/records/ (issue #84, part of #18) -- same claim, spec/target-spec.md#por-iq -- and, as an input to #por-vth-rise / #por-vth-fall, the reference accuracy design/por_comparator.md hands to this cell (it spends only +/-0.144 % of the ratified +/-5 % threshold window itself and leaves the rest to VREF) -- now against layout/postlayout/bias_core.spice instead of design/netlist/bias_core.spice. bias_core has no remaining schematic-ideal device per #82/PR #180 (see Netlist provenance below), so this is a full post-layout re-derivation of the schematic record, not a partial one. Deterministic corners only: design.ngspice sets sw_stat_mismatch=0, so this bounds the SYSTEMATIC/corner term; local mismatch on the 8:1 PNP ratio, the R2/R1 ratio and the amplifier offset is issue #15's Monte Carlo job (still run against the schematic netlist). The por-iq result is a DELIBERATE, DOCUMENTED FAILURE at the hot/fast corners on the schematic record -- see the iq_por_ua check description and design/bias_core.md, 'Iq apportionment' -- and is expected to reproduce here; any check that flips from PASS to FAIL relative to the schematic-level record is a regression to flag and route to design/bias_core.md's owning issue, not to silently absorb. Full ramp-rate/brownout envelope against a real assembled block is #14's; this record's ramps are designer-level bounds, not that envelope.",
+  "claim": "Post-layout re-run of the schematic-level record in sim/bias-core-designer-check/records/ (issue #84, part of #18) -- same claim, spec/target-spec.md#por-iq -- and, as an input to #por-vth-rise / #por-vth-fall, the reference accuracy design/por_comparator.md hands to this cell (it spends only +/-0.144 % of the ratified +/-5 % threshold window itself and leaves the rest to VREF) -- now against layout/postlayout/bias_core.spice instead of design/netlist/bias_core.spice. bias_core has no remaining schematic-ideal device per #82/PR #180 (see Netlist provenance below), so this is a full post-layout re-derivation of the schematic record, not a partial one. Deterministic corners only: design.ngspice sets sw_stat_mismatch=0, so this bounds the SYSTEMATIC/corner term; local mismatch on the 8:1 PNP ratio, the R2/R1 ratio and the amplifier offset is issue #15's Monte Carlo job (still run against the schematic netlist). The por-iq result is a DELIBERATE, DOCUMENTED FAILURE at the hot/fast corners on the schematic record -- see the iq_por_ua check description and design/bias_core.md, 'Iq apportionment' -- and is expected to reproduce here; any check that flips from PASS to FAIL relative to the schematic-level record is a regression to flag and route to design/bias_core.md's owning issue, not to silently absorb. Full ramp-rate/brownout envelope against a real assembled block is #14's; this record's ramps are designer-level bounds, not that envelope. TESTBENCH CHANGED, issue #185 -- records taken before 2026-08-11 are NOT comparable point-for-point on the brownout checks. That deck ran a 2 ms transient with the 0.5 V dip and the full collapse serialized onto one DUT, which is shorter than this cell's own starved-loop window once real interconnect parasitics are in the netlist: `t_bo_recover_us` returned physically impossible NEGATIVE values at 34 of 81 points, `t_false_ok_fast_us` / `t_false_ok_brownout_us` saturated against the integration window, and `bo_shallow_ppm` / `bo_deep_ppm` / `ok_bo_end_droop_mv` sampled inside the window instead of after it. This deck runs 30 ms, puts each brownout event on its own DUT, and floors `t_bo_recover_us` at 0 us so a measurement failure cannot read as a PASS. Every other check -- the settled, ramp and release measurements -- is taken at unchanged instants on unchanged branches and remains directly comparable. See design/bias_core.md, 'The post-layout brownout regression'.",
   "netlist": "tb_bias_core.spice",
   "netlist_provenance": "extracted",
   "netlist_provenance_note": "layout/postlayout/bias_core.spice's own header (layout/postlayout/AUDIT.md): 7 body/plate net(s) (NW1, NWQ, XCC__NZ, XCC__PG, XCOK__NOKX, XCOK__VDD, vsubs) tied to the net the schematic puts them on -- the extraction deck's connectivity stack does not reach an Nwell, a substrate ring, a bipolar base well or a MiM plate. No ideal device: per #82/PR #180 all 70 devices are drawn, including the 10 vertical PNPs (XQ1/XQ8A-H/XQR), the 4 poly resistors (R1/R2/RT/RZ) and the 2 MiM caps (CC/COK) that were schematic-ideal splices before PR #180.",
@@ -21,7 +21,7 @@
     "vntol=1e-8"
   ],
   "analyses": [
-    "tran 4u 2m",
+    "tran 4u 30m",
     "meas tran vref_op find v(vrefst) at=0",
     "meas tran vref_st find v(vrefst) at=1.95m",
     "meas tran ok_st find v(bias_okst) at=1.95m",
@@ -36,17 +36,19 @@
     "meas tran err_at_relv find v(es) when v(rels)=0 rise=1",
     "meas tran relv_fast find v(vddf) when v(relf)=0 rise=1",
     "meas tran okf_at_1v find v(bias_okf) when v(vddf)=1.0 rise=1",
-    "meas tran errf_end find v(ef) at=1.95m",
+    "meas tran errf_end find v(ef) at=29.9m",
     "meas tran bo_pre find v(vrefb) at=390u",
-    "meas tran bo_mid find v(vrefb) at=940u",
-    "meas tran bo_post find v(vrefb) at=1.95m",
-    "meas tran ok_bo_dip find v(bias_okb) at=1030u",
-    "meas tran t_bo_rec when v(bias_okb)=1.4 rise=last",
-    "meas tran t_false_s integ v(fos) from=0 to=2m",
-    "meas tran t_false_f integ v(fof) from=0 to=2m",
-    "meas tran t_false_b integ v(fob) from=0 to=2m",
-    "meas tran ok_bo_end find v(bias_okb) at=1.95m",
-    "meas tran vdd_bo find v(vddb) at=1.95m"
+    "meas tran bo_mid find v(vrefb) at=29.9m",
+    "meas tran bo_dpre find v(vrefd) at=940u",
+    "meas tran bo_post find v(vrefd) at=29.9m",
+    "meas tran ok_bo_dip find v(bias_okd) at=1030u",
+    "meas tran t_bo_rec when v(bias_okd)=1.4 rise=last",
+    "meas tran t_false_s integ v(fos) from=0 to=30m",
+    "meas tran t_false_f integ v(fof) from=0 to=30m",
+    "meas tran t_false_b integ v(fob) from=0 to=30m",
+    "meas tran t_false_d integ v(fod) from=0 to=30m",
+    "meas tran ok_bo_end find v(bias_okd) at=29.9m",
+    "meas tran vdd_bo find v(vddd) at=29.9m"
   ],
   "measure": {
     "vref_op_v": "vref_op",
@@ -61,7 +63,7 @@
     "t_bo_recover_us": "(t_bo_rec-1110e-6)*1e6",
     "t_false_ok_slow_us": "t_false_s*1e6",
     "t_false_ok_fast_us": "t_false_f*1e6",
-    "t_false_ok_brownout_us": "t_false_b*1e6",
+    "t_false_ok_brownout_us": "(t_false_b+t_false_d)*1e6",
     "err_at_ok_mv": "err_at_ok*1e3",
     "t_ok_us": "t_oks*1e6",
     "relv_slow_v": "relv_slow",
@@ -69,7 +71,7 @@
     "okf_at_1v_mv": "okf_at_1v*1e3",
     "err_fast_end_mv": "errf_end*1e3",
     "bo_shallow_ppm": "(bo_mid-bo_pre)/bo_pre*1e6",
-    "bo_deep_ppm": "(bo_post-bo_pre)/bo_pre*1e6",
+    "bo_deep_ppm": "(bo_post-bo_dpre)/bo_dpre*1e6",
     "ok_bo_dip_mv": "ok_bo_dip*1e3",
     "ok_bo_end_droop_mv": "(vdd_bo-ok_bo_end)*1e3"
   },
@@ -115,17 +117,17 @@
     },
     "ok_bo_end_droop_mv": {
       "max": 20.0,
-      "description": "BIAS_OK 390 us after the rail returns from a full collapse. A startup circuit that cannot re-arm looks identical to a working one until exactly this test: an earlier revision of this cell gated its dead-loop detector on V(VREF) > Vt and left BIAS_OK stale-high for ~200 us at fs/-40 C while the core sat at near-zero current. See design/bias_core.md, 'Startup'."
+      "description": "VDD - V(BIAS_OK) on the deep-collapse branch at 29.9 ms, i.e. 28.8 ms after the rail returns from a full collapse. A startup circuit that cannot re-arm looks identical to a working one until exactly this test: an earlier revision of this cell gated its dead-loop detector on V(VREF) > Vt and left BIAS_OK stale-high for ~200 us at fs/-40 C while the core sat at near-zero current. See design/bias_core.md, 'Startup'. THE SAMPLE POINT IS DELIBERATELY PAST THE STARVED-LOOP WINDOW (issue #185). It used to be a fixed 1.95 ms, which post-layout landed INSIDE that window: at tt/27 C/3.63 V the extracted netlist's BIAS_OK is correctly LOW for a 113 us notch centred on 1.95 ms while the loop re-establishes itself, and is back at the rail 49 us later -- so the old sample read a 3630 mV droop off a cell that had already recovered. This check owns 'does the flag re-arm at all'; how LONG re-arming takes is t_bo_recover_us's, and how long the flag reads a false valid meanwhile is t_false_ok_brownout_us's. Conflating the three in one fixed wall-clock sample is what record 20260811-063744-5ff219c measured."
     },
     "bo_shallow_ppm": {
       "min": -500.0,
       "max": 500.0,
-      "description": "VREF after recovering from a dip to 0.5 V, against VREF before it, at the same corner point. The shallow dip is the harder of the two: the rail is far below the core's dropout but every internal node keeps its charge, which is the state a bandgap latches in if it can."
+      "description": "VREF at 29.9 ms, after recovering from a dip to 0.5 V, against VREF at 390 us before it, at the same corner point. The shallow dip is the harder of the two: the rail is far below the core's dropout but every internal node keeps its charge, which is the state a bandgap latches in if it can. The post-dip sample was a fixed 940 us until issue #185; post-layout the loop is still inside its own starved-loop window at that instant at most corners, so the number reported the starved loop rather than the reproducibility this check is about."
     },
     "bo_deep_ppm": {
       "min": -500.0,
       "max": 500.0,
-      "description": "Same comparison after a full collapse to 0 V and a cold restart. Together with bo_shallow_ppm and vref_op_v this is the 'no stuck/latched zero-current startup state' evidence the issue asks for: reference reproduces to within a few ppm after every way of killing it."
+      "description": "Same comparison on the deep-collapse branch: VREF at 29.9 ms against VREF at 940 us, with the collapse to 0 V and the cold restart in between. Together with bo_shallow_ppm and vref_op_v this is the 'no stuck/latched zero-current startup state' evidence the issue asks for: reference reproduces to within a few ppm after every way of killing it. Two things changed in issue #185 and both matter: the post-event sample moved off a fixed 1.95 ms that landed inside the starved-loop window, and the collapse moved onto its own DUT. Serialized behind the 0.5 V dip, at the slow corners this branch was measuring a cell the DIP had already parked, not recovery from a collapse of a settled cell."
     },
     "err_at_relv_mv": {
       "max": 400.0,
@@ -141,15 +143,16 @@
     },
     "t_false_ok_fast_us": {
       "max": 0.0,
-      "description": "The same integral on a 1.0 V/us ramp -- spec/target-spec.md#por-ramp-rate's ratified FAST LIMIT. THIS CHECK IS EXPECTED TO FAIL at the -40 C corners, and the failure is a deliverable, not an oversight. At 1 V/us the amplifier cannot slew the mirror gate PG (which has to track VDD) with a 26 nA tail into ~1.3 pF: the loop is driven far past its operating point, parks at a small fraction of the intended current, and crawls back over milliseconds, during which the one-sided settle detector -- which has only the collapsed loop's own current to work with -- cannot pull its output down. Measured boundary: correct at ramps of 0.36 V/us and slower (10 us to full rail) at every corner, false-valid at 1.0 V/us at -40 C. The remedy is amplifier current, which is exactly the budget spec/target-spec.md#por-iq has already run out of -- see design/bias_core.md, 'Ramp-rate limit', which states the conflict and the options rather than relaxing either row."
+      "description": "The same integral on a 1.0 V/us ramp -- spec/target-spec.md#por-ramp-rate's ratified FAST LIMIT. THIS CHECK IS EXPECTED TO FAIL at the -40 C corners, and the failure is a deliverable, not an oversight. At 1 V/us the amplifier cannot slew the mirror gate PG (which has to track VDD) with a 26 nA tail into ~1.3 pF: the loop is driven far past its operating point, parks at a small fraction of the intended current, and crawls back over milliseconds, during which the one-sided settle detector -- which has only the collapsed loop's own current to work with -- cannot pull its output down. Measured boundary: correct at ramps of 0.36 V/us and slower (10 us to full rail) at every corner, false-valid at 1.0 V/us at -40 C. The remedy is amplifier current, which is exactly the budget spec/target-spec.md#por-iq has already run out of -- see design/bias_core.md, 'Ramp-rate limit', which states the conflict and the options rather than relaxing either row. The integration window is the full 30 ms transient. At 2 ms it SATURATED (14 of 81 points within 25 us of the ceiling in record 20260811-063744-5ff219c), which understated a window this document already knew ran to 4.4 ms at sf/-40 C -- see issue #185."
     },
     "t_false_ok_brownout_us": {
       "max": 5.0,
-      "description": "The same false-valid integral on the brownout branch, which sees a 0.5 V dip (rail below the core's dropout, nodes still charged) and then a full collapse. THIS CHECK IS EXPECTED TO FAIL at the cold slow-PMOS corners: recovery from either event puts the loop through the same parked-at-low-current state as the fast ramp, and the settle detector has only the collapsed loop's own current to move its output with. Same root cause, same remedy, same conflict with spec/target-spec.md#por-iq -- see design/bias_core.md, 'The starved-loop window'."
+      "description": "The same false-valid integral on the two brownout branches summed: a 0.5 V dip (rail below the core's dropout, nodes still charged) on xb and a full collapse on xd. THIS CHECK IS EXPECTED TO FAIL at the cold slow-PMOS corners: recovery from either event puts the loop through the same parked-at-low-current state as the fast ramp, and the settle detector has only the collapsed loop's own current to move its output with. Same root cause, same remedy, same conflict with spec/target-spec.md#por-iq -- see design/bias_core.md, 'The starved-loop window'. The integration window is the full 30 ms transient; at 2 ms it SATURATED (14 of 81 points within 25 us of the ceiling in record 20260811-063744-5ff219c) and understated the false-valid time by up to an order of magnitude."
     },
     "t_bo_recover_us": {
+      "min": 0.0,
       "max": 900.0,
-      "description": "Time from the rail returning after a full collapse to BIAS_OK going valid again. Recorded rather than assumed: recovery is a large-signal event whose duration is set by the amplifier's slew rate at the coldest, slowest corners, and it is the number #14 needs for spec/target-spec.md#por-brownout."
+      "description": "Time from the rail returning after a full collapse to BIAS_OK going valid again. Recorded rather than assumed: recovery is a large-signal event whose duration is set by the amplifier's slew rate at the coldest, slowest corners, and it is the number #14 needs for spec/target-spec.md#por-brownout. THIS MEASUREMENT WAS BROKEN BEFORE ISSUE #185 and read NEGATIVE -- a recovery before the rail returned -- at 34 of the 81 points in record 20260811-063744-5ff219c. `when v(bias_okd)=1.4 rise=last` needs a genuine post-collapse crossing to find; inside the old 2 ms transient there often was none, so it returned the capacitive blip BIAS_OK makes while the rail's own 10 us return ramp drags the high-impedance node up through 1.4 V. On the 30 ms transient it finds the real edge, which at many corners is far outside this 900 us bound. Those failures are newly VISIBLE, not newly CAUSED -- see design/bias_core.md, 'The starved-loop window'. The 0 us FLOOR is not a design bound -- it is the guard that keeps this measurement from reporting its own failure as a PASS. A recovery that completes before the rail returns is impossible, so a negative reading means `rise=last` found no genuine post-collapse crossing at all and fell back to the capacitive blip; without the floor that reads as comfortably inside the 900 us bound. Record 20260811-063744-5ff219c has 34 of 81 such points."
     },
     "t_settle_us": {
       "max": 300.0,

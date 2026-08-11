@@ -266,6 +266,19 @@ one. Two independent pieces of evidence say this cell does not sit in it:
   points**; the two exceptions are recovery-time artefacts, not latches (see
   [The starved-loop window](#the-starved-loop-window)).
 
+  **Both of those checks sample after a recovery, so they can only report a
+  latch once the recovery has finished, and issue #185 is what happens when
+  it has not.** On the *extracted* netlist the recovery is up to an order of
+  magnitude slower, and a fixed wall-clock sample taken mid-recovery reads
+  −5·10⁵ ppm — which looks exactly like the latch this bullet is here to rule
+  out, and is not one. The deck now samples at 29.9 ms, and the one corner it
+  still does not clear was taken out to 120 ms in
+  [`control/results.md`](../sim/bias-core-designer-check/control/results.md):
+  the reference comes back to **0.000 ppm** of its pre-event value there too.
+  The no-latch statement therefore stands under real parasitics — it just
+  needs a longer look. See
+  [The post-layout brownout regression](#the-post-layout-brownout-regression--it-was-the-deck-issue-185).
+
 The kick itself is a **current-referenced dead-loop detector**, the same
 principle `design/temp_core.md` arrived at:
 
@@ -700,6 +713,15 @@ than 100 mV below settled):
 | 500 µs ramp (≤ 7.3 V/ms) | **0…45.7 µs** (45.7 µs at `ff`/125 °C only; 0 at 78 of 81 points) | ≤ 5 µs ❌ at 3 points |
 | 1.0 V/µs ramp | **11…1989 µs** | ≤ 5 µs ❌ at all 81 points |
 | brownout branch (0.5 V dip, then full collapse) | **326…1567 µs** | ≤ 5 µs ❌ at all 81 points |
+
+> **The two figures above that end near 2 ms are floors, not measurements
+> (issue #185).** They were taken on a 2 ms transient, and the window they
+> measure is longer than that at the cold corners — the same 4.4 ms this
+> paragraph already quotes. On the 30 ms deck that replaced it, and against
+> the *extracted* netlist, the fast-ramp branch reads **27.99…6584.96 µs** and
+> the brownout branches **359.267…39866.3 µs**. The conclusion is unchanged
+> and the direction is unchanged; only the magnitude was being clipped. See
+> [The post-layout brownout regression](#the-post-layout-brownout-regression--it-was-the-deck-issue-185).
 
 **Measured boundary.** Correct at ramps of **0.36 V/µs and slower** (10 µs
 to full rail) at every corner, including −40 °C; false-valid at 1.0 V/µs.
@@ -1173,14 +1195,27 @@ claim, not a checked one (klayout-tools#281).
 bash layout/run_checks.sh bias_core          # DRC/LVS on the drawn MOS portion
 python3 design/netlist.py --check            # schematic <-> committed netlist
 python3 sim/build_tb.py --check              # netlist <-> testbench fragment
-python3 sim/run_corners.py bias-core-designer-check --timeout 900
+python3 sim/run_corners.py bias-core-designer-check --timeout 7200
 python3 sim/run_corners.py bias-core-ibias-sharing  --timeout 900
 python3 sim/run_corners.py temp-por-top-release     --timeout 1800
 python3 sim/run_corners.py bias-core-startup        --timeout 900
 python3 sim/bias-core-startup/control/run_gmin_control.py
+python3 sim/bias-core-startup/control/run_ok_dip_decay.py
+python3 sim/bias-core-designer-check/control/run_starved_window.py
 ```
 
-The last line is the `gmin` control experiment behind
+Append `/testbench-postlayout` to any of the first four slugs to re-run it
+against the klt-extracted netlist instead of the schematic export — see
+[Post-layout re-run](#post-layout-re-run-issue-84).
+
+`bias-core-designer-check`'s timeout is 7200 s rather than the 900 s the
+other slugs use because #185 lengthened its transient from 2 ms to 30 ms so
+that the deck is longer than the starved-loop window it measures (see
+[that section](#the-post-layout-brownout-regression--it-was-the-deck-issue-185)).
+Budget roughly 30–40 CPU-seconds per corner point.
+
+The last three lines are control experiments, and the first of them is the
+`gmin` one behind
 [Resolved](#resolved-the-bias_ok-quasi-static-failure-was-a-testbench-artefact-issues-43-46):
 two `op` runs of one deck, seconds rather than minutes. It resolves the PDK
 through the same `sim/harness` the corner runner uses, so it needs no
@@ -1192,6 +1227,17 @@ so there is nothing for the append-only rule to protect (`sim/README.md`,
 "Control experiments"). Every number in
 [The controlled experiment](#the-controlled-experiment) is transcribed from
 that `results.md`.
+
+The other two are #185's, and follow the same rules: `run_ok_dip_decay.py`
+samples `BIAS_OK`'s dead-rail discharge as a curve on both netlists
+([`dip_results.md`](../sim/bias-core-startup/control/dip_results.md), four
+short transients), and `run_starved_window.py` takes the anatomy of the
+superseded 2 ms brownout branch plus a 120 ms latch test at the corners the
+30 ms deck does not clear
+([`results.md`](../sim/bias-core-designer-check/control/results.md), the
+slower of the two). Every number in
+[The post-layout brownout regression](#the-post-layout-brownout-regression--it-was-the-deck-issue-185)
+is transcribed from those two files.
 
 Exit codes, and why each is what it is:
 
@@ -1265,22 +1311,39 @@ respectively — the same count as the schematic record, at the same
 corners). Real interconnect parasitics do not change either conclusion.
 
 **Two checks regress, and are routed to #185 rather than resolved here** —
-#84's scope is an honest re-run, not a redesign:
+#84's scope is an honest re-run, not a redesign. **#185 has since resolved
+all three bullets below**; each is annotated with its outcome, and the
+reasoning is in
+[The post-layout brownout regression](#the-post-layout-brownout-regression--it-was-the-deck-issue-185):
 
 - `bo_deep_ppm` / `bo_shallow_ppm` (post-brownout `VREF` reproducibility,
   ±500 ppm bound) go from 2/2 failing corners at schematic level to 21/12
   under extraction — the same handful of extreme cold/fast-process corners
   that were already marginal, now pushed further out by real parasitic
   loading on the recovery path.
+  **#185 outcome: measurement window.** Both sample instants sat inside the
+  starved-loop window under real parasitics. On the 30 ms deck they read
+  12/81 → **0/81** and 21/81 → **1/81** failing, and the one remaining corner
+  is measured recovering (to 0.000 ppm) at 30.95 ms rather than latched.
 - `ok_bo_end_droop_mv` (`BIAS_OK` droop 390 µs after a full rail collapse,
   20 mV bound) is a **new failure mode**: 0 failing corners at schematic
   level, 3 under extraction (`tt_27c_3.63v`, `ss_27c_3.63v`,
   `bjt_ff_27c_3.63v`), with droop up to 3630 mV — `BIAS_OK` is not settling
   back to a hard high in the sampled window at those points.
+  **#185 outcome: measurement window, and the sharpest case of it.** At
+  `tt_27c_3.63v` the 1.95 ms sample lands in a 113 µs notch during which
+  `BIAS_OK` is *correctly* low, mid-recovery, and is back at the rail 49 µs
+  later. 3/81 → **1/81** on the 30 ms deck.
 - `bias-core-startup`'s `ok_bo_dip_mv` (`BIAS_OK` absolute level mid-collapse,
   ±300 mV bound) goes from 0 failing corners (schematic) to 3
   (`ss_-40c_2.97v` / `_3.30v` / `_3.63v`, 303.432 mV vs. the 300 mV bound —
   was 33.6 mV pre-extraction): a real, if marginal (~1.1 %), shift.
+  **#185 outcome: genuinely the cell, and it is an RC rather than a latch.**
+  The extracted `BIAS_OK`/`NOKX` net's dead-rail discharge is ~9× slower and
+  monotonic; the physically load-bearing requirement (below `nfet_03v3` Vt,
+  ≈0.822 V at these corners) still holds by 2.7×. The bound is **not moved**
+  and the check still reads FAIL — whether it should be harmonized with this
+  cell's other deck, which bounds the same quantity at 500 mV, is left to #1.
 
 `bias-core-ibias-sharing`'s shared `IBIAS`/`VREF` distribution — the
 [DR-010](#the-shared-ibias-net--resolved-by-dr-010) contract this issue's
@@ -1289,3 +1352,208 @@ Watch item asked to be re-checked under real parasitic loading — holds:
 to be the design-defect checks pre-DR-010; see the updated
 `sim/bias-core-ibias-sharing/testbench-postlayout/tb.json` check
 descriptions for why those no longer read as "expected to fail").
+
+## The post-layout brownout regression — it was the deck (issue #185)
+
+Issue #185 took the four checks the table above routes to it and asked the
+only question that matters about a regression on an extracted netlist: is
+the *cell* worse, or is the *measurement* wrong? Three of the four are the
+measurement; the fourth is genuinely the cell. Neither answer is a reason to
+change `design/bias_core.sch`, and no ratified bound moved.
+
+Evidence minted for this issue, all on the replacement 30 ms deck:
+
+| Record | Provenance | Result |
+| --- | --- | --- |
+| [`sim/bias-core-designer-check/records/20260811-114539-9fcede8.md`](../sim/bias-core-designer-check/records/20260811-114539-9fcede8.md) | `extracted` | FAIL — `iq_por_ua` 38/81 and the starved-loop window, both on purpose; `t_bo_recover_us` 34/81 newly visible; `bo_deep_ppm` / `ok_bo_end_droop_mv` 1/81 |
+| [`sim/bias-core-designer-check/records/20260811-114349-9fcede8.md`](../sim/bias-core-designer-check/records/20260811-114349-9fcede8.md) | `schematic` | FAIL — the same two on-purpose failures; `t_bo_recover_us` 2/81 newly visible; `bo_*_ppm` and `ok_bo_end_droop_mv` **0/81** |
+| [`sim/bias-core-designer-check/control/results.md`](../sim/bias-core-designer-check/control/results.md) | control | anatomy of the superseded deck + the 120 ms latch test |
+| [`sim/bias-core-startup/control/dip_results.md`](../sim/bias-core-startup/control/dip_results.md) | control | `BIAS_OK`'s dead-rail discharge curve, both netlists |
+
+`sim/bias-core-startup/` and `sim/bias-core-ibias-sharing/` are untouched by
+this issue — no testbench and no DUT netlist under either of them changed —
+so their post-layout records
+([`20260811-062115-5ff219c`](../sim/bias-core-startup/records/20260811-062115-5ff219c.md),
+[`20260811-060715-5ff219c`](../sim/bias-core-ibias-sharing/records/20260811-060715-5ff219c.md),
+the latter 81/81 PASS) stand as taken.
+
+### Three of the four checks were one bug, and it was in the testbench
+
+`bo_shallow_ppm`, `bo_deep_ppm` and `ok_bo_end_droop_mv` are all **fixed
+wall-clock samples** on a 2 ms transient — 940 µs, 1.95 ms, 1.95 ms. What
+they have in common is not a circuit node; it is that under real parasitics
+each of those instants moved from *after* this cell's own starved-loop
+window to *inside* it. **The 2 ms deck was shorter than the phenomenon it
+was measuring**, and three other numbers in the same record say so
+independently, before any new simulation is run:
+
+| Symptom in record [`20260811-063744-5ff219c`](../sim/bias-core-designer-check/records/20260811-063744-5ff219c.md) | What it means |
+| --- | --- |
+| `t_bo_recover_us` **negative at 34 of 81 points** (down to −6.136 µs) | A recovery that completes *before the rail returns* is impossible. `when v(bias_okb)=1.4 rise=last` had no genuine post-collapse crossing inside 2 ms to find, so it returned the capacitive blip `BIAS_OK` makes while the rail's own 10 µs return ramp drags the high-impedance node up through 1.4 V. The check was reporting a measurement failure as a PASS. |
+| `t_false_ok_fast_us` **clustered at 1503–1988 µs at 14 points**, `t_false_ok_brownout_us` at 1508–1577 µs at 14 points | Saturation against the 0→2 ms integration window, not a measured duration. This document's own [starved-loop window](#the-starved-loop-window) section already recorded a **4.4 ms** parked window at `sf`/−40 °C — longer than the deck measuring it. |
+| `bo_shallow_ppm` / `bo_deep_ppm` magnitudes near **−5·10⁵ ppm** | −500 000 ppm is `VREF` at *half* its settled value. That is not a reproducibility error at all; it is the reference still parked, sampled mid-recovery. |
+
+[`sim/bias-core-designer-check/control/results.md`](../sim/bias-core-designer-check/control/results.md)
+takes the anatomy directly, at `tt`/27 °C/3.63 V — one of the three corners
+where `ok_bo_end_droop_mv` read 3630 mV — with the superseded serialized
+brownout branch held long enough to run past the end of the recovery, and
+with the DUT netlist as its only variable. Both netlists show the *same three
+phases*; only their durations differ. Times below are relative to the rail
+reaching full value at 1.110 ms, and the return ramp starts 10 µs before that:
+
+| | schematic export | klt-extracted |
+| --- | ---: | ---: |
+| `BIAS_OK` dragged back above 1.4 V capacitively, on the rail's own return ramp — a **false** valid, because `VREF` is still parked | −6.1 µs | −6.1 µs |
+| …stays falsely valid for | 69.7 µs | **777.9 µs** (11.2×) |
+| …then correctly **de-asserts** at | +63.5 µs | **+771.8 µs** |
+| `VREF` last more than 1 % from settled | +78.4 µs | **+790.9 µs** |
+| …and `BIAS_OK` genuinely re-asserts at | +104.7 µs | **+884.4 µs** |
+| `ok_bo_end_droop_mv` at the record's 1.95 ms sample | 0.075 mV | **3630 mV** |
+
+The extracted cell is therefore **correctly low** from +771.8 µs to +884.4 µs
+— a 113 µs notch while the settle detector holds the flag down and the loop
+re-establishes itself — and **the record's 1.95 ms sample instant (+840 µs)
+falls inside it.** The 3630 mV "droop" is `BIAS_OK` doing exactly its job at
+that instant.
+
+Nothing about the mechanism is new post-layout. The schematic export has the
+same notch; it has simply come and gone long before 1.95 ms. What real
+interconnect parasitics changed is the **time constant**, not the behaviour.
+
+### What changed, and what deliberately did not
+
+The fix is in `sim/bias-core-designer-check/testbench/`, and it makes the
+grid *more* honest rather than less — two of the changes below add failures:
+
+1. **The transient runs to 30 ms instead of 2 ms**, so
+   `t_false_ok_fast_us` / `t_false_ok_brownout_us` stop saturating and
+   `t_bo_recover_us` has a real edge to find. `t_bo_recover_us` accordingly
+   stops reading impossible negative values and starts **failing** at the
+   corners where recovery genuinely exceeds its 900 µs bound. Those failures
+   are newly *visible*, not newly *caused*.
+2. **The 0.5 V dip and the full collapse move onto separate DUTs.**
+   Serialized, the dip parks the loop at the slow corners and it is *still*
+   parked when the collapse arrives 400 µs later — so `bo_deep_ppm` was never
+   measuring recovery from a collapse of a settled cell. Each branch now sees
+   its event from the settled state and gets its own recovery window.
+3. **The three post-event samples move to 29.9 ms**, past the starved window
+   at most corners, so they measure the properties their own descriptions
+   claim: reproducibility of the reference, and whether the flag re-arms to a
+   hard rail-to-rail high.
+
+A fourth change is small and worth stating on its own: **`t_bo_recover_us`
+gains a `min` of 0 µs**. That is not a design bound — it is the guard that
+stops the measurement from reporting its own failure as a PASS. A recovery
+that completes before the rail returns is impossible, so a negative reading
+means `rise=last` found no genuine post-collapse crossing at all; without the
+floor, 34 of 81 such points read as comfortably inside the 900 µs bound.
+
+**No bound was relaxed and no device changed.** 30 ms is deliberately *not*
+long enough to make every corner pass: the control's Part B takes the same
+event out to 120 ms at the corners the 30 ms deck does not clear and shows the
+reference does come back there — to **0.000 ppm** of its pre-event value, i.e.
+slowly, not never — so a `bo_*_ppm` that still fails at 29.9 ms is reporting a
+recovery still in progress. (That control also cross-checks itself against the
+graded deck: at `sf_-40c_3.30v` the two agree on `BIAS_OK`'s re-assert to
+within 10 µs on a 26 ms measurement, so the one corner that still fails —
+`sf_-40c_3.63v`, recovering at 30.95 ms — misses by a clear ~1 ms rather than
+by rounding.) Extending the deck until the grid went green would have hidden
+precisely the number `t_false_ok_brownout_us` exists to report.
+
+### The result, on the same extracted netlist
+
+Both columns are `Netlist provenance: extracted`, same PDK, same 81-point grid;
+only the deck differs.
+
+| check | 2 ms deck ([`20260811-063744-5ff219c`](../sim/bias-core-designer-check/records/20260811-063744-5ff219c.md)) | 30 ms deck (this issue) |
+| --- | --- | --- |
+| `bo_shallow_ppm` | **12/81 FAIL**, down to −6.54·10⁵ ppm | **0/81 FAIL**, whole grid 0…2.5 ppm |
+| `bo_deep_ppm` | **21/81 FAIL**, down to −6.50·10⁵ ppm | **1/81 FAIL** (`sf_-40c_3.63v`), rest 0…0.83 ppm |
+| `ok_bo_end_droop_mv` | **3/81 FAIL**, up to 3630 mV | **1/81 FAIL** (`sf_-40c_3.63v`), rest −0.074…0 mV |
+| `t_bo_recover_us` | 0/81 FAIL — but 34 points read *impossible negative* values as PASS | **34/81 FAIL**: 21 genuinely over the 900 µs bound (up to 24.9 ms), 13 with no recovery edge inside 30 ms |
+| `t_false_ok_brownout_us` | 81/81 FAIL, **saturated** at ≤1576.61 µs | 81/81 FAIL, unclipped: 359.267…**39866.3 µs** |
+| `t_false_ok_fast_us` | 81/81 FAIL, **saturated** at ≤1988.49 µs | 81/81 FAIL, unclipped: 27.9902…**6584.96 µs** |
+| `iq_por_ua` | 38/81 FAIL (on purpose) | 38/81 FAIL — unchanged |
+| `t_false_ok_slow_us` | 3/81 FAIL (on purpose) | 3/81 FAIL — unchanged |
+| every other check | PASS | PASS, with `vref_v` / `vref_op_v` / `t_settle_us` identical to six figures |
+
+Read the two right-hand columns together and the shape of the fix is plain:
+the three checks that had no business failing stop failing, and the two that
+own the phenomenon start telling the truth about how big it is. The false-valid
+window after a fast collapse is not the ≤1.58 ms the old deck could see; at
+`sf`/−40 °C/3.63 V it is **39.9 ms**.
+
+### The same deck change, re-run at schematic level — and the cleanest proof
+
+The deck change was re-run against the schematic export too, so the two
+provenances stay comparable and so the fix can be shown not to be
+extraction-specific. It is not:
+
+| check | 2 ms deck ([`20260801-150709-5a013e8`](../sim/bias-core-designer-check/records/20260801-150709-5a013e8.md)) | 30 ms deck (this issue) |
+| --- | --- | --- |
+| `bo_shallow_ppm` | 2/81 FAIL, down to −5.18·10⁵ ppm | **0/81 FAIL** |
+| `bo_deep_ppm` | 2/81 FAIL, down to −5.03·10⁵ ppm | **0/81 FAIL** |
+| `ok_bo_end_droop_mv` | 0/81, spread −2.141…3.889 mV | 0/81, spread **−0.048…0.022 mV** |
+| `t_bo_recover_us` | 0/81 FAIL — 2 points reading impossible negatives | **2/81 FAIL** |
+| `t_false_ok_fast_us` | 81/81, saturated at ≤1989.29 µs | 81/81, unclipped to **13414.4 µs** |
+| `iq_por_ua` / `t_false_ok_slow_us` | 38/81 · 3/81 | 38/81 · 3/81 — unchanged |
+
+**The `t_bo_recover_us` row is the proof that the new failures are unmasked
+rather than caused.** On the schematic netlist, exactly two points read a
+negative recovery time on the 2 ms deck — `fs_-40c_3.63v` (−6.141 µs) and
+`sf_-40c_3.63v` (−4.695 µs) — and on the 30 ms deck **those same two points,
+and no others**, read 1002.85 µs and 1303.43 µs: genuinely over the 900 µs
+bound, and previously scoring PASS because the number was nonsense. The
+mapping is one-to-one. Every other corner on the grid still passes the check.
+
+This also settles a smaller point the old deck could not: `sf`/−40 °C/3.63 V's
+false-valid window on the 1.0 V/µs ramp is **13.4 ms**, not the ~4.4 ms this
+document has been quoting from a deck that stopped at 2 ms.
+
+### `ok_bo_dip_mv` is the one that is genuinely the cell — and it is an RC, not a latch
+
+`sim/bias-core-startup/`'s `ok_bo_dip_mv` samples `BIAS_OK` once, 2 ms into a
+3 ms dead-rail window, against a ±300 mV bound; extraction takes it from
+33.6 mV to 303.432 mV at `ss_-40c_*`. That is not a sampling artefact — the
+same instant on both netlists reads genuinely different voltages — so it
+needed its own measurement.
+[`sim/bias-core-startup/control/dip_results.md`](../sim/bias-core-startup/control/dip_results.md)
+stretches the dead-rail window from 3 ms to 17 ms and samples the discharge
+as a curve rather than at one point:
+
+| Time since the rail reached 0 V | schematic export | klt-extracted |
+| ---: | ---: | ---: |
+| 0.5 ms | 53.56 mV | 327.8 mV |
+| **2 ms** (the check's own sample) | **33.63 mV** | **303.4 mV** |
+| 5 ms | 16.0 mV | 270.9 mV |
+| 12 ms | 5.356 mV | 210.8 mV |
+| 17 ms | 3.554 mV | 176.4 mV |
+
+Three things follow, and the first is the one that matters:
+
+- **The node is not stuck.** The extracted discharge is monotonic across all
+  eight samples; it needs roughly the whole 17 ms window to reach the level
+  the schematic export reaches in 2 ms. This is not the held stale valid
+  `XMOKC` exists to prevent — it is the same discharge on a ~9× longer time
+  constant.
+- **The core is not implicated.** `V(VREF)` on the same DUT tracks between the
+  two netlists to within 4 mV at `ss`/−40 °C over the entire window, against a
+  `BIAS_OK` difference of 270 mV at the same instant. What moved is the
+  `BIAS_OK`/`NOKX` output net's own parasitic RC.
+- **The physically load-bearing requirement still holds with margin.** The
+  check exists because `BIAS_OK` must not be a level a downstream `nfet_03v3`
+  gate could read as high. `sim/devchar/SUMMARY.md` measures
+  `nfet_03v3 Vgs,th` = 0.7547 V at `ss`/27 °C with dVt/dT = −1.006 mV/°C, i.e.
+  **≈0.822 V at the −40 °C corners that fail** — 303.4 mV is 37 % of it.
+
+So the ±300 mV bound is crossed by 1.1 % while the requirement behind it is
+met by 2.7×. **The bound is not moved here.** It is not a ratified
+`spec/target-spec.md` row, but this cell's *other* testbench bounds the same
+physical quantity at 500 mV, citing the same `sim/devchar/SUMMARY.md` Vt
+argument — two decks, two numbers, one quantity, and only one of them
+derived. Which number is right, and whether the two should be harmonized, is
+a ratification judgement for #1 in exactly the sense
+[DR-017](../spec/decision-records/DR-017-por-glitch-representative-depth.md)
+left "whether to re-cut this check" to #1 rather than taking it. Until then
+the check reads FAIL at three corners, on the record, with the mechanism
+measured.

@@ -1,0 +1,47 @@
+* Starved-window LATCH TEST -- stimulus half of the control fragment (#185).
+*
+* The other half is a verbatim copy of layout/postlayout/bias_core.spice,
+* appended by run_starved_window.py.
+*
+* Netlist FRAGMENT: no .include / .lib / .temp / .control / .end -- the
+* control script owns those, and reads the corner sections and solver
+* tolerances from the harness and from ../testbench/tb.json rather than
+* restating them.
+*
+* This is ../testbench/stimulus.spice's `xd` DEEP-BROWNOUT branch -- the
+* replacement deck's own rail shape, not the superseded serialized one the
+* sibling fragment starved_window.spice reproduces -- with exactly one
+* change: the hold after the rail returns runs to `t_hold` instead of 30 ms.
+*
+* THE QUESTION. The replacement deck samples `bo_deep_ppm` and
+* `ok_bo_end_droop_mv` at 29.9 ms and both still FAIL at the slowest corner.
+* Two explanations fit that observation and they have opposite consequences
+* for the cell:
+*
+*   (a) the reference has latched onto the DVBE loop's second, zero-current
+*       solution and will never come back -- a real startup defect; or
+*   (b) the recovery is simply still in progress at 29.9 ms.
+*
+* Only a longer run separates them, and the replacement deck deliberately
+* does not do that: lengthening the graded deck until every corner goes
+* green would hide the very number `t_false_ok_brownout_us` and
+* `t_bo_recover_us` exist to report. So the question is asked here, once,
+* off the record, at the corners that need it.
+*
+* `xst` is carried over from the parent deck because the reference error
+* `eb` below is referred to ITS settled VREF at the same corner rather than
+* to a hardcoded 1.2 V, exactly as the parent deck refers every error and
+* false-valid signal.
+
+vsupst vddst 0 dc {vdd_val}
+vibst  nibst ibiasst dc 0
+xst    vddst 0 nibst vrefst bias_okst bias_core
+xmldst ibiasst ibiasst 0 0 nfet_03v3 L=2u W=2u nf=1 m=1
+
+vsupb vddb 0 PWL(0 0 100u {vdd_val} 950u {vdd_val} 960u 0 1100u 0
++ 1110u {vdd_val} {t_hold} {vdd_val})
+vibb  nibb ibiasb dc 0
+xb    vddb 0 nibb vrefb bias_okb bias_core
+xmldb ibiasb ibiasb 0 0 nfet_03v3 L=2u W=2u nf=1 m=1
+Beb  eb  0 v = abs(v(vrefb) - v(vrefst))
+Bfob fob 0 v = ((v(bias_okb) > 0.5*v(vddb)) ? 1 : 0) * ((v(vrefst)-v(vrefb) > 0.1) ? 1 : 0)

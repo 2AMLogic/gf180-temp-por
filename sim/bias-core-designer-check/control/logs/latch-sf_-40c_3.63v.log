@@ -1,0 +1,375 @@
+
+Note: Compatibility modes selected: hs a
+
+
+Circuit: * starved-window control -- bias_core.spice @ sf/-40.0 c/3.63 v
+
+Doing analysis at TEMP = -40.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+Initial Transient Solution
+--------------------------
+
+Node                                   Voltage
+----                                   -------
+vddst                                     3.63
+nibst                                 0.842917
+ibiasst                               0.842917
+xst.ks1                                2.39908
+xst.ks2                                1.41954
+xst.ks3                               0.680243
+xst.ks4                               0.169101
+xst.nkg                             9.8151e-12
+xst.pg                                 2.88403
+xst.nbg                               0.726579
+xst.pb                                 2.87894
+xst.nkm                               0.706488
+xst.nokl                              0.681638
+xst.noko                               1.72982
+xst.nokx                           0.000100921
+xst.n1                                0.696809
+xst.n2                                0.691907
+bias_okst                                 3.63
+xst.tok                                 1.9526
+xst.nt                                  1.9512
+xst.na                                0.708924
+xst.nbtop                             0.711073
+vrefst                                 1.19771
+xst.nb                                0.708932
+xst.ec                                0.667062
+xst.er                                0.708846
+xst.nz                                0.691907
+xst.x47.11                             1.19771
+xst.x47.21                             1.16716
+xst.xr2__1                             1.16716
+xst.xr2__2                             1.13661
+xst.x48.11                             1.13661
+xst.x48.21                             1.16716
+xst.x49.11                              1.1366
+xst.x49.21                             1.10605
+xst.xr2__3                             1.10605
+xst.xr2__4                              1.0755
+xst.x50.11                              1.0755
+xst.x50.21                             1.10605
+xst.x51.11                              1.0755
+xst.x51.21                             1.04494
+xst.xr2__5                             1.04494
+xst.xr2__6                             1.01439
+xst.x52.11                             1.01439
+xst.x52.21                             1.04494
+xst.x53.11                             1.01439
+xst.x53.21                            0.983836
+xst.xr2__7                            0.983834
+xst.xr2__8                             0.95328
+xst.x54.11                            0.953281
+xst.x54.21                            0.983833
+xst.x55.11                            0.953278
+xst.x55.21                            0.922727
+xst.xr2__9                            0.922726
+xst.xr2__10                           0.892171
+xst.x56.11                            0.892173
+xst.x56.21                            0.922724
+xst.x57.11                             0.89217
+xst.x57.21                            0.861619
+xst.xr2__11                           0.861617
+xst.xr2__12                           0.831063
+xst.x58.11                            0.831064
+xst.x58.21                            0.861616
+xst.x59.11                            0.831061
+xst.x59.21                             0.80051
+xst.xr2__13                           0.800509
+xst.xr2__14                           0.769954
+xst.x60.11                            0.769956
+xst.x60.21                            0.800507
+xst.x61.11                            0.769953
+xst.x61.21                            0.739402
+xst.xr2__15                             0.7394
+xst.x62.11                            0.708847
+xst.x62.21                            0.739399
+xst.x63.11                            0.691907
+xst.x63.21                            0.691907
+xst.xrz__1                            0.691907
+xst.xrz__2                            0.691907
+xst.x64.11                            0.691907
+xst.x64.21                            0.691907
+xst.x65.11                            0.691907
+xst.x65.21                            0.691907
+xst.xrz__3                            0.691907
+xst.x66.11                            0.691907
+xst.x66.21                            0.691907
+xst.x67.11                             0.70893
+xst.x67.21                            0.687998
+xst.xr1__1                            0.687997
+xst.x68.11                            0.667064
+xst.x68.21                            0.687995
+xst.x69.11                            0.711072
+xst.x69.21                            0.710004
+xst.xrt__1                            0.710002
+xst.x70.11                            0.708933
+xst.x70.21                            0.710001
+xst.n1__par                           0.696809
+xst.n2__par                           0.691907
+xst.nkm__par                          0.706488
+xst.tok__par                            1.9526
+xst.noko__par                          1.72982
+xst.nokl__par                         0.681638
+xst.nokx__par                      0.000100921
+xst.ks1__par                           2.39908
+xst.ks2__par                           1.41954
+xst.ks3__par                          0.680243
+xst.ks4__par                          0.169101
+xst.nkg__par                        9.8151e-12
+xst.nb__par                           0.708932
+xst.ec__par                           0.667062
+xst.nz__par                           0.691907
+xst.xrz__2__par                       0.691907
+xst.xr2__14__par                      0.769954
+xst.xr2__12__par                      0.831063
+xst.pg__par                            2.88403
+xst.xr2__10__par                      0.892171
+xst.xr2__8__par                        0.95328
+xst.xr2__6__par                        1.01439
+xst.xr2__4__par                         1.0755
+xst.xr2__2__par                        1.13661
+xst.na__par                           0.708924
+xst.er__par                           0.708846
+xst.xrt__1__par                       0.710002
+xst.nbtop__par                        0.711073
+xst.xr1__1__par                       0.687997
+xst.xrz__3__par                       0.691907
+xst.xrz__1__par                       0.691907
+xst.xr2__13__par                      0.800509
+xst.xr2__11__par                      0.861617
+xst.xr2__1__par                        1.16716
+xst.xr2__3__par                        1.10605
+xst.xr2__5__par                        1.04494
+xst.xr2__7__par                       0.983834
+xst.xr2__9__par                       0.922726
+xst.xr2__15__par                        0.7394
+xst.nbg__par                          0.726579
+xst.pb__par                            2.87894
+xst.nt__par                             1.9512
+xst.bias_ok__par                          3.63
+xst.ibias__par                        0.842917
+xst.vdd__par                              3.63
+xst.vref__par                          1.19771
+xst.vss__par                                 0
+vddb                                         0
+nibb                                         0
+ibiasb                                       0
+xb.ks1                                       0
+xb.ks2                                       0
+xb.ks3                                       0
+xb.ks4                                       0
+xb.nkg                                       0
+xb.pg                                        0
+xb.nbg                            -2.35639e-23
+xb.pb                             -2.35639e-23
+xb.nkm                             3.70378e-23
+xb.nokl                            2.35639e-23
+xb.noko                           -1.57092e-23
+xb.nokx                           -3.70366e-23
+xb.n1                                        0
+xb.n2                                        0
+bias_okb                          -1.34739e-23
+xb.tok                            -8.98263e-24
+xb.nt                                        0
+xb.na                                        0
+xb.nbtop                                     0
+vrefb                                        0
+xb.nb                                        0
+xb.ec                                        0
+xb.er                                        0
+xb.nz                                        0
+xb.x47.11                                    0
+xb.x47.21                                    0
+xb.xr2__1                                    0
+xb.xr2__2                                    0
+xb.x48.11                                    0
+xb.x48.21                                    0
+xb.x49.11                                    0
+xb.x49.21                                    0
+xb.xr2__3                                    0
+xb.xr2__4                                    0
+xb.x50.11                                    0
+xb.x50.21                                    0
+xb.x51.11                                    0
+xb.x51.21                                    0
+xb.xr2__5                                    0
+xb.xr2__6                                    0
+xb.x52.11                                    0
+xb.x52.21                                    0
+xb.x53.11                                    0
+xb.x53.21                                    0
+xb.xr2__7                                    0
+xb.xr2__8                                    0
+xb.x54.11                                    0
+xb.x54.21                                    0
+xb.x55.11                                    0
+xb.x55.21                                    0
+xb.xr2__9                                    0
+xb.xr2__10                                   0
+xb.x56.11                                    0
+xb.x56.21                                    0
+xb.x57.11                                    0
+xb.x57.21                                    0
+xb.xr2__11                                   0
+xb.xr2__12                                   0
+xb.x58.11                                    0
+xb.x58.21                                    0
+xb.x59.11                                    0
+xb.x59.21                                    0
+xb.xr2__13                                   0
+xb.xr2__14                                   0
+xb.x60.11                                    0
+xb.x60.21                                    0
+xb.x61.11                                    0
+xb.x61.21                                    0
+xb.xr2__15                                   0
+xb.x62.11                                    0
+xb.x62.21                                    0
+xb.x63.11                                    0
+xb.x63.21                                    0
+xb.xrz__1                                    0
+xb.xrz__2                                    0
+xb.x64.11                                    0
+xb.x64.21                                    0
+xb.x65.11                                    0
+xb.x65.21                                    0
+xb.xrz__3                                    0
+xb.x66.11                                    0
+xb.x66.21                                    0
+xb.x67.11                                    0
+xb.x67.21                                    0
+xb.xr1__1                                    0
+xb.x68.11                                    0
+xb.x68.21                                    0
+xb.x69.11                                    0
+xb.x69.21                                    0
+xb.xrt__1                                    0
+xb.x70.11                                    0
+xb.x70.21                                    0
+xb.n1__par                                   0
+xb.n2__par                                   0
+xb.nkm__par                        3.70378e-23
+xb.tok__par                       -8.98263e-24
+xb.noko__par                      -1.57092e-23
+xb.nokl__par                       2.35639e-23
+xb.nokx__par                      -3.70366e-23
+xb.ks1__par                                  0
+xb.ks2__par                                  0
+xb.ks3__par                                  0
+xb.ks4__par                                  0
+xb.nkg__par                                  0
+xb.nb__par                                   0
+xb.ec__par                                   0
+xb.nz__par                                   0
+xb.xrz__2__par                               0
+xb.xr2__14__par                              0
+xb.xr2__12__par                              0
+xb.pg__par                                   0
+xb.xr2__10__par                              0
+xb.xr2__8__par                               0
+xb.xr2__6__par                               0
+xb.xr2__4__par                               0
+xb.xr2__2__par                               0
+xb.na__par                                   0
+xb.er__par                                   0
+xb.xrt__1__par                               0
+xb.nbtop__par                                0
+xb.xr1__1__par                               0
+xb.xrz__3__par                               0
+xb.xrz__1__par                               0
+xb.xr2__13__par                              0
+xb.xr2__11__par                              0
+xb.xr2__1__par                               0
+xb.xr2__3__par                               0
+xb.xr2__5__par                               0
+xb.xr2__7__par                               0
+xb.xr2__9__par                               0
+xb.xr2__15__par                              0
+xb.nbg__par                       -2.35639e-23
+xb.pb__par                        -2.35639e-23
+xb.nt__par                                   0
+xb.bias_ok__par                   -1.34739e-23
+xb.ibias__par                                0
+xb.vdd__par                                  0
+xb.vref__par                                 0
+xb.vss__par                                  0
+eb                                     1.19771
+fob                                          0
+bfob#branch                                  0
+beb#branch                                   0
+vibb#branch                                  0
+vsupb#branch                      -2.58004e-35
+vibst#branch                       3.91735e-07
+vsupst#branch                     -7.00494e-07
+
+ Reference value :  0.00000e+00
+ Reference value :  4.99575e-05
+ Reference value :  5.81563e-04
+ Reference value :  1.10361e-03
+ Reference value :  1.17511e-03
+ Reference value :  4.55511e-03
+ Reference value :  7.11511e-03
+ Reference value :  9.71511e-03
+ Reference value :  1.30351e-02
+ Reference value :  1.65351e-02
+ Reference value :  2.01951e-02
+ Reference value :  2.36751e-02
+ Reference value :  2.72151e-02
+ Reference value :  3.04168e-02
+ Reference value :  3.10999e-02
+ Reference value :  3.33586e-02
+ Reference value :  3.58986e-02
+ Reference value :  3.84386e-02
+ Reference value :  4.10586e-02
+ Reference value :  4.36186e-02
+ Reference value :  4.61786e-02
+ Reference value :  4.88386e-02
+ Reference value :  5.14186e-02
+ Reference value :  5.42986e-02
+ Reference value :  5.68786e-02
+ Reference value :  5.94986e-02
+ Reference value :  6.20186e-02
+ Reference value :  6.45386e-02
+ Reference value :  6.71786e-02
+ Reference value :  6.97386e-02
+ Reference value :  7.23586e-02
+ Reference value :  7.49186e-02
+ Reference value :  7.75786e-02
+ Reference value :  8.02386e-02
+ Reference value :  8.27786e-02
+ Reference value :  8.53786e-02
+ Reference value :  8.79986e-02
+ Reference value :  9.05386e-02
+ Reference value :  9.30786e-02
+ Reference value :  9.56586e-02
+ Reference value :  9.81986e-02
+ Reference value :  1.00919e-01
+ Reference value :  1.03519e-01
+ Reference value :  1.06079e-01
+ Reference value :  1.08639e-01
+ Reference value :  1.12259e-01
+ Reference value :  1.15999e-01
+ Reference value :  1.19739e-01
+No. of Data Rows : 6380
+vref_st             =  1.19771e+00
+vref_end            =  1.19771e+00
+t_recover           =  3.09482e-02
+t_ok_last           =  3.10998e-02
+t_false             =  2.87815e-02 from=  0.00000e+00 to=  1.20000e-01
+m_vref_st = 1.1977140000e+00
+m_vref_end = 1.1977140000e+00
+m_t_recover = 3.0948180000e-02
+m_t_ok_last = 3.1099830000e-02
+m_t_false = 2.8781480000e-02
+Note: Simulation executed from .control section 
+
+Warning: m=xx on .subckt line will override multiplier m hierarchy!
+
+Note: Starting dynamic gmin stepping
+Warning: Dynamic gmin stepping failed
+Note: Starting true gmin stepping
+Note: True gmin stepping completed
