@@ -15,19 +15,27 @@ real room behind it (+108.7 us at 2.97 V, +180.1 us at 3.30 V, +220.6 us at
 3.63 V).
 
 That margin was measured on the schematic export. #87's post-layout re-run
-of the `n-slew-3.46mvus` rung went 80/81 -> 75/81, which moves the transition
-band's lower edge down toward the bound and makes "is there still room at
-3.40 mV/us" a question about a number, not just about a verdict. The
-full-grid post-layout rung at 3.40 mV/us answers the VERDICT question and is
-the evidence spec/target-spec.md#por-brownout cites; this control answers the
-MARGIN question behind it, at the binding family only.
+of the `n-slew-3.46mvus` rung went 80/81 -> 75/81, which moved the transition
+band's lower edge down toward the bound; #188's post-layout rung at the bound
+itself then measured **76/81** (`../records/20260811-110825-73ef5e3.md`), so
+the room behind 3.40 mV/us is not merely reduced post-layout, it is gone.
+
+The post-layout ladder below the bound (2.50 mV/us 80/81; 2.45, 2.40 and
+2.30 mV/us 81/81 each) locates the extracted netlist's own transition edge
+between 2.45 and 2.50 mV/us. The VERDICT question is therefore settled by
+those grid records, and what is left is the MARGIN question this control
+answers: at a candidate re-costed bound, is there real room behind the
+verdict, or is the candidate just one bisection step below a FAIL? That is
+the same question `results.md`'s margin column answered for the schematic
+bound, asked again at the binding family only.
 
 METHOD
 
-The same five rungs at and around the ratified bound, at the same binding
-family (`ss` / -40 C, all three supplies -- the supply axis is kept for the
-reason #74 keeps it: the three points do not agree with each other), run
-against BOTH netlists:
+Five rungs spanning the post-layout ladder -- the four full-grid rungs #188
+recorded (2.30 / 2.40 / 2.45 / 2.50 mV/us) plus the ratified 3.40 mV/us --
+at the same binding family (`ss` / -40 C, all three supplies -- the supply
+axis is kept for the reason #74 keeps it: the three points do not agree with
+each other), run against BOTH netlists:
 
   * `sch` -- design/netlist/temp_por_top.spice (the schematic export), and
   * `ext` -- layout/postlayout/temp_por_top.spice (#82/PR #180's klt
@@ -98,11 +106,11 @@ ARMS: dict[str, Path] = {
     "ext": REPO_ROOT / "layout" / "postlayout" / "temp_por_top.spice",
 }
 
-#: The rungs at and around the ratified bound. 3.351/3.40 are the two tested
-#: rungs at or below it; 3.42/3.44 are the remaining clean-PASS rungs; 3.46
-#: is the lowest rung at which the schematic ladder fails anywhere, and the
-#: rung #87 re-ran post-layout (80/81 -> 75/81).
-SLEWS_MVUS = [3.351, 3.40, 3.42, 3.44, 3.46]
+#: The post-layout ladder, plus the bound it is being read against. 2.30 /
+#: 2.40 / 2.45 are the extracted netlist's clean-PASS rungs (81/81 each),
+#: 2.50 is the lowest extracted rung that fails anywhere (80/81), and 3.40
+#: is the ratified bound, which the extracted netlist fails at 76/81.
+SLEWS_MVUS = [2.30, 2.40, 2.45, 2.50, 3.40]
 
 RATIFIED_MVUS = 3.40
 
