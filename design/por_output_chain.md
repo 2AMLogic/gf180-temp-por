@@ -203,6 +203,45 @@ The two bounds are only about 3× apart once the dwell's own PVT × `IBIAS`
 spread is counted, so this capacitor is not free to grow — see
 [Hand-off to #11](#hand-off-to-11-the-ibias-envelope-is-the-real-constraint).
 
+**The lower bound is measured, not inferred from the dwell number.** A dwell
+of *D* does not mean "glitches shorter than *D* are rejected" — `PGDG` is a
+continuous function of how far `NDG` got, and a glitch that takes `NDG` most
+of the way to `XMG1`'s trip still drops `PGDG` far enough to fire `XMDIS` and
+restart the timer. So the bound is measured by walking the glitch width until
+the one-shot's `TIM` loses charge, in
+[`sim/por-output-chain-deglitch/control/width_results.md`](../sim/por-output-chain-deglitch/control/width_results.md).
+At both fast corners the schematic rejects a `POR_RAW` glitch **cleanly up to
+1.75 µs** and is disturbed by 2 µs — **1.75× the 1 µs chatter**
+[`sim/por-output-chain-deglitch/testbench/stimulus.spice`](../sim/por-output-chain-deglitch/testbench/stimulus.spice)
+applies. That 1 µs is itself an *assumption*: nothing in the ratified table
+bounds how narrow a `POR_RAW` excursion this cell must reject, so the floor is
+a design-chosen guard, and how much margin it deserves is a question for #14's
+assembly-level sweeps (which is where the real chatter width near the
+comparator's threshold gets observed), not one this cell can settle alone.
+
+**The dwell is not simply `CDG · V_trip / I` either**, and the difference is
+load-bearing for anything that changes the capacitance on this node. `NDG`'s
+ramp does not start from the rail it was sitting on: when `POR_RAW` falls,
+`XMDGPI` turns on with its source `NDGP` charged all the way to `VDD` (the
+PMOS tail has been pushing 50 nA into an open circuit), and `NDGP`'s stored
+charge is dumped into `NDG` before the pair settles back to carrying the tail
+current. Decomposing the falling dwell as
+
+```
+dwell = (V_trip − V0) / slope
+```
+
+with `V0` the ramp's back-extrapolated intercept at the `POR_RAW` edge — see
+[`sim/por-output-chain-deglitch/control/results.md`](../sim/por-output-chain-deglitch/control/results.md)
+— gives, at FF / +125 °C / 3.63 V: `V0` = **0.101 V**, i.e. `NDG` starts the
+dwell ~14 % of the way to a `V_trip` of 0.714 V, not at 0 V. The mirror-image
+step happens on the rising edge through `NDGN`. Both steps always kick `NDG`
+*toward* the trip, so **whatever capacitance sits on the two tail nodes
+subtracts from the dwell**, while capacitance on `NDG` itself adds to it. The
+schematic's own tail-node capacitance is only the devices' junctions and is
+therefore small; the drawn layout's is not, which is the whole content of
+[Root cause of the deglitch asymmetry](#root-cause-of-the-deglitch-asymmetry-and-why-cdg-is-not-resized-issue-182).
+
 `XMG1`/`XMG2` are deliberately ratio-skewed (NMOS-strong, then the mirror
 image). The skew is not about speed: it fixes each node's **leakage default**
 while the bias core is dead below the comparator floor. `POR_RAW` low → `NDG`
@@ -816,10 +855,11 @@ as the one-shot pulse.
 This asymmetry (one edge of the same RC filter shrinking, the other
 widening, by percentages several times the ~2 % the DC-invariant devices
 elsewhere in this cell would predict from a single ~39 fF shunt load on
-`NDG`) is measured, not yet explained — this record does not attempt a
-mechanism, since diagnosing it is design work, not verification work. It is
-flagged and routed to a new tracking issue, #182, rather than absorbed
-silently, per this issue's own acceptance criteria: the *lower* bound this
+`NDG`) was measured but not explained by #86, whose scope was verification,
+not design; it was flagged and routed to a new tracking issue, #182 — now
+diagnosed in
+[Root cause of the deglitch asymmetry](#root-cause-of-the-deglitch-asymmetry-and-why-cdg-is-not-resized-issue-182)
+below. Routing it rather than absorbing it silently was the right call: the *lower* bound this
 design already treats as tight (["Deglitch dwell"](#deglitch-dwell--cdg-is-bounded-on-both-sides):
 "this capacitor is not free to grow") has visibly less headroom against a real
 extracted layout than the schematic ever measured, even though no ratified
@@ -833,6 +873,188 @@ python3 sim/run_corners.py sim/por-output-chain-pulse/testbench-postlayout
 python3 sim/run_corners.py sim/por-output-chain-deglitch/testbench-postlayout
 python3 sim/run_corners.py sim/por-output-chain-floor/testbench-postlayout
 ```
+
+## Root cause of the deglitch asymmetry, and why `CDG` is not resized (issue #182)
+
+Three control experiments under
+[`sim/por-output-chain-deglitch/control/`](../sim/por-output-chain-deglitch/control/)
+diagnose the delta the section above measured. They are diagnoses, not
+records — the corner-grid evidence stays in `records/` (`sim/README.md`,
+"Control experiments").
+
+### First, re-verified — and this time on a clean tree
+
+The post-layout grid was re-run against the same extracted netlist:
+[`sim/por-output-chain-deglitch/records/20260811-095259-865cea8.md`](../sim/por-output-chain-deglitch/records/20260811-095259-865cea8.md),
+**81/81 PASS**, reproducing `20260811-055634-d0ee17d`'s numbers exactly. That
+matters beyond confirmation: the #86 record says of itself that it was "taken
+against a **dirty working tree** … not citable as a clean-tree result", and
+this one is clean, so the post-layout deglitch claim now rests on a record
+whose inputs are all committed.
+
+The two numbers to carry forward are **not** the two the erosion was first
+reported in:
+
+| what | post-layout | bound | headroom |
+| --- | ---: | ---: | ---: |
+| `dwell_pgdg_halfib_us`, grid max | 8.03 µs | ≤ 10 µs, ratified `T_dip,min` | **+19.7 %** |
+| `pgdg_min_during_chatter`, grid min | 2.53616 V | ≥ 2.5 V | **+1.4 %** |
+
+The ceiling — the *ratified* bound — is comfortable. The one that is 36 mV
+from its limit is the chatter check at `ff_125c_2.97v`: the direct measurement
+of "a 1 µs `POR_RAW` glitch does not move the filter output". Schematic-level
+it read 2.94 V, a 29 mV droop; post-layout it reads 2.54 V, a 434 mV droop.
+**That, not the dwell percentages, is the erosion.**
+
+### What actually moved: not the trip point
+
+Decomposing each edge's dwell as `(V_trip − V0) / slope`
+([`control/results.md`](../sim/por-output-chain-deglitch/control/results.md),
+`ff_125c_3.63v`, nominal `IBIAS`):
+
+| | `V0` (ramp's start) | slope | `V_trip` (`NDG` at `PGDG` = 1.0 V) | journey `V_trip − V0` | dwell |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| falling, schematic | 0.1012 V | +0.31625 V/µs | 0.7144 V | 0.6132 V | 2.009 µs |
+| falling, post-layout | 0.3833 V | +0.26965 V/µs | 0.7207 V | 0.3374 V | 1.277 µs |
+| | | −14.7 % | **+0.9 %** | −45.0 % | −36.4 % |
+| rising, schematic | 3.2269 V | −0.23840 V/µs | 0.7040 V | 2.5229 V | 10.719 µs |
+| rising, post-layout | 2.9270 V | −0.18129 V/µs | 0.7005 V | 2.2265 V | 12.407 µs |
+| | | −24.0 % | **−0.5 %** | −11.7 % | **+15.7 %** |
+
+**The `XMG1`/`XMG2` trip-point hypothesis is refuted.** `V_trip` moves by
+under 1 % on either edge, and it could not have moved: `XMG1`'s trip is a DC
+ratio between two devices whose `W`/`L` the extraction reproduces exactly, and
+the extraction's parasitic model is *one series R into one lumped C per net*
+([`layout/README.md`](../layout/README.md)), which is DC-invariant by
+construction. The same fact is why `iq_asserted_1x_na` reads 27.7701 nA
+post-layout against 27.7702 nA schematic.
+
+What moved is `V0` — the level the ramp actually starts from — in **opposite
+directions on the two edges but with the same sign of effect**: on both edges
+the step kicks `NDG` *toward* the trip, so both journeys shorten. The falling
+journey shortens by 45 % because it is short to begin with (`V_trip` sits at
+only 20 % of the rail, the price of `XMG1`'s NMOS-strong skew); the rising
+journey covers the other 80 % of the rail, so the *same-size* step shortens it
+by only 12 % — less than the 24 % the slope lost. **That is the whole
+asymmetry**: one absolute head-start step, one short journey and one long one.
+It is not two mechanisms.
+
+### Which parasitic: the tail nodes, not `CDG`'s own
+
+`control/results.md` ablates the extraction's three deglitch-node
+capacitances onto the schematic netlist, one group at a time
+(`ff_125c_3.63v`, falling dwell):
+
+| variant | `V0` | slope | dwell |
+| --- | ---: | ---: | ---: |
+| `schematic` | 0.1012 V | +0.31625 V/µs | 2.009 µs |
+| `sch+cndg` — only the 38.58 fF on `NDG` | 0.0941 V | +0.26675 V/µs | **2.403 µs** |
+| `sch+ctail` — only the 34.12 / 34.26 fF on `NDGP` / `NDGN` | 0.3952 V | +0.32764 V/µs | **1.000 µs** |
+| `sch+call` — all three | 0.3478 V | +0.27768 V/µs | 1.356 µs |
+| `postlayout` (the real extracted netlist) | 0.3833 V | +0.26965 V/µs | 1.277 µs |
+
+Clean separation: the `NDG` shunt moves the **slope** and nothing else, and on
+its own it *lengthens* the dwell by 20 %. The tail-node shunts move **`V0`**
+and nothing else, and on their own they *halve* it. `sch+call` lands within
+6 % of the real extracted netlist, so those three capacitances are essentially
+the whole story (the residual is the extraction's larger drawn junction areas
+and the other nets' parasitics).
+
+The arithmetic is first-order but it closes: `NDGP` carries 34.1 fF and swings
+~2.46 V when `XMDGPI` turns on (3.63 V down to the 1.17 V it tracks mid-ramp),
+so it dumps ~84 fC; the falling ramp itself only has to move ~172 fC (`CDG`
+242 fF plus the extraction's 38.6 fF on `NDG`, across the schematic's 0.613 V
+journey). **A tail node carrying one seventh of `CDG` moves half the dwell**,
+because it swings four times as far as the ramp does.
+
+### Whether `CDG` has to grow: measured, and no
+
+[`control/cdg_results.md`](../sim/por-output-chain-deglitch/control/cdg_results.md)
+walks `XCDG`'s drawn dimensions on the post-layout netlist and measures both
+bounds at each size — the ceiling as `dwell_pgdg_halfib_us` at
+`ss_-40c_2.97v` (the corner the record's grid maximum lands on), the floor as
+the glitch width at which the one-shot's `TIM` starts losing charge:
+
+| `XCDG` | `CDG` | ceiling, half `IBIAS` | vs. the ratified 10 µs | floor, worst of the two fast corners |
+| --- | ---: | ---: | --- | --- |
+| 11 µm × 11 µm (as drawn) | 242 fF | 8.020 µs | +19.8 % headroom | rejects 1.00 µs |
+| 12 µm × 12 µm | 288 fF | 9.770 µs | +2.3 % headroom | rejects 1.25 µs |
+| 13 µm × 13 µm | 338 fF | 11.680 µs | **−16.8 % — fails** | rejects 1.75 µs |
+| 14 µm × 14 µm | 392 fF | 13.750 µs | **−37.5 % — fails** | rejects ≥2.25 µs |
+
+Restoring the schematic's measured floor (1.75 µs, i.e. 1.75× the 1 µs chatter
+the testbench applies) needs 13 µm × 13 µm, which **breaks
+[`por-brownout`](../spec/target-spec.md#por-brownout)'s ratified 10 µs
+`T_dip,min`** — and CLAUDE.md is explicit that agents do not relax the ratified
+spec to make results pass, so that size is not available. The one size that
+still fits, 12 µm × 12 µm, buys the floor back only to 1.25 µs while leaving
+2.3 % of ceiling headroom at a single corner of a grid whose own dwell spread
+is 112 %; that is not margin, it is a coin flip.
+
+**So `CDG` is not resized, and no decision record is filed** — nothing ratified
+moves. `por-brownout`'s 10 µs ceiling is met post-layout with 19.7 % headroom
+on the full grid (`20260811-095259-865cea8`; the 19.8 % in the table above is
+this control deck's own single-corner re-measurement of the same point)
+and stays exactly where [DR-008](../spec/decision-records/DR-008-target-spec-ratification.md)
+put it. What changes is this document: the floor is now stated as a measured
+glitch-rejection width rather than left implicit, and it is **1.00× post-layout
+against 1.75× at the schematic level**.
+
+### What this hands off
+
+Two observations that are worth more than any capacitor in this cell:
+
+- **The `IBIAS` envelope is still the real constraint, and now it has a
+  number.** The ceiling check runs at *half* nominal `IBIAS` and reads 8.02 µs;
+  at nominal `IBIAS` the same corner reads 4.17 µs. The dwell goes as
+  1/`IBIAS`, so every 1 % of low-side `IBIAS` tolerance #11 recovers is ~1 % of
+  ceiling headroom, and **21.8 % of it pays for the 12 µm × 12 µm resize
+  outright** — with the floor margin that buys. See
+  [Hand-off to #11](#hand-off-to-11-the-ibias-envelope-is-the-real-constraint).
+- **Shrinking the tail nodes in layout is not free either.** It is tempting to
+  read "the tail parasitic did this" as "route `NDGP`/`NDGN` shorter and the
+  problem goes away". It does go away — and takes ceiling headroom with it, for
+  exactly the same reason: `sch+cndg` (the `NDG` shunt with the tail shunts
+  removed) reads 5.101 µs at `ss_-40c_2.97v` against the post-layout netlist's
+  4.167 µs, which scales to ≈9.8 µs at half `IBIAS`, i.e. ~2 % under the
+  ceiling. The two bounds move together whichever node is touched. Under the
+  `IBIAS` tolerance assumed today there is no capacitance in this cell that
+  separates them; a tighter `IBIAS` envelope is what creates the room.
+
+Both are carried by **#199**, which cannot close until #14 reports the real
+`POR_RAW` chatter width and #11 lands an `IBIAS` envelope. **#200** carries the
+verification half: the measured rejection width belongs on the corner grid,
+not only in a control that gets overwritten on the next run.
+
+A third lever exists and is deliberately **not** taken here: `V_trip` sits at
+20 % of the rail because `XMG1` is skewed NMOS-strong, and a trip nearer
+mid-rail would make the falling journey ~2.5× longer and the same head-start
+step ~18 % of it instead of ~46 %. But that skew is not about speed — it fixes
+the deglitch chain's dead-circuit leakage default, which is what
+[`por-reset-valid-floor`](../spec/target-spec.md#por-reset-valid-floor) and
+[`por-polarity`](../spec/target-spec.md#por-polarity) rest on
+([Deglitch dwell](#deglitch-dwell--cdg-is-bounded-on-both-sides)). Re-skewing
+it is a re-spin of the cell and its layout, not a tweak.
+
+### Reproducing this section's evidence
+
+```bash
+python3 sim/run_corners.py sim/por-output-chain-deglitch/testbench-postlayout -j 1
+python3 sim/por-output-chain-deglitch/control/run_deglitch_asym_probe.py   # the decomposition + ablation
+python3 sim/por-output-chain-deglitch/control/run_glitch_width_sweep.py    # the measured floor
+python3 sim/por-output-chain-deglitch/control/run_cdg_tradeoff.py          # the CDG-resize tradeoff
+```
+
+`-j 1` is not a typo. ngspice's worker threads spin-wait, so `N` concurrent
+points × `N` threads oversubscribe a busy host superlinearly: the 81-point
+grid runs in 154 s at `-j 1` and does not finish at all at `-j 8` on the same
+machine, where every point hits the harness's 300 s per-point timeout
+(record `20260811-083430-4249351` is that abort, kept because `sim/` is
+append-only).
+
+Each script regenerates its own `results.md` / `width_results.md` /
+`cdg_results.md`, its `decks/` and its raw `logs/` in place. The traces the
+first one writes are git-ignored and regenerable (`sim/README.md`).
 
 ## Reproducing the evidence
 

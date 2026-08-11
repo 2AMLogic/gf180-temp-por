@@ -1,0 +1,62 @@
+* por-output-chain-deglitch glitch-width sweep -- stimulus half (issue #182).
+*
+* The other half is a DUT netlist (schematic or post-layout) written into
+* decks/ and .include-d by run_glitch_width_sweep.py. Edit THIS file, never
+* a deck.
+*
+* Netlist FRAGMENT: no .include / .lib / .temp / .control / .end -- the sweep
+* script owns those. Parameters it supplies, all in SECONDS (ngspice's
+* `{expr}unit` PWL syntax does not tolerate a `{param}u` suffix, so the script
+* passes absolute times, not widths):
+*   vdd_val, t_glitch_lo, t_glitch_hi, t_glitch_end, stop_s
+*
+* WHAT THIS SWEEP IS FOR
+*
+* The lower bound on the deglitch dwell is a *glitch-rejection* bound:
+* design/por_output_chain.md's "Deglitch dwell -- CDG is bounded on both
+* sides" records a real prior failure where a 1 us POR_RAW glitch propagated
+* through to PGDG and restarted the one-shot at 30/81 PVT points. The
+* ../testbench/ stimulus therefore applies 1 us chatter and asserts that PGDG
+* does not move.
+*
+* That check answers "is 1 us rejected?" but not "by how much?". This deck
+* sweeps the glitch WIDTH and finds, by measurement, the width at which the
+* filter actually stops rejecting -- separately for the schematic and the
+* post-layout netlist -- so the lower-bound margin can be stated as a ratio
+* against the 1 us the testbench applies rather than inferred from a dwell
+* number compared to a historical one.
+*
+* TIMELINE
+*
+*   0     -> 100 us   VDD ramps 0 -> vdd_val. POR_RAW low.
+*   300.1 us          POR_RAW high: the deglitch filter settles, the one-shot
+*                     timer starts charging CTIM.
+*   t_glitch_lo       POR_RAW low for (t_glitch_hi - t_glitch_lo) -- ONE
+*   -> t_glitch_hi    glitch, 100 ns edges, exactly as the testbench's chatter
+*                     is shaped.
+*   stop_s            end. TIM is sampled before and after the glitch: a
+*                     glitch that got through fires XMDIS and slams TIM to
+*                     VSS, which is the functional failure the 1 us chatter
+*                     check exists to catch.
+
+vsup vdd 0 PWL(0 0 100u {vdd_val} 2m {vdd_val})
+
+vpr por_raw 0 PWL(
++ 0              0
++ 300u           0
++ 300.1u         {vdd_val}
++ {t_glitch_lo}  {vdd_val}
++ {t_glitch_hi}  0
++ {t_glitch_end} 0
++ {t_glitch_up}  {vdd_val}
++ {stop_s}       {vdd_val})
+
+Bib1 vdd nib1 i='500n*min(1, max(0, (v(vdd)-1.5)/0.5))'
+vib1 nib1 ibias1 dc 0
+
+vd1 vdd vdd1 dc 0
+
+Cl1 resetn1 0 5p
+Rl1 resetn1 0 1T
+
+xdut1 vdd1 0 ibias1 por_raw resetn1 por_output_chain

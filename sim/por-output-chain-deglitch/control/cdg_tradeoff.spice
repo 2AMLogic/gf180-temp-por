@@ -1,0 +1,62 @@
+* por-output-chain-deglitch CDG-resize tradeoff -- stimulus half (issue #182).
+*
+* The other half is a DUT netlist written into decks/ and .include-d by
+* run_cdg_tradeoff.py: layout/postlayout/por_output_chain.spice with XCDG's
+* drawn MiM dimensions rewritten. Edit THIS file, never a deck.
+*
+* Netlist FRAGMENT: no .include / .lib / .temp / .control / .end -- the
+* script owns those. Parameters it supplies, all in SECONDS:
+*   vdd_val, t_dip_lo, t_dip_hi, t_dip_end, t_dip_up, stop_s
+*
+* WHAT THIS DECK IS FOR
+*
+* design/por_output_chain.md's "Deglitch dwell -- CDG is bounded on both
+* sides" says the capacitor "is not free to grow". This deck measures both
+* bounds against the SAME CDG value so the tradeoff is a measurement rather
+* than an argument:
+*
+*   CEILING  xdut2, half nominal IBIAS -- the DUT
+*            spec/target-spec.md#por-brownout's <= 10 us T_dip,min check runs
+*            against (records' dwell_pgdg_halfib_us). Driven with a dip long
+*            enough that PGDG certainly falls.
+*   FLOOR    xdut1, nominal IBIAS -- glitch rejection. Driven with a dip of
+*            the width under test; a glitch that gets through fires XMDIS and
+*            discharges the one-shot's TIM.
+*
+* Both DUTs see the same stimulus, so one run reports both.
+*
+* TIMELINE
+*
+*   0     -> 100 us   VDD ramps 0 -> vdd_val. POR_RAW low.
+*   300.1 us          POR_RAW high: filters settle, both timers start.
+*   t_dip_hi          POR_RAW low for (t_dip_end - t_dip_hi), 100 ns edges.
+*   -> t_dip_end
+*   stop_s            end.
+
+vsup vdd 0 PWL(0 0 100u {vdd_val} 2m {vdd_val})
+
+vpr por_raw 0 PWL(
++ 0            0
++ 300u         0
++ 300.1u       {vdd_val}
++ {t_dip_lo}   {vdd_val}
++ {t_dip_hi}   0
++ {t_dip_end}  0
++ {t_dip_up}   {vdd_val}
++ {stop_s}     {vdd_val})
+
+Bib1 vdd nib1 i='500n*min(1, max(0, (v(vdd)-1.5)/0.5))'
+vib1 nib1 ibias1 dc 0
+Bib2 vdd nib2 i='250n*min(1, max(0, (v(vdd)-1.5)/0.5))'
+vib2 nib2 ibias2 dc 0
+
+vd1 vdd vdd1 dc 0
+vd2 vdd vdd2 dc 0
+
+Cl1 resetn1 0 5p
+Rl1 resetn1 0 1T
+Cl2 resetn2 0 5p
+Rl2 resetn2 0 1T
+
+xdut1 vdd1 0 ibias1 por_raw resetn1 por_output_chain
+xdut2 vdd2 0 ibias2 por_raw resetn2 por_output_chain

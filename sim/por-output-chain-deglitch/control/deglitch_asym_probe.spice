@@ -1,0 +1,65 @@
+* por-output-chain-deglitch asymmetry probe -- stimulus half (issue #182).
+*
+* The other half is one of the DUT netlists (schematic, post-layout, or an
+* ablation variant built from the schematic), written into decks/ and
+* .include-d by run_deglitch_asym_probe.py. Edit THIS file, never a deck.
+*
+* Netlist FRAGMENT: no .include / .lib / .temp / .control / .end -- the
+* probe script owns those. Parameters it supplies: vdd_val, stop_s.
+*
+* WHAT THIS PROBE IS FOR
+*
+* sim/por-output-chain-deglitch/records/20260811-055634-d0ee17d.md (post-layout)
+* measures a deglitch dwell that moves in BOTH directions against the schematic
+* record 20260802-205904-bdc077d: the POR_RAW-falling dwell (the one
+* spec/target-spec.md#por-brownout depends on) shrinks 28-36 % at the fast
+* corners while the POR_RAW-rising dwell grows 12-14 %. This deck traces the
+* deglitch filter's own nodes -- NDG (the dwell capacitor), NDGP / NDGN (the
+* two tail nodes) and PGDG (the restoring inverter's output) -- across both
+* edges so the dwell can be decomposed into
+*
+*     dwell = (V_trip - V0) / slope
+*
+* where V0 is the NDG level the slow I/C ramp actually starts from (the
+* back-extrapolated intercept at the POR_RAW edge, which is NOT the pre-edge
+* rail if charge is shared onto NDG at the instant the input pair switches),
+* slope is the I/C ramp rate, and V_trip is the NDG voltage at which PGDG
+* crosses the record's own 1.0 V measurement threshold.
+*
+* ONE DUT, NOMINAL IBIAS
+*
+* The record's dwell_pgdg_1x_us is xdut1 (0.5 uA, DR-005 nominal). The
+* half-IBIAS stress DUT is not needed here: this probe is diagnosing the
+* shape of the delta, not re-publishing the spec claim, and the 1/IBIAS
+* scaling is already recorded.
+*
+* TIMELINE (short on purpose -- the filter has no memory beyond ~10 us, so
+* the falling edge does not have to sit at the record's 12.0 ms to see the
+* same dwell; run_deglitch_asym_probe.py cross-checks the dwell it measures
+* here against the record's value at the same corner)
+*
+*   0     -> 100 us   VDD ramps 0 -> vdd_val. POR_RAW low.
+*   300.1 us          POR_RAW high -- the RISING dwell (NDG discharging).
+*   1.0 ms            POR_RAW low  -- the FALLING dwell (NDG charging), the
+*                     edge spec/target-spec.md#por-brownout's qualifying dip
+*                     presents.
+*   stop_s            end.
+
+vsup vdd 0 PWL(0 0 100u {vdd_val} 2m {vdd_val})
+
+* POR_RAW: one clean rising edge and one clean falling edge, 100 ns each --
+* the same edge rate ../testbench/stimulus.spice uses.
+vpr por_raw 0 PWL(0 0
++ 300u 0 300.1u {vdd_val}
++ 999.9u {vdd_val} 1000u 0
++ 2m 0)
+
+Bib1 vdd nib1 i='500n*min(1, max(0, (v(vdd)-1.5)/0.5))'
+vib1 nib1 ibias1 dc 0
+
+vd1 vdd vdd1 dc 0
+
+Cl1 resetn1 0 5p
+Rl1 resetn1 0 1T
+
+xdut1 vdd1 0 ibias1 por_raw resetn1 por_output_chain
