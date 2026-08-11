@@ -559,7 +559,7 @@ exports, via the `testbench-postlayout/` convention #86 established:
 | Evidence | Netlist provenance | DUT |
 | --- | --- | --- |
 | [`sim/por-comparator-designer-check/records/20260811-073514-eb36e2c.md`](../sim/por-comparator-designer-check/records/20260811-073514-eb36e2c.md) | extracted | `por_comparator` alone, idealised `VREF`/`IBIAS` |
-| [`sim/por-threshold-mc/records/20260811-070645-82aab51.md`](../sim/por-threshold-mc/records/20260811-070645-82aab51.md) | extracted | `por_comparator` alone, Monte Carlo local mismatch |
+| [`sim/por-threshold-mc/records/20260811-074902-e3e220f.md`](../sim/por-threshold-mc/records/20260811-074902-e3e220f.md) | extracted | `por_comparator` alone, Monte Carlo local mismatch |
 | [`sim/por-vth/records/20260811-073945-12473c3.md`](../sim/por-vth/records/20260811-073945-12473c3.md) | extracted | `temp_por_top`, real `bias_core`-driven `VREF`/`IBIAS` |
 
 It does not replace the schematic-level section above — both stand as
