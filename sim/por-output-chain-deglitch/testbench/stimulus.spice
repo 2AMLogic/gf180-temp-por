@@ -31,6 +31,30 @@
 *      and must not produce an early release) and once after it has released
 *      (must not produce a spurious re-assertion). This is the "POR_RAW
 *      chatters near threshold before the deglitch settles" edge case.
+*   4. REJECTION-WIDTH MARGIN (#200). A THIRD chatter burst, 1.05 us wide --
+*      5 % wider than the 1 us the checks above use -- is applied after the
+*      qualifying dip has restarted the pulse. Its job is to put a number on
+*      how much width margin the filter has left, at every one of the 81 PVT
+*      points, instead of only asserting that one width is rejected. What it
+*      measures is the one-shot's own charge (TIM before vs. its minimum over
+*      the burst), because losing timer charge -- XMDIS conducting and the
+*      reset pulse restarting -- is the functional failure; PGDG merely
+*      drooping is not.
+*
+*      WHY 1.05 us. control/width_results.md walks the glitch width at the two
+*      fastest corners and brackets the post-layout netlist's rejection ceiling
+*      between 1.0 us (rejected) and 1.25 us (disturbed) -- the schematic's
+*      bracket is 1.75 / 2.0 us. 1.05 us is inside that bracket: wider than the
+*      burst the checks above use, and still a width the design AS DRAWN
+*      rejects at every one of the 81 points, which is what makes it a check
+*      rather than a known failure. The control answers this at two corners
+*      and is overwritten on every run; this burst carries the same question
+*      onto the corner grid, where the answer is recorded append-only.
+*
+*      It sits AFTER every other measurement window on purpose: nothing in
+*      this stimulus changes before 12.99 ms, so every measurement that
+*      existed before it did is bit-identical to a run without it (verified
+*      across all 81 points, both netlists) and the records stay comparable.
 *
 * TWO DUTS, BECAUSE THE DWELL SCALES AS 1/IBIAS
 *
@@ -54,13 +78,21 @@
 *   12.0 ms           POR_RAW low for exactly 10 us: the qualifying brownout
 *                     dip of the por-brownout row. RESETn must re-assert and
 *                     the full pulse must regenerate.
-*   12.6 ms           end.
+*   13.0 / 13.1 / 13.2 ms  three 1.05 us LOW glitches, DURING the regenerated
+*                     pulse -- placed at the same 1.0/1.1/1.2 ms offset from
+*                     the restart at 12.01 ms that the first battery has from
+*                     the start at 300.1 us, so the one-shot is charging
+*                     steadily in both, the same regime. The regenerated pulse
+*                     is >4 ms at every corner recorded so far, so RESETn is
+*                     still asserted throughout this burst.
+*   13.6 ms           end.
 
-vsup vdd 0 PWL(0 0 100u {vdd_val} 13m {vdd_val})
+vsup vdd 0 PWL(0 0 100u {vdd_val} 14m {vdd_val})
 
-* POR_RAW: high from 300 us, with two batteries of 1 us sub-dwell chatter and
-* one 10 us qualifying dip. Edges are 100 ns so the glitches are genuinely
-* 1 us wide at the pin rather than being softened into nothing by the source.
+* POR_RAW: high from 300 us, with three batteries of sub-dwell chatter (two at
+* 1 us, one at 1.05 us) and one 10 us qualifying dip. Edges are 100 ns so the
+* glitches are genuinely as wide at the pin as they are drawn here rather than
+* being softened into nothing by the source.
 vpr por_raw 0 PWL(0 0
 + 300u 0 300.1u {vdd_val}
 + 999.9u {vdd_val} 1000u 0 1001u 0 1001.1u {vdd_val}
@@ -70,7 +102,10 @@ vpr por_raw 0 PWL(0 0
 + 11099.9u {vdd_val} 11100u 0 11101u 0 11101.1u {vdd_val}
 + 11199.9u {vdd_val} 11200u 0 11201u 0 11201.1u {vdd_val}
 + 11999.9u {vdd_val} 12000u 0 12010u 0 12010.1u {vdd_val}
-+ 13m {vdd_val})
++ 12999.9u {vdd_val} 13000u 0 13001.05u 0 13001.15u {vdd_val}
++ 13099.9u {vdd_val} 13100u 0 13101.05u 0 13101.15u {vdd_val}
++ 13199.9u {vdd_val} 13200u 0 13201.05u 0 13201.15u {vdd_val}
++ 14m {vdd_val})
 
 Bib1 vdd nib1 i='500n*min(1, max(0, (v(vdd)-1.5)/0.5))'
 vib1 nib1 ibias1 dc 0

@@ -1,6 +1,6 @@
 {
   "name": "por-output-chain-deglitch",
-  "description": "Deglitch dwell, qualifying-brownout-dip capture and chatter rejection of design/por_output_chain.sch, at nominal and half IBIAS, over the full 81-point PVT grid. Post-layout composite netlist, nominal and half IBIAS.",
+  "description": "Deglitch dwell, qualifying-brownout-dip capture and chatter rejection of design/por_output_chain.sch, at nominal and half IBIAS, over the full 81-point PVT grid. Post-layout composite netlist, nominal and half IBIAS. Since #200 the grid also carries the filter's glitch-rejection WIDTH margin: a third chatter burst at 1.05 us (5 % wider than the 1 us the checks above use), with the one-shot's own charge loss recorded as tim_loss_wide_pct and tim_loss_1us_pct. Those two are deliberately limit-free -- they are the margin, and a bound on them would only ever report a flip, not the movement that precedes it. The width matters most against this netlist: control/width_results.md brackets its rejection ceiling between 1.0 and 1.25 us at the fastest corners, against 1.75-2.0 us for the schematic.",
   "claim": "spec/target-spec.md#por-brownout -- fills that row's open TBD by publishing the deglitch dwell time this cell designs to, and shows it stays under the row's T_dip,min = 10 us so a qualifying dip re-asserts RESETn and regenerates the full spec/target-spec.md#por-reset-pulse. Also covers the no-early/no-double-pulse edge case: sub-dwell POR_RAW chatter, applied both during assertion and after release, changes nothing at the pin. Deglitch is this cell's time-domain mechanism per DR-005 and is separate from the comparator's static hysteresis (#10). Deterministic corners only -- the full brownout sweep is #14's job. Post-layout re-run (#86) against layout/postlayout/por_output_chain.spice (#82/PR #180, direct klt extraction): XCDG/XCTIM are real drawn-and-extracted MiM caps plus the drawn interconnect's own parasitic R/C on the signal path -- not a schematic-ideal cap with added parasitics, since every device in this cell is drawn (0 ideal, layout/postlayout/AUDIT.md). See design/por_output_chain.md's post-layout section for the schematic-vs-extracted pulse-width/dwell delta.",
   "netlist": "tb_por_deglitch_postlayout.spice",
   "nominal_supply_v": 3.3,
@@ -20,11 +20,16 @@
     "method=gear"
   ],
   "analyses": [
-    "tran 2u 12.6m",
+    "tran 2u 13.6m",
     "meas tran tpgr1 when v(xdut1.pgdg)=1.0 rise=1 td=300.05u",
     "meas tran trel1 when v(resetn1)=1.0 rise=1 td=400u",
     "meas tran pgdgmin1 min v(xdut1.pgdg) from=0.99m to=1.25m",
     "meas tran vmax_chat1 max v(resetn1) from=0.99m to=1.25m",
+    "meas tran timpre1 find v(xdut1.tim) at=0.999m",
+    "meas tran timlo1 min v(xdut1.tim) from=0.9999m to=1.25m",
+    "meas tran pgdgminw min v(xdut1.pgdg) from=12.9999m to=13.25m",
+    "meas tran timpre3 find v(xdut1.tim) at=12.999m",
+    "meas tran timlo3 min v(xdut1.tim) from=12.9999m to=13.25m",
     "meas tran vmin_hold1 min v(resetn1) from=10.99m to=11.25m",
     "meas tran tpgf1 when v(xdut1.pgdg)=1.0 fall=1 td=11.995m",
     "meas tran tpgf2 when v(xdut2.pgdg)=1.0 fall=1 td=11.995m",
@@ -46,6 +51,10 @@
     "resetn_min_after_release": "vmin_hold1",
     "resetn_min_during_dip": "vmin_dip1",
     "resetn_max_after_dip": "vmax_after1",
+    "pgdg_min_during_wide_chatter": "pgdgminw",
+    "tim_min_during_wide_chatter_v": "timlo3",
+    "tim_loss_wide_pct": "(timpre3-timlo3)/timpre3*100",
+    "tim_loss_1us_pct": "(timpre1-timlo1)/timpre1*100",
     "iq_asserted_1x_na": "iasrt1*1e9"
   },
   "checks": {
@@ -76,6 +85,14 @@
     "resetn_max_during_chatter": {
       "max": 0.3,
       "description": "no early release: chatter while the pulse is still running never lets RESETn go high"
+    },
+    "pgdg_min_during_wide_chatter": {
+      "min": 2.0,
+      "description": "#200's width-margin check. Three 1.05 us glitches -- 5 % wider than the 1 us burst above -- applied after the qualifying dip has restarted the pulse, still leave the filter output near the rail. 1.05 us is inside the bracket control/width_results.md measures the rejection ceiling in at the two fastest corners (post-layout: rejected at 1.0 us, disturbed at 1.25 us; schematic: 1.75 / 2.0 us), so it is a wider width the design AS DRAWN still passes at every corner rather than a width picked for comfort. The 2.0 V bound sits below the worst point this manifest produces -- 2.45 V post-layout at ff/125 C/2.97 V, 2.93 V schematic -- and well above the 1.27 V a glitch that actually propagates leaves behind (width_results.md, post-layout ff/125 C/3.63 V at 1.25 us)"
+    },
+    "tim_min_during_wide_chatter_v": {
+      "min": 0.25,
+      "description": "the functional half of #200's width-margin check, and the half with the teeth: across the wider burst the one-shot's timer node keeps its charge. A glitch that propagates fires XMDIS and slams TIM to within tens of mV of VSS -- the CDG = 98 fF failure design/por_output_chain.md records -- and that, not PGDG drooping, is the functional failure (it is also the quantity control/width_results.md's rejected/partial/through verdict is defined on). Undisturbed, TIM sits at 0.39-0.58 V here across the grid, so 0.25 V separates 'kept its charge' from 'restarted' with margin at every corner. It is deliberately NOT a bound on the margin itself: the margin is tim_loss_wide_pct, which carries no limit so that a re-run reports it moving rather than only flipping"
     },
     "resetn_min_after_release": {
       "min": 2.5,
