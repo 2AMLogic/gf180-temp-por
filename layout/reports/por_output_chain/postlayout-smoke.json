@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "cell": "por_output_chain",
+  "corner_id": "tt_27c_3.30v",
+  "temp_c": 27.0,
+  "vdd_v": 3.3,
+  "tolerance": 0.15,
+  "analyses": [
+    "tran 10u 20m",
+    "meas tran trel when v(resetn)=1.65 rise=1 td=1.002m",
+    "meas tran vrel find v(resetn) at=19.5m"
+  ],
+  "status": "pass",
+  "note": "plumbing proof, not a sim/ evidence record -- one PVT point, loose sanity windows; see layout/postlayout_smoke.py",
+  "netlists": {
+    "postlayout": "layout/postlayout/por_output_chain.spice",
+    "schematic": "design/netlist/por_output_chain.spice"
+  },
+  "measurements": [
+    {
+      "measure": "t_release_ms",
+      "postlayout": 5.900341,
+      "schematic": 5.779397,
+      "delta_frac": 0.0209267506627421,
+      "window": [
+        0.05,
+        19.0
+      ],
+      "in_window": true,
+      "within_tolerance": true
+    },
+    {
+      "measure": "resetn_final_v",
+      "postlayout": 3.3,
+      "schematic": 3.3,
+      "delta_frac": 0.0,
+      "window": [
+        2.9,
+        3.31
+      ],
+      "in_window": true,
+      "within_tolerance": true
+    }
+  ]
+}

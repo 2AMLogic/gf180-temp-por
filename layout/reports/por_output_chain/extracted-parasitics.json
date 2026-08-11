@@ -1,0 +1,77 @@
+{
+  "schema_version": 1,
+  "cell": "por_output_chain",
+  "note": "recorded by layout/postlayout.py --extract; the committed extracted.spice/extract.json of the DRC/LVS flow are not touched by this run",
+  "netlist_path": "layout/reports/por_output_chain/extracted-parasitics.spice",
+  "netlist_sha256": "11d155e46da9aba39e24c1ef9bf8d6277e528aacc10f4a7792b65468e28f133f",
+  "top_cell_pins": false,
+  "device_count": 33,
+  "device_counts": {
+    "cap_mim_2f0_m4m5_noshield": 5,
+    "nfet": 14,
+    "pfet": 14
+  },
+  "net_count": 30,
+  "pin_count": 6,
+  "coverage": {
+    "nets_total": 30,
+    "nets_with_parasitics": 18,
+    "fraction": 0.6,
+    "total_resistance_ohm": 66322.3222,
+    "total_capacitance_ff": 828.580517
+  },
+  "warnings": [
+    "16 poly-layer shapes not part of any recognised nfet/pfet gate touch contact at 2+ separate points (the resistor-body signature) and carry no resistor-marker layer at all; this deck may not model the device class drawn here, and its terminals have been absorbed into ordinary interconnect as an unintended short -- see docs/cli/extract.md's 'Known limitation: unmodelled device geometry'."
+  ],
+  "provenance": {
+    "klt_version": "0.2.0",
+    "klayout_version": "0.30.10",
+    "deck": {
+      "name": "gf180mcu",
+      "content_hash": "sha256:1256c45b3e472635b03a1888d0730822c1872b4a912a2c90fc1e4e7cd14a3913"
+    },
+    "gds_sha256": "475c7feaa83591e14d63e5e4971859225920e7971396552a0a32fcd18cfa3c29"
+  },
+  "lvs": {
+    "status": "match",
+    "nets_layout": 30,
+    "nets_matched": 30,
+    "devices_matched": 33,
+    "category_counts": {
+      "device.body_unverified": 2,
+      "topology": 11
+    }
+  },
+  "net_correspondence": {
+    "IBIAS": "IBIAS",
+    "$6": "ND1",
+    "$11": "NDG",
+    "$10": "NDGN",
+    "$16": "NDGP",
+    "$3": "NDL",
+    "$15": "NNAND",
+    "$8": "NTS",
+    "$19": "NW1",
+    "$2": "PDN",
+    "$12": "PGDG",
+    "$5": "PGDGB",
+    "POR_RAW": "POR_RAW",
+    "RESETn": "RESETN",
+    "$17": "RSTB",
+    "$13": "TIM",
+    "$14": "TRIP",
+    "VDD": "VDD",
+    "VSS": "VSS",
+    "vsubs": "VSUBS",
+    "$22": "XCDG.NDG",
+    "$23": "XCDG.VSS",
+    "$20": "XCTIM.1.TIM",
+    "$24": "XCTIM.1.VSS",
+    "$21": "XCTIM.2.TIM",
+    "$25": "XCTIM.2.VSS",
+    "$26": "XCTIM.3.TIM",
+    "$28": "XCTIM.3.VSS",
+    "$27": "XCTIM.4.TIM",
+    "$29": "XCTIM.4.VSS"
+  }
+}

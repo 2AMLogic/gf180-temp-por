@@ -1487,12 +1487,10 @@ def build_cap_cards(cell: str, rename=None) -> list[Card]:
     return cards
 
 
-def build_assembly(cell: str) -> list[Card]:
-    """Compose an assembly cell's cards from the cells it instances.
+def instance_renames(cell: str) -> list[tuple[str, str, Callable[[str], str]]]:
+    """``(instance, sub-cell, rename)`` for every instance an assembly holds.
 
-    Each sub-cell's own manifest supplies its devices, sizes, wells,
-    dummy fingers and drawn MiM caps unchanged; the only thing this adds is the
-    net renaming, taken from the golden top-level netlist itself:
+    The renaming is taken from the golden top-level netlist itself:
 
     * a sub-circuit's formal port maps to whatever the top-level instance line
       wires it to (``xbias VDD VSS IBIAS VREF BIAS_OK bias_core`` ->
@@ -1506,6 +1504,11 @@ def build_assembly(cell: str) -> list[Card]:
     netlist's ``.subckt`` line -- the same ratified-pinout check
     ``design/netlist.py --check`` makes at the schematic level, restated here
     because this is the artifact the layout is compared against.
+
+    Split out of :func:`build_assembly` because the same renaming answers a
+    second question: which *schematic* net an assembled cell's synthetic
+    body/well/plate net stands for (``layout/postlayout.py``). Deriving it
+    twice would let the two answers drift.
     """
     spec = CELLS[cell]
     text = (NETLIST_DIR / spec["source"]).read_text()
@@ -1525,7 +1528,7 @@ def build_assembly(cell: str) -> list[Card]:
         if fields[0].lower().startswith("x"):
             instances[fields[0].lower()] = fields[1:]
 
-    cards: list[Card] = []
+    renames: list[tuple[str, str, Callable[[str], str]]] = []
     for inst, sub_cell in spec["assembly"]:
         if inst not in instances:
             raise ReferenceError(f"{cell}: no instance {inst!r} in {spec['source']}")
@@ -1554,6 +1557,19 @@ def build_assembly(cell: str) -> list[Card]:
                 return net
             return mapping.get(net, f"{inst}.{net}")
 
+        renames.append((inst, sub_cell, rename))
+    return renames
+
+
+def build_assembly(cell: str) -> list[Card]:
+    """Compose an assembly cell's cards from the cells it instances.
+
+    Each sub-cell's own manifest supplies its devices, sizes, wells,
+    dummy fingers and drawn MiM caps unchanged; the only thing this adds is
+    the net renaming :func:`instance_renames` derives.
+    """
+    cards: list[Card] = []
+    for _inst, sub_cell, rename in instance_renames(cell):
         cards.extend(build_cards(sub_cell, rename=rename))
     return cards
 
@@ -1691,9 +1707,16 @@ def check_deck_hash_consistency(reports_dir: Path = REPORTS_DIR) -> list[str]:
 #: ``extract.json`` gained ``provenance.gds_sha256`` under #106, spliced in by
 #: ``run_checks.sh`` right after ``klt drc``/``klt extract`` write the file,
 #: since neither writes it itself.
+#: ``extracted-parasitics.json`` is ``layout/postlayout.py --extract``'s own
+#: record and writes the digest itself; it is listed here so the post-layout
+#: netlist derived from it is held to the same drift gate as the DRC/LVS
+#: reports -- a cell whose GDS moves without its extraction being re-run fails
+#: here rather than shipping a post-layout netlist of a layout that no longer
+#: exists.
 GDS_HASH_FIELDS: dict[str, tuple[str, ...]] = {
     "drc.json": ("provenance", "gds_sha256"),
     "extract.json": ("provenance", "gds_sha256"),
+    "extracted-parasitics.json": ("provenance", "gds_sha256"),
     "lvs.json": ("environment", "layout_sha256"),
 }
 

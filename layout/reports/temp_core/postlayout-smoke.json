@@ -1,0 +1,55 @@
+{
+  "schema_version": 1,
+  "cell": "temp_core",
+  "corner_id": "tt_27c_3.30v",
+  "temp_c": 27.0,
+  "vdd_v": 3.3,
+  "tolerance": 0.02,
+  "analyses": [
+    "op"
+  ],
+  "status": "pass",
+  "note": "plumbing proof, not a sim/ evidence record -- one PVT point, loose sanity windows; see layout/postlayout_smoke.py",
+  "netlists": {
+    "postlayout": "layout/postlayout/temp_core.spice",
+    "schematic": "design/netlist/temp_core.spice"
+  },
+  "measurements": [
+    {
+      "measure": "ptat_v",
+      "postlayout": 1.2939883726,
+      "schematic": 1.2933413351,
+      "delta_frac": 0.0005002836315828644,
+      "window": [
+        0.5,
+        2.5
+      ],
+      "in_window": true,
+      "within_tolerance": true
+    },
+    {
+      "measure": "ctat_v",
+      "postlayout": 0.65327412203,
+      "schematic": 0.65334724088,
+      "delta_frac": -0.00011191422481781347,
+      "window": [
+        0.3,
+        1.2
+      ],
+      "in_window": true,
+      "within_tolerance": true
+    },
+    {
+      "measure": "pg_v",
+      "postlayout": 2.2340564054,
+      "schematic": 2.2352182393,
+      "delta_frac": -0.0005197854417847622,
+      "window": [
+        0.5,
+        3.31
+      ],
+      "in_window": true,
+      "within_tolerance": true
+    }
+  ]
+}

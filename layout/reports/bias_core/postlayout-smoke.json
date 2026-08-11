@@ -1,0 +1,67 @@
+{
+  "schema_version": 1,
+  "cell": "bias_core",
+  "corner_id": "tt_27c_3.30v",
+  "temp_c": 27.0,
+  "vdd_v": 3.3,
+  "tolerance": 0.02,
+  "analyses": [
+    "op"
+  ],
+  "status": "pass",
+  "note": "plumbing proof, not a sim/ evidence record -- one PVT point, loose sanity windows; see layout/postlayout_smoke.py",
+  "netlists": {
+    "postlayout": "layout/postlayout/bias_core.spice",
+    "schematic": "design/netlist/bias_core.spice"
+  },
+  "measurements": [
+    {
+      "measure": "vref_v",
+      "postlayout": 1.1994384803,
+      "schematic": 1.1993493869,
+      "delta_frac": 7.428477554004921e-05,
+      "window": [
+        0.9,
+        1.5
+      ],
+      "in_window": true,
+      "within_tolerance": true
+    },
+    {
+      "measure": "bias_ok_v",
+      "postlayout": 3.29999981,
+      "schematic": 3.29999981,
+      "delta_frac": 0.0,
+      "window": [
+        2.9,
+        3.31
+      ],
+      "in_window": true,
+      "within_tolerance": true
+    },
+    {
+      "measure": "ibias_ua",
+      "postlayout": 0.54519255248,
+      "schematic": 0.54551117361,
+      "delta_frac": -0.0005840781003467036,
+      "window": [
+        0.05,
+        5.0
+      ],
+      "in_window": true,
+      "within_tolerance": true
+    },
+    {
+      "measure": "pg_v",
+      "postlayout": 2.5238284953,
+      "schematic": 2.5237964567,
+      "delta_frac": 1.2694605349438264e-05,
+      "window": [
+        0.5,
+        3.31
+      ],
+      "in_window": true,
+      "within_tolerance": true
+    }
+  ]
+}
