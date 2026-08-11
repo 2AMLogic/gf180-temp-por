@@ -1053,8 +1053,8 @@ Two observations that are worth more than any capacitor in this cell:
   `IBIAS` tolerance assumed today there is no capacitance in this cell that
   separates them; a tighter `IBIAS` envelope is what creates the room.
 
-Both are carried by **#199**, which cannot close until #14 reports the real
-`POR_RAW` chatter width and #11 lands an `IBIAS` envelope. The verification
+Both are answered by **#199** —
+[below](#199-the-two-hand-offs-answered). The verification
 half — the measured rejection width belongs on the corner grid, not only in a
 control that gets overwritten on the next run — is **done** (#200): the grid
 now applies a 1.05 µs burst as well and records the one-shot's charge loss
@@ -1068,6 +1068,91 @@ measurement window — so the numbers this section quotes are unaffected by the
 addition. See
 [Deglitch dwell](#deglitch-dwell--cdg-is-bounded-on-both-sides) for what they
 measure.
+
+### #199: the two hand-offs, answered
+
+**#11's `IBIAS` envelope — inside the safe window, with margin.**
+`design/bias_core.md`'s own designer-check record already carries the number
+this cell asked for: `ibias_na`, the current actually delivered out of the
+`IBIAS` pin (not just `bias_core`'s total quiescent draw), is a **named
+measurement** on the full 81-point PVT grid — deterministic corners only
+(`design.ngspice` sets `sw_stat_mismatch=0`; mismatch on the mirror ratio is
+#15's job, exactly as `design/bias_core.md` already states of this same
+check) — not something #199 had to add. Post-layout
+([`sim/bias-core-designer-check/records/20260811-063744-5ff219c.md`](../sim/bias-core-designer-check/records/20260811-063744-5ff219c.md),
+unchanged from the schematic record to 4 significant figures):
+
+| | Measured `IBIAS` | vs. 500 nA nominal | vs. this cell's 0.44×–4.7× envelope |
+| --- | ---: | ---: | --- |
+| minimum | 297.089 nA (`ss_-40c_2.97v`) | **0.594×** | 35.0 % above the 0.44× low-side bound |
+| maximum | 1117.85 nA (`ff_125c_3.63v`) | **2.236×** | 52.4 % below the 4.7× high-side bound |
+
+Both PVT-corner ends sit inside the envelope this document derived. The
+tighter of the two — the low side, which is also the side that binds this
+cell's own deglitch ceiling — lands at the **same corner**
+(`ss_-40c_2.97v`) as the ceiling's own grid maximum
+([Whether `CDG` has to grow: measured, and no](#whether-cdg-has-to-grow-measured-and-no)
+above), so the comparison is corner-matched rather than two different grid
+extremes talking past each other. `IBIAS`'s deterministic-corner spread —
+0.594×–2.236×, i.e. 2.5:1 — sits comfortably inside the up to 10.7:1
+(0.44×–4.7×) this cell can tolerate, with no change asked of #11 beyond what
+it has already published. Question 2 is closed: favorable, no ratified value
+moves, no resize follows.
+
+**#14's `POR_RAW` chatter width — not measurable from any deck committed so
+far, and not something a post-processing pass can extract.** Question 1 asks
+for the real-world width of a `POR_RAW` excursion near `por_comparator`'s
+threshold on a live bring-up sequence, to compare against the 1.00 µs
+post-layout floor above. None of #14's committed assembly-level decks
+contain that event:
+
+- [`sim/por-vth/`](../sim/por-vth/) is a **quasi-static** ramp built
+  specifically so the bias core is settled at every instant across the
+  threshold band; its `rise_chatter_mv` / `fall_chatter_mv` checks demand a
+  **single** threshold crossing (±5 µV) and every recorded corner meets it —
+  by construction, not by observation.
+- [`sim/por-ramp-rate/`](../sim/por-ramp-rate/) checks the same thing at all
+  four ratified rates (`chatter_*_us`, a ±1 ns band) and, since
+  [DR-016](../spec/decision-records/DR-016-por-ramp-rate-chatter-release-latch.md),
+  passes 81/81. Its own control experiment states the reason directly:
+  "POR_RAW, PGDG, VREF and BIAS_OK cross the 1.0 V threshold at most once at
+  every point and in every arm, including the ones that show RESETn chatter"
+  ([`sim/por-ramp-rate/control/results.md`](../sim/por-ramp-rate/control/results.md)) —
+  the release-edge chatter this repository found and `XMRLK` fixed is a
+  `RESETn`-side relaxation loop through the shared `IBIAS` node
+  ([above](#the-release-edge-chatter--a-relaxation-loop-through-the-shared-ibias-node-not-a-local-instability)),
+  not a `POR_RAW` excursion at all — `POR_RAW` itself never moves twice.
+- [`sim/por-brownout/`](../sim/por-brownout/) applies a 50 µs / 1.0 V
+  qualifying dip (5× `T_dip,min`), deliberately deep and unambiguous, not a
+  narrow near-threshold toggle, and
+  [`sim/por-brownout-spurious/`](../sim/por-brownout-spurious/)
+  ([DR-013](../spec/decision-records/DR-013-por-brownout-spurious-assert.md))
+  measures only a falling-slew spurious **assert instant**, not an excursion
+  **width** — a different, already-tracked mechanism.
+
+In every full-assembly transient recorded in `sim/` to date, `POR_RAW`
+crosses its threshold cleanly, exactly once. There is no excursion event in
+any existing record to extract a width from — reprocessing cannot produce
+the measurement, because the data does not contain it. That is structural,
+not a coverage gap: every deck above is a deterministic-corner run driven by
+a clean, noiseless ramp or a single programmed dip; nothing in `sim/` today
+injects the supply ripple or comparator-side dither that would make
+`POR_RAW` chatter near threshold on a real board.
+[DR-020](../spec/decision-records/DR-020-por-raw-chatter-width-out-of-reach.md)
+records this finding and routes the choice of how to obtain that measurement
+(a new noise-injection stimulus model, or reading #15's mismatch sweep once
+it lands) to #1, mirroring how
+[DR-017](../spec/decision-records/DR-017-por-glitch-representative-depth.md)
+routed the equivalent `por-glitch` depth question. No ratified value moves —
+`por-brownout`'s 10 µs `T_dip,min` ceiling and this cell's 1.00 µs post-layout
+floor both stand exactly as measured above.
+
+**Net effect on the design decision this issue exists to make**: `CDG` stays
+at 11 µm × 11 µm, unchanged from
+["Whether `CDG` has to grow"](#whether-cdg-has-to-grow-measured-and-no)
+above. #11's envelope closes cleanly in this cell's favor; #14's real chatter
+width remains an open question at the model-fidelity level, carried forward
+by DR-020 rather than by this cell, since nothing sized here can answer it.
 
 A third lever exists and is deliberately **not** taken here: `V_trip` sits at
 20 % of the rail because `XMG1` is skewed NMOS-strong, and a trip nearer

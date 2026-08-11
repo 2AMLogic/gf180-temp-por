@@ -946,6 +946,17 @@ Measured over the 81-point grid:
 | of which leaves through `IBIAS` (`ibias_na`) | 297 nA | **1119 nA** |
 | `bias_core`'s own core (`iq_own_ua`) | 244 nA | **929 nA** |
 
+**Cross-reference (#199).** `design/por_output_chain.md`'s "Hand-off to #11"
+states the `IBIAS` window that cell can tolerate without a resize —
+0.44×–4.7× nominal — and issue #199 asks whether this cell's actual output
+falls inside it. It does, on the evidence already in this table: `ibias_na`'s
+post-layout minimum/maximum
+([`sim/bias-core-designer-check/records/20260811-063744-5ff219c.md`](../sim/bias-core-designer-check/records/20260811-063744-5ff219c.md),
+297.089 / 1117.85 nA) are **0.594× / 2.236×** nominal, both inside that
+envelope with margin on each side. No change follows for this cell; see
+`design/por_output_chain.md`, "#199: the two hand-offs, answered", for the
+full corner-matched comparison.
+
 At the binding corner **FF / +125 °C / 3.63 V**, which is exactly the corner
 the `por-iq` row names:
 
