@@ -17,10 +17,30 @@
 * WHAT THIS EXPERIMENT SUBSTANTIATES
 *
 * spec/target-spec.md#por-brownout owns a TBD this issue has to fill: the
-* deglitch dwell time, which must be <= T_dip,min = 10 us for the brownout row
-* to hold at all. Per DR-005 the dwell is this cell's job and is a separate,
+* deglitch dwell time, which must be <= T_dip,min for the brownout row to hold
+* at all. Per DR-005 the dwell is this cell's job and is a separate,
 * time-domain mechanism from the comparator's static hysteresis (#10) -- the
 * two are not interchangeable and must not be double-counted.
+*
+* T_dip,min IS 30 us, NOT 10 us, SINCE DR-027 (#251)
+*
+* The 10 us this file was written against was an internal deglitch-dwell
+* target, set when the cell was costed against an idealised 0.5x nominal bias.
+* DR-024 measured the current the assembly really delivers to this cell
+* (91.0251 nA, 0.182x nominal) and at that bias the filter does not reach its
+* trip point inside 10 us at ANY of the 81 PVT points. DR-027 (ratified
+* 2026-08-11, operator, #236) re-costs T_dip,min to the dwell the cell
+* actually achieves there; #251 measured it with control/run_dwell_sweep.py:
+*
+*   slowest crossing, stress bias, 81 points x both netlist levels
+*                                          23.110 us  (ss/-40C/3.63V, schematic)
+*   T_dip,min(new), by the rule fixed in that script
+*   (smallest multiple of 5 us >= 1.10x the slowest)      30 us  (+29.8 %)
+*
+* No point failed to trip at any dwell -- control/dwell_results.md shows all
+* 324 (point, netlist, bias) probe runs crossing well inside a 600 us dip --
+* so DR-027 section 5's contingency (a corner with an asymptotic floor above
+* trip, which no re-cost could fix) is not triggered.
 *
 * Three things are measured, all on the same run:
 *
@@ -29,10 +49,13 @@
 *      to exceed. Measured end-to-end at the pin on xdut1, and also at the
 *      internal PGDG node so the dwell can be attributed to the filter rather
 *      than to the rest of the chain.
-*   2. QUALIFYING-DIP CAPTURE. The dip used for (1) is exactly 10 us -- the
-*      spec's own T_dip,min -- not a comfortable long one. A dwell that is
-*      nominally under 10 us but creeps over it at a corner shows up here as a
-*      RESETn that never reaches a valid low, which the vmin check catches.
+*   2. QUALIFYING-DIP CAPTURE. The dip used for (1) is exactly 30 us -- the
+*      spec's own T_dip,min, post-DR-027 -- not a comfortable long one. A dwell
+*      that is nominally under 30 us but creeps over it at a corner shows up
+*      here as a RESETn that never reaches a valid low, which the vmin check
+*      catches. On the stress DUT the dwell itself is also published as
+*      dwell_pgdg_stress_us, so the record carries the measured per-corner
+*      number the bound was cut from, not only the pass/fail against it.
 *   3. NO EARLY / DOUBLE PULSE. Sub-dwell chatter on POR_RAW is applied twice:
 *      once while RESETn is asserted (must not restart or truncate the pulse,
 *      and must not produce an early release) and once after it has released
@@ -62,14 +85,22 @@
 *      this stimulus changes before 12.99 ms, so every measurement that
 *      existed before it did is bit-identical to a run without it (verified
 *      across all 81 points, both netlists) and the records stay comparable.
+*      #251's re-cut of the qualifying dip from 10 us to 30 us moved this
+*      burst 20 us later with it, so its offset from the pulse restart stays
+*      exactly the 1.0/1.1/1.2 ms the paragraph above depends on; every
+*      measurement window in tb.json still brackets it unchanged.
 *
 * TWO DUTS, BECAUSE THE DWELL SCALES AS 1/IBIAS
 *
 *   xdut1  IBIAS = 0.5 uA       DR-005 nominal. Carries the end-to-end RESETn
 *                               measurements, which need a prior release and
 *                               therefore a timer that finishes in time.
-*   xdut2  IBIAS = 91.0251 nA   the stress case for the <= 10 us dwell, since
-*                               less bias current means a slower filter.
+*   xdut2  IBIAS = 91.0251 nA   the stress case for the dwell bound, since
+*                               less bias current means a slower filter. This
+*                               is the arm T_dip,min itself is cut from (see
+*                               the DR-027 block above), so its dwell is now
+*                               published per corner as dwell_pgdg_stress_us
+*                               as well as being checked as a voltage floor.
 *                               Re-cut by issue #221 from an idealised 0.5x
 *                               nominal (0.25 uA) to the worst-case CURRENT
 *                               THE ASSEMBLY ACTUALLY DELIVERS to this cell's
@@ -111,10 +142,19 @@
 *                               its search interval rather than reporting the
 *                               FAIL. Records minted before this commit carry
 *                               the old key; they are not edited, and both
-*                               keys mean "the dwell against T_dip,min = 10 us
-*                               on the stress DUT". The "halfib" in the new
-*                               key is likewise historical -- the leg is no
-*                               longer literally half nominal.
+*                               keys mean "the dwell against T_dip,min on the
+*                               stress DUT". The "halfib" in the new key is
+*                               likewise historical -- the leg is no longer
+*                               literally half nominal. Since #251 the
+*                               crossing-time measure is BACK alongside it, as
+*                               dwell_pgdg_stress_us: at the re-cost T_dip,min
+*                               of 30 us the crossing lands inside the dip at
+*                               every one of the 81 points on both netlists
+*                               (6.14-23.11 us, control/dwell_results.md), so
+*                               it no longer errors out of its interval, and
+*                               the record needs the dwell itself -- not only
+*                               its pass/fail -- to show what margin the bound
+*                               was cut with.
 *
 * TIMELINE
 *
@@ -123,12 +163,13 @@
 *   1.0 / 1.1 / 1.2 ms  three 1 us LOW glitches on POR_RAW, DURING assertion.
 *   (<=10 ms)         xdut1 releases -- once.
 *   11.0 / 11.1 / 11.2 ms  three 1 us LOW glitches, AFTER release.
-*   12.0 ms           POR_RAW low for exactly 10 us: the qualifying brownout
-*                     dip of the por-brownout row. RESETn must re-assert and
-*                     the full pulse must regenerate.
-*   13.0 / 13.1 / 13.2 ms  three 1.05 us LOW glitches, DURING the regenerated
+*   12.0 ms           POR_RAW low for exactly 30 us: the qualifying brownout
+*                     dip of the por-brownout row, at DR-027's re-cost
+*                     T_dip,min. RESETn must re-assert and the full pulse must
+*                     regenerate.
+*   13.02 / 13.12 / 13.22 ms  three 1.05 us LOW glitches, DURING the regenerated
 *                     pulse -- placed at the same 1.0/1.1/1.2 ms offset from
-*                     the restart at 12.01 ms that the first battery has from
+*                     the restart at 12.03 ms that the first battery has from
 *                     the start at 300.1 us, so the one-shot is charging
 *                     steadily in both, the same regime. The regenerated pulse
 *                     is >4 ms at every corner recorded so far, so RESETn is
@@ -138,7 +179,7 @@
 vsup vdd 0 PWL(0 0 100u {vdd_val} 14m {vdd_val})
 
 * POR_RAW: high from 300 us, with three batteries of sub-dwell chatter (two at
-* 1 us, one at 1.05 us) and one 10 us qualifying dip. Edges are 100 ns so the
+* 1 us, one at 1.05 us) and one 30 us qualifying dip. Edges are 100 ns so the
 * glitches are genuinely as wide at the pin as they are drawn here rather than
 * being softened into nothing by the source.
 vpr por_raw 0 PWL(0 0
@@ -149,10 +190,10 @@ vpr por_raw 0 PWL(0 0
 + 10999.9u {vdd_val} 11000u 0 11001u 0 11001.1u {vdd_val}
 + 11099.9u {vdd_val} 11100u 0 11101u 0 11101.1u {vdd_val}
 + 11199.9u {vdd_val} 11200u 0 11201u 0 11201.1u {vdd_val}
-+ 11999.9u {vdd_val} 12000u 0 12010u 0 12010.1u {vdd_val}
-+ 12999.9u {vdd_val} 13000u 0 13001.05u 0 13001.15u {vdd_val}
-+ 13099.9u {vdd_val} 13100u 0 13101.05u 0 13101.15u {vdd_val}
-+ 13199.9u {vdd_val} 13200u 0 13201.05u 0 13201.15u {vdd_val}
++ 11999.9u {vdd_val} 12000u 0 12030u 0 12030.1u {vdd_val}
++ 13019.9u {vdd_val} 13020u 0 13021.05u 0 13021.15u {vdd_val}
++ 13119.9u {vdd_val} 13120u 0 13121.05u 0 13121.15u {vdd_val}
++ 13219.9u {vdd_val} 13220u 0 13221.05u 0 13221.15u {vdd_val}
 + 14m {vdd_val})
 
 Bib1 vdd nib1 i='500n*min(1, max(0, (v(vdd)-1.5)/0.5))'
