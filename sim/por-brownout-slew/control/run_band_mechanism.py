@@ -149,8 +149,41 @@ def edge_s(vdd: float, slew_mvus: float) -> float:
     return (vdd - DIP_V) / slew_mvus * 1e-3
 
 
+def internal(node: str, flat: bool) -> str:
+    """Path to a SUB-CELL-internal node of the DUT, for either netlist (#188).
+
+    ``design/netlist/temp_por_top.spice`` instantiates the four cells as
+    subcircuits, so a node inside one of them is ``xdut.<inst>.<net>``.
+    ``layout/postlayout/temp_por_top.spice`` is a FLAT extraction of the
+    assembled layout -- one ``.subckt temp_por_top``, with each sub-cell's
+    internal nets renamed ``<inst>__<NET>`` -- so the same node is
+    ``xdut.<inst>__<net>``.
+
+    Only the three nets this control probes below the cell boundary need the
+    distinction; the DUT's own top-level nets (``BIAS_OK``, ``POR_RAW``,
+    ``RESETn``) keep their names in both, which is why ../testbench/tb.json
+    runs unedited against either.
+
+    Without this, the extracted arm silently loses every internal probe:
+    ngspice reports "vector ... is not available", the derived ``let`` fails,
+    and the measurements built on it come back empty -- which reads in the
+    results table as "``PGDG`` never fell" rather than as "this arm never
+    looked".
+    """
+    inst, _, net = node.partition(".")
+    return f"xdut.{inst}__{net}" if flat else f"xdut.{inst}.{net}"
+
+
 def deck(pdk, options: list[str], vdd: float, slew_mvus: float,
-         tmax_s: float | None) -> str:
+         tmax_s: float | None, netlist: Path | None = None) -> str:
+    """One control deck. ``netlist`` defaults to the schematic export this
+    control was written against; ``run_postlayout_margin.py`` (#188) passes
+    the extracted post-layout netlist instead so both arms are measured by
+    this one measurement list rather than by two drifting copies of it."""
+    netlist = ASSEMBLY_NETLIST if netlist is None else netlist
+    # The extracted netlist is a flat extraction of the assembled layout;
+    # the schematic export instantiates the four cells. See internal().
+    flat = netlist != ASSEMBLY_NETLIST
     corner = corners_mod.CORNERS[CORNER]
     edge = edge_s(vdd, slew_mvus)
     t_dip_end = T_DIP_S + edge + T_DWELL_S
@@ -182,7 +215,7 @@ def deck(pdk, options: list[str], vdd: float, slew_mvus: float,
         f".param dip_v={DIP_V!r}",
         "",
         f'.include "{os.path.relpath(FRAGMENT, deck_dir)}"',
-        f'.include "{os.path.relpath(ASSEMBLY_NETLIST, deck_dir)}"',
+        f'.include "{os.path.relpath(netlist, deck_dir)}"',
         "",
         ".control",
         "set numdgt=8",
@@ -199,14 +232,14 @@ def deck(pdk, options: list[str], vdd: float, slew_mvus: float,
         "let bok_r = v(xdut.bias_ok)/(v(vdd)+0.001)",
         "let praw_r = v(xdut.por_raw)/(v(vdd)+0.001)",
         "let rst_r = v(resetn)/(v(vdd)+0.001)",
-        "let pgdg_r = v(xdut.xpor.pgdg)/(v(vdd)+0.001)",
+        f"let pgdg_r = v({internal('xpor.pgdg', flat)})/(v(vdd)+0.001)",
         # NDG is the deglitch capacitor node itself: it has to traverse CDG
         # at (starved) I/C before XMG1 flips PGDG. Rail-normalised for the
         # same reason as the rest -- XMG1's trip point moves with the rail.
-        "let ndg_r = v(xdut.xpor.ndg)/(v(vdd)+0.001)",
+        f"let ndg_r = v({internal('xpor.ndg', flat)})/(v(vdd)+0.001)",
         # V_sg, the overdrive on bias_core's PMOS mirror bank -- the node
         # DR-011 measures the collapse on.
-        "let vsg = v(vdd)-v(xdut.xbias.pg)",
+        f"let vsg = v(vdd)-v({internal('xbias.pg', flat)})",
         "",
         f"meas tran vdd_pre find v(vdd) at={n(t_pre)}",
         f"meas tran rst_pre find v(resetn) at={n(t_pre)}",

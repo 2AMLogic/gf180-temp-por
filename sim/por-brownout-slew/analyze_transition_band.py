@@ -43,7 +43,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from _rung_record import Rung, is_source_record, parse_record
+from _rung_record import Rung, rungs_of
 
 EXPERIMENT_DIR = Path(__file__).resolve().parent
 RECORDS_DIR = EXPERIMENT_DIR / "records"
@@ -51,10 +51,15 @@ CONTROL_JSON = EXPERIMENT_DIR / "control" / "results.json"
 
 
 def load_rungs() -> list[Rung]:
-    paths = sorted(p for p in RECORDS_DIR.glob("*.md") if is_source_record(p))
-    if not paths:
-        raise SystemExit(f"no records found under {RECORDS_DIR}")
-    rungs = [parse_record(p) for p in paths]
+    """The schematic ladder this record characterizes.
+
+    Pinned to `schematic` rather than globbing every rung record, because
+    since #86/#87 the same directory also holds extracted post-layout rungs
+    and a ladder may not mix the two (#188) -- and because `control/` below,
+    whose event timings this record joins against the ladder, is itself a
+    schematic-netlist control.
+    """
+    rungs = rungs_of(RECORDS_DIR, "schematic")
     rungs.sort(key=lambda r: r.slew_mvus)
     return rungs
 

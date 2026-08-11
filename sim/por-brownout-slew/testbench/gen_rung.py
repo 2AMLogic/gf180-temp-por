@@ -30,7 +30,11 @@ corner it lands on -- the direct, unconflated characterization DR-011 asks
 for. (dip_shape.spice already establishes the "PWL breakpoint time is a
 ``{...}`` expression over harness/testbench ``.param``s" idiom this reuses.)
 
-This script writes the CURRENT rung's stimulus + manifest; run
+This script writes the CURRENT rung's stimulus + BOTH manifests -- the
+schematic ``testbench/tb.json`` and its extracted (post-layout, #86/#87)
+sibling ``testbench-postlayout/tb.json``, which must move with it because
+every rung shifts the per-supply measurement windows (see
+POSTLAYOUT_DESCRIPTION_SUFFIX below and the testbench README); run
 ``python3 sim/build_tb.py por-brownout-slew`` and then
 ``python3 sim/run_corners.py por-brownout-slew ...`` after it to produce
 that rung's record. Each record's own "Claim" text and the frozen
@@ -80,6 +84,57 @@ RECOVERY_MARGIN_MS = 0.06
 
 MANIFEST_NAME = "tb.json"
 STIMULUS_NAME = "stimulus.spice"
+
+# --- post-layout sibling (#86 / #87) ------------------------------------
+# sim/build_tb.py's POSTLAYOUT_FRAGMENTS builds a second copy of this
+# experiment's netlist fragment from layout/postlayout/temp_por_top.spice
+# into testbench-postlayout/, but it does NOT write that directory's
+# manifest -- sim/README.md calls it "hand-authored". For a ladder whose
+# schematic manifest is REGENERATED per rung that would leave the two
+# manifests to drift apart by hand every time a rung changes, and a
+# post-layout rung run against a stale window would be silently wrong
+# (#188). So this generator emits BOTH manifests from the same
+# render_manifest() output: identical analyses/measure/checks/grid, and the
+# only differences are the netlist it points at, the two provenance fields
+# sim/harness/testbench.py requires for "extracted", and the appended
+# POST-LAYOUT sentences below -- exactly the delta #87 landed by hand.
+POSTLAYOUT_DIR = TESTBENCH_DIR.parent / "testbench-postlayout"
+POSTLAYOUT_NETLIST = "tb_por_brownout_slew_postlayout.spice"
+POSTLAYOUT_DESCRIPTION_SUFFIX = (
+    " POST-LAYOUT: run against the extracted layout/postlayout/temp_por_top.spice, "
+    "not the schematic export -- same stimulus, same manifest, same 81-point grid."
+)
+POSTLAYOUT_CLAIM_SUFFIX = (
+    " Post-layout run on the #86/#87 extracted-netlist harness (under #18) against "
+    "layout/postlayout/temp_por_top.spice "
+    "(#82/PR #180 -- direct klt extraction, 'klt extract --parasitics' plus klt lvs's "
+    "net correspondence, 159/159 nets paired): the same four-cell assembly with the real "
+    "drawn interconnect R/C in the loop, including the cross-domain routing over the "
+    "temp-sensing/always-on domain seam (IBIAS, RESETn/EN, VDD, VSS) that a schematic "
+    "netlist cannot see at all."
+)
+POSTLAYOUT_SUPERSEDES_SUFFIX = (
+    " Supersedes the schematic-level record {record_id}; the schematic-vs-extracted "
+    "delta is written up in design/temp_por_top.md."
+)
+# Verbatim quote of layout/postlayout/AUDIT.md's temp_por_top row, as
+# sim/README.md's "Netlist provenance" field requires ("quoting its row for
+# the cell under test is enough"). Re-quote it here if that row changes.
+POSTLAYOUT_PROVENANCE_NOTE = (
+    "temp_por_top: 238 drawn devices, 1 ideal -- instance xtemp's XCC "
+    "(cap_mim_2f0_m3m4_noshield, on xtemp__PG/xtemp__NZ) is not drawn in temp_core's "
+    "layout (reserved floor area, #177), so it is spliced in ideal and any claim that "
+    "rests on it is a schematic claim, not a post-layout one. 136/159 nets carry "
+    "parasitic R/C across 272 cards (SigmaR 280923 Ohm, SigmaC 5880.2 fF); the 23 nets "
+    "without are isolated well/plate nets and the substrate global. 23 body/well/plate "
+    "ties (vsubs->VSS, the four sub-cells' NW*/NWQ and MiM-plate nets) are tied where "
+    "the schematic puts them rather than where the extraction found them, because the "
+    "extraction deck's connectivity stack does not reach them. 27 resistors extracted "
+    "as ppolyf_u_1k are emitted as ppolyf_u_3k (klayout-tools#323) and 7 MiM caps "
+    "extracted as cap_mim_2f0_m4m5_noshield are emitted as cap_mim_2f0_m3m4_noshield "
+    "(klayout-tools#315) -- the drawn geometry is the schematic's in both cases, only "
+    "the deck's name for it differs. Per layout/postlayout/AUDIT.md."
+)
 
 
 def edge_ms_at(vdd: float, slew_mvus: float, dip_v: float = DIP_V) -> float:
@@ -344,6 +399,36 @@ def render_manifest(slew_mvus: float, label: str) -> dict:
     }
 
 
+def render_postlayout_manifest(manifest: dict, supersedes: str | None) -> dict:
+    """The extracted-netlist sibling of ``manifest``.
+
+    Deliberately built by *copying* the schematic manifest and changing only
+    the four fields that must differ, rather than by re-deriving the
+    analyses: the whole point of the pairing is that the DUT netlist is the
+    only variable between a schematic-level record and its post-layout
+    counterpart, so a delta reads as circuit behaviour rather than as a
+    testbench difference.
+    """
+    out: dict = {}
+    for key, value in manifest.items():
+        if key == "description":
+            out[key] = value + POSTLAYOUT_DESCRIPTION_SUFFIX
+        elif key == "claim":
+            claim = value + POSTLAYOUT_CLAIM_SUFFIX
+            if supersedes:
+                claim += POSTLAYOUT_SUPERSEDES_SUFFIX.format(record_id=supersedes)
+            out[key] = claim
+        elif key == "netlist":
+            # key order matters only for readability of the committed JSON;
+            # the provenance pair follows "netlist", as #87 wrote it.
+            out[key] = POSTLAYOUT_NETLIST
+            out["netlist_provenance"] = "extracted"
+            out["netlist_provenance_note"] = POSTLAYOUT_PROVENANCE_NOTE
+        else:
+            out[key] = value
+    return out
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -352,17 +437,30 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--label", required=True, help="rung label, e.g. 'b-slew-7.667mvus'"
     )
+    parser.add_argument(
+        "--postlayout-supersedes",
+        metavar="RECORD_ID",
+        default=None,
+        help="schematic-level record id this rung's POST-LAYOUT run supersedes, "
+        "e.g. '20260802-120940-3c3e728' for the 3.40 mV/us rung. Named in the "
+        "post-layout manifest's claim so the extracted record's own Claim line "
+        "says which schematic record it re-runs.",
+    )
     args = parser.parse_args(argv)
 
     stimulus_path = TESTBENCH_DIR / STIMULUS_NAME
     manifest_path = TESTBENCH_DIR / MANIFEST_NAME
+    postlayout_manifest_path = POSTLAYOUT_DIR / MANIFEST_NAME
 
     stimulus_path.write_text(render_stimulus(args.slew_mvus, args.label))
     manifest = render_manifest(args.slew_mvus, args.label)
     manifest_path.write_text(json.dumps(manifest, indent=2) + "\n")
+    postlayout = render_postlayout_manifest(manifest, args.postlayout_supersedes)
+    postlayout_manifest_path.write_text(json.dumps(postlayout, indent=2) + "\n")
 
     print(f"wrote {stimulus_path}")
     print(f"wrote {manifest_path}")
+    print(f"wrote {postlayout_manifest_path}")
     print(f"rung '{args.label}': slew={args.slew_mvus:.6g} mV/us (fixed across grid)")
     print("next: python3 sim/build_tb.py por-brownout-slew")
     return 0

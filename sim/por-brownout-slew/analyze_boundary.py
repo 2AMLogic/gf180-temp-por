@@ -25,20 +25,29 @@ correction).
 
 from __future__ import annotations
 
+import argparse
 from pathlib import Path
 
-from _rung_record import is_source_record, parse_record
+from _rung_record import PROVENANCES, rungs_of
 
 EXPERIMENT_DIR = Path(__file__).resolve().parent
 RECORDS_DIR = EXPERIMENT_DIR / "records"
 
 
-def main() -> int:
-    record_paths = sorted(p for p in RECORDS_DIR.glob("*.md") if is_source_record(p))
-    if not record_paths:
-        raise SystemExit(f"no records found under {RECORDS_DIR}")
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--provenance",
+        choices=PROVENANCES,
+        default="schematic",
+        help="which ladder to reduce -- rungs run against the schematic export "
+        "or against the extracted post-layout netlist (#86/#87). A ladder "
+        "may not mix the two (#188); the default keeps this script's output "
+        "the #60 schematic-level ladder it was written for.",
+    )
+    args = parser.parse_args(argv)
 
-    rungs = [parse_record(p) for p in record_paths]
+    rungs = rungs_of(RECORDS_DIR, args.provenance)
     # Chronologically last source record (record-ids sort lexically the same
     # as chronologically, YYYYMMDD-HHMMSS-<sha>) supplies this derived
     # record's own id suffix -- not the highest-slew rung, which is an
@@ -98,6 +107,15 @@ def main() -> int:
         "bound, derived from the falling-slew ladder below (issue #60 / "
         "DR-011 decision 2)"
     )
+    # Emitted only for a non-default ladder, so re-running the script with
+    # its default reproduces the committed schematic-level derived record
+    # byte for byte -- records/ is append-only evidence (sim/README.md).
+    if args.provenance != "schematic":
+        lines.append(
+            f"- **Netlist provenance**: {args.provenance} -- every rung below "
+            f"was run against the {args.provenance} netlist; this ladder does "
+            "not mix provenances (#188)."
+        )
     lines.append(
         "- **Derived from** (no new simulation; recombines each source "
         "record's own `pass/fail` column -- see `analyze_boundary.py`):"
