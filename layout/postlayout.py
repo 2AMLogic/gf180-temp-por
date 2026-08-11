@@ -517,10 +517,6 @@ def _num(text: str) -> float:
     return float(text)
 
 
-def format_value(value: float) -> str:
-    return f"{value:.10g}"
-
-
 def emit_cards(cell: str, cards: list[Card], names: dict[str, str]) -> tuple[
     list[str], dict[str, int]
 ]:
