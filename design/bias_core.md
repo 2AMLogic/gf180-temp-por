@@ -29,8 +29,10 @@ ramp-rate/brownout envelope against a real assembled block is #14's.
 **Two of the recorded checks fail on purpose, and a third — reported by issue
 #43 — turned out not to be a circuit defect at all:**
 
-1. [`por-iq`](../spec/target-spec.md#por-iq) **< 1 µA is not met** — see
-   [Iq apportionment](#iq-apportionment).
+1. [`por-iq`](../spec/target-spec.md#por-iq) **was < 1 µA and not met; it is
+   now re-costed to < 3.0 µA and met** — see
+   [Iq apportionment](#iq-apportionment) and
+   [DR-018](../spec/decision-records/DR-018-por-iq-recost.md).
 2. A **starved-loop window** exists at the ratified fast end of
    [`por-ramp-rate`](../spec/target-spec.md#por-ramp-rate) and after a
    brownout, during which `BIAS_OK` can read a false valid — see
@@ -160,9 +162,10 @@ construction in a deterministic corner.
 **Deviation from DR-005's bias-point estimate, stated explicitly.** DR-005
 estimates 1–5 µA/branch for the shared core. This cell runs **~100 nA/branch**
 at tt/27 °C — 10–50× below that estimate — because the estimate predates
-[`por-iq`](../spec/target-spec.md#por-iq)'s <1 µA row being written down.
-Even at 100 nA/branch the row is not met (see below), so 1 µA/branch was
-never a candidate. The property the 8:1 recommendation rests on still holds
+[`por-iq`](../spec/target-spec.md#por-iq)'s original <1 µA row being written
+down. Even at 100 nA/branch the row was not met against that original budget
+(see below; it is met against the current, DR-018-recosted <3.0 µA budget),
+so 1 µA/branch was never a candidate. The property the 8:1 recommendation rests on still holds
 at 100 nA: measured ΔV_EB is **41.86 / 53.90 / 71.50 mV** at −40/27/125 °C
 against **41.75 / 53.79 / 71.30 mV** of theory — a **0.20–0.29 % error**,
 comparable with the 0.33 % `sim/devchar` measured at 10 µA.
@@ -884,17 +887,31 @@ so rather than the intuition:
   [`por-iq`](../spec/target-spec.md#por-iq) has already run out of.
 
 **So this is an architecture-level tension between two ratified rows**, not a
-sizing miss: `por-iq` <1 µA and `por-ramp-rate`'s 1 V/µs fast limit cannot
-both be met by a bandgap-referenced always-on core in gf180mcu at this
-scale. `target-spec.md` §5 already withdrew the <0.3 µA stretch with the
-words "requires architecture revision"; this is the same finding one row
-further out. Resolving it is a decision-record question for #1/#14, and the
-options are:
+sizing miss: `por-iq` (originally <1 µA) and `por-ramp-rate`'s 1 V/µs fast
+limit cannot both be met by a bandgap-referenced always-on core in gf180mcu
+at this scale, **for the incremental Iq a rail-referenced starve detector
+would need on top of what the cell already draws**. `target-spec.md` §5
+already withdrew the <0.3 µA stretch with the words "requires architecture
+revision"; this is the same finding one row further out. Resolving it is a
+decision-record question for #1/#14, and the options are:
 
 1. **Re-cost `por-iq`** upward (the §5 mechanism, and see
    [Iq apportionment](#iq-apportionment) — the row is already missed by 2.3×
-   for unrelated reasons).
+   for unrelated reasons). **Partially taken by
+   [DR-018](../spec/decision-records/DR-018-por-iq-recost.md)**: it re-costs
+   `por-iq` to <3.0 µA, which covers the "unrelated reasons" apportionment
+   overrun above (2371 nA measured, 20.5 % margin under the new ceiling) —
+   but DR-018 explicitly does **not** fold in any additional current for a
+   rail-referenced starve detector, because none has been designed or built.
+   Whether the ~615 nA of headroom DR-018 leaves at the binding corner
+   (3000 − 2385 nA) is enough for that detector, or whether `por-iq` would
+   need a further re-cost to afford one, remains open — see DR-018's
+   Consequences and the still-open starved-loop window below.
 2. **Re-cost `por-ramp-rate`**'s fast limit down to the measured 0.36 V/µs.
+   Still open; DR-018 explicitly declines to take this option (see that
+   record's "Alternatives considered" — recasting the ramp-rate row, on its
+   own, would not reduce the currently-measured `por-iq` by any amount, since
+   no detector current is in that measurement today).
 3. **Change the architecture.** ~~E.g. a `RESETn`-gated `IBIAS` (see below),
    which frees ~1 µA of budget that could be spent on amplifier drive.~~
    **That particular architecture change is now ruled out**: DR-010 rejects a
@@ -904,15 +921,22 @@ options are:
    current that biases them. Some other architecture change may still do it;
    this one does not.
 
-Nothing here relaxes either row to make the result pass.
+Nothing here relaxes either row to make the result pass. The static
+apportionment overrun (why `por-iq` misses regardless of ramp-rate) is closed
+by DR-018; the starved-loop window itself (why a fast ramp or brownout can
+read a false-valid `BIAS_OK`) is not, and remains open for a future decision
+record.
 
 ## Iq apportionment
 
-[`por-iq`](../spec/target-spec.md#por-iq) is **< 1 µA**, quoted with `RESETn`
-asserted and the temperature sensor disabled, and per §5 rule 1 it includes
-*every* branch that must conduct for the POR threshold decision in that
-state. `bias_core` has no enable and no off state, so **its entire supply
-current is that contribution** — there is no share to argue about.
+[`por-iq`](../spec/target-spec.md#por-iq) is **< 3.0 µA** (re-costed from
+< 1 µA by [DR-018](../spec/decision-records/DR-018-por-iq-recost.md) — this
+section is the apportionment that record's margin arithmetic is built on),
+quoted with `RESETn` asserted and the temperature sensor disabled, and per §5
+rule 1 it includes *every* branch that must conduct for the POR threshold
+decision in that state. `bias_core` has no enable and no off state, so **its
+entire supply current is that contribution** — there is no share to argue
+about.
 
 Measured over the 81-point grid:
 
@@ -932,7 +956,8 @@ the `por-iq` row names:
 | **`bias_core` total** | **2047 nA** | measured `iq_por_ua` |
 | `por_comparator` own draw | 292 nA | `design/por_comparator.md`, measured `iq_own_ua` |
 | `por_output_chain` own draw, `RESETn` asserted | 31.6 nA | `design/por_output_chain.md` (#12, closed), measured `iq_asserted_1x_na` |
-| **Total against `por-iq` (<1 µA)** | **2371 nA** | **2.37× over budget**, all three contributors now designed and measured |
+| **Total against `por-iq` (withdrawn <1 µA budget)** | **2371 nA** | **2.37× over the withdrawn budget**, all three contributors now designed and measured |
+| **Total against `por-iq` (current <3.0 µA budget, [DR-018](../spec/decision-records/DR-018-por-iq-recost.md))** | **2371 nA** | **79 % of the re-costed budget** — matches the full-assembly measured 2371–2385 nA at this corner to within 0.6 %, and clears the ceiling with the 20.5 % margin DR-018's arithmetic requires |
 
 `por_comparator`'s record quotes 792 nA against this row, of which 500 nA was
 an *idealised* `IBIAS` source standing in for this cell. Summing the two
@@ -961,8 +986,14 @@ non-double-counted number.
   `por_comparator` and `por_output_chain` need `IBIAS` in exactly the
   `RESETn`-asserted window such a gate would switch it off in. Treat the
   ~1 µA as unrecoverable by this route.
-- **Even a free `IBIAS` would not close the gap**: 929 nA of core + 292 nA
-  of comparator + 31.6 nA of `por_output_chain` = 1252.6 nA, still over.
+- **Even a free `IBIAS` would not have closed the gap against the withdrawn
+  1 µA budget**: 929 nA of core + 292 nA of comparator + 31.6 nA of
+  `por_output_chain` = 1252.6 nA, still over that number. It comfortably
+  clears the current 3.0 µA budget, but that is not the same claim — the
+  1119 nA `IBIAS` leg is not free, and this arithmetic does not by itself
+  justify spending it; it only shows that *even in the impossible case where
+  it cost nothing*, the pre-DR-018 target could not have been hit without
+  design work elsewhere too.
 - **The core is already 10–50× below DR-005's own 1–5 µA/branch estimate.**
   Halving it again costs resistor area quadratically (`R2` would grow to
   12.6 MΩ, ~16 400 µm² of poly on its own) and slows the loop further, which
@@ -972,10 +1003,17 @@ non-double-counted number.
   *super*-PTAT: the same cell measures 0.541 µA at `ss`/−40 °C and 2.047 µA
   at `ff`/125 °C. A lower-TC flavour would flatten it at ~8.5× the area.
 
-**This is the re-cost `target-spec.md` §5 assigns to #11 and #1.** Per that
-amendment's own words the target is not relaxed here to make the arithmetic
-work; the check in `sim/bias-core-designer-check/testbench/tb.json` is left
-at the ratified 1.0 µA and fails at 38 of 81 points.
+**This is the re-cost `target-spec.md` §5 assigned to #11 and #1, and it has
+now been taken**: [DR-018](../spec/decision-records/DR-018-por-iq-recost.md)
+re-costs `por-iq` to < 3.0 µA — 20.5 % margin over the measured 2.385 µA
+worst case, confirmed on both the schematic and post-layout netlists — rather
+than relaxing the arithmetic to fit the withdrawn number. `sim/`'s own check
+files are unchanged by that record (it is a spec decision, not a simulation
+re-run): `sim/bias-core-designer-check/testbench/tb.json` is left at the
+pre-DR-018 1.0 µA bound and its own record still reads FAIL at 38 of 81
+points against *that* check — a mechanical follow-up to move the various
+`tb.json` `por-iq`/`iq-total` bounds onto the current 3.0 µA ceiling is noted
+as open work in DR-018's Consequences.
 
 ## The shared `IBIAS` net — resolved by DR-010
 
@@ -1049,7 +1087,7 @@ a whole, measured it before `XMRLK`):
 | `PTAT` after release | **1.003–1.716 V** — the sensor really is enabled |
 | shared `IBIAS`, reset asserted | 0.507–0.821 V |
 | shared `IBIAS`, reset **released** | 0.460–0.793 V — **lower at every point** |
-| `iq_por_ua` vs. [`por-iq`](../spec/target-spec.md#por-iq) < 1 µA | **0.657–2.385 µA — FAILS at 54 of 81 points** |
+| `iq_por_ua` vs. [`por-iq`](../spec/target-spec.md#por-iq) | **0.657–2.385 µA** — against the withdrawn <1 µA budget, FAILS at 54 of 81 points; against the current [DR-018](../spec/decision-records/DR-018-por-iq-recost.md)-recosted **<3.0 µA budget, PASSES at 81 of 81** |
 
 The released row is not a rounding difference and it is not new data — it has
 been in this record since the row was added — but issue #56 is what gave it a
@@ -1069,8 +1107,11 @@ node can walk back must be latched rather than left standing.
 That last row is the *other* conflict this document already owns (see
 [Iq apportionment](#iq-apportionment)), now measured on the real assembly
 instead of summed across per-cell records. DR-010 fixed a **liveness** defect
-and does not touch it; the check is left at the ratified 1.0 µA and allowed to
-fail rather than relaxed.
+and does not touch it; per
+[DR-018](../spec/decision-records/DR-018-por-iq-recost.md) `por-iq` is now
+re-costed to <3.0 µA and this row is met (see above) rather than relaxed to
+pass — the withdrawn 1.0 µA figure quoted here is the ceiling this record
+measured *against*, not the current ratified target.
 
 ## Area — flagged for #17
 
@@ -1145,9 +1186,9 @@ Exit codes, and why each is what it is:
 
 | Run | Exit | Why |
 | --- | --- | --- |
-| `bias-core-designer-check` | **non-zero** | `por-iq` and the starved-loop window, the two conflicts above. Unchanged. |
+| `bias-core-designer-check` | **non-zero** | `por-iq` (against `tb.json`'s own pre-[DR-018](../spec/decision-records/DR-018-por-iq-recost.md) 1.0 µA check bound — not yet moved to the current 3.0 µA target, see that record's Consequences) and the starved-loop window, the two conflicts above. Unchanged. |
 | `bias-core-ibias-sharing` | **zero** | was non-zero before DR-010; its two requirement-shaped checks went green by themselves when the interface was corrected, exactly as its `tb.json` said they would |
-| `temp-por-top-release` | **non-zero** | `por-iq` again, now measured on the assembled block. Every liveness and startup-ordering check in it passes. |
+| `temp-por-top-release` | **non-zero** | `por-iq` again, now measured on the assembled block, against `tb.json`'s own unmoved 1.0 µA check bound (met against the current 3.0 µA target — see [DR-018](../spec/decision-records/DR-018-por-iq-recost.md)). Every liveness and startup-ordering check in it passes. |
 | `bias-core-startup` | **zero** | was non-zero (`error`) while the experiment was a `gmin`-aided `.dc` sweep. Re-founded on a quasi-static transient by #46 and now **PASS at all 81 points** — see [Resolved](#resolved-the-bias_ok-quasi-static-failure-was-a-testbench-artefact-issues-43-46). |
 
 `sim/` is append-only, so a re-run mints a new record id and does not
@@ -1160,7 +1201,8 @@ overwrite the committed ones.
 | Mismatch / Monte Carlo on the 8:1 ratio, `R2/R1` and the amplifier offset — **plus the settle comparator's input pair and load mirror, whose 2.1–3.6 mV signal makes it the block's most offset-sensitive stage** | #15 |
 | Ramp-rate envelope, brownout re-assertion and reset-pulse interaction on the assembled block | #14 |
 | Deglitch, the ≥1 ms one-shot, push-pull drive, the below-floor `RESETn` pull-down | `por_output_chain`, #12 |
-| Re-costing `por-iq` or `por-ramp-rate` | a new decision record through #1 — still open |
+| Re-costing `por-iq`'s static apportionment overrun | **done**: [DR-018](../spec/decision-records/DR-018-por-iq-recost.md), issue #189 — <1 µA to <3.0 µA |
+| Re-costing `por-ramp-rate`, or affording the starved-loop window's rail-referenced detector | a new decision record through #1 — still open |
 | The `IBIAS` interface change | **done**: [DR-010](../spec/decision-records/DR-010-shared-ibias-disabled-consumer-contract.md), issue #41 |
 | Matching strategy for the whole block, measured area | #17 |
 | Drawing the PNPs, poly resistors and MiM caps — blocked on the extraction deck growing non-MOS device coverage (klayout-tools#219/#222) | see [Layout](#layout--partially-drawn-68) |

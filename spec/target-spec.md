@@ -228,12 +228,20 @@ what the sensor's enable state was when POR Iq was quoted. The rules:
    with `RESETn` released and the sensor enabled. Shared-core branches that
    only need to conduct when the sensor is enabled are charged here.
 3. **[`iq-total`](#iq-total)** is the sum, so nothing can fall between the two
-   rows.
+   rows. **Amended by [DR-018](decision-records/DR-018-por-iq-recost.md):**
+   this was true by construction only while `por-iq` (<1 µA) + `temp-iq`
+   (<20 µA) summed exactly to `iq-total`'s 21 µA. DR-018 re-costs `por-iq` to
+   <3.0 µA without changing `temp-iq` or `iq-total`, so 3.0 + 20 = 23 µA no
+   longer equals 21 µA: a design that individually meets both sub-ceilings is
+   **not** structurally guaranteed to meet `iq-total`. `iq-total` is now an
+   independently-ratified ceiling, verified directly against its own measured
+   evidence rather than reconstructed from the two sub-budgets — any future
+   change to either contributing cell must re-check it directly.
 
 | ID | Parameter | Target | Stretch | State / binding corner | Basis · Status |
 |---|---|---|---|---|---|
-| <a id="por-iq"></a>`por-iq` | POR quiescent current | **<1 µA** | ~~<0.3 µA~~ — **withdrawn: requires architecture revision [P]** | `RESETn` asserted, temperature sensor disabled, per rule 1 above. **Binds at FF / +125 °C / 3.63 V.** **Measured (assembled path, published)**: **0.657–2.385 µA** over the full 81-point grid, binding corner `ff_125c_3.63v` (2.385 µA, **2.4× over budget**) — 27/81 points PASS (every process corner at −40 °C, plus `ss` and `res_ss` at +27 °C), 54/81 FAIL. **Not met.** Evidence: [`sim/por-iq/records/20260801-121458-660d016-por-iq-derived.md`](../sim/por-iq/records/20260801-121458-660d016-por-iq-derived.md). This is the already-owned, already-tracked architecture-level overrun `design/bias_core.md`'s "Iq apportionment" predicted (2.37× from summed per-cell numbers) — now confirmed on the real assembly rather than relaxed to pass, pending a re-cost decision record through #1 (see that document, "The starved-loop window", options 1–3). | **[CWC]** · `pending #1` (measured; re-cost decision pending) |
-| <a id="iq-total"></a>`iq-total` | Total block quiescent current | **<21 µA [P]** = `por-iq` + `temp-iq` | — | Normal operation: `RESETn` released, sensor enabled. **Binds at FF / +125 °C / 3.63 V.** Feeds [`temp-self-heating`](#temp-self-heating). **Measured (assembled path, published)**: **6.457–18.288 µA** over the full 81-point grid, binding corner `ff_125c_3.63v` (18.288 µA), **81/81 PASS**, 13 % margin at the binding corner — `por-iq`'s published 0.657–2.385 µA (`sim/por-iq/`) summed with `temp-iq`'s measured 5.80–15.90 µA (`sim/temp-accuracy-vt/`) at matching grid points. **`<21 µA` target: met**, ratifiable on this evidence even though `por-iq` alone is not. Evidence: [`sim/por-iq/records/20260801-121458-660d016-por-iq-derived.md`](../sim/por-iq/records/20260801-121458-660d016-por-iq-derived.md). | **[CWC]** · `ratifiable` (measured; target met) |
+| <a id="por-iq"></a>`por-iq` | POR quiescent current | **<3.0 µA [DR-018]** (was <1 µA — re-costed by [DR-018](decision-records/DR-018-por-iq-recost.md)) | ~~<0.3 µA~~ — **withdrawn: requires architecture revision [P]** | `RESETn` asserted, temperature sensor disabled, per rule 1 above. **Binds at FF / +125 °C / 3.63 V.** **Measured (assembled path, schematic, published)**: **0.656667–2.384647 µA** over the full 81-point grid, binding corner `ff_125c_3.63v` (2.384647 µA) — **81/81 within the DR-018-recosted 3.0 µA ceiling, 20.5 % margin at the binding corner.** Evidence: [`sim/por-iq/records/20260801-121458-660d016-por-iq-derived.md`](../sim/por-iq/records/20260801-121458-660d016-por-iq-derived.md). **Measured (assembled path, post-layout, #87)**: **0.656367–2.38347 µA**, same binding corner (2.38347 µA, uniformly ~0.05 % lower than the schematic reading at every one of the 81 points) — **81/81 within the 3.0 µA ceiling**, confirming the re-cost holds on the real klt-extracted netlist, not only the schematic. Evidence: [`sim/temp-por-top-release/records/20260811-064427-564950b.md`](../sim/temp-por-top-release/records/20260811-064427-564950b.md). Against the withdrawn 1.0 µA ceiling both records still read 27/81 and 27/81 PASS respectively (54/81 FAIL) — this is the already-owned, already-tracked architecture-level overrun `design/bias_core.md`'s "Iq apportionment" predicted (2.37× from summed per-cell numbers: 929 nA `bias_core` core + 1119 nA `IBIAS` leg + 292 nA `por_comparator` + 31.6 nA `por_output_chain` = 2371 nA), now confirmed on the real assembly at both netlist levels — see [DR-018](decision-records/DR-018-por-iq-recost.md) for the margin arithmetic and why 3.0 µA rather than the bare measured maximum. **The separate starved-loop window** (`design/bias_core.md`, "The starved-loop window") is a distinct, still-open tension between this row and [`por-ramp-rate`](#por-ramp-rate) that DR-018 explicitly does not resolve — see that record's Consequences. | **[CWC]** · `pending #1` (re-costed to 3.0 µA and met per DR-018, measured on both netlist levels; DR-018 itself awaits #1's overall ratification pass) |
+| <a id="iq-total"></a>`iq-total` | Total block quiescent current | **<21 µA [P]** — **independently ratified as of [DR-018](decision-records/DR-018-por-iq-recost.md)**, no longer the literal sum of `por-iq` + `temp-iq`'s own ceilings (3.0 + 20 = 23 µA ≠ 21 µA); see §5 rule 3 | — | Normal operation: `RESETn` released, sensor enabled. **Binds at FF / +125 °C / 3.63 V.** Feeds [`temp-self-heating`](#temp-self-heating). **Measured (assembled path, published)**: **6.457–18.288 µA** over the full 81-point grid, binding corner `ff_125c_3.63v` (18.288 µA), **81/81 PASS**, 13 % margin at the binding corner — `por-iq`'s published 0.657–2.385 µA (`sim/por-iq/`) summed with `temp-iq`'s measured 5.80–15.90 µA (`sim/temp-accuracy-vt/`) at matching grid points. **`<21 µA` target: met**, ratifiable on this evidence even though `por-iq` alone was not (pre-DR-018) / is now met against its own re-costed 3.0 µA ceiling (post-DR-018). **DR-018 confirmed this row's evidence and margin are unaffected by the `por-iq` re-cost** — no circuit changed, only the recorded `por-iq` ceiling moved to match already-measured reality — but a future design change to either contributing cell must re-verify this row directly rather than assume compliance with the two sub-ceilings suffices (see §5 rule 3). Evidence: [`sim/por-iq/records/20260801-121458-660d016-por-iq-derived.md`](../sim/por-iq/records/20260801-121458-660d016-por-iq-derived.md). | **[CWC]** · `ratifiable` (measured; target met) |
 
 **Why the <0.3 µA stretch is withdrawn rather than carried.** It sits *below
 the floor of DR-005's own 0.3–0.8 µA estimate* for the precision path alone,
@@ -245,13 +253,17 @@ relaxation of a target: it removes a stretch goal that the ratified
 architecture cannot reach by construction. Restoring it requires a new
 decision record naming the mechanism that pays for it.
 
-**Known accounting risk — owned by #11.** DR-005 charges the shared core's
-1–5 µA/branch to its *temperature-sensor* estimate, while its startup ordering
-has that same core live and settled **before** POR releases. Under rule 1 that
-current lands in [`por-iq`](#por-iq). #11 must therefore either show the shared
-core's reset-asserted-state current fits inside <1 µA, or #1 must re-cost the
-row. This amendment deliberately does **not** relax the <1 µA target to make
-the arithmetic work; it makes the conflict visible and assigns it an owner.
+**Known accounting risk — owned by #11, resolved by [DR-018](decision-records/DR-018-por-iq-recost.md).**
+DR-005 charges the shared core's 1–5 µA/branch to its *temperature-sensor*
+estimate, while its startup ordering has that same core live and settled
+**before** POR releases. Under rule 1 that current lands in
+[`por-iq`](#por-iq). #11 measured that the shared core's reset-asserted-state
+current does **not** fit inside <1 µA (`design/bias_core.md`, "Iq
+apportionment": 2371 nA at the binding corner, 2.37× over), so per this
+amendment's own instruction #1 has re-costed the row: DR-018 moves `por-iq`
+to <3.0 µA rather than relax the arithmetic to fit the original number. The
+conflict this amendment flagged is now closed by a decision record, not by a
+silent edit.
 
 ---
 
@@ -325,6 +337,7 @@ Each is a *new* line, not a change to an existing one.
 | `por-ramp-rate`'s release-edge chatter root-caused to `por_output_chain`'s trip detector (not the starved-loop window); value/status unchanged | DR-015 (ramp-rate chatter root cause), #56 — **superseded by DR-016** |
 | `por-ramp-rate`'s measured result replaced with **81/81 PASS at all four rates**: the chatter re-root-caused to a relaxation loop through the **shared `IBIAS` node** (`RESETn` → `temp_core.EN` → `IBIAS` → `por_output_chain`'s starve bias) and fixed by one device, `XMRLK`. Ratified value and `pending #1` status unchanged; the row's `pending` is now carried by the starved-loop window alone | DR-016 (ramp-rate chatter release latch), #56 |
 | `por-brownout`'s deglitch carve-out gains a **measured `VDD`-axis boundary** (300 ns excursion: immune ≥0.65 V, regenerates ≤0.5 V, no duration dependence 10 ns–30 µs), and the conclusion that `por-glitch`'s 0.2 V is not a representative depth. No ratified value added, removed or relaxed | DR-017 (por-glitch representative depth), #56 |
+| `por-iq` re-costed from <1 µA to <3.0 µA against the measured 2.37–2.38× apportionment overrun (schematic and post-layout); `iq-total` decoupled from being the literal sum of `por-iq` + `temp-iq`'s own ceilings, retained at <21 µA as an independently-ratified value on unchanged measured evidence | DR-018 (por-iq re-cost), #189, #87 |
 
 The eight rows of the deleted README draft table are all present here:
 temp range → [`temp-range`](#temp-range); temp accuracy →
