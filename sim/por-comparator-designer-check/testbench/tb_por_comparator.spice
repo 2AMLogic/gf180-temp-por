@@ -12,7 +12,23 @@
 * file (or the schematic), never the generated fragment.
 *
 * Netlist FRAGMENT: no .include / .lib / .temp / .control / .end -- the
-* harness owns those. Parameters it supplies: vdd_val, vdd_nom, temp_c.
+* harness owns those. Parameters it supplies: vdd_val, vdd_nom, temp_c, plus
+* `dvdd_dt_v_per_s` from ../testbench/tb.json's `params` map (issue #206).
+*
+* RAMP RATE: dVDD/dt CONSTANT ACROSS THE SUPPLY AXIS (issue #206). Both ramp
+* branches (1, 2 below) used to traverse 0 -> vdd_val (or the reverse) in a
+* FIXED 10 ms, so dVDD/dt was itself a function of vdd_val -- 297 / 330 /
+* 363 V/s at 2.97 / 3.30 / 3.63 V -- the same shape of confound
+* sim/por-vth/'s stimulus had, with a smaller coefficient because VREF here
+* is an idealised fixed 1.2 V source (zero output impedance, so it cannot be
+* displaced by the moving rail the way bias_core's real reference is -- see
+* sim/por-vth/control/results.md). The duration is now DERIVED from a
+* constant `dvdd_dt_v_per_s` (../testbench/tb.json's `params`):
+* `tramp = vdd_val / dvdd_dt_v_per_s`. The chosen rate, 297 V/s, is not a new
+* number -- it is this deck's own 2.97 V corner's native rate under the old
+* fixed-10-ms scheme, so that corner's reading is bit-for-bit unchanged by
+* this fix, matching the reuse-the-slowest-native-rate choice
+* sim/por-vth/testbench/stimulus.spice makes for the same reason.
 *
 * bias_core (issue #11) is still a placeholder, so IBIAS and VREF are
 * idealised fixed stimuli here, exactly like temp-core-designer-check does
@@ -54,8 +70,10 @@
 * Absolute-temperature probe not needed here (no temperature-dependent
 * transfer function is being extracted, only threshold voltages and Iq).
 
+.param tramp='vdd_val/dvdd_dt_v_per_s'
+
 * ---- 1. rising ramp: VPOR-uparrow -------------------------------------
-vsupup vddup 0 pwl(0 0 10m {vdd_val})
+vsupup vddup 0 pwl(0 0 {tramp} {vdd_val})
 vokup bias_okup 0 dc {vdd_val}
 vrefup vrefup 0 dc 1.2
 ibrefup vddup ibiasup dc 500n
@@ -68,14 +86,14 @@ xup vddup 0 ibiasup vrefup bias_okup por_rawup por_comparator
 * as algebra -- which is the number bias_core (#11) has to design its
 * reference accuracy against, since this cell spends almost none of the
 * ratified +/-5 % window itself.
-vsupur vddur 0 pwl(0 0 10m {vdd_val})
+vsupur vddur 0 pwl(0 0 {tramp} {vdd_val})
 vokur bias_okur 0 dc {vdd_val}
 vrefur vrefur 0 dc 1.26
 ibrefur vddur ibiasur dc 500n
 xupr vddur 0 ibiasur vrefur bias_okur por_rawur por_comparator
 
 * ---- 2. falling ramp: VPOR-downarrow, same corner point ----------------
-vsupdn vdddn 0 pwl(0 {vdd_val} 10m 0)
+vsupdn vdddn 0 pwl(0 {vdd_val} {tramp} 0)
 vokdn bias_okdn 0 dc {vdd_val}
 vrefdn vrefdn 0 dc 1.2
 ibrefdn vdddn ibiasdn dc 500n

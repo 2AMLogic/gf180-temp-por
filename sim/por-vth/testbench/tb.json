@@ -1,6 +1,6 @@
 {
   "name": "por-vth",
-  "description": "Full-assembly (real bias_core VREF, not idealised) release/assert threshold pair and hysteresis extraction of design/netlist/temp_por_top.spice: one DUT, one 0->2 V fast / 2 V->VDD->2 V quasi-static triangle-wave ramp, measured on the internal POR_RAW node.",
+  "description": "Full-assembly (real bias_core VREF, not idealised) release/assert threshold pair and hysteresis extraction of design/netlist/temp_por_top.spice: one DUT, one 0->2 V fast / 2 V->VDD->2 V quasi-static triangle-wave ramp at a constant dVDD/dt, plus a second half-rate quasi-staticity-guard cycle, measured on the internal POR_RAW node.",
   "claim": "spec/target-spec.md#por-vth-rise, #por-vth-fall, #por-hysteresis -- corner-worst-case (deterministic, not Monte Carlo) full-assembly extraction, complementing sim/por-comparator-designer-check/'s idealised-VREF/IBIAS cell-level record with bias_core's real corner-dependent VREF in the loop. Deterministic corners only: design.ngspice sets sw_stat_mismatch=0, so the [3sigma] mismatch share stays #15's job and these rows remain conditional #15.",
   "netlist": "tb_por_vth.spice",
   "nominal_supply_v": 3.3,
@@ -18,13 +18,18 @@
     "abstol=1e-15",
     "vntol=1e-9"
   ],
+  "params": {
+    "dvdd_dt_v_per_s": 242.5
+  },
   "analyses": [
-    "tran 10u 17m",
+    "tran 10u 55m",
     "meas tran vpor_rise find v(vdd) when v(xdut.por_raw)=1.5 rise=1",
-    "meas tran vpor_rise_last find v(vdd) when v(xdut.por_raw)=1.5 rise=last",
     "meas tran vpor_fall find v(vdd) when v(xdut.por_raw)=1.5 fall=1",
-    "meas tran vpor_fall_last find v(vdd) when v(xdut.por_raw)=1.5 fall=last",
-    "meas tran vref_settle_early find v(xdut.vref) at=5.5m",
+    "meas tran t_rise2_s when v(xdut.por_raw)=1.5 rise=2",
+    "meas tran t_fall2_s when v(xdut.por_raw)=1.5 fall=2",
+    "meas tran vpor_rise_guard find v(vdd) when v(xdut.por_raw)=1.5 rise=2",
+    "meas tran vpor_fall_guard find v(vdd) when v(xdut.por_raw)=1.5 fall=2",
+    "meas tran vref_settle_early find v(xdut.vref) at=8.0m",
     "meas tran vref_settle_late find v(xdut.vref) at=10.9m",
     "meas tran por_raw_top find v(xdut.por_raw) at=10.9m",
     "meas tran vdd_top find v(vdd) at=10.9m"
@@ -33,8 +38,12 @@
     "vpor_rise_v": "vpor_rise",
     "vpor_fall_v": "vpor_fall",
     "v_hys_mv": "(vpor_rise-vpor_fall)*1e3",
-    "rise_chatter_mv": "(vpor_rise_last-vpor_rise)*1e3",
-    "fall_chatter_mv": "(vpor_fall-vpor_fall_last)*1e3",
+    "rise_chatter_guard_ms": "t_rise2_s*1e3",
+    "fall_chatter_guard_ms": "t_fall2_s*1e3",
+    "vpor_rise_guard_v": "vpor_rise_guard",
+    "vpor_fall_guard_v": "vpor_fall_guard",
+    "v_hys_guard_mv": "(vpor_rise_guard-vpor_fall_guard)*1e3",
+    "v_hys_rate_guard_delta_mv": "((vpor_rise-vpor_fall)-(vpor_rise_guard-vpor_fall_guard))*1e3",
     "vref_settle_early_v": "vref_settle_early",
     "vref_settle_late_v": "vref_settle_late",
     "vref_settle_drift_mv": "(vref_settle_late-vref_settle_early)*1e3",
@@ -44,46 +53,59 @@
     "vpor_rise_v": {
       "min": 2.47,
       "max": 2.73,
-      "description": "spec/target-spec.md#por-vth-rise (VPOR-uparrow, release threshold), full assembly, real bias_core VREF. Max binds at SS/-40C, min binds at FF/+125C per the ratified table."
+      "description": "spec/target-spec.md#por-vth-rise (VPOR-uparrow, release threshold), full assembly, real bias_core VREF, primary segment (dvdd_dt_v_per_s). Max binds at SS/-40C, min binds at FF/+125C per the ratified table."
     },
     "vpor_fall_v": {
       "min": 2.22,
       "max": 2.63,
-      "description": "spec/target-spec.md#por-vth-fall (VPOR-downarrow, assert threshold), same corner point as vpor_rise_v (same deck, same corner libs, same .temp, same rail)."
+      "description": "spec/target-spec.md#por-vth-fall (VPOR-downarrow, assert threshold), same corner point as vpor_rise_v (same deck, same corner libs, same .temp, same rail), primary segment."
     },
     "v_hys_mv": {
       "min": 100.0,
       "max": 250.0,
-      "description": "spec/target-spec.md#por-hysteresis: V_hys = VPOR-uparrow - VPOR-downarrow, both edges measured at the same corner point, full assembly."
+      "description": "spec/target-spec.md#por-hysteresis: V_hys = VPOR-uparrow - VPOR-downarrow, both edges measured at the same corner point, full assembly, primary segment (dvdd_dt_v_per_s, constant across the whole supply axis -- issue #206)."
     },
-    "rise_chatter_mv": {
-      "min": -0.005,
-      "max": 0.005,
-      "description": "Anti-chatter guard on the release edge (first vs. last rising crossing on the up-ramp). A correct comparator crosses exactly once."
+    "rise_chatter_guard_ms": {
+      "min": 16.0,
+      "description": "Anti-chatter guard on the release edge, AND the guard segment's own integrity check (issue #206): the ordinal-second POR_RAW=1.5V rising crossing, whatever it is, must land at or after 16 ms -- comfortably after the primary segment's own crossing window (ends by 7.7216 ms at this deck's slowest corner) and comfortably before every corner's guard segment can start (begins no earlier than 17 ms). A double-bounce on the primary edge would instead put this crossing inside the primary ramp (well under 8 ms) and fail this floor; a passing reading is also what makes vpor_rise_guard_v trustworthy, since it reuses the same ordinal-2 crossing."
     },
-    "fall_chatter_mv": {
-      "min": -0.005,
-      "max": 0.005,
-      "description": "Same guard on the assert edge (first vs. last falling crossing on the down-ramp)."
+    "fall_chatter_guard_ms": {
+      "min": 16.0,
+      "description": "Same guard on the assert edge -- see rise_chatter_guard_ms."
+    },
+    "v_hys_rate_guard_delta_mv": {
+      "min": -70.0,
+      "max": 70.0,
+      "description": "Quasi-staticity guard (issue #206, acceptance criterion 3): the primary segment's V_hys minus the guard segment's own V_hys (measured at half dvdd_dt_v_per_s over the same span). sim/por-vth/control/rate_selection_results.md measures this gap at the binding corner (ss/-40C/3.63V, 242.5 vs. 121.25 V/s) at 34.830 mV (extracted) / 31.310 mV (schematic); this bound gives that ~2x headroom. A future stimulus edit that reintroduces a fixed-duration (rate-varies-with-supply) scheme, or otherwise makes this deck non-quasi-static again, widens this gap and fails loudly instead of silently re-confounding the supply axis."
+    },
+    "vpor_rise_guard_v": {
+      "min": 2.47,
+      "max": 2.73,
+      "description": "Same threshold as vpor_rise_v, guard segment (half dvdd_dt_v_per_s). Informative/integrity -- see v_hys_rate_guard_delta_mv for the check this reading feeds."
+    },
+    "vpor_fall_guard_v": {
+      "min": 2.22,
+      "max": 2.63,
+      "description": "Same threshold as vpor_fall_v, guard segment. Informative/integrity -- see v_hys_rate_guard_delta_mv."
     },
     "vref_settle_early_v": {
       "min": 1.0,
       "max": 1.35,
-      "description": "bias_core's real VREF 0.5 ms after the up-ramp reaches full rail, informative -- confirms the threshold measured above is riding on a settled reference, not a startup transient. Not a spec row of its own (see design/bias_core.md)."
+      "description": "bias_core's real VREF at a fixed t=8.0 ms, informative -- confirms the threshold measured above is riding on a settled reference, not a startup transient. Not a spec row of its own (see design/bias_core.md). 8.0-10.9 ms is a fixed absolute window (not an offset from the primary hold's own, vdd_val-dependent boundaries -- see stimulus.spice's comment on why) chosen as the intersection of the primary hold [t_b, t_c] across all three ratified supplies at this deck's dvdd_dt_v_per_s: [5.0, 11.0] ms at 2.97 V, [6.36, 12.36] ms at 3.30 V, [7.72, 13.72] ms at 3.63 V."
     },
     "vref_settle_late_v": {
       "min": 1.0,
       "max": 1.35,
-      "description": "same, 0.1 ms before the down-ramp starts (still at full rail, settled)."
+      "description": "same, at a fixed t=10.9 ms -- still inside the primary hold at every ratified supply (see vref_settle_early_v)."
     },
     "vref_settle_drift_mv": {
       "min": -2.0,
       "max": 2.0,
-      "description": "harness/settling-integrity guard: VREF must not still be moving between the two samples 5.4 ms apart on a static rail. A reference that is still slewing here would invalidate 'quasi-static' for the down-ramp edge."
+      "description": "harness/settling-integrity guard: VREF must not still be moving between the two samples 2.9 ms apart (8.0-10.9 ms) on a static rail. A reference that is still slewing here would invalidate 'quasi-static' for the down-ramp edge."
     },
     "por_raw_hi_droop_mv": {
       "max": 50.0,
-      "description": "POR_RAW's released-high level against the rail at the same instant, informative/integrity: the comparator's decision node must be a solid rail-referenced high before the down-ramp begins, so the falling crossing below is a real re-assert and not a recovery from a weak high. Mirrors sim/por-comparator-designer-check/'s por_hi_droop_mv."
+      "description": "POR_RAW's released-high level against the rail at the same instant, informative/integrity: the comparator's decision node must be a solid rail-referenced high before the primary down-ramp begins, so the falling crossing below is a real re-assert and not a recovery from a weak high. Mirrors sim/por-comparator-designer-check/'s por_hi_droop_mv."
     }
   }
 }
