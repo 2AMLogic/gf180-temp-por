@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import shutil
 import sys
 import time
 from pathlib import Path
@@ -323,6 +324,27 @@ def run(args: argparse.Namespace) -> int:
             f"  CHECK FAIL {failure['measurement']} {failure['kind']}={_fmt(failure['limit'])} "
             f"got {_fmt(failure['value'])} at {failure['at']}"
         )
+
+    # sim/README.md: sim/ is append-only evidence. A run where *every* point
+    # died is not evidence of the circuit -- it's an environment problem (an
+    # undersized --timeout, a broken PDK, ...) that happened to hit every
+    # point the same way, and the runner already refuses to write the
+    # analogous environmental case above (an unjustified PVT subset). Refuse
+    # here too, before writing anything -- including the netlist snapshot, so
+    # a total-failure run can never end up superseding a passing record.
+    if not args.no_write and report.total_failure(results):
+        print(
+            "\nerror: every point in this run failed to produce a measurement "
+            f"({len(points)}/{len(points)} points, 0 ok) -- refusing to record it "
+            "as evidence.\nThis looks like an environment problem (e.g. --timeout "
+            "too short for this deck's own transient span), not simulation "
+            "evidence.\nRe-run with a larger --timeout, or use --no-write if this "
+            "is just a debugging run.",
+            file=sys.stderr,
+        )
+        if log_dir is not None and log_dir.exists():
+            shutil.rmtree(log_dir)
+        return EXIT_ENVIRONMENT
 
     if not args.no_write:
         snapshot = report.write_netlist_snapshot(tb, experiment_dir, record_id)

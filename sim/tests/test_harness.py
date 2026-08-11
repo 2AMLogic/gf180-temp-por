@@ -12,11 +12,12 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 SIM_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(SIM_DIR))
 
-from harness import cliutil, corners, report, runner, testbench  # noqa: E402
+from harness import cli, cliutil, corners, report, runner, testbench  # noqa: E402
 from testutil import fake_pdk  # noqa: E402
 
 
@@ -598,6 +599,58 @@ class MatrixConformanceTests(unittest.TestCase):
         self.assertTrue(any("supply" in m for m in result["missing"]))
         self.assertTrue(any("process" in m for m in result["missing"]))
 
+    def test_full_grid_with_every_point_dead_is_still_a_full_matrix(self):
+        """matrix_conformance (grid shape) and total_failure (point outcomes)
+        are orthogonal -- a full-shaped grid where every point errored is
+        still "full" here; it's report.total_failure() that catches it."""
+        grid = self._grid(["full"], (-40, 27, 125), corners.supply_points(3.3, 0.10))
+        result = report.matrix_conformance(self.tb, grid)
+        self.assertTrue(result["full"])
+
+
+class TotalFailureTests(unittest.TestCase):
+    """#193: a run where every point died is an environment problem, not
+    simulation evidence -- the same treatment an unjustified PVT subset
+    already gets, via a distinct, orthogonal signal."""
+
+    def test_every_point_errored_is_a_total_failure(self):
+        results = [
+            runner.PointResult(point=_StubPoint("a"), status="error", message="timed out"),
+            runner.PointResult(point=_StubPoint("b"), status="error", message="timed out"),
+        ]
+        self.assertTrue(report.total_failure(results))
+
+    def test_every_point_failed_or_errored_is_a_total_failure(self):
+        """"failed" (ran, but no measurement parsed) counts the same as
+        "error" (didn't run to completion) -- neither is "ok"."""
+        results = [
+            runner.PointResult(point=_StubPoint("a"), status="failed", message="no meas"),
+            runner.PointResult(point=_StubPoint("b"), status="error", message="timed out"),
+        ]
+        self.assertTrue(report.total_failure(results))
+
+    def test_one_ok_point_among_many_dead_ones_is_not_a_total_failure(self):
+        """0 < points_ok < len(results) is the ordinary, recordable mixed
+        case (status "error", exit 2) -- this guard must not over-tighten
+        and refuse that too."""
+        results = [
+            runner.PointResult(point=_StubPoint("a"), status="ok", measurements={"v": 1.0}),
+            runner.PointResult(point=_StubPoint("b"), status="error", message="timed out"),
+            runner.PointResult(point=_StubPoint("c"), status="error", message="timed out"),
+        ]
+        self.assertFalse(report.total_failure(results))
+
+    def test_all_points_ok_is_not_a_total_failure(self):
+        results = [
+            runner.PointResult(point=_StubPoint("a"), status="ok", measurements={"v": 1.0}),
+            runner.PointResult(point=_StubPoint("b"), status="ok", measurements={"v": 1.1}),
+        ]
+        self.assertFalse(report.total_failure(results))
+
+    def test_no_points_at_all_is_not_a_total_failure(self):
+        """Nothing to have failed -- distinct from "ran and every point died"."""
+        self.assertFalse(report.total_failure([]))
+
 
 class RecordRenderingTests(unittest.TestCase):
     """The rendered record carries exactly the fields sim/README.md lists."""
@@ -770,6 +823,113 @@ class ExtractedProvenanceRenderingTests(unittest.TestCase):
         self.assertIn("sim/por-output-chain-pulse/testbench-postlayout/y.spice", text)
         self.assertIn("sim/por-output-chain-pulse/testbench-postlayout/tb.json", text)
         self.assertNotIn("testbench/y.spice", text)
+
+
+class CliTotalFailureRefusalTests(unittest.TestCase):
+    """#193: ``cli.run()`` refuses to write evidence -- and cleans up the raw
+    per-corner logs ``run_grid`` already wrote before the outcome was known
+    -- when every point in the run died, instead of quietly banking a
+    total-failure run as if it were simulation evidence."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        root = Path(self.tmp.name)
+        self.experiment_dir = root / "total-failure-tb"
+        tb_dir = self.experiment_dir / "testbench"
+        tb_dir.mkdir(parents=True)
+        (tb_dir / "x.spice").write_text("v1 out 0 dc {vdd_val}\n")
+        (tb_dir / "tb.json").write_text(
+            json.dumps(
+                {"name": "total-failure-tb", "netlist": "x.spice", "measure": {"vout": "v(out)"}}
+            )
+        )
+        self.pdk = fake_pdk(root / "gf180mcuD")
+        self.parser = cli.build_parser()
+
+        for obj, name, value in (
+            (cli, "WORK_DIR", root / ".work"),
+            (cli, "find_pdk", lambda: self.pdk),
+            (cli.runner, "ngspice_version", lambda: "ngspice-test"),
+        ):
+            patcher = mock.patch.object(obj, name, value)
+            patcher.start()
+            self.addCleanup(patcher.stop)
+
+    def _run(self, corner_names, statuses, extra_args=()):
+        """Run ``cli.run()`` with ``run_grid`` faked to return one
+        ``PointResult`` per entry of ``statuses`` (grid-order), replaying
+        ``run_point``'s real side effect of writing a log file into
+        ``log_dir`` as each point completes -- *before* the caller knows
+        whether the run, overall, is a total failure."""
+        args = self.parser.parse_args(
+            [
+                str(self.experiment_dir),
+                "--corners", *corner_names,
+                "--temps", "27",
+                "--supply-tol", "0",
+                "--subset-reason", "cli guard test -- not evidence",
+                *extra_args,
+            ]
+        )
+
+        def fake_run_grid(tb, pdk, points, workdir, jobs=1, timeout_s=0, on_result=None,
+                           log_dir=None):
+            results = []
+            for point, status in zip(points, statuses):
+                if log_dir is not None:
+                    log_dir.mkdir(parents=True, exist_ok=True)
+                    (log_dir / f"{point.corner_id}.log").write_text("TIMEOUT after 1s\n")
+                result = runner.PointResult(
+                    point=point,
+                    status=status,
+                    measurements={"vout": 1.0} if status == "ok" else {},
+                    message="" if status == "ok" else "ngspice timed out after 1s",
+                )
+                results.append(result)
+                if on_result is not None:
+                    on_result(result)
+            return results
+
+        with mock.patch.object(cli.runner, "run_grid", side_effect=fake_run_grid):
+            return cli.run(args)
+
+    def test_total_failure_is_refused_and_exits_environment(self):
+        exit_code = self._run(["tt"], ["error"])
+        self.assertEqual(exit_code, cliutil.EXIT_ENVIRONMENT)
+
+    def test_total_failure_writes_no_record_snapshot_or_corner_logs(self):
+        self._run(["tt"], ["error"])
+        self.assertFalse((self.experiment_dir / report.RECORDS_DIR).exists())
+        self.assertFalse((self.experiment_dir / report.SNAPSHOT_DIR).exists())
+        self.assertEqual(list(self.experiment_dir.rglob("*.log")), [])
+
+    def test_supersedes_on_a_total_failure_run_is_also_refused(self):
+        """A total-failure run must never be able to supersede a passing
+        record -- the guard fires before the snapshot or the record (which
+        is what would carry --supersedes) is written at all."""
+        exit_code = self._run(
+            ["tt"], ["error"], extra_args=["--supersedes", "20260101-000000-abc1234"]
+        )
+        self.assertEqual(exit_code, cliutil.EXIT_ENVIRONMENT)
+        self.assertFalse((self.experiment_dir / report.RECORDS_DIR).exists())
+
+    def test_partial_failure_still_writes_and_exits_sim_error(self):
+        """0 < points_ok < len(points) is the ordinary, recordable mixed
+        case -- this guard must not over-tighten and refuse that too."""
+        exit_code = self._run(["tt", "ff"], ["ok", "error"])
+        self.assertEqual(exit_code, cliutil.EXIT_SIM_ERROR)
+        records = list((self.experiment_dir / report.RECORDS_DIR).glob("*.md"))
+        self.assertEqual(len(records), 1)
+        self.assertIn("ERROR", records[0].read_text())
+
+    def test_no_write_still_runs_without_triggering_the_refusal_path(self):
+        """--no-write is the existing debugging escape hatch: it must keep
+        working unchanged -- run, report, write nothing -- rather than the
+        new guard forcing EXIT_ENVIRONMENT on top of it."""
+        exit_code = self._run(["tt"], ["error"], extra_args=["--no-write"])
+        self.assertEqual(exit_code, cliutil.EXIT_SIM_ERROR)
+        self.assertFalse((self.experiment_dir / report.RECORDS_DIR).exists())
 
 
 class DefaultJobsTests(unittest.TestCase):

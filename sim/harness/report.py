@@ -256,6 +256,24 @@ def matrix_conformance(tb: Testbench, points: list[PvtPoint]) -> dict:
     return {"full": not missing, "missing": missing}
 
 
+def total_failure(results: list[PointResult]) -> bool:
+    """True if not one point in ``results`` produced a measurement.
+
+    A record where ``0 < points_ok < len(results)`` is a normal, recordable
+    mixed result (``status: "error"``, see ``build_record`` below); this is
+    the strictly stronger, rarer condition where *every* point died -- most
+    often because a shared, environmental cause (an undersized ``--timeout``
+    for the deck's own transient span, a broken PDK path, ...) killed the
+    whole grid the same way. That is closer to an environment problem than to
+    simulation evidence, and the CLI refuses to record it the same way it
+    already refuses an unjustified PVT subset (``--subset-reason``).
+
+    ``results`` empty (no points at all) is not "total failure" in this
+    sense -- there is nothing to have failed -- so it returns ``False``.
+    """
+    return bool(results) and all(r.status != "ok" for r in results)
+
+
 def build_record(
     tb: Testbench,
     pdk: Pdk,
