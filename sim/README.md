@@ -84,6 +84,16 @@ fields:
 - **Netlist provenance** — `schematic` (`design/...`) or `extracted`
   (post-layout, `layout/...`). Required so post-layout re-runs are
   distinguishable from the original schematic-level record.
+  An `extracted` record's netlist is `layout/postlayout/<cell>.spice`
+  (`layout/postlayout.py`, from `klt extract --parasitics` plus `klt lvs`'s
+  net correspondence) and the record **must** carry the caveat that netlist's
+  own header carries — that a small, enumerated set of body/well/plate nets is
+  tied where the *schematic* says rather than where the extraction found them
+  (the deck's connectivity stack does not reach them), and which devices, if
+  any, are still ideal because the layout does not draw them. The per-cell
+  list is `layout/postlayout/AUDIT.md`; quoting its row for the cell under
+  test is enough. A record that says `extracted` without that caveat overstates
+  what the netlist proves.
 - **Corner matrix run** — explicit list of (process corner, temperature,
   supply) points actually executed. Must be the full PVT matrix from
   CLAUDE.md (−40/27/125 °C, ±10% supply, process corners) unless the record

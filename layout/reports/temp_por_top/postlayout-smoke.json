@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "cell": "temp_por_top",
+  "corner_id": "tt_27c_3.30v",
+  "temp_c": 27.0,
+  "vdd_v": 3.3,
+  "tolerance": 0.15,
+  "analyses": [
+    "tran 10u 30m",
+    "meas tran trel when v(resetn)=1.65 rise=1 td=1.5m",
+    "meas tran vrel find v(resetn) at=28m",
+    "meas tran vptat find v(ptat) at=28m",
+    "meas tran vctat find v(ctat) at=28m"
+  ],
+  "status": "pass",
+  "note": "plumbing proof, not a sim/ evidence record -- one PVT point, loose sanity windows; see layout/postlayout_smoke.py",
+  "netlists": {
+    "postlayout": "layout/postlayout/temp_por_top.spice",
+    "schematic": "design/netlist/temp_por_top.spice"
+  },
+  "measurements": [
+    {
+      "measure": "t_release_ms",
+      "postlayout": 10.27027,
+      "schematic": 10.06806,
+      "delta_frac": 0.02008430621192175,
+      "window": [
+        1.0,
+        29.0
+      ],
+      "in_window": true,
+      "within_tolerance": true
+    },
+    {
+      "measure": "resetn_final_v",
+      "postlayout": 3.3,
+      "schematic": 3.3,
+      "delta_frac": 0.0,
+      "window": [
+        2.9,
+        3.31
+      ],
+      "in_window": true,
+      "within_tolerance": true
+    },
+    {
+      "measure": "ptat_final_v",
+      "postlayout": 1.293092,
+      "schematic": 1.292475,
+      "delta_frac": 0.00047737867270149724,
+      "window": [
+        0.5,
+        2.5
+      ],
+      "in_window": true,
+      "within_tolerance": true
+    },
+    {
+      "measure": "ctat_final_v",
+      "postlayout": 0.6532742,
+      "schematic": 0.6533474,
+      "delta_frac": -0.00011203840407108912,
+      "window": [
+        0.3,
+        1.2
+      ],
+      "in_window": true,
+      "within_tolerance": true
+    }
+  ]
+}

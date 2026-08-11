@@ -1,0 +1,55 @@
+{
+  "schema_version": 1,
+  "cell": "por_comparator",
+  "corner_id": "tt_27c_3.30v",
+  "temp_c": 27.0,
+  "vdd_v": 3.3,
+  "tolerance": 0.02,
+  "analyses": [
+    "op"
+  ],
+  "status": "pass",
+  "note": "plumbing proof, not a sim/ evidence record -- one PVT point, loose sanity windows; see layout/postlayout_smoke.py",
+  "netlists": {
+    "postlayout": "layout/postlayout/por_comparator.spice",
+    "schematic": "design/netlist/por_comparator.spice"
+  },
+  "measurements": [
+    {
+      "measure": "por_raw_v",
+      "postlayout": 3.2999999874,
+      "schematic": 3.2999999874,
+      "delta_frac": 0.0,
+      "window": [
+        2.9,
+        3.31
+      ],
+      "in_window": true,
+      "within_tolerance": true
+    },
+    {
+      "measure": "sns_v",
+      "postlayout": 1.6122818567,
+      "schematic": 1.6122818567,
+      "delta_frac": 0.0,
+      "window": [
+        1.0,
+        2.5
+      ],
+      "in_window": true,
+      "within_tolerance": true
+    },
+    {
+      "measure": "snsb_v",
+      "postlayout": 0.16566085857,
+      "schematic": 0.16566085872,
+      "delta_frac": -9.05464246741652e-10,
+      "window": [
+        0.05,
+        0.6
+      ],
+      "in_window": true,
+      "within_tolerance": true
+    }
+  ]
+}

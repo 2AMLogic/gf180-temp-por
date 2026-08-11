@@ -174,9 +174,12 @@ Every committed `layout/reports/<cell>/{drc,extract,lvs}.json` now pins a
 digest of its source GDS (`drc.json`/`extract.json`:
 `provenance.gds_sha256`, spliced in by `run_checks.sh` right after `klt drc`/
 `klt extract` write the file, since neither writes it itself; `lvs.json`:
-`environment.layout_sha256`, already `klt lvs`'s own output). This
+`environment.layout_sha256`, already `klt lvs`'s own output), and so does
+`extracted-parasitics.json` (`layout/postlayout.py --extract`'s own record,
+which writes the digest itself — see "Post-layout netlists" below). This
 recomputes `sha256(layout/cells/<cell>.gds)` and fails if it disagrees with
-any of those. Also unscoped even for a single-cell run, and — unlike the
+any of those, so a cell whose GDS moves without its extraction being re-run
+cannot ship a post-layout netlist of a layout that no longer exists. Also unscoped even for a single-cell run, and — unlike the
 deck-hash gate — **not** tolerant of frozen cells: a frozen cell's own
 committed reports still have to describe its own committed (unchanged) GDS,
 since freezing suspends only the comparison against a *fresh rebuild*, not
@@ -357,10 +360,16 @@ layout/
   run_checks.sh                  the repeatable invocation (source of truth)
   build_cells.py                 builds cells/*.gds, byte-reproducibly
   lvs_reference.py               derives cells/*.reference.spice from design/netlist/
+  postlayout.py                  derives postlayout/*.spice from the extraction
+  postlayout_smoke.py            one nominal-corner smoke run per post-layout netlist
   cells/
     <cell>.gds                   the layout stream
     <cell>.reference.spice       generated -- do not edit
     <cell>.lvs.json              the klt lvs request document
+  postlayout/
+    <cell>.spice                 the simulatable post-layout netlist
+    audit.json / AUDIT.md        what is the layout's and what is not
+    SMOKE.md                     the nominal-corner smoke table
   reports/
     environment.json             klt version + deck the reports were produced with
     <cell>/drc.json              klt drc report
@@ -368,7 +377,13 @@ layout/
     <cell>/extracted.spice       the layout-side netlist
     <cell>/lvs.json              klt lvs report
     <cell>/negative-controls.json both controls' verdicts
+    <cell>/extracted-parasitics.*  the --parasitics extraction (postlayout.py)
+    <cell>/postlayout-smoke.json   that cell's smoke result
 ```
+
+`postlayout.py` writes only the `extracted-parasitics.*` pair; the DRC/LVS
+flow's own `extracted.spice` / `extract.json` are never touched by it, so the
+byte-stability contract above is unaffected.
 
 Reports are regenerated wholesale by `run_checks.sh` and are byte-stable across
 runs (paths are repo-relative, digests are content-based), so a re-run that
@@ -390,6 +405,114 @@ would destroy exactly the provenance the directory exists to carry.
 Every report also records the GDS stream it was generated from
 (`drc.json`/`extract.json`: `provenance.gds_sha256`; `lvs.json`:
 `environment.layout_sha256`) — see "0c. GDS-hash gate" above, and #106.
+
+## Post-layout netlists
+
+`layout/postlayout/<cell>.spice` is the layout of each cell as something
+ngspice can run: the drawn devices at their drawn dimensions, the drawn
+topology, first-order interconnect R/C, and the schematic's own net names.
+It is what `sim/` records with **Netlist provenance: extracted** are run
+against, and what #83–#87 consume.
+
+```bash
+python3 layout/postlayout.py --extract   # re-run klt (needs klt + the deck)
+python3 layout/postlayout.py             # regenerate layout/postlayout/
+python3 layout/postlayout.py --check     # committed artifacts current? (stdlib only)
+python3 layout/postlayout_smoke.py       # one nominal-corner run per netlist
+```
+
+### How it is built, and why there is a build step at all
+
+`klt extract`'s output is a *comparison* netlist, not a simulation netlist,
+and three things stand between the two. None of them is a judgement call;
+each is either read out of the tool or derived from `lvs_reference.py`'s own
+manifest, and all of them are enumerated per cell in
+[`postlayout/AUDIT.md`](postlayout/AUDIT.md).
+
+1. **Device cards name the deck's device classes, not the PDK's models.**
+   `M$1 ... nfet L=8U W=1U` has to become an `nfet_03v3` subcircuit call.
+   `klt extract --pdk` will do this, and it was tried first — it is not used
+   because its bound MOS card **drops the extractor's own measured**
+   `AS`/`AD`/`PS`/`PD` and the PDK subcircuit defaults all four to zero, i.e.
+   the netlist simulates with no junction capacitance whatsoever. Filed as
+   [klayout-tools#695](https://github.com/2AMLogic/klayout-tools/issues/695).
+   Binding here instead also keeps this whole directory PDK-free, per
+   "Prerequisites" above.
+2. **Most nets are anonymous.** These cells label only their pins (and, in
+   `temp_core`, its 30 tapped nodes), so the rest come out positional — `$10`.
+   `klt lvs`'s `net_correspondence` is an LVS-verified map from every
+   extracted net to its reference-netlist name, so `$10` becomes `SNS`. This
+   is why the old plan of solving the layout↔schematic net correspondence
+   here is gone: the tool reports it now
+   ([klayout-tools#311](https://github.com/2AMLogic/klayout-tools/issues/311),
+   landed in `klt` 0.2.0), and this flow reads it rather than re-deriving it.
+   Every cell is required to be `status: match` with every net paired before a
+   netlist is written.
+3. **Body, well and plate nets come out isolated.** The extraction deck's
+   connectivity stack does not join an Nwell, a substrate ring, a bipolar base
+   well or a MiM plate to the routing that reaches it — which is why every
+   `lvs.json` here carries `device.body_unverified`, and why
+   [klayout-tools#314](https://github.com/2AMLogic/klayout-tools/issues/314)
+   exists for the MiM half. Honest for a compare; unsimulatable. Each is tied
+   to the net the *schematic* puts it on, taken from `lvs_reference.py`'s
+   manifest (so a schematic change moves the tie with it) and listed per cell
+   in `AUDIT.md` — 3 ties in `por_comparator`, 23 in `temp_por_top`.
+
+Two deck substitutions are also undone, both already documented under "Known
+deck limits" below: a `ppolyf_u_3k` body recognised as `ppolyf_u_1k`
+(klayout-tools#323) and a `..._m3m4_...` MiM recognised as `..._m4m5_...`
+(klayout-tools#315). The drawn geometry is the schematic's in both cases and
+only the deck's *name* for it differs, so the emitted card carries the
+schematic's model at the **drawn** dimensions. Leaving the deck's name in
+would simulate this block on a PDK option it is not built for — a 3× error on
+every high-sheet-rho resistor, including the POR sense divider.
+
+### What these netlists do and do not prove
+
+| | |
+| --- | --- |
+| From the layout | every device and its dimensions; the whole topology; first-order R/C on every net with drawn routing (60–95 % of nets per cell — see `AUDIT.md`) |
+| From the schematic | the body/well/plate ties above, and net *names* |
+| Not present | `temp_core`'s `XCC` MiM cap — the one golden device this block still does not draw (see its cell section below); spliced in **ideal** and flagged in the netlist header |
+
+So a claim taken on one of these netlists is a post-layout claim about
+interconnect loading and device geometry, and a schematic claim about anything
+that turns on `XCC` or on a body-tie assumption. `sim/README.md`'s **Netlist
+provenance** field requires a record to say so.
+
+### Verification
+
+* `klt lvs` must report `match` with every net paired — that is what makes the
+  net correspondence, and therefore every net name in the emitted netlist,
+  something other than a guess.
+* `--extract` refuses to record an extraction whose `--parasitics` coverage
+  reads zero (the shape of
+  [klayout-tools#283](https://github.com/2AMLogic/klayout-tools/issues/283)),
+  and the coverage is reported per cell in `AUDIT.md` so a future silent-zero
+  regression is visible rather than merely absent.
+* `layout/tests/test_postlayout.py` re-derives every committed artifact from
+  the committed extraction and requires a byte-identical result, so the
+  staleness gate runs in CI with no `klt`, no PDK and no ngspice. It also
+  carries the negative controls: a corrupted net correspondence must move the
+  netlist, an unpaired net must be rejected, a wrong emitter area must be
+  rejected.
+* [`postlayout/SMOKE.md`](postlayout/SMOKE.md) runs each netlist **and the
+  golden schematic netlist** through a byte-identical deck at
+  `tt_27c_3.30v`. The pair is the point: a netlist whose ties or names landed
+  on the wrong nodes would still converge and still print numbers. It is
+  **not** a `sim/` evidence record — one PVT point, loose sanity windows — and
+  says so in every artifact it writes.
+
+The DC quantities agree with the schematic to five or six digits, which is
+expected and is not a null result: the parasitic model is one series R into
+one lumped C per net, so a DC operating point is parasitic-invariant by
+construction. What the agreement proves is that the post-layout netlist is the
+*same circuit* — `por_comparator`'s `SNS`/`SNSB` carry no drawn label at all,
+so reproducing the schematic's 1.61228 V tap is only possible if the
+correspondence, the divider's restored sheet rho and the body ties are all
+right. The reset-release times are where the drawn interconnect actually
+bites: `por_output_chain` +2.1 %, `temp_por_top` +2.0 % against the schematic.
+Those are the measurements a post-layout claim should be taken on.
 
 ## The cells under test
 
@@ -944,6 +1067,17 @@ two plate regions are registered *outside* the deck's metal/via connectivity
 stack (klayout-tools#314), so a drawn `XCC` would compare as a capacitor
 floating between two anonymous nets — which says less than leaving it out and
 recording why.
+
+It is therefore the one device the post-layout netlist splices in **ideal**
+(`layout/postlayout/temp_core.spice` and `temp_por_top.spice`, flagged in each
+netlist's own header and in `postlayout/AUDIT.md`). Note that the second
+blocker cuts both ways: the four MiM caps this block *does* draw are also
+extracted onto isolated plate nets and reattached to their schematic nodes by
+the same mechanism, so what separates `XCC` from them is not connectivity —
+it is that `XCC`'s plate geometry is not drawn at all, so nothing about its
+size, placement or routing is under check. Drawing it is
+[#177](https://github.com/2AMLogic/gf180-temp-por/issues/177)'s call, not
+this flow's.
 
 Two deck-imposed rewrites apply to the folded-in passives, mirroring the ones
 `lvs_reference.py`'s module docstring already states for the MOS bodies: a

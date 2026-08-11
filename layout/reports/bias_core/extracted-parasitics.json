@@ -1,0 +1,103 @@
+{
+  "schema_version": 1,
+  "cell": "bias_core",
+  "note": "recorded by layout/postlayout.py --extract; the committed extracted.spice/extract.json of the DRC/LVS flow are not touched by this run",
+  "netlist_path": "layout/reports/bias_core/extracted-parasitics.spice",
+  "netlist_sha256": "09ed8e07cf995df780db0fdcfc4b86c6c74c8fd3ca1b0906b496f8467ce9047d",
+  "top_cell_pins": false,
+  "device_count": 70,
+  "device_counts": {
+    "bjt": 10,
+    "cap_mim_2f0_m4m5_noshield": 2,
+    "nfet": 18,
+    "pfet": 16,
+    "ppolyf_u_1k": 24
+  },
+  "net_count": 54,
+  "pin_count": 6,
+  "coverage": {
+    "nets_total": 54,
+    "nets_with_parasitics": 47,
+    "fraction": 0.8704,
+    "total_resistance_ohm": 130836.8101,
+    "total_capacitance_ff": 1919.995057
+  },
+  "warnings": [
+    "28 poly-layer shapes not part of any recognised nfet/pfet gate touch contact at 2+ separate points (the resistor-body signature) and carry no resistor-marker layer at all; this deck may not model the device class drawn here, and its terminals have been absorbed into ordinary interconnect as an unintended short -- see docs/cli/extract.md's 'Known limitation: unmodelled device geometry'."
+  ],
+  "provenance": {
+    "klt_version": "0.2.0",
+    "klayout_version": "0.30.10",
+    "deck": {
+      "name": "gf180mcu",
+      "content_hash": "sha256:1256c45b3e472635b03a1888d0730822c1872b4a912a2c90fc1e4e7cd14a3913"
+    },
+    "gds_sha256": "6d6236d05ae0cd822ebab5aa819194b3fdf709a17c9258b48b799671e2e23852"
+  },
+  "lvs": {
+    "status": "match",
+    "nets_layout": 54,
+    "nets_matched": 54,
+    "devices_matched": 70,
+    "category_counts": {
+      "device.body_unverified": 2,
+      "topology": 4
+    }
+  },
+  "net_correspondence": {
+    "BIAS_OK": "BIAS_OK",
+    "$24": "EC",
+    "$36": "ER",
+    "IBIAS": "IBIAS",
+    "$17": "KS1",
+    "$18": "KS2",
+    "$19": "KS3",
+    "$20": "KS4",
+    "$10": "N1",
+    "$11": "N2",
+    "$35": "NA",
+    "$23": "NB",
+    "$6": "NBG",
+    "$4": "NBTOP",
+    "$21": "NKG",
+    "$12": "NKM",
+    "$15": "NOKL",
+    "$14": "NOKO",
+    "$16": "NOKX",
+    "$9": "NT",
+    "$38": "NW1",
+    "$26": "NWQ",
+    "$25": "NZ",
+    "$7": "PB",
+    "$3": "PG",
+    "$13": "TOK",
+    "VDD": "VDD",
+    "VREF": "VREF",
+    "VSS": "VSS",
+    "vsubs": "VSUBS",
+    "$39": "XCC.NZ",
+    "$41": "XCC.PG",
+    "$40": "XCOK.NOKX",
+    "$42": "XCOK.VDD",
+    "$43": "XR1.1",
+    "$48": "XR2.1",
+    "$30": "XR2.10",
+    "$47": "XR2.11",
+    "$29": "XR2.12",
+    "$46": "XR2.13",
+    "$28": "XR2.14",
+    "$53": "XR2.15",
+    "$34": "XR2.2",
+    "$49": "XR2.3",
+    "$33": "XR2.4",
+    "$50": "XR2.5",
+    "$32": "XR2.6",
+    "$51": "XR2.7",
+    "$31": "XR2.8",
+    "$52": "XR2.9",
+    "$37": "XRT.1",
+    "$45": "XRZ.1",
+    "$27": "XRZ.2",
+    "$44": "XRZ.3"
+  }
+}

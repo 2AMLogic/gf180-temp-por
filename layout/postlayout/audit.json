@@ -1,0 +1,325 @@
+{
+  "schema_version": 1,
+  "cells": [
+    {
+      "cell": "bias_core",
+      "device_counts": {
+        "nfet": 18,
+        "pfet": 16,
+        "bjt": 10,
+        "cap_mim_2f0_m4m5_noshield": 2,
+        "ppolyf_u_1k": 24
+      },
+      "device_total": 70,
+      "parasitic_cards": 94,
+      "coverage": {
+        "nets_total": 54,
+        "nets_with_parasitics": 47,
+        "fraction": 0.8704,
+        "total_resistance_ohm": 130836.8101,
+        "total_capacitance_ff": 1919.995057
+      },
+      "ties": {
+        "vsubs": "VSS",
+        "NW1": "VDD",
+        "NWQ": "VSS",
+        "XCC__PG": "PG",
+        "XCC__NZ": "NZ",
+        "XCOK__VDD": "VDD",
+        "XCOK__NOKX": "NOKX"
+      },
+      "ideal_devices": [],
+      "substitutions": [
+        {
+          "kind": "resistor sheet-rho flavour",
+          "extracted_as": "ppolyf_u_1k",
+          "emitted_as": "ppolyf_u_3k",
+          "count": 24,
+          "width_um": 2.0,
+          "why": "klayout-tools#323 -- the deck wires the PDK's default POLY_RES option only; the drawn geometry is the schematic's either way"
+        },
+        {
+          "kind": "MiM metal-stack variant",
+          "extracted_as": "cap_mim_2f0_m4m5_noshield",
+          "emitted_as": "cap_mim_2f0_m3m4_noshield",
+          "count": 2,
+          "why": "klayout-tools#315 -- the deck models one stack variant; both are the same 2.0 fF/um^2 device"
+        }
+      ],
+      "ports": [
+        "VDD",
+        "VSS",
+        "IBIAS",
+        "VREF",
+        "BIAS_OK"
+      ],
+      "provenance": {
+        "klt_version": "0.2.0",
+        "klayout_version": "0.30.10",
+        "deck": {
+          "name": "gf180mcu",
+          "content_hash": "sha256:1256c45b3e472635b03a1888d0730822c1872b4a912a2c90fc1e4e7cd14a3913"
+        },
+        "gds_sha256": "6d6236d05ae0cd822ebab5aa819194b3fdf709a17c9258b48b799671e2e23852"
+      },
+      "lvs_status": "match"
+    },
+    {
+      "cell": "por_comparator",
+      "device_counts": {
+        "nfet": 12,
+        "pfet": 6,
+        "ppolyf_u_1k": 3
+      },
+      "device_total": 21,
+      "parasitic_cards": 30,
+      "coverage": {
+        "nets_total": 18,
+        "nets_with_parasitics": 15,
+        "fraction": 0.8333,
+        "total_resistance_ohm": 18117.5272,
+        "total_capacitance_ff": 472.981153
+      },
+      "ties": {
+        "vsubs": "VSS",
+        "NW1": "VDD",
+        "NW2": "VDD"
+      },
+      "ideal_devices": [],
+      "substitutions": [
+        {
+          "kind": "resistor sheet-rho flavour",
+          "extracted_as": "ppolyf_u_1k",
+          "emitted_as": "ppolyf_u_3k",
+          "count": 3,
+          "width_um": 2.0,
+          "why": "klayout-tools#323 -- the deck wires the PDK's default POLY_RES option only; the drawn geometry is the schematic's either way"
+        }
+      ],
+      "ports": [
+        "VDD",
+        "VSS",
+        "IBIAS",
+        "VREF",
+        "BIAS_OK",
+        "POR_RAW"
+      ],
+      "provenance": {
+        "klt_version": "0.2.0",
+        "klayout_version": "0.30.10",
+        "deck": {
+          "name": "gf180mcu",
+          "content_hash": "sha256:1256c45b3e472635b03a1888d0730822c1872b4a912a2c90fc1e4e7cd14a3913"
+        },
+        "gds_sha256": "45b4b14914c4e651e4488b9732988faee047047fb95887b71a126ae331815168"
+      },
+      "lvs_status": "match"
+    },
+    {
+      "cell": "por_output_chain",
+      "device_counts": {
+        "nfet": 14,
+        "pfet": 14,
+        "cap_mim_2f0_m4m5_noshield": 5
+      },
+      "device_total": 33,
+      "parasitic_cards": 36,
+      "coverage": {
+        "nets_total": 30,
+        "nets_with_parasitics": 18,
+        "fraction": 0.6,
+        "total_resistance_ohm": 66322.3222,
+        "total_capacitance_ff": 828.580517
+      },
+      "ties": {
+        "vsubs": "VSS",
+        "NW1": "VDD",
+        "XCDG__NDG": "NDG",
+        "XCDG__VSS": "VSS",
+        "XCTIM__1__TIM": "TIM",
+        "XCTIM__1__VSS": "VSS",
+        "XCTIM__2__TIM": "TIM",
+        "XCTIM__2__VSS": "VSS",
+        "XCTIM__3__TIM": "TIM",
+        "XCTIM__3__VSS": "VSS",
+        "XCTIM__4__TIM": "TIM",
+        "XCTIM__4__VSS": "VSS"
+      },
+      "ideal_devices": [],
+      "substitutions": [
+        {
+          "kind": "MiM metal-stack variant",
+          "extracted_as": "cap_mim_2f0_m4m5_noshield",
+          "emitted_as": "cap_mim_2f0_m3m4_noshield",
+          "count": 5,
+          "why": "klayout-tools#315 -- the deck models one stack variant; both are the same 2.0 fF/um^2 device"
+        }
+      ],
+      "ports": [
+        "VDD",
+        "VSS",
+        "IBIAS",
+        "POR_RAW",
+        "RESETn"
+      ],
+      "provenance": {
+        "klt_version": "0.2.0",
+        "klayout_version": "0.30.10",
+        "deck": {
+          "name": "gf180mcu",
+          "content_hash": "sha256:1256c45b3e472635b03a1888d0730822c1872b4a912a2c90fc1e4e7cd14a3913"
+        },
+        "gds_sha256": "475c7feaa83591e14d63e5e4971859225920e7971396552a0a32fcd18cfa3c29"
+      },
+      "lvs_status": "match"
+    },
+    {
+      "cell": "temp_core",
+      "device_counts": {
+        "nfet": 27,
+        "pfet": 28,
+        "bjt": 9,
+        "ppolyf_u": 50
+      },
+      "device_total": 114,
+      "parasitic_cards": 138,
+      "coverage": {
+        "nets_total": 73,
+        "nets_with_parasitics": 69,
+        "fraction": 0.9452,
+        "total_resistance_ohm": 65734.4195,
+        "total_capacitance_ff": 1552.273763
+      },
+      "ties": {
+        "vsubs": "VSS",
+        "NW1": "VDD",
+        "NW2": "NT",
+        "NWQ": "VSS"
+      },
+      "ideal_devices": [
+        {
+          "name": "XCC",
+          "instance": null,
+          "model": "cap_mim_2f0_m3m4_noshield",
+          "nodes": [
+            "PG",
+            "NZ"
+          ],
+          "units": 1,
+          "why": "not drawn in this cell's layout -- reserved floor area"
+        }
+      ],
+      "substitutions": [],
+      "ports": [
+        "VDD",
+        "VSS",
+        "IBIAS",
+        "EN",
+        "PTAT",
+        "CTAT"
+      ],
+      "provenance": {
+        "klt_version": "0.2.0",
+        "klayout_version": "0.30.10",
+        "deck": {
+          "name": "gf180mcu",
+          "content_hash": "sha256:1256c45b3e472635b03a1888d0730822c1872b4a912a2c90fc1e4e7cd14a3913"
+        },
+        "gds_sha256": "852d534c2004326c2405bc689b1c12bd9e16f022ed17fcbe69fcbd8eb1866f10"
+      },
+      "lvs_status": "match"
+    },
+    {
+      "cell": "temp_por_top",
+      "device_counts": {
+        "nfet": 71,
+        "pfet": 64,
+        "bjt": 19,
+        "cap_mim_2f0_m4m5_noshield": 7,
+        "ppolyf_u": 50,
+        "ppolyf_u_1k": 27
+      },
+      "device_total": 238,
+      "parasitic_cards": 272,
+      "coverage": {
+        "nets_total": 159,
+        "nets_with_parasitics": 136,
+        "fraction": 0.8553,
+        "total_resistance_ohm": 280923.0157,
+        "total_capacitance_ff": 5880.216382
+      },
+      "ties": {
+        "vsubs": "VSS",
+        "xbias__NW1": "VDD",
+        "xbias__NWQ": "VSS",
+        "xbias__XCC__PG": "xbias__PG",
+        "xbias__XCC__NZ": "xbias__NZ",
+        "xbias__XCOK__VDD": "VDD",
+        "xbias__XCOK__NOKX": "xbias__NOKX",
+        "xcmp__NW1": "VDD",
+        "xcmp__NW2": "VDD",
+        "xpor__NW1": "VDD",
+        "xpor__XCDG__NDG": "xpor__NDG",
+        "xpor__XCDG__VSS": "VSS",
+        "xpor__XCTIM__1__TIM": "xpor__TIM",
+        "xpor__XCTIM__1__VSS": "VSS",
+        "xpor__XCTIM__2__TIM": "xpor__TIM",
+        "xpor__XCTIM__2__VSS": "VSS",
+        "xpor__XCTIM__3__TIM": "xpor__TIM",
+        "xpor__XCTIM__3__VSS": "VSS",
+        "xpor__XCTIM__4__TIM": "xpor__TIM",
+        "xpor__XCTIM__4__VSS": "VSS",
+        "xtemp__NW1": "VDD",
+        "xtemp__NW2": "xtemp__NT",
+        "xtemp__NWQ": "VSS"
+      },
+      "ideal_devices": [
+        {
+          "name": "XCC",
+          "instance": "xtemp",
+          "model": "cap_mim_2f0_m3m4_noshield",
+          "nodes": [
+            "xtemp__PG",
+            "xtemp__NZ"
+          ],
+          "units": 1,
+          "why": "not drawn in this cell's layout -- reserved floor area"
+        }
+      ],
+      "substitutions": [
+        {
+          "kind": "resistor sheet-rho flavour",
+          "extracted_as": "ppolyf_u_1k",
+          "emitted_as": "ppolyf_u_3k",
+          "count": 27,
+          "width_um": 2.0,
+          "why": "klayout-tools#323 -- the deck wires the PDK's default POLY_RES option only; the drawn geometry is the schematic's either way"
+        },
+        {
+          "kind": "MiM metal-stack variant",
+          "extracted_as": "cap_mim_2f0_m4m5_noshield",
+          "emitted_as": "cap_mim_2f0_m3m4_noshield",
+          "count": 7,
+          "why": "klayout-tools#315 -- the deck models one stack variant; both are the same 2.0 fF/um^2 device"
+        }
+      ],
+      "ports": [
+        "VDD",
+        "VSS",
+        "PTAT",
+        "CTAT",
+        "RESETn"
+      ],
+      "provenance": {
+        "klt_version": "0.2.0",
+        "klayout_version": "0.30.10",
+        "deck": {
+          "name": "gf180mcu",
+          "content_hash": "sha256:1256c45b3e472635b03a1888d0730822c1872b4a912a2c90fc1e4e7cd14a3913"
+        },
+        "gds_sha256": "cfa19694b87948b218e34ba33f42c3b0b2b7ea17932c62292d780422ed34c584"
+      },
+      "lvs_status": "match"
+    }
+  ]
+}
