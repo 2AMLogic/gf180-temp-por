@@ -440,24 +440,36 @@ xdut.vref__par                   -2.45982e-149
 xdut.vss__par                                0
 vsup#branch                         2.7438e-32
 
- Reference value :  2.90271e-04
- Reference value :  5.88520e-04
- Reference value :  6.30163e-04
- Reference value :  9.76517e-04
- Reference value :  9.98092e-04
- Reference value :  4.43526e-03
- Reference value :  1.02953e-02
- Reference value :  1.43205e-02
- Reference value :  1.43294e-02
- Reference value :  1.65670e-02
- Reference value :  2.00515e-02
- Reference value :  2.00704e-02
- Reference value :  2.21159e-02
- Reference value :  2.80559e-02
- Reference value :  3.37759e-02
- Reference value :  3.91959e-02
- Reference value :  4.54759e-02
- Reference value :  5.13759e-02
+ Reference value :  2.81088e-04
+ Reference value :  2.93575e-04
+ Reference value :  5.05364e-04
+ Reference value :  6.20305e-04
+ Reference value :  6.75897e-04
+ Reference value :  8.04826e-04
+ Reference value :  9.77088e-04
+ Reference value :  9.98120e-04
+ Reference value :  3.09526e-03
+ Reference value :  6.71526e-03
+ Reference value :  1.02553e-02
+ Reference value :  1.39753e-02
+ Reference value :  1.43209e-02
+ Reference value :  1.43256e-02
+ Reference value :  1.43336e-02
+ Reference value :  1.58070e-02
+ Reference value :  1.94870e-02
+ Reference value :  2.00516e-02
+ Reference value :  2.00532e-02
+ Reference value :  2.00711e-02
+ Reference value :  2.02759e-02
+ Reference value :  2.41159e-02
+ Reference value :  2.79759e-02
+ Reference value :  3.18159e-02
+ Reference value :  3.56559e-02
+ Reference value :  3.94959e-02
+ Reference value :  4.33559e-02
+ Reference value :  4.71759e-02
+ Reference value :  5.09559e-02
+ Reference value :  5.47559e-02
 No. of Data Rows : 4080
  meas tran treassert when v(resetn)=0.3 fall=1 td=20m failed!
 

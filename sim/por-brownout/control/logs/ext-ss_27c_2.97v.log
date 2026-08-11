@@ -440,32 +440,39 @@ xdut.vref__par                    -1.0755e-150
 xdut.vss__par                                0
 vsup#branch                       -2.85763e-31
 
- Reference value :  2.45372e-04
- Reference value :  5.59899e-04
- Reference value :  5.89513e-04
- Reference value :  6.33554e-04
- Reference value :  9.70138e-04
- Reference value :  9.87511e-04
- Reference value :  3.26478e-03
- Reference value :  7.06478e-03
- Reference value :  1.08848e-02
- Reference value :  1.22334e-02
- Reference value :  1.22357e-02
- Reference value :  1.22405e-02
- Reference value :  1.32301e-02
- Reference value :  1.70101e-02
- Reference value :  2.00011e-02
+ Reference value :  2.34759e-04
+ Reference value :  2.80152e-04
+ Reference value :  5.47717e-04
+ Reference value :  5.61793e-04
+ Reference value :  6.00710e-04
+ Reference value :  9.69956e-04
+ Reference value :  9.87433e-04
+ Reference value :  1.90478e-03
+ Reference value :  5.62478e-03
+ Reference value :  9.34478e-03
+ Reference value :  1.22125e-02
+ Reference value :  1.22337e-02
+ Reference value :  1.22394e-02
+ Reference value :  1.22442e-02
+ Reference value :  1.51901e-02
+ Reference value :  1.88901e-02
+ Reference value :  2.00512e-02
  Reference value :  2.00526e-02
  Reference value :  2.00642e-02
+ Reference value :  2.00643e-02
  Reference value :  2.00658e-02
- Reference value :  2.34955e-02
- Reference value :  2.97755e-02
- Reference value :  3.13709e-02
- Reference value :  3.13795e-02
- Reference value :  3.56545e-02
- Reference value :  4.20345e-02
- Reference value :  4.84345e-02
- Reference value :  5.49345e-02
+ Reference value :  2.16755e-02
+ Reference value :  2.69755e-02
+ Reference value :  3.07355e-02
+ Reference value :  3.13708e-02
+ Reference value :  3.13740e-02
+ Reference value :  3.13796e-02
+ Reference value :  3.32945e-02
+ Reference value :  3.71345e-02
+ Reference value :  4.09945e-02
+ Reference value :  4.47945e-02
+ Reference value :  5.04345e-02
+ Reference value :  5.48745e-02
 No. of Data Rows : 4512
 treassert           =  2.00642e-02
 rst_r_min           =  -8.81078e-07 at=  3.13688e-02

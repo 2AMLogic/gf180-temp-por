@@ -26,46 +26,72 @@ after the dip is over. DR-011's Consequences section records that artefact
 valid low during the dip") and adds "the block recovers; it does not latch
 up or stay released."
 
-That last sentence is the one the extracted netlist puts a corner-shaped
-hole in, so it is worth knowing WHY rather than filing a new defect on a
-number that was never a guarantee. This control answers one question:
+That last sentence is the one the extracted record puts a corner-shaped hole
+in -- so the question is which change put it there.
 
-    On the recovery edge, does `POR_RAW` still assert at the corner where
-    `RESETn` no longer does -- i.e. is the lost re-assert a lost DECISION
-    (the starved loop never recovers enough to make one) or a lost
-    PROPAGATION (the decision is made but `por_output_chain`'s deglitch
-    dwell filters it out)?
+THE COMPARISON THE RECORDS INVITE IS NOT A CONTROLLED ONE. Both moved
+numbers are read against `20260801-233807-32fbaa0`, and that record's own
+frozen `../netlist-snapshots/20260801-233807-32fbaa0.spice` differs from
+today's `../testbench/tb_por_brownout.spice` by exactly one line: `XMRLK`,
+the release latch #56 added between the two dates ([DR-016]). So
+"schematic vs. extracted" as those two records are written is really
+"pre-XMRLK schematic vs. post-XMRLK extracted" -- two changes, one delta.
+This control separates them by adding the missing third arm.
 
-Both readings live inside DR-011's already-owned falling-slew mechanism;
-they differ in which end of the chain absorbs the extracted netlist's ~2 %
-RC slowdown, and that is exactly what a follow-up would need to know.
+    Of the `t_reassert_us` slip and the lost re-assert, how much is the
+    extraction and how much is `XMRLK`? And where a re-assert IS lost, is
+    it a lost DECISION (the starved loop never recovers enough to make one)
+    or a lost PROPAGATION (the decision is made but `por_output_chain`'s
+    deglitch dwell filters it out)?
 
 METHOD
 
-Six runs: the two decks the two records themselves ran --
-`../testbench/tb_por_brownout.spice` (schematic) and
-`../testbench-postlayout/tb_por_brownout_postlayout.spice` (extracted) --
-at three PVT points, with the SAME stimulus, corner sections, solver
-options and transient window as the records. The only difference from a
-record run is extra `meas` lines inside `.control`: this control adds
-observability and changes nothing else, so its `t_reassert`/`rst_r_min`
-columns must reproduce the corresponding record rows, and the fact that
-they do is itself the check that the two arms are comparable.
+Twelve runs -- three DUT arms at four PVT points -- with the SAME stimulus,
+corner sections, solver options and transient window as the records:
 
-The three points are chosen from the extracted record's own spread:
+  * `pre` -- `../netlist-snapshots/20260801-233807-32fbaa0.spice`, the
+    frozen deck record 20260801-233807-32fbaa0 actually ran: schematic,
+    without `XMRLK`;
+  * `sch` -- `../testbench/tb_por_brownout.spice`, the same deck today:
+    schematic, WITH `XMRLK`. `pre` -> `sch` is a one-device A/B, because
+    that is the entire textual difference between the two files;
+  * `ext` -- `../testbench-postlayout/tb_por_brownout_postlayout.spice`,
+    the deck record 20260811-065930-35a87a6 ran: extracted, with `XMRLK`
+    (drawn, as `klt lvs`'s 159/159 net correspondence against today's
+    schematic requires). `sch` -> `ext` is then the extraction alone.
 
-  * `ss` / -40 C / 2.97 V -- the ERROR corner,
-  * `ss` / +27 C / 2.97 V -- the worst t_reassert_us that still resolves
-    (64.25 us),
-  * `tt` / +27 C / 3.30 V -- the nominal point, which barely moves
-    (51.93 -> 51.93 us), as the "nothing unusual here" reference.
+The only difference from a record run is extra `meas` lines inside
+`.control`: this control adds observability and changes nothing else, so
+the `pre` and `ext` arms' `t_reassert` columns must reproduce their
+records' rows, and the fact that they do is the check that all three arms
+are the same experiment.
 
-This is a diagnosis of records 20260801-233807-32fbaa0 and
-20260811-065930-35a87a6, not a recorded PVT result: a three-point control
-is not evidence about the corner grid, so -- exactly as
-`run_dip_rootcause.py` does -- it deliberately does NOT go through
-sim/run_corners.py and does NOT mint a record under ../records/. See
-sim/README.md for the distinction.
+The four points are chosen from the two records' own spreads:
+
+  * `ss` / -40 C / 2.97 V -- the extracted record's ERROR corner,
+  * `ss` / +27 C / 2.97 V -- the worst extracted t_reassert_us that still
+    resolves (64.25 us),
+  * `sf` / -40 C / 2.97 V -- the worst post-XMRLK SCHEMATIC t_reassert_us
+    (66.24 us, `../records/20260811-112115-9807e3f.md`), which the
+    extracted netlist resolves in 51.93 us,
+  * `tt` / +27 C / 3.30 V -- the nominal point, as the "nothing unusual
+    here" reference.
+
+This is a diagnosis of records 20260801-233807-32fbaa0,
+20260811-065930-35a87a6 and 20260811-112115-9807e3f, not a recorded PVT
+result: a four-point control is not evidence about the corner grid, so --
+exactly as `run_dip_rootcause.py` does -- it deliberately does NOT go
+through sim/run_corners.py and does NOT mint a record under ../records/.
+The corner-grid evidence for the re-attribution is the third record above,
+a full 81-point schematic re-run on today's netlist. See sim/README.md for
+the distinction.
+
+USING A FROZEN SNAPSHOT AS A DUT is the one thing here that needs saying
+out loud, because `../netlist-snapshots/` is evidence, not a source tree.
+It is read-only in this script and never regenerated; that is precisely
+what makes it usable as the `pre` arm -- sim/README.md's append-only rule
+is what guarantees the file still contains the netlist that produced the
+record whose numbers are being re-attributed.
 
 Outputs, all regenerated on every run (a control is not a record):
 
@@ -95,17 +121,21 @@ from harness.pdk import PdkNotFound, find_pdk  # noqa: E402
 MANIFEST = EXPERIMENT_DIR / "testbench" / "tb.json"
 RESULTS = CONTROL_DIR / "recovery_results.md"
 
-#: arm label -> the record-run testbench fragment it is the deck for.
+#: arm label -> the testbench fragment it is the deck for. Ordered
+#: pre -> sch -> ext, which is also the order the two changes landed in, so
+#: each adjacent pair of rows in the results table is a one-change delta.
 ARMS: dict[str, Path] = {
+    "pre": EXPERIMENT_DIR / "netlist-snapshots" / "20260801-233807-32fbaa0.spice",
     "sch": EXPERIMENT_DIR / "testbench" / "tb_por_brownout.spice",
     "ext": EXPERIMENT_DIR / "testbench-postlayout" / "tb_por_brownout_postlayout.spice",
 }
 
 #: label -> (corner name, temp C, VDD V). See the module docstring for why
-#: these three.
+#: these four.
 POINTS: dict[str, tuple[str, float, float]] = {
     "ss_-40c_2.97v": ("ss", -40.0, 2.97),
     "ss_27c_2.97v": ("ss", 27.0, 2.97),
+    "sf_-40c_2.97v": ("sf", -40.0, 2.97),
     "tt_27c_3.30v": ("tt", 27.0, 3.30),
 }
 
@@ -200,7 +230,7 @@ def main() -> int:
             jobs.append((name, deck(pdk, options, corner_name, temp_c, vdd, fragment)))
 
     print(f"running {len(jobs)} decks ({len(ARMS)} arms x {len(POINTS)} points) ...")
-    with ThreadPoolExecutor(max_workers=min(6, len(jobs))) as pool:
+    with ThreadPoolExecutor(max_workers=min(8, len(jobs))) as pool:
         results = dict(
             zip(
                 [name for name, _ in jobs],
@@ -244,12 +274,17 @@ def write_results(pdk, res: dict[str, dict[str, float]]) -> None:
     lines.append("")
     lines.append(
         "Diagnosis of the two *incidental* numbers that moved between "
-        "`../records/20260801-233807-32fbaa0.md` (schematic) and "
-        "`../records/20260811-065930-35a87a6.md` (extracted): the "
-        "`t_reassert_us` slip and the `ss_-40c_2.97v` ERROR. See this "
-        "script's module docstring for why neither is a bound this deck is "
-        "entitled to pass — its 1 µs dip edge is ~580× faster than "
-        "`spec/target-spec.md#por-brownout` clause (c)'s ratified "
+        "`../records/20260801-233807-32fbaa0.md` and "
+        "`../records/20260811-065930-35a87a6.md`: the `t_reassert_us` slip "
+        "and the `ss_-40c_2.97v` ERROR. Those two records differ by **two** "
+        "changes, not one — `XMRLK` ([DR-016]"
+        "(../../../spec/decision-records/DR-016-por-ramp-rate-chatter-release-latch.md), "
+        "#56) landed between them, and it is the entire textual difference "
+        "between the `pre` and `sch` fragments below — so this control adds "
+        "the missing third arm and attributes each delta to one of them. See "
+        "this script's module docstring for why neither number is a bound "
+        "this deck is entitled to pass — its 1 µs dip edge is ~580× faster "
+        "than `spec/target-spec.md#por-brownout` clause (c)'s ratified "
         "`dVDD/dt|fall,max = 3.40 mV/µs`, so re-assertion here is "
         "explicitly not guaranteed by [DR-011]"
         "(../../../spec/decision-records/DR-011-brownout-falling-slew-limit.md)."
@@ -257,9 +292,15 @@ def write_results(pdk, res: dict[str, dict[str, float]]) -> None:
     lines.append("")
     lines.append(
         f"PDK `{pdk.variant}` @ `{pdk.version}`, harness {HARNESS_VERSION}. "
-        "Both arms share one stimulus, one corner grid definition, one set "
-        "of solver options and one transient window — the DUT netlist is the "
-        "only variable."
+        "All three arms share one stimulus, one corner grid definition, one "
+        "set of solver options and one transient window — the DUT netlist "
+        "is the only variable. `pre` = the frozen deck of record "
+        "`20260801-233807-32fbaa0` (schematic, no `XMRLK`); `sch` = the same "
+        "deck today (schematic, with `XMRLK`); `ext` = the deck of record "
+        "`20260811-065930-35a87a6` (extracted, with `XMRLK` drawn), which "
+        "carries `layout/postlayout/AUDIT.md`'s `temp_por_top` caveats — "
+        "238 drawn devices, 1 ideal (`temp_core`'s undrawn `XCC`, #177, not "
+        "on any node in this path)."
     )
     lines.append("")
     lines.append("## Where the decision is lost")
@@ -302,9 +343,11 @@ def write_results(pdk, res: dict[str, dict[str, float]]) -> None:
     lines.append("## Inside the dip, for completeness")
     lines.append("")
     lines.append(
-        "DR-011's falling-slew collapse is unchanged by the extraction: both "
-        "arms ride the dip with `BIAS_OK` reading a false valid and `POR_RAW` "
-        "never leaving the rail, at every point."
+        "DR-011's falling-slew collapse is what neither change touches: all "
+        "three arms ride the dip with `BIAS_OK` reading a false valid and "
+        "`POR_RAW` never leaving the rail, at every point. Whatever the "
+        "recovery edge does above, the dip response itself is the same "
+        "starved loop it was."
     )
     lines.append("")
     lines.append(
@@ -326,7 +369,7 @@ def write_results(pdk, res: dict[str, dict[str, float]]) -> None:
             for p in POINTS
             for arm in ARMS
         )
-        + " — nothing latches up asserted, at either level."
+        + " — nothing latches up asserted, on any arm."
     )
     lines.append("")
     RESULTS.write_text("\n".join(lines) + "\n")

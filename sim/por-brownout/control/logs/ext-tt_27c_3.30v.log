@@ -440,28 +440,28 @@ xdut.vref__par                   -2.28929e-149
 xdut.vss__par                                0
 vsup#branch                       -2.22621e-30
 
- Reference value :  1.71818e-04
- Reference value :  3.08261e-04
- Reference value :  4.34491e-04
- Reference value :  4.72316e-04
- Reference value :  8.69134e-04
- Reference value :  2.61818e-03
- Reference value :  8.01818e-03
- Reference value :  1.02701e-02
- Reference value :  1.02763e-02
- Reference value :  1.52037e-02
- Reference value :  2.00056e-02
+ Reference value :  1.70541e-04
+ Reference value :  2.77392e-04
+ Reference value :  4.34513e-04
+ Reference value :  4.69386e-04
+ Reference value :  8.66362e-04
+ Reference value :  3.09818e-03
+ Reference value :  9.05818e-03
+ Reference value :  1.02703e-02
+ Reference value :  1.02780e-02
+ Reference value :  1.58837e-02
+ Reference value :  2.00008e-02
+ Reference value :  2.00519e-02
  Reference value :  2.00521e-02
- Reference value :  2.00619e-02
- Reference value :  2.00903e-02
- Reference value :  2.44643e-02
- Reference value :  2.94804e-02
- Reference value :  2.95165e-02
- Reference value :  2.95285e-02
- Reference value :  3.37097e-02
- Reference value :  4.02097e-02
- Reference value :  4.64897e-02
- Reference value :  5.28697e-02
+ Reference value :  2.00624e-02
+ Reference value :  2.01013e-02
+ Reference value :  2.57443e-02
+ Reference value :  2.95141e-02
+ Reference value :  2.95183e-02
+ Reference value :  3.24297e-02
+ Reference value :  3.91097e-02
+ Reference value :  4.57897e-02
+ Reference value :  5.20697e-02
 No. of Data Rows : 4520
 treassert           =  2.00519e-02
 rst_r_min           =  -5.37211e-07 at=  2.00520e-02
