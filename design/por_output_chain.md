@@ -702,6 +702,138 @@ Not a target this issue owns ([`area`](../spec/target-spec.md#area) is
   `por_comparator` divider rather than costing separate floor area. Whether
   that is allowed is a DRC/layout call for #17, not one to make here.
 
+## Post-layout re-run (issue #86)
+
+The three testbenches above were re-run against
+[`layout/postlayout/por_output_chain.spice`](../layout/postlayout/por_output_chain.spice)
+(#82/PR #180's direct-extraction flow) instead of `design/por_output_chain.sch`,
+full 81-point PVT grid, same stimulus:
+
+| Evidence | Netlist provenance | Supersedes (schematic record) |
+| --- | --- | --- |
+| [`sim/por-output-chain-pulse/records/20260811-055201-d0ee17d.md`](../sim/por-output-chain-pulse/records/20260811-055201-d0ee17d.md) | extracted | `20260802-205904-bdc077d` |
+| [`sim/por-output-chain-deglitch/records/20260811-055634-d0ee17d.md`](../sim/por-output-chain-deglitch/records/20260811-055634-d0ee17d.md) | extracted | `20260802-205904-bdc077d` |
+| [`sim/por-output-chain-floor/records/20260811-055424-d0ee17d.md`](../sim/por-output-chain-floor/records/20260811-055424-d0ee17d.md) | extracted | `20260802-205904-bdc077d` |
+
+**All three are 81/81 PASS**, same as the schematic records they supersede —
+no spec-row check that passed at the schematic level fails post-layout.
+
+### What "extracted" means for this cell specifically
+
+Per [`layout/postlayout/AUDIT.md`](../layout/postlayout/AUDIT.md)'s
+`por_output_chain` row: **33 drawn devices, 0 ideal** — every device in this
+cell, including the deglitch one-shot's two MiM caps (`XCDG` and the 4×
+`XCTIM` instances, 5 total), is drawn and extracted, not schematic-ideal. This
+is a **stronger** result than #18's original framing anticipated (which
+expected `XCDG`/`XCTIM` to still be schematic-ideal splices with parasitics
+added only on the surrounding routing) — see the issue's own "Dependency
+re-check" addendum. 18/30 nets carry first-order interconnect parasitics
+(ΣR 66322 Ω, ΣC 828.6 fF total); the 12 nets without drawn interconnect are
+body/plate/well ties the extraction deck's connectivity stack does not reach
+(`NW1`→`VDD`, `XCDG`/`XCTIM`'s plate and `VSS` ties, `vsubs`→`VSS`), tied per
+the schematic per AUDIT.md's "Body, well and plate ties" table. The 5 MiM caps
+are extracted as `cap_mim_2f0_m4m5_noshield` and emitted as the
+electrically-identical `cap_mim_2f0_m3m4_noshield` (klayout-tools#315 — same
+2.0 fF/µm² device, stack-variant name only, not a splice or a schematic
+fallback).
+
+### `XMBD`/`IBIAS` watch item: confirmed clean
+
+The Watch item this re-run was asked to check: that the extraction's spliced
+parasitics do not introduce a spurious series device into the `IBIAS` path,
+where `XMBD`'s local mirror diode has none by design. Confirmed clean by
+inspection and by measurement:
+
+- **Topology**: `layout/postlayout/por_output_chain.spice` ties `IBIAS`'s
+  parasitic model as a **shunt** — `RIBIAS IBIAS IBIAS__par 4398.7`, then
+  `CIBIAS IBIAS__par VSS 45.3 fF` — a pi-leg to an otherwise-unconnected
+  `IBIAS__par` node, not a series element between the pin and `XMBD`/`XMN1`
+  (both still tie directly to the `IBIAS` node itself). This is the same
+  construction every other net in the extraction gets (see the `*__par`
+  nodes throughout the file); `IBIAS` is not a special case.
+- **Measurement**: `iq_asserted_1x_na` (this cell's own `IBIAS`-referenced
+  draw) is **27.7701 nA post-layout vs. 27.7702 nA schematic** at
+  `tt_27c_3.30v` — a 4-ppm difference, i.e. unchanged to the precision this
+  harness reports. A series impedance in the `IBIAS` path would show up here
+  as a DC operating-point shift (the mirror's own gate-source bias would
+  move); it does not.
+
+### The pulse-width / dwell-time delta
+
+Per `layout/README.md`/`sim/README.md`'s framing (PR #180's own smoke sim on
+this cell, `+2.09 %` on `t_release_ms` at `tt_27c_3.30v`): this is where "a
+post-layout claim taken on these netlists should be a timing/edge claim," and
+this record's full-grid numbers confirm that at the nominal corner and give
+the shape across the whole PVT grid instead of one point.
+
+**`por-reset-pulse` (the one-shot width) widens by ~1.9–2.4 %, uniformly**,
+consistent with the added parasitic C/R loading a nA-scale current-starved
+ramp:
+
+| Quantity | Schematic | Post-layout | Δ |
+| --- | ---: | ---: | ---: |
+| `tpulse_1x_ms` min (`ff_-40c_2.97v`, the binding corner — unchanged) | 4.2172 | 4.31816 | **+2.40 %** |
+| `tpulse_1x_ms` max (`ss_125c_3.63v`) | 7.75505 | 7.90046 | +1.88 % |
+| `tpulse_3x_ms` min (`ff_-40c_2.97v`) | 1.57985 | 1.61748 | +2.38 % |
+| `tpulse_3x_ms` max (`ss_125c_3.63v`) | 2.82289 | 2.87708 | +1.92 % |
+| `tpulse_1x_ms` at `tt_27c_3.30v` (nominal, cross-check vs. PR #180's own smoke) | 5.78035 | 5.90136 | +2.093 % |
+
+The binding corner is unchanged (`FF / −40 °C / 2.97 V`, per
+["The one-shot is a current-starved ramp"](#the-one-shot-is-a-current-starved-ramp-and-its-trip-is-vdd--v_sg)
+above) and the widening only *adds* margin against the ≥1 ms floor (4.32 ms
+at nominal, 1.62 ms at 3× `IBIAS` — both still comfortably over 1 ms).
+`por-reset-valid-floor` similarly widens with margin to spare: worst-case
+ratio **0.0059 × VDD** (was 0.0055×, still 17× under the 0.1× limit) and
+worst-case absolute **1.97 mV** (was 1.74 mV, still 152× under 300 mV).
+
+**The deglitch dwell moves in *both* directions, and the falling-edge
+(qualifying-dip) dwell shrinks — not grows — by a materially larger margin
+than the pulse widens.** At matched corners (not just the grid's own
+min/max, since the binding corner shifts):
+
+| Corner | `dwell_pgdg_1x_us` schematic | post-layout | Δ |
+| --- | ---: | ---: | ---: |
+| `ff_125c_2.97v` | 1.86 | 1.34 | **−28.0 %** |
+| `ff_125c_3.63v` | 2.01 | 1.28 | **−36.3 %** |
+| `ss_-40c_2.97v` | 4.41 | 4.17 | −5.4 % |
+| `ss_-40c_3.63v` | 4.58 | 4.06 | −11.4 % |
+
+The grid-wide minimum (nominal `IBIAS`) drops from **1.86 µs to 1.28 µs**.
+Every corner still **passes** the checked requirement — `dwell_pgdg_halfib_us`
+(the half-`IBIAS` stress DUT the ceiling check runs against) has a grid
+maximum of **8.03 µs post-layout vs. 8.88 µs schematic**, both under the
+10 µs `T_dip,min` ceiling with margin to spare — but the *ceiling* was never
+the tight side of this design's own margin. [Deglitch dwell](#deglitch-dwell--cdg-is-bounded-on-both-sides)
+above documents a real prior failure at a **1.07 µs** dwell (the pre-resize
+`CDG` = 98 fF cut, which let a 1 µs qualifying glitch through at 30/81
+points): the schematic-level minimum (1.86 µs) sits **74 % above** that
+failure point; the post-layout minimum (1.28 µs) sits only **20 % above** it.
+Meanwhile the *other* direction of the same filter — `dwell_rise_1x_us`,
+`POR_RAW` rising through `NDG`/`CDG` — **widens**, by a comparable magnitude
+(+13.7 % at `ff_-40c_2.97v`, +11.7 % at `ss_125c_3.63v`), the same direction
+as the one-shot pulse.
+
+This asymmetry (one edge of the same RC filter shrinking, the other
+widening, by percentages several times the ~2 % the DC-invariant devices
+elsewhere in this cell would predict from a single ~39 fF shunt load on
+`NDG`) is measured, not yet explained — this record does not attempt a
+mechanism, since diagnosing it is design work, not verification work. It is
+flagged and routed to a new tracking issue, #182, rather than absorbed
+silently, per this issue's own acceptance criteria: the *lower* bound this
+design already treats as tight (["Deglitch dwell"](#deglitch-dwell--cdg-is-bounded-on-both-sides):
+"this capacitor is not free to grow") has visibly less headroom against a real
+extracted layout than the schematic ever measured, even though no ratified
+check fails today.
+
+### Reproducing this section's evidence
+
+```bash
+python3 sim/build_tb.py --check                                  # postlayout fragments <-> layout/postlayout/*.spice
+python3 sim/run_corners.py sim/por-output-chain-pulse/testbench-postlayout    -j 8
+python3 sim/run_corners.py sim/por-output-chain-deglitch/testbench-postlayout -j 8
+python3 sim/run_corners.py sim/por-output-chain-floor/testbench-postlayout    -j 8
+```
+
 ## Reproducing the evidence
 
 ```bash
