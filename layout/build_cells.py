@@ -1791,33 +1791,12 @@ def por_comparator(b: CellBuilder) -> None:
     devices = _golden_devices("por_comparator.spice", "por_comparator")
 
     # --- placement pass: fix every device's x, then derive the frame -------
-    tiles = []
-    cursor = 0.0
-    for name in POR_COMPARATOR_PMOS + POR_COMPARATOR_NMOS:
-        if name == POR_COMPARATOR_NMOS[0]:
-            cursor += REGION_GAP_UM
-        device = devices[name]
-        length = lvsref.to_um(device["params"]["l"])
-        width = lvsref.to_um(device["params"]["w"])
-        drain, gate, source, _body = device["nodes"]
-        tiles.append(
-            {
-                "name": name,
-                "pmos": name in POR_COMPARATOR_PMOS,
-                "x0": cursor,
-                "l": length,
-                "w": width,
-                "d": drain,
-                "g": gate,
-                "s": source,
-            }
-        )
-        cursor += 2 * SD_EXT_UM + length + TILE_GAP_UM
+    tiles = _place_tiles(devices, (POR_COMPARATOR_PMOS, POR_COMPARATOR_NMOS))
 
-    pmos = [tile for tile in tiles if tile["pmos"]]
+    pmos = [tile for tile in tiles if tile["group"] == 0]
     p_x0 = pmos[0]["x0"]
-    p_x1 = pmos[-1]["x0"] + 2 * SD_EXT_UM + pmos[-1]["l"]
-    row_x1 = cursor - TILE_GAP_UM
+    p_x1 = _tile_x1(pmos[-1])
+    row_x1 = _tile_x1(tiles[-1])
     max_w = max(tile["w"] for tile in tiles)
     max_pw = max(tile["w"] for tile in pmos)
 
@@ -1871,24 +1850,7 @@ def por_comparator(b: CellBuilder) -> None:
     riser = _make_riser(b, vdd_y1, vss_y0, track_y)
 
     # --- devices -----------------------------------------------------------
-    for tile in tiles:
-        x0, length, width = tile["x0"], tile["l"], tile["w"]
-        tile_w = 2 * SD_EXT_UM + length
-        gate_x0 = x0 + SD_EXT_UM
-        gate_cx = gate_x0 + length / 2.0
-        x_source = x0 + CONT_INSET_UM
-        x_drain = x0 + tile_w - CONT_INSET_UM
-
-        b.box(COMP, x0, 0.0, x0 + tile_w, width)
-        b.box(POLY2, gate_x0, -0.3, gate_x0 + length, width + 1.1)
-        b.contact(gate_cx, width + 0.75)
-        for y in _contact_rows(width):
-            b.contact(x_source, y)
-            b.contact(x_drain, y)
-
-        riser(x_source, tile["s"], 0.15, max(0.6, width - 0.2))
-        riser(x_drain, tile["d"], 0.15, max(0.6, width - 0.2))
-        riser(gate_cx, tile["g"], width + 0.55, width + 0.95)
+    _draw_tiles(b, tiles, riser)
 
     # --- Poly2 routing channel ---------------------------------------------
     # Every track reaches only as far as the device row / inverter needs (the
