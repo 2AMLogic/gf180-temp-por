@@ -523,7 +523,7 @@ def write_results(
         "`sim/README.md`; the corner-grid evidence for the post-layout "
         "transition edge is the rung records under `../records/`)"
     )
-    lines.append(f"- Rungs: " + ", ".join(f"{s:g} mV/µs" for s in SLEWS_MVUS))
+    lines.append("- Rungs: " + ", ".join(f"{s:g} mV/µs" for s in SLEWS_MVUS))
     lines.append(f"- PDK: `{pdk.variant}` @ `{pdk.version}`")
     lines.append(f"- Harness version: `{HARNESS_VERSION}`")
     lines.append(
