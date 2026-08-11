@@ -1,4 +1,4 @@
-# DR-018: `por-hysteresis` is a quasi-static row — 45 % of the full-assembly deck's 261 mV reading is ramp-rate displacement, not hysteresis
+# DR-020: `por-hysteresis` is a quasi-static row — 45 % of the full-assembly deck's 261 mV reading is ramp-rate-induced (37 % `VREF` displacement + 8 % comparator delay), not hysteresis
 
 - **Status**: proposed
 - **Date**: 2026-08-11
@@ -122,10 +122,22 @@ unchanged by the extraction to within 0.05 mV.
   mid-window, and the floor the ceiling protects has 159 mV of margin.
 - **Speed the comparator up** (raise the 25 nA tail, or resize the output
   inverters) to shrink the 20.1 mV comparator/output-chain term. Rejected.
-  It buys the smallest of the three terms with the scarcest budget in the
-  block: [`por-iq`](../target-spec.md#por-iq) has 208 nA of headroom at its
-  binding corner and `design/bias_core.md` already records a shortfall against
-  it. No ratified row asks for a faster comparator — [`por-ramp-rate`](../target-spec.md#por-ramp-rate)
+  It buys the smallest of the three terms, and it spends the one budget in
+  the block that has already had to be re-cost against measured evidence
+  once: [`por-iq`](../target-spec.md#por-iq) was moved from <1 µA to
+  **<3.0 µA** by [DR-018](DR-018-por-iq-recost.md) to match the measured
+  apportionment overrun, and now reads **81/81 PASS with ≈615 nA of headroom**
+  at its binding corner (2.384647 µA at `ff_125c_3.63v`, 20.5 % margin;
+  2.38347 µA post-layout). That headroom is not spare change to spend here:
+  DR-018 re-cost the ceiling to the *already-measured* draw and explicitly
+  folded in no allowance for any new consumer, leaving whether it can afford
+  one — a faster comparator included — open in its own Consequences. A tail
+  increase lands first on this cell's own share of that draw, measured at
+  **146–292 nA** across the grid
+  ([`design/por_comparator.md`](../../design/por_comparator.md), "Iq budget"),
+  of which the 25 nA tail is a large fraction. The
+  load-bearing half of the argument is unchanged either way: no ratified row
+  asks for a faster comparator — [`por-ramp-rate`](../target-spec.md#por-ramp-rate)
   passes 81/81 at all four rates including the 1 V/µs fast limit.
 - **Stiffen `VREF` against a ramping rail**, which is the *largest* of the
   three terms. Not rejected on the merits — but it is `bias_core`'s design

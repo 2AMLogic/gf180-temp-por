@@ -12,7 +12,7 @@ one (DUT netlist x ramp duration x supply) point per run, and writes:
     results.md          the tables below, generated from those logs
 
 This is the control experiment behind
-``spec/decision-records/DR-018-por-hysteresis-quasi-static-scope.md`` and
+``spec/decision-records/DR-020-por-hysteresis-quasi-static-scope.md`` and
 ``design/por_comparator.md``'s "The full-assembly V_hys is a ramp-rate
 measurement" section. It diagnoses record ``20260811-073945-12473c3``
 (80/81 PASS; ``v_hys_mv`` = 261.092 mV at ``ss_-40c_3.63v`` against a 250 mV
@@ -340,7 +340,7 @@ def render(results: list[dict], pdk) -> str:
         " vs. `../records/20260801-233802-32fbaa0.md`"
         f" ({SCHEMATIC_PARENT_V_HYS_MV:.3f} mV, same corner)",
         "- Conclusion drawn from these tables:"
-        " `spec/decision-records/DR-018-por-hysteresis-quasi-static-scope.md`",
+        " `spec/decision-records/DR-020-por-hysteresis-quasi-static-scope.md`",
         "",
         "## What the columns are",
         "",
@@ -588,11 +588,34 @@ def render(results: list[dict], pdk) -> str:
     return "\n".join(out) + "\n"
 
 
-def replay_one(point) -> dict:
+def committed_seconds() -> dict:
+    """Per-run wall-clock times from the committed ``results.json``, keyed by
+    run id, or ``{}`` if that file is absent or unreadable.
+
+    A ``logs/`` file records what the run measured, not how long it took, so a
+    ``--render-only`` regeneration has no way to re-derive ``seconds``. Carrying
+    the committed values forward keeps the regenerated ``results.json``
+    byte-identical to the one in git: a reviewer who re-renders to check
+    ``results.md`` (as ``design/por_comparator.md`` invites) is left with a
+    clean tree rather than 33 zeroed runtimes."""
+    path = CONTROL_DIR / "results.json"
+    if not path.exists():
+        return {}
+    try:
+        rows = json.loads(path.read_text())
+        return {row["run"]: row["seconds"] for row in rows}
+    except (ValueError, TypeError, KeyError):
+        return {}
+
+
+def replay_one(point, seconds_by_run=None) -> dict:
     """Re-read one point's measurements from its committed ``logs/`` file,
     without re-simulating. Used by ``--render-only`` so ``results.md`` can be
     regenerated from the raw logs the run already wrote -- the same numbers, by
-    construction, since ``parse_measurements`` is the only reader either way."""
+    construction, since ``parse_measurements`` is the only reader either way.
+    ``seconds`` is the one field no log carries; it is preserved from the
+    committed ``results.json`` (see ``committed_seconds``) so re-rendering does
+    not rewrite the recorded runtimes."""
     run_id, arm, dut, vdd, tramp = point
     log_path = CONTROL_DIR / "logs" / f"{run_id}.log"
     return {
@@ -602,7 +625,7 @@ def replay_one(point) -> dict:
         "vdd_v": vdd,
         "tramp_ms": tramp * 1e3,
         "rate_v_per_s": (vdd - 2.0) / tramp,
-        "seconds": 0.0,
+        "seconds": (seconds_by_run or {}).get(run_id, 0.0),
         **runner.parse_measurements(log_path.read_text()),
     }
 
@@ -628,7 +651,8 @@ def main() -> int:
     points = _points()
     if args.render_only:
         print(f"re-rendering {len(points)} control points from logs/ ...", flush=True)
-        results = [replay_one(p) for p in points]
+        prior_seconds = committed_seconds()
+        results = [replay_one(p, prior_seconds) for p in points]
     else:
         print(f"running {len(points)} control points at -j {args.jobs} ...", flush=True)
         with ThreadPoolExecutor(max_workers=args.jobs) as pool:
