@@ -57,7 +57,6 @@ import json
 import os
 import subprocess
 import sys
-import textwrap
 from pathlib import Path
 
 CONTROL_DIR = Path(__file__).resolve().parent
@@ -348,10 +347,6 @@ def main() -> int:
     write_results(results, pdk, ngspice_version)
     print(f"wrote {(CONTROL_DIR / 'results.md').relative_to(REPO_ROOT)}")
     return 0
-
-
-def _pct(new: float, old: float) -> str:
-    return f"{(new - old) / old * 100:+.1f} %"
 
 
 def write_results(results: dict, pdk, ngspice_version: str) -> None:
