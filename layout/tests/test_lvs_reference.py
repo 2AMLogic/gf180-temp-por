@@ -165,16 +165,64 @@ class ControlTest(unittest.TestCase):
             lr.build(CELL, corrupt="vibes")
 
 
-class BiasCoreManifestTest(unittest.TestCase):
+class ManifestReferenceTests:
+    """Mixed into a CELL-carrying manifest ``TestCase`` (not a ``TestCase``
+    itself, so it is never collected and run standalone): the check that a
+    fresh ``lr.build(CELL)`` still matches the committed reference. Identical
+    across every simple (non-composed) manifest entry, so it lives here once
+    instead of once per subclass."""
+
+    def test_reference_matches_the_committed_file(self):
+        committed = (LAYOUT_DIR / "cells" / f"{self.CELL}.reference.spice").read_text()
+        self.assertEqual(lr.build(self.CELL), committed)
+
+
+class TopologyControlManifestTests:
+    """Mixed in alongside ``ManifestReferenceTests`` (not a ``TestCase``
+    itself): the check that the "topology" corruption control actually has
+    two different sources to retarget between, via the subclass's own
+    ``golden()`` helper -- otherwise a manifest whose first two devices
+    already share a source would pass the control while controlling
+    nothing."""
+
+    def test_topology_control_has_two_different_sources_to_work_with(self):
+        devices = self.golden()
+        first, second = lr.CELLS[self.CELL]["devices"][:2]
+        self.assertNotEqual(devices[first]["nodes"][2], devices[second]["nodes"][2])
+        self.assertNotEqual(
+            lr.build(self.CELL), lr.build(self.CELL, corrupt="topology")
+        )
+
+
+class ControlCoverageTests:
+    """Mixed into a CELL-carrying ``TestCase`` (not a ``TestCase`` itself):
+    the check that each corruption control (device-param, topology) changes
+    exactly one drawn card, so a control that quietly touches more than it
+    claims to cannot pass unnoticed."""
+
+    def test_each_control_changes_exactly_one_card(self):
+        clean = lr.build(self.CELL).splitlines()
+        for corruption in ("device-param", "topology"):
+            bad = lr.build(self.CELL, corrupt=corruption).splitlines()
+            self.assertEqual(len(clean), len(bad))
+            differing = [
+                (a, b)
+                for a, b in zip(clean, bad)
+                if a[:1] == "M" and b[:1] == "M" and a != b
+            ]
+            self.assertEqual(len(differing), 1, f"{corruption} changed too much")
+
+
+class BiasCoreManifestTest(ManifestReferenceTests, TopologyControlManifestTests, unittest.TestCase):
     """``bias_core`` is the first manifest entry with unlabelled internal nets
     and a multi-device well, and the first big enough for the negative controls
     to degrade quietly. These check the properties that make it honest."""
 
     CELL = "bias_core"
 
-    def test_reference_matches_the_committed_file(self):
-        committed = (LAYOUT_DIR / "cells" / f"{self.CELL}.reference.spice").read_text()
-        self.assertEqual(lr.build(self.CELL), committed)
+    def golden(self):
+        text = (REPO_ROOT / "design" / "netlist" / "bias_core.spice").read_text()
+        return lr.parse_devices(lr.subckt_body(text, "bias_core"))
 
     def test_every_mos_device_in_the_schematic_is_in_the_manifest(self):
         # The non-MOS devices (PNPs, poly resistors, MiM caps) are outside the
@@ -184,20 +232,6 @@ class BiasCoreManifestTest(unittest.TestCase):
         golden = (REPO_ROOT / "design" / "netlist" / "bias_core.spice").read_text()
         modelled = set(lr.parse_devices(lr.subckt_body(golden, "bias_core")))
         self.assertEqual(modelled, set(lr.CELLS[self.CELL]["devices"]))
-
-    def test_topology_control_has_two_different_sources_to_work_with(self):
-        # The control re-ties devices[0]'s source to devices[1]'s. If they
-        # already agreed, the "corrupted" reference would equal the clean one
-        # and run_checks.sh's control would pass while controlling nothing.
-        golden = (REPO_ROOT / "design" / "netlist" / "bias_core.spice").read_text()
-        devices = lr.parse_devices(lr.subckt_body(golden, "bias_core"))
-        first, second = lr.CELLS[self.CELL]["devices"][:2]
-        self.assertNotEqual(
-            devices[first]["nodes"][2], devices[second]["nodes"][2]
-        )
-        self.assertNotEqual(
-            lr.build(self.CELL), lr.build(self.CELL, corrupt="topology")
-        )
 
     def test_every_pfet_is_assigned_to_the_one_drawn_well(self):
         spec = lr.CELLS[self.CELL]
@@ -345,7 +379,7 @@ class BiasCoreManifestTest(unittest.TestCase):
             lr.build(self.CELL)
 
 
-class PorComparatorManifestTest(unittest.TestCase):
+class PorComparatorManifestTest(ManifestReferenceTests, TopologyControlManifestTests, unittest.TestCase):
     """``por_comparator`` is the first manifest entry whose layout instances
     another cell, and the first with two drawn wells. These check the
     properties that make its clean compare honest."""
@@ -357,24 +391,12 @@ class PorComparatorManifestTest(unittest.TestCase):
         text = (REPO_ROOT / "design" / "netlist" / self.SOURCE).read_text()
         return lr.parse_devices(lr.subckt_body(text, "por_comparator"))
 
-    def test_reference_matches_the_committed_file(self):
-        committed = (LAYOUT_DIR / "cells" / f"{self.CELL}.reference.spice").read_text()
-        self.assertEqual(lr.build(self.CELL), committed)
-
     def test_every_mos_device_in_the_schematic_is_in_the_manifest(self):
         # The sense divider (poly resistors) is outside the curated deck's
         # coverage and deliberately absent; every device it *can* model must be
         # present, or the layout is being compared against a quietly reduced
         # circuit.
         self.assertEqual(set(self.golden()), set(lr.CELLS[self.CELL]["devices"]))
-
-    def test_topology_control_has_two_different_sources_to_work_with(self):
-        devices = self.golden()
-        first, second = lr.CELLS[self.CELL]["devices"][:2]
-        self.assertNotEqual(devices[first]["nodes"][2], devices[second]["nodes"][2])
-        self.assertNotEqual(
-            lr.build(self.CELL), lr.build(self.CELL, corrupt="topology")
-        )
 
     def test_every_pfet_is_assigned_to_one_of_the_two_drawn_wells(self):
         spec = lr.CELLS[self.CELL]
@@ -501,7 +523,7 @@ class PorComparatorMatchingPlanTest(unittest.TestCase):
         )
 
 
-class PorOutputChainManifestTest(unittest.TestCase):
+class PorOutputChainManifestTest(ManifestReferenceTests, TopologyControlManifestTests, unittest.TestCase):
     """``por_output_chain`` is the always-on POR domain's output cell. Beyond
     the structural checks ``bias_core`` gets, it carries one contract that is
     not a layout convention but a ratified one: DR-010 requires an ungated,
@@ -514,10 +536,6 @@ class PorOutputChainManifestTest(unittest.TestCase):
     def golden(self):
         text = (REPO_ROOT / "design" / "netlist" / self.SOURCE).read_text()
         return lr.parse_devices(lr.subckt_body(text, self.CELL))
-
-    def test_reference_matches_the_committed_file(self):
-        committed = (LAYOUT_DIR / "cells" / f"{self.CELL}.reference.spice").read_text()
-        self.assertEqual(lr.build(self.CELL), committed)
 
     def caps(self):
         text = (REPO_ROOT / "design" / "netlist" / self.SOURCE).read_text()
@@ -641,14 +659,6 @@ class PorOutputChainManifestTest(unittest.TestCase):
         self.assertEqual(drawn[-2:], ["XMOP", "XMON"])
         self.assertEqual(bc.POR_OUTPUT_CHAIN_PIN_ON["RESETn"], ("XMON", "d"))
 
-    def test_topology_control_has_two_different_sources_to_work_with(self):
-        devices = self.golden()
-        first, second = lr.CELLS[self.CELL]["devices"][:2]
-        self.assertNotEqual(devices[first]["nodes"][2], devices[second]["nodes"][2])
-        self.assertNotEqual(
-            lr.build(self.CELL), lr.build(self.CELL, corrupt="topology")
-        )
-
     def test_every_pfet_is_assigned_to_the_one_drawn_well(self):
         spec = lr.CELLS[self.CELL]
         devices = self.golden()
@@ -765,7 +775,7 @@ class GuardTest(unittest.TestCase):
         self.assertIn("nf=2", str(caught.exception))
 
 
-class TempCoreTest(unittest.TestCase):
+class TempCoreTest(ManifestReferenceTests, ControlCoverageTests, unittest.TestCase):
     """``temp_core`` is drawn with interleaved unit fingers and edge dummies,
     so its reference has to describe more devices than the schematic has -- the
     same electrical devices, described the way the curated deck can see them."""
@@ -778,10 +788,6 @@ class TempCoreTest(unittest.TestCase):
             for line in (text or lr.build(self.CELL)).splitlines()
             if line[:1] == "M"
         ]
-
-    def test_reference_matches_the_committed_file(self):
-        committed = (LAYOUT_DIR / "cells" / f"{self.CELL}.reference.spice").read_text()
-        self.assertEqual(lr.build(self.CELL), committed)
 
     def test_finger_split_conserves_the_schematic_width(self):
         golden = (REPO_ROOT / "design" / "netlist" / "temp_core.spice").read_text()
@@ -905,20 +911,8 @@ class TempCoreTest(unittest.TestCase):
         with self.assertRaises(lr.ReferenceError):
             lr.resistor_segments(1.0001)
 
-    def test_each_control_changes_exactly_one_card(self):
-        clean = lr.build(self.CELL).splitlines()
-        for corruption in ("device-param", "topology"):
-            bad = lr.build(self.CELL, corrupt=corruption).splitlines()
-            self.assertEqual(len(clean), len(bad))
-            differing = [
-                (a, b)
-                for a, b in zip(clean, bad)
-                if a[:1] == "M" and b[:1] == "M" and a != b
-            ]
-            self.assertEqual(len(differing), 1, f"{corruption} changed too much")
 
-
-class TempPorTopAssemblyTest(unittest.TestCase):
+class TempPorTopAssemblyTest(ControlCoverageTests, unittest.TestCase):
     """``temp_por_top`` (#72) is the one manifest entry with no devices of its
     own: it is composed from the four sub-cells and from the golden top-level
     netlist's own instance lines. These cover the composition, because a
@@ -1123,18 +1117,6 @@ class TempPorTopAssemblyTest(unittest.TestCase):
         self.assertIn(lr.SUBSTRATE_NET, nodes)
         for node in nodes:
             self.assertFalse(node.endswith(f".{lr.SUBSTRATE_NET}"))
-
-    def test_controls_still_change_exactly_one_card(self):
-        clean = lr.build(self.CELL).splitlines()
-        for corruption in ("device-param", "topology"):
-            bad = lr.build(self.CELL, corrupt=corruption).splitlines()
-            self.assertEqual(len(clean), len(bad))
-            differing = [
-                (a, b)
-                for a, b in zip(clean, bad)
-                if a[:1] == "M" and b[:1] == "M" and a != b
-            ]
-            self.assertEqual(len(differing), 1, f"{corruption} changed too much")
 
     def test_a_wrong_pinout_is_an_error_not_a_quietly_different_block(self):
         spec = dict(lr.CELLS[self.CELL])
