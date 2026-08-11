@@ -17,6 +17,7 @@ evidence run, not from an estimate:
 | --- | --- |
 | [`sim/bias-core-designer-check/`](../sim/bias-core-designer-check/) | settled `VREF`, `IBIAS`, always-on Iq against [`por-iq`](../spec/target-spec.md#por-iq), absence of a degenerate DC solution, reference settling and dropout, the rail at which the assembled block would release, and the starved-loop window on a fast ramp and after a brownout — 81-point PVT grid (9 corners × 3 temperatures × 3 supplies) |
 | [`sim/bias-core-ibias-sharing/`](../sim/bias-core-ibias-sharing/) | the shared `IBIAS` net in the reset-asserted state, with a disabled `temp_core` and `por_comparator` wired exactly as `design/netlist/temp_por_top.spice` wires them, against a control without `temp_core` — same 81-point grid |
+| [`sim/por-output-chain-ibias-sharing/`](../sim/por-output-chain-ibias-sharing/) | the **magnitude** half of the same net that the row above answers the liveness half of: all four cells spliced, a zero-volt ammeter on every `IBIAS` pin, so the current *split* between the consumer diodes is measured leg-by-leg in both `RESETn` states rather than inferred from the node's voltage — same 81-point grid, both netlist levels. Added by #221 / DR-024 |
 | [`sim/temp-por-top-release/`](../sim/temp-por-top-release/) | this cell inside the **full four-cell assembly**: whether the shared node survives the reset-asserted state, whether `RESETn` releases and enables the sensor, and the assembled block's `por-iq` — same 81-point grid. Added by #41 / DR-010 |
 | [`sim/bias-core-startup/`](../sim/bias-core-startup/) | branch-tracking, **quasi-static transient** rail ramp (not a per-point solve): whether a continuously rising rail leaves this cell on the correct branch and asserts `BIAS_OK` exactly once, whether the answer is ramp-rate independent, and whether all of it repeats after a full rail collapse — 81-point grid (27 distinct corner/temperature combinations, each at three bit-identical supply replicates by construction). Opened as a defect report by #43; **re-founded on a transient and closed by #46** — see [Resolved](#resolved-the-bias_ok-quasi-static-failure-was-a-testbench-artefact-issues-43-46) |
 
@@ -1136,6 +1137,28 @@ shared-node contract, added by
 DR-010 required a disabled consumer to present high impedance; DR-016 adds
 that *switching* a consumer moves the node, and that a downstream decision the
 node can walk back must be latched rather than left standing.
+
+> **How much current each consumer actually gets — measured (issue #221,
+> [DR-024](../spec/decision-records/DR-024-por-output-chain-real-ibias-delivery.md)).**
+> The rows above report the shared node's **voltage**; they say nothing about
+> how the source current divides between the consumer diodes hanging off it,
+> and no committed testbench measured that until #221.
+> [`sim/por-output-chain-ibias-sharing/`](../sim/por-output-chain-ibias-sharing/)
+> splices all four cells with a zero-volt ammeter on *each* `IBIAS` pin and
+> reports the split leg-by-leg, 81 points, both `RESETn` states, both netlist
+> levels. `por_output_chain`'s share is **0.344×–1.155× the 0.5 µA convention
+> asserted, 0.182×–0.608× released** — under the ≥0.44× floor
+> `design/por_output_chain.md` needs at 61 of 81 points in the released state.
+> **This is not a `bias_core` magnitude miss**: this cell's own output leg is
+> in spec (297–1119 nA, `sim/bias-core-designer-check/`); the shortfall is the
+> division. DR-024 shows with arithmetic that scaling `XMPIB` — or adding the
+> per-consumer second output leg DR-010 rejected — cannot clear 220 nA cold
+> without breaking DR-018's 3.0 µA `por-iq` ceiling hot, because this
+> reference current's own 3.77× hot/cold ratio is worse than the ratio the
+> budget's headroom can absorb. **Nothing in this cell changes on that
+> evidence**; the remaining levers are routed to
+> [#235](https://github.com/2AMLogic/gf180-temp-por/issues/235) and
+> [#236](https://github.com/2AMLogic/gf180-temp-por/issues/236).
 
 That last row is the *other* conflict this document already owns (see
 [Iq apportionment](#iq-apportionment)), now measured on the real assembly

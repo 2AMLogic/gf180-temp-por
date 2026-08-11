@@ -1,0 +1,76 @@
+{
+  "name": "por-output-chain-ibias-sharing",
+  "description": "Post-layout re-run of the schematic-level record in sim/por-output-chain-ibias-sharing/records/ (issue #221) -- same claim, against layout/postlayout/{bias_core,temp_core,por_comparator,por_output_chain}.spice instead of the design/netlist/ exports.",
+  "claim": "design/por_output_chain.md#hand-off-to-11-the-ibias-envelope-is-the-real-constraint (IBIAS must not fall below ~0.44x nominal at por_output_chain's own pin) and spec/decision-records/DR-010-shared-ibias-disabled-consumer-contract.md's high-impedance-when-disabled contract. Deterministic corners only (design.ngspice sets sw_stat_mismatch=0); mismatch on the mirror ratios is #15's job. This record makes no por-brownout pass/fail claim of its own -- sim/por-output-chain-deglitch/ is re-cut against the current this record measures, per issue #221.",
+  "netlist": "tb_por_ibias_sharing.spice",
+  "netlist_provenance": "extracted",
+  "netlist_provenance_note": "Four-way splice (per sim/build_tb.py's FRAGMENTS -- bias_core + temp_core + por_comparator + por_output_chain), each leg's caveat from its own layout/postlayout/<cell>.spice header (layout/postlayout/AUDIT.md): bias_core -- 7 body/plate ties (NW1, NWQ, XCC__NZ, XCC__PG, XCOK__NOKX, XCOK__VDD, vsubs) to the schematic's net; no ideal device, all 70 drawn. por_comparator -- 3 body/plate ties (NW1, NW2, vsubs); no ideal device, all 21 drawn. por_output_chain -- 12 body/plate/well ties (NW1->VDD, XCDG/XCTIM plate+VSS ties, vsubs->VSS); no ideal device, all 33 drawn. temp_core -- 4 body/plate ties (NW1, NW2, NWQ, vsubs); XCC (cap_mim_2f0_m3m4_noshield, on PG/NZ) is IDEAL -- not drawn in this cell's layout, reserved floor area -- the one golden device this design still does not draw. Any check whose behavior depends on XCC is therefore a schematic claim for the temp_core leg even though the netlist as a whole is extracted; none of this testbench's checks do (temp_core's XCC sits inside its own PTAT/CTAT generation loop, not on the IBIAS path this record meters).",
+  "nominal_supply_v": 3.3,
+  "supply_tolerance": 0.1,
+  "temperatures_c": [-40, 27, 125],
+  "corners": ["full"],
+  "options": ["reltol=1e-5", "abstol=1e-15", "vntol=1e-9"],
+  "analyses": [
+    "tran 4u 600u",
+    "meas tran vib_a find v(sharea) at=590u",
+    "meas tran vib_b find v(shareb) at=590u",
+    "meas tran icore_a find i(vibcorea) at=590u",
+    "meas tran icore_b find i(vibcoreb) at=590u",
+    "meas tran itmp_a find i(vibtmpa) at=590u",
+    "meas tran itmp_b find i(vibtmpb) at=590u",
+    "meas tran icmp_a find i(vibcmpa) at=590u",
+    "meas tran icmp_b find i(vibcmpb) at=590u",
+    "meas tran ipor_a find i(vibpora) at=590u",
+    "meas tran ipor_b find i(vibporb) at=590u",
+    "meas tran por_a find v(por_rawa) at=590u",
+    "meas tran por_b find v(por_rawb) at=590u",
+    "meas tran resetn_a find v(resetna) at=590u",
+    "meas tran resetn_b find v(resetnb) at=590u",
+    "meas tran vdda find v(vdda) at=590u",
+    "meas tran vddb find v(vddb) at=590u"
+  ],
+  "measure": {
+    "vibias_asserted_v": "vib_a",
+    "vibias_released_v": "vib_b",
+    "ibias_core_asserted_na": "icore_a*1e9",
+    "ibias_core_released_na": "icore_b*1e9",
+    "ibias_temp_asserted_na": "itmp_a*1e9",
+    "ibias_temp_released_na": "itmp_b*1e9",
+    "ibias_cmp_asserted_na": "icmp_a*1e9",
+    "ibias_cmp_released_na": "icmp_b*1e9",
+    "ibias_por_asserted_na": "ipor_a*1e9",
+    "ibias_por_released_na": "ipor_b*1e9",
+    "ibias_por_asserted_frac_nom": "ipor_a*1e9/500.0",
+    "ibias_por_released_frac_nom": "ipor_b*1e9/500.0",
+    "por_raw_asserted_droop_mv": "(vdda-por_a)*1e3",
+    "por_raw_released_droop_mv": "(vddb-por_b)*1e3",
+    "resetn_asserted_v": "resetn_a",
+    "resetn_released_v": "resetn_b"
+  },
+  "checks": {
+    "ibias_por_asserted_na": {
+      "min": 220.0,
+      "description": "por_output_chain's own IBIAS pin current, RESETn asserted. design/por_output_chain.md's stated floor for its deglitch dwell ceiling to hold: IBIAS must not fall below ~0.44x nominal (500 nA nominal -> 220 nA) at the SS/-40C corner. THIS IS THE CORRECTNESS REQUIREMENT, NOT AN ASSERTED OBSERVATION -- it may fail before a lever from issue #221 lands."
+    },
+    "ibias_por_released_na": {
+      "min": 220.0,
+      "description": "Same floor, RESETn released -- temp_core's own mirror diode has rejoined the shared node here, so this branch is expected to be the tighter of the two per design/bias_core.md's 'The shared IBIAS net' (the node steps down at release)."
+    },
+    "por_raw_asserted_droop_mv": {
+      "max": 20.0,
+      "description": "Regression guard on sim/bias-core-ibias-sharing/'s own liveness claim (DR-010): with the rail above every corner's release threshold, POR_RAW must still go high with por_output_chain also present on the shared node."
+    },
+    "por_raw_released_droop_mv": {
+      "max": 20.0,
+      "description": "Same liveness guard, RESETn-released branch."
+    },
+    "vibias_asserted_v": {
+      "min": 0.3,
+      "description": "Shared node sits at a real diode drop, not clamped near VSS -- the DR-010 high-impedance contract holding with por_output_chain's own always-on XMBD also on the node."
+    },
+    "vibias_released_v": {
+      "min": 0.3,
+      "description": "Same, RESETn-released branch."
+    }
+  }
+}
