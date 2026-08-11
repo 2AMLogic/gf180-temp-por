@@ -230,7 +230,6 @@ def main() -> int:
     # The two statements the parent issue needs, derived rather than asserted.
     ss = ("ss", -40.0)
     ext_curve = [results[("extracted", *ss)][f"ok{_tag(ms)}"] for ms in SAMPLE_MS]
-    sch_curve = [results[("schematic", *ss)][f"ok{_tag(ms)}"] for ms in SAMPLE_MS]
     monotonic = all(b <= a + 1e-9 for a, b in zip(ext_curve, ext_curve[1:]))
     ext_at_end = ext_curve[-1]
     sch_at_parent = results[("schematic", *ss)][f"ok{_tag(PARENT_SAMPLE_MS)}"]
