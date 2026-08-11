@@ -61,7 +61,6 @@ Stdlib only, no virtualenv required.
 from __future__ import annotations
 
 import json
-import subprocess
 import sys
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -206,21 +205,6 @@ def sample_at(rows, index: int, t: float) -> float:
     return rows[-1][index]
 
 
-def run_deck(name: str, deck_text: str, deck_dir: Path, log_dir: Path) -> str:
-    deck_path = deck_dir / f"{name}.spice"
-    deck_path.write_text(deck_text)
-    proc = subprocess.run(
-        ["ngspice", "-b", deck_path.name],
-        capture_output=True,
-        text=True,
-        cwd=deck_dir,
-        check=False,
-    )
-    output = proc.stdout + "\n" + proc.stderr
-    (log_dir / f"{name}.log").write_text(output)
-    return output
-
-
 def us(seconds: float) -> str:
     return f"{seconds * 1e6:.1f} us"
 
@@ -234,11 +218,9 @@ def main() -> int:
         return 3
 
     options = list(json.loads(MANIFEST.read_text()).get("options", []))
-    deck_dir = CONTROL_DIR / "decks"
     log_dir = CONTROL_DIR / "logs"
     trace_dir = CONTROL_DIR / "traces"
-    for d in (deck_dir, log_dir, trace_dir):
-        d.mkdir(exist_ok=True)
+    trace_dir.mkdir(exist_ok=True)
 
     corner_a, temp_a, vdd_a = PART_A_POINT
 
@@ -247,7 +229,7 @@ def main() -> int:
     for label, netlist in (("schematic", SCHEMATIC_NETLIST), ("extracted", EXTRACTED_NETLIST)):
         name = f"anatomy-{label}"
         trace_path = trace_dir / f"{name}.txt"
-        run_deck(
+        runner.run_deck_raw(
             name,
             compose_deck(
                 pdk, netlist, corner_a, temp_a, vdd_a, options,
@@ -256,7 +238,7 @@ def main() -> int:
                 # cwd=decks/), so the committed deck carries no absolute path.
                 control_lines=[f"print v(vddb) v(bias_okb) v(vrefb) > ../traces/{name}.txt"],
             ),
-            deck_dir, log_dir,
+            CONTROL_DIR,
         )
         rows = parse_trace(trace_path)
         if len(rows) < 100:
@@ -287,14 +269,14 @@ def main() -> int:
     def _run_b(point):
         corner_name, temp_c, vdd = point
         name = f"latch-{corner_name}_{int(temp_c)}c_{vdd:.2f}v"
-        output = run_deck(
+        output = runner.run_deck_raw(
             name,
             compose_deck(
                 pdk, EXTRACTED_NETLIST, corner_name, temp_c, vdd, options,
                 hold=PART_B_HOLD, tstep_us=PART_B_TSTEP_US, tstop_ms=PART_B_TSTOP_MS,
                 control_lines=part_b_lines, fragment_path=FRAGMENT_DEEP,
             ),
-            deck_dir, log_dir,
+            CONTROL_DIR,
         )
         return point, name, runner.parse_measurements(output)
 

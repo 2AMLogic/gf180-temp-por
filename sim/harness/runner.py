@@ -336,16 +336,15 @@ def parse_bare_measurements(text: str) -> dict[str, float]:
     return found
 
 
-def run_deck(name: str, text: str, control_dir: Path) -> dict[str, float]:
+def run_deck_raw(name: str, text: str, control_dir: Path) -> str:
     """Write ``text`` as ``<control_dir>/decks/<name>.spice``, run ngspice on
     it, log the raw output to ``<control_dir>/logs/<name>.log``, and return
-    its bare-name measurements (``parse_bare_measurements`` above).
+    that raw stdout+stderr text.
 
-    Shared home for the per-experiment ``run_deck(name, text)`` copies that
-    used to be redefined, byte-for-byte identical apart from where
-    ``CONTROL_DIR`` pointed, in
-    sim/por-brownout/control/run_dip_rootcause.py and
-    sim/por-brownout-slew/control/run_band_mechanism.py.
+    Shared home for the per-experiment write-deck/run-ngspice/write-log core
+    that ``run_deck()`` below layers bare-measurement parsing on top of, for
+    callers that need the raw text instead (e.g. trace-file parsing or a
+    differently-formatted measurement parser).
     """
     deck_dir = control_dir / "decks"
     log_dir = control_dir / "logs"
@@ -362,7 +361,21 @@ def run_deck(name: str, text: str, control_dir: Path) -> dict[str, float]:
     )
     output = proc.stdout + "\n" + proc.stderr
     (log_dir / f"{name}.log").write_text(output)
-    return parse_bare_measurements(output)
+    return output
+
+
+def run_deck(name: str, text: str, control_dir: Path) -> dict[str, float]:
+    """Write ``text`` as ``<control_dir>/decks/<name>.spice``, run ngspice on
+    it, log the raw output to ``<control_dir>/logs/<name>.log``, and return
+    its bare-name measurements (``parse_bare_measurements`` above).
+
+    Shared home for the per-experiment ``run_deck(name, text)`` copies that
+    used to be redefined, byte-for-byte identical apart from where
+    ``CONTROL_DIR`` pointed, in
+    sim/por-brownout/control/run_dip_rootcause.py and
+    sim/por-brownout-slew/control/run_band_mechanism.py.
+    """
+    return parse_bare_measurements(run_deck_raw(name, text, control_dir))
 
 
 def find_crossings(
