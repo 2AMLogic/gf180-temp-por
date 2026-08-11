@@ -8,8 +8,9 @@
   "temperatures_c": [-40, 27, 125],
   "corners": ["full"],
   "options": ["reltol=1e-6", "abstol=1e-15", "vntol=1e-9"],
+  "params": {"dvdd_dt_v_per_s": 297.0},
   "analyses": [
-    "tran 5u 10m",
+    "tran 5u 12.4m",
     "meas tran vpor_rise find v(vddup) when v(por_rawup)=1.5 rise=1",
     "meas tran vpor_rise_last find v(vddup) when v(por_rawup)=1.5 rise=last",
     "meas tran vpor_rise_vrefhi find v(vddur) when v(por_rawur)=1.5 rise=1",
@@ -19,9 +20,9 @@
     "meas tran por_at_1v find v(por_rawup) when v(vddup)=1.0 rise=1",
     "meas tran por_at_2v find v(por_rawup) when v(vddup)=2.0 rise=1",
     "meas tran por_reassert find v(por_rawdn) when v(vdddn)=2.0 fall=1",
-    "meas tran por_top find v(por_rawup) at=9.9m",
-    "meas tran vdd_top find v(vddup) at=9.9m",
-    "meas tran por_bot find v(por_rawdn) at=9.9m",
+    "meas tran por_top find v(por_rawup) at=12.3m",
+    "meas tran vdd_top find v(vddup) at=12.3m",
+    "meas tran por_bot find v(por_rawdn) at=12.3m",
     "meas tran sns_top find v(xiq.sns) at=5m",
     "meas tran iq_run find i(vsupiq) at=5m",
     "meas tran iq_own find i(vsupown) at=5m",
@@ -59,7 +60,7 @@
     "v_hys_mv": {
       "min": 100.0,
       "max": 250.0,
-      "description": "spec/target-spec.md#por-hysteresis: V_hys = VPOR-uparrow - VPOR-downarrow, both edges measured at the same corner point. Floored at 100 mV, capped at 250 mV so V_hys does not drag VPOR-downarrow below the por-digital-min-vdd self-consistency floor. V_hys = VREF*RTOP*RHYS/(RBOT*(RBOT+RHYS)) -- a same-flavour resistor ratio, so the +/-25 % ppolyf_u_3k sheet corner and its -1545 ppm/C TC cancel rather than multiply through."
+      "description": "spec/target-spec.md#por-hysteresis: V_hys = VPOR-uparrow - VPOR-downarrow, both edges measured at the same corner point, ramped at a constant dvdd_dt_v_per_s across the whole supply axis (issue #206). Floored at 100 mV, capped at 250 mV so V_hys does not drag VPOR-downarrow below the por-digital-min-vdd self-consistency floor. V_hys = VREF*RTOP*RHYS/(RBOT*(RBOT+RHYS)) -- a same-flavour resistor ratio, so the +/-25 % ppolyf_u_3k sheet corner and its -1545 ppm/C TC cancel rather than multiply through."
     },
     "vref_gain_frac": {
       "min": 0.97,

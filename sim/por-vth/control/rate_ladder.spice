@@ -1,0 +1,50 @@
+* por-vth ramp-rate control -- stimulus fragment (issue #206).
+*
+* A parameterised copy of ../testbench/stimulus.spice's triangle wave. The
+* ONLY thing that differs from the parent deck is that the two quasi-static
+* ramp segments have their DURATION as an externally-supplied parameter
+* (`tramp`) instead of being pinned at a fixed 4 ms, so the same corner point
+* can be re-measured at several dVDD/dt values. Everything else -- the
+* 0 -> 2.0 V fast pre-ramp, the 2.0 V start of the slow segment, the settled
+* hold at vdd_val, the 2.0 V floor of the down-ramp, the pad loads, the DUT
+* instance line -- is character-for-character the parent's.
+*
+* The parent deck's rail (as it stood before this issue's fix) was
+*     PWL(0 0 1m 2.0 5m {vdd_val} 11m {vdd_val} 15m 2.0 17m 2.0)
+* i.e. tramp = 4 ms, hold = 6 ms, tail = 2 ms. Setting tramp=4m below
+* reproduces that historical deck exactly.
+*
+* WHY THE PARENT'S RAMP RATE WAS NOT ONE NUMBER
+*
+* Both slow segments traversed (vdd_val - 2.0 V) in a FIXED 4 ms, so the
+* rate was (vdd_val - 2.0)/4ms = 242.5 / 325 / 407.5 V/s at 2.97 / 3.30 /
+* 3.63 V. The supply axis of the parent grid was therefore also a ramp-rate
+* axis, at a 1.68x ratio end to end. This fragment lets the two be
+* separated: hold vdd_val and sweep tramp (rate ladder), or hold the rate
+* and sweep vdd_val (rate-matched supply arm) -- see run_rate_ladder.py.
+*
+* `run_rate_ladder.py` supplies `tramp` as a plain numeric `.param` (no
+* dVDD/dt derivation here -- the control script computes each rung's tramp
+* in Python and hands it over directly, exactly as
+* sim/por-brownout-slew/control/ and sim/por-glitch/control/ do for their
+* own swept variable).
+*
+* Netlist FRAGMENT: no .include / .lib / .temp / .control / .end -- the
+* control script owns those, exactly as sim/harness/runner.py does for the
+* parent deck. Parameters it supplies: vdd_val, tramp.
+
+.param t_pre=1m
+.param t_hold=6m
+.param t_tail=2m
+.param t1='t_pre+tramp'
+.param t2='t1+t_hold'
+.param t3='t2+tramp'
+.param t4='t3+t_tail'
+
+vsup vdd 0 PWL(0 0 {t_pre} 2.0 {t1} {vdd_val} {t2} {vdd_val} {t3} 2.0 {t4} 2.0)
+Cpp ptat 0 1p
+Cpc ctat 0 1p
+Rlp ptat 0 1T
+Rlc ctat 0 1T
+Crn resetn 0 5p
+xdut vdd 0 ptat ctat resetn temp_por_top

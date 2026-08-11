@@ -8,7 +8,8 @@
 * (or the schematics), never the generated fragment.
 *
 * Netlist FRAGMENT: no .include / .lib / .temp / .control / .end -- the
-* harness owns those. Parameters it supplies: vdd_val, vdd_nom, temp_c.
+* harness owns those. Parameters it supplies: vdd_val, vdd_nom, temp_c, plus
+* `dvdd_dt_v_per_s` from ../testbench/tb.json's `params` map (issue #206).
 *
 * WHAT THIS EXPERIMENT SUBSTANTIATES
 *
@@ -38,20 +39,67 @@
 * does not change that row's `conditional #15` status, only its full-assembly
 * evidence.
 *
-* RAMP RATE CHOICE: quasi-static ACROSS THE THRESHOLD BAND, fast elsewhere.
-* Both threshold edges live between 2.22 V and 2.73 V by ratification, so
-* that band -- and only that band -- has to be traversed slowly enough for
-* the bias core to be settled at every instant. The rail therefore covers
-* 0 -> 2.0 V in 1 ms (2000 V/s = 0.002 V/us, comfortably inside the ratified
-* por-ramp-rate envelope and 180x below the 0.36 V/us boundary at which
-* design/bias_core.md measures the starved loop starting to lag), and only
-* then slows to 243-408 V/s for the 2.0 V -> vdd_val -> 2.0 V traversal that
-* actually contains both crossings. 243-408 V/s is the same order as the
-* 121 V/s primary and 484 V/s 4x-replica branches sim/bias-core-startup/
-* runs and validates as rate-independent. This is deliberately NOT the fast
-* end of por-ramp-rate: a threshold extraction wants the bias core settled
-* at every instant, not fighting the starved-loop window that
-* sim/por-ramp-rate/ and sim/por-brownout/ exist to characterise.
+* RAMP RATE: dVDD/dt CONSTANT ACROSS THE SUPPLY AXIS (issue #206). A prior
+* revision of this deck traversed 2.0 V -> vdd_val -> 2.0 V in a FIXED 4 ms,
+* so its dVDD/dt was itself a function of vdd_val -- 242.5 / 325 / 407.5 V/s
+* at 2.97 / 3.30 / 3.63 V, a 1.68x spread -- and the supply axis of the
+* 81-point grid was simultaneously a ramp-rate axis. No measurement on that
+* grid could separate "this corner's threshold is different" from "this
+* corner's rail moved faster while crossing it": `sim/por-vth/records/
+* 20260811-073945-12473c3.md` reported `v_hys_mv` = 261.092 mV at
+* `ss_-40c_3.63v` (its fastest-ramped point, 407.5 V/s), of which
+* `sim/por-vth/control/results.md` (issue #187/#218, DR-021) shows only
+* ~143 mV is the divider's static hysteresis -- the rest is `bias_core`'s
+* VREF being displaced by the moving rail (~37 %) plus comparator/
+* output-chain delay (~8 %), not hysteresis. This deck's own
+* `sim/por-vth/control/rate_selection_results.md` (issue #206) reproduces
+* the same ~144 mV zero-rate limit independently, at the two specific rates
+* (242.5 / 121.25 V/s) this fix uses.
+*
+* The duration of each quasi-static segment is now DERIVED from a constant
+* `dvdd_dt_v_per_s` (a manifest parameter, ../testbench/tb.json's `params`):
+* `tramp = (vdd_val - 2.0) / dvdd_dt_v_per_s`. One variable per axis: the
+* supply axis sweeps vdd_val only, and every corner traverses its threshold
+* band at the SAME rate.
+*
+* RATE CHOICE: 242.5 V/s -- not a new number, the fastest-ramped record's OWN
+* slowest column (its 2.97 V corner already ran the 2.0 V -> vdd_val leg at
+* exactly this rate under the old fixed-4-ms scheme, so 2.97 V's reading is
+* bit-for-bit unchanged by this fix). `sim/por-vth/control/
+* rate_selection_results.md`'s rate ladder at the binding corner
+* (`ss` / -40 C / 3.63 V) measures the
+* residual displacement this choice still carries: `V_hys` = 215.660 mV
+* (extracted) / 206.850 mV (schematic) at 242.5 V/s, against a 144.190 /
+* 143.700 mV zero-rate limit and the historical 407.5 V/s record's
+* 261.090 / 248.740 mV. Rate-matched across the whole supply window at
+* 242.5 V/s, that same control shows `VPOR-uparrow` spreads 0.000 mV
+* (identical at all three supplies) and `V_hys` spreads 4.280 mV, against the
+* pre-fix grid's 20.64 mV / 49.710 mV -- both driven by ramp rate, not by
+* supply, per that control's arm C. 243-408 V/s (the old scheme's full
+* range) is also the same order as the 121 V/s primary and 484 V/s
+* 4x-replica branches `sim/bias-core-startup/` validates as rate-independent
+* in that context, but this deck's own control shows `bias_core`'s reference
+* IS displaced by ramp rate through this exact node under this deck's own
+* loading -- so that comparison bounds plausibility, it is not itself
+* evidence of rate-independence here, and this fix does not repeat the
+* claim.
+*
+* QUASI-STATICITY GUARD (issue #206, acceptance criterion 3): a claim of
+* "quasi-static" that is not itself checked is exactly the failure mode this
+* issue reports. After the primary rise/hold/fall cycle above, the deck
+* appends a SECOND rise/hold/fall cycle at HALF the rate (`dvdd_dt_v_per_s`/2,
+* i.e. 121.25 V/s at this deck's chosen rate) over the same 2.0 V ->
+* vdd_val -> 2.0 V span. `../testbench/tb.json`'s
+* `v_hys_rate_guard_delta_mv` check bounds how far the primary segment's
+* `V_hys` may differ from the guard segment's own `V_hys` -- the same control
+* ladder measures that gap at the binding corner (242.5 V/s vs. 121.25 V/s):
+* 34.830 mV (extracted) / 31.310 mV (schematic), so a future stimulus edit
+* that reintroduces a fixed-duration (rate-varies-with-supply) scheme, or
+* otherwise makes this deck non-quasi-static again, fails that check loudly
+* instead of silently re-confounding the supply axis. `rise_chatter_guard_ms`
+* / `fall_chatter_guard_ms` (below) additionally confirm the guard segment's
+* own crossings are found where expected, which doubles as the pre-existing
+* anti-chatter guard on the primary edges (see CROSSING COUNTING below).
 *
 * Starting the slow segment at 2.0 V is safe for the crossing detection:
 * sim/por-comparator-designer-check/ measures POR_RAW at a 2 V rail at
@@ -71,14 +119,35 @@
 * this netlist). Cheap evidence that is in scope beats expensive evidence
 * that duplicates three existing records.
 *
-* TIMESTEP: the manifest asks for `tran 10u 17m`. On the quasi-static
-* segments the rail moves 2.4-4.1 mV per 10 us step, and the quantity
-* extracted is not the step grid but the rail voltage at the instant
-* POR_RAW crosses 1.5 V -- a hysteretic comparator edge that resolves in
-* microseconds, so local truncation error refines the step by orders of
+* CROSSING COUNTING: POR_RAW=1.5V now crosses FOUR times per run (primary
+* rise, primary fall, guard rise, guard fall) instead of two, so the
+* pre-existing anti-chatter guard -- originally "does the first crossing on
+* an edge equal the LAST crossing anywhere in the trace" -- can no longer use
+* `rise=last`/`fall=last`: the guard segment's own (legitimate) second rise
+* and fall are always later in time than anything on the primary edges, so
+* `last` would always pick the guard's crossing and the check would stop
+* detecting a real double-bounce on the primary edge. Instead,
+* `../testbench/tb.json` measures the TIME of the ordinal-second crossing
+* (`rise=2`/`fall=2`, whatever produces it) and checks that it lands no
+* earlier than 16 ms -- comfortably after the primary segment's own crossing
+* window (which ends by 7.7216 ms at this deck's slowest corner, VDD=3.63 V)
+* and comfortably before every corner's guard segment can start (which
+* begins no earlier than 17 ms, at VDD=2.97 V, this deck's fastest-settling
+* corner). A primary-edge double-bounce would put the ordinal-second
+* crossing inside the primary ramp instead (well under 8 ms), failing that
+* floor; `vpor_rise_guard`/`vpor_fall_guard` reuse the same ordinal-2
+* crossings for their VALUE (`find v(vdd) ... rise=2`/`fall=2`), so a
+* passing `rise_chatter_guard_ms`/`fall_chatter_guard_ms` is also what makes
+* those two guard-segment readings trustworthy.
+*
+* TIMESTEP: the manifest asks for `tran 10u 55m`. On the quasi-static
+* segments the rail moves proportionally to `dvdd_dt_v_per_s` per step, and
+* the quantity extracted is not the step grid but the rail voltage at the
+* instant POR_RAW crosses 1.5 V -- a hysteretic comparator edge that resolves
+* in microseconds, so local truncation error refines the step by orders of
 * magnitude across the crossing itself and `meas ... when` interpolates
-* between the refined points. The ceiling therefore bounds solve cost on
-* the flat hold, not the resolution of either threshold.
+* between the refined points. The ceiling therefore bounds solve cost on the
+* flat holds, not the resolution of any of the four thresholds.
 *
 * PAD LOAD: 1 pF plus a 1 Tohm DC leak on each of PTAT and CTAT, matching
 * sim/temp-por-top-release/ and sim/temp-accuracy-vt/ exactly. The resistors
@@ -94,34 +163,80 @@
 * ~1.3 V pad is 1.3 pA, four to five orders of magnitude below the block's
 * own nanoamp-scale currents, so it references the node without loading it.
 *
-* ONE DUT, ONE TRIANGLE WAVE -- half the circuit size of the two-DUT idiom
-* sim/por-comparator-designer-check/ and sim/bias-core-startup/ use
-* elsewhere in this repo, chosen here because the full four-cell assembly is
-* far more expensive per point than a single sub-circuit: a single DUT
-* cold-starts, ramps up (VPOR-uparrow), settles, then ramps back down
-* (VPOR-downarrow) at the SAME corner point, on the SAME instance, so
+* ONE DUT, ONE (DOUBLE) TRIANGLE WAVE -- half the circuit size of the
+* two-DUT idiom sim/por-comparator-designer-check/ and sim/bias-core-startup/
+* use elsewhere in this repo, chosen here because the full four-cell
+* assembly is far more expensive per point than a single sub-circuit: a
+* single DUT cold-starts, ramps up (VPOR-uparrow), settles, then ramps back
+* down (VPOR-downarrow) at the SAME corner point, on the SAME instance, then
+* repeats the up/down cycle once more at half the rate for the guard, so
 * "same corner point" is exact by construction, not merely by using
-* identical corner libs across two instances.
+* identical corner libs across separate instances or separate runs.
 *
-*   0    ->  1 ms   cold start: VDD ramps 0 -> 2.0 V at 2000 V/s. Below every
-*                    corner's assert threshold throughout, POR_RAW never
-*                    leaves its hard low (see above).
-*    1   ->  5 ms   VDD ramps 2.0 V -> vdd_val quasi-statically --
-*                    VPOR-uparrow, measured off v(xdut.por_raw).
-*    5   -> 11 ms   held at vdd_val -- rail settled, reference settled.
-*                    POR_RAW is the comparator's own decision and has already
-*                    resolved on the up-ramp; this hold exists so both VREF
-*                    samples below are taken on a settled reference and so
-*                    the down-ramp starts from a genuinely static state.
-*   11   -> 15 ms   VDD ramps vdd_val -> 2.0 V quasi-statically --
-*                    VPOR-downarrow, measured off the SAME v(xdut.por_raw),
-*                    at the SAME corner point as the rise above.
-*   15   -> 17 ms   held at 2.0 V -- tail observation margin, below every
-*                    corner's assert threshold.
+*   PRIMARY SEGMENT (dvdd_dt_v_per_s, the production rate):
+*     0     -> t_a    cold start: VDD ramps 0 -> 2.0 V at 2000 V/s. Below
+*                      every corner's assert threshold throughout, POR_RAW
+*                      never leaves its hard low (see above).
+*     t_a   -> t_b    VDD ramps 2.0 V -> vdd_val quasi-statically at
+*                      dvdd_dt_v_per_s -- VPOR-uparrow, measured off
+*                      v(xdut.por_raw).
+*     t_b   -> t_c    held at vdd_val for 6 ms -- rail settled, reference
+*                      settled. POR_RAW is the comparator's own decision and
+*                      has already resolved on the up-ramp; this hold exists
+*                      so both VREF samples below are taken on a settled
+*                      reference and so the down-ramp starts from a
+*                      genuinely static state.
+*     t_c   -> t_d    VDD ramps vdd_val -> 2.0 V quasi-statically at the same
+*                      rate -- VPOR-downarrow, measured off the SAME
+*                      v(xdut.por_raw), at the SAME corner point as the rise
+*                      above.
+*     t_d   -> t_e    held at 2.0 V for 2 ms -- tail observation margin,
+*                      below every corner's assert threshold.
+*   GUARD SEGMENT (dvdd_dt_v_per_s / 2, half the production rate):
+*     t_e   -> t_f    VDD ramps 2.0 V -> vdd_val quasi-statically at HALF the
+*                      production rate -- VPOR-uparrow (guard).
+*     t_f   -> t_g    held at vdd_val for 2 ms.
+*     t_g   -> t_h    VDD ramps vdd_val -> 2.0 V quasi-statically at the same
+*                      half rate -- VPOR-downarrow (guard).
+*     t_h   -> t_i    held at 2.0 V for 2 ms -- final tail margin.
 *
-* V_hys = VPOR-uparrow - VPOR-downarrow follows directly from the two edges.
+* V_hys = VPOR-uparrow - VPOR-downarrow follows directly from the two
+* primary edges; the guard segment's own V_hys is the same subtraction on
+* the guard edges, and `v_hys_rate_guard_delta_mv` differences the two.
 
-vsup vdd 0 PWL(0 0 1m 2.0 5m {vdd_val} 11m {vdd_val} 15m 2.0 17m 2.0)
+.param t_pre=1m
+.param tramp='(vdd_val-2.0)/dvdd_dt_v_per_s'
+.param t_hold=6m
+.param t_tail=2m
+.param t_hold_guard=2m
+.param tramp_guard='2*tramp'
+
+.param t_a='t_pre'
+.param t_b='t_a+tramp'
+.param t_c='t_b+t_hold'
+.param t_d='t_c+tramp'
+.param t_e='t_d+t_tail'
+.param t_f='t_e+tramp_guard'
+.param t_g='t_f+t_hold_guard'
+.param t_h='t_g+tramp_guard'
+.param t_i='t_h+t_tail'
+
+* vref_settle_early/late, por_raw_top and vdd_top (../testbench/tb.json's
+* `analyses`) sample the primary hold at FIXED absolute times (8.0 ms /
+* 10.9 ms) rather than at an offset from t_b/t_c: those `meas` lines are
+* interactive commands inside the harness's `.control` block, which ngspice's
+* numparam substitution does not reach (it only rewrites netlist-scope text,
+* so a `{t_b+0.5m}` written there does not resolve), and a netlist-scope
+* `.meas` does not work either -- ngspice-46 re-evaluates every netlist-scope
+* `.measure` a second time after `.control` exits, once the active plot is
+* gone, which turns each of those four into a hard "vector ... not available"
+* error rather than a value. 8.0-10.9 ms is the intersection of the primary
+* hold window [t_b, t_c] across all three ratified supplies at this deck's
+* chosen dvdd_dt_v_per_s (2.97 V: [5.0, 11.0] ms; 3.30 V: [6.36, 12.36] ms;
+* 3.63 V: [7.72, 13.72] ms -- the binding constraint at both ends), so both
+* samples land inside every corner's hold regardless of vdd_val.
+vsup vdd 0 PWL(0 0 {t_a} 2.0 {t_b} {vdd_val} {t_c} {vdd_val} {t_d} 2.0 {t_e} 2.0
++ {t_f} {vdd_val} {t_g} {vdd_val} {t_h} 2.0 {t_i} 2.0)
 Cpp ptat 0 1p
 Cpc ctat 0 1p
 Rlp ptat 0 1T
