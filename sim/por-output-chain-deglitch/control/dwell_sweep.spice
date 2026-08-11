@@ -1,0 +1,83 @@
+* por-output-chain-deglitch qualifying-dip DWELL sweep -- stimulus half
+* (issue #251, DR-027 section 5).
+*
+* The other half is a DUT netlist (schematic or post-layout) written into
+* decks/ and .include-d by run_dwell_sweep.py. Edit THIS file, never a deck.
+*
+* Netlist FRAGMENT: no .include / .lib / .temp / .control / .end -- the sweep
+* script owns those. Parameters it supplies, all in SECONDS (ngspice's
+* `{expr}unit` PWL syntax does not tolerate a `{param}u` suffix, so the
+* script passes absolute times, not widths):
+*   vdd_val, ibias_a, t_dip_hi, t_dip_lo, t_dip_end, t_dip_up, stop_s
+*
+* WHAT THIS SWEEP IS FOR
+*
+* ../testbench/stimulus.spice applies a QUALIFYING brownout dip on POR_RAW of
+* exactly T_dip,min and asserts that the deglitch filter output PGDG reaches
+* its 1.0 V trip inside that window. At the real worst-case delivered bias
+* (91.0251 nA, DR-024) it does not: at most of the 81 PVT points NDG is still
+* charging toward the inverter threshold when the 10 us window closes, so
+* PGDG droops and recovers instead of tripping, and a crossing-time .meas
+* errors out of its search interval rather than reporting a number.
+*
+* DR-027 (ratified 2026-08-11, #236) re-costs T_dip,min to the dwell the cell
+* actually achieves at that bias, and its section 5 requires the exact value
+* to be MEASURED rather than extrapolated from the 1/IBIAS scaling argument.
+* This deck measures it: one long POR_RAW dip, at the same 91.0251 nA the
+* testbench's stress DUT uses, with the PGDG crossing time read directly. The
+* crossing time IS the minimum qualifying-dip duration at that point -- a dip
+* shorter than it closes before the filter trips, a dip longer than it does
+* not change the crossing at all (nothing in the filter depends on when the
+* dip ENDS, only on how long POR_RAW has been low). The script confirms that
+* equivalence explicitly by re-running a ladder of FINITE dip widths and
+* checking the pass/fail flip lands where the crossing time says it must.
+*
+* TIMELINE
+*
+*   0     -> 100 us      VDD ramps 0 -> vdd_val. POR_RAW low.
+*   300.1 us             POR_RAW high. The filter drains NDG back to VSS and
+*                        PGDG settles at the rail. At 91 nA this takes far
+*                        longer than at the DR-005 nominal bias, which is why
+*                        the dip does not start until t_dip_hi (the script
+*                        allows >= 1.5 ms of settling and measures the
+*                        pre-dip PGDG so a run that started from a
+*                        not-yet-settled filter would be visible rather than
+*                        silently biasing the answer).
+*   t_dip_lo             POR_RAW starts falling (100 ns edge, exactly as the
+*   -> t_dip_hi          testbench's dip is shaped).
+*   t_dip_hi             POR_RAW low. NDG charges toward the trip point.
+*   -> t_dip_end
+*   t_dip_up             POR_RAW back high.
+*   stop_s               end.
+*
+* WHY THE STRESS BIAS IS A FIXED 91.0251 nA
+*
+* Same reason ../testbench/stimulus.spice uses it: it is the worst-case
+* current sim/por-output-chain-ibias-sharing/ measures the assembly actually
+* delivering to this cell's IBIAS pin (post-layout record
+* 20260811-142901-d43c0db, RESETn RELEASED, ss/-40C/2.97V), applied uniformly
+* across the whole grid as a stress rather than matched per corner. The
+* script also runs the DR-005 nominal 500 nA as a reference arm, so the
+* measured 1/IBIAS scaling can be read off the same table instead of assumed.
+
+vsup vdd 0 PWL(0 0 100u {vdd_val} {stop_s} {vdd_val})
+
+vpr por_raw 0 PWL(
++ 0             0
++ 300u          0
++ 300.1u        {vdd_val}
++ {t_dip_lo}    {vdd_val}
++ {t_dip_hi}    0
++ {t_dip_end}   0
++ {t_dip_up}    {vdd_val}
++ {stop_s}      {vdd_val})
+
+Bib vdd nib i='ibias_a*min(1, max(0, (v(vdd)-1.5)/0.5))'
+vib nib ibias dc 0
+
+vd vdd vddd dc 0
+
+Cl resetn 0 5p
+Rl resetn 0 1T
+
+xdut vddd 0 ibias por_raw resetn por_output_chain

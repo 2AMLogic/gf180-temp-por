@@ -18,11 +18,38 @@
 *
 * spec/target-spec.md#por-brownout: a dip that (a) takes VDD below
 * VPOR-downarrow,min = 2.22 V and (b) stays below VPOR-downarrow for
-* >= T_dip,min = 10 us must re-assert RESETn and regenerate the FULL
+* >= T_dip,min = 30 us must re-assert RESETn and regenerate the FULL
 * [por-reset-pulse] (>=1 ms), on the full four-cell assembly with bias_core's
 * real (starved, corner-dependent) recovery dynamics in the loop -- not the
 * idealised-bias por_output_chain-only deglitch check
 * sim/por-output-chain-deglitch/ already ran.
+*
+* T_dip,min WAS 10 us UNTIL DR-027 (#251). It is now 30 us: the deglitch dwell
+* the cell actually achieves at the current the assembly really delivers to it
+* (91.0251 nA, DR-024), measured across the full grid at both netlist levels
+* by sim/por-output-chain-deglitch/control/run_dwell_sweep.py (slowest crossing
+* 23.110 us, +29.8 % margin). This deck's dwell is UNCHANGED at 50 us, which is
+* 1.67x the new value and still unambiguously qualifying under clause (b) --
+* and the quantity clause (b) is actually written against here is the ~51 us
+* the RAIL spends below VPOR-downarrow,min, not the programmed dwell. What did
+* change is where resetn_floor_in_dip_mv is sampled: at 20.03 ms it sat 29 us
+* into the dip, i.e. BEFORE a qualifying dwell had even elapsed under the new
+* T_dip,min, so it now samples at 20.045 ms (44 us in). See tb.json.
+*
+* WHAT THIS DECK STILL DOES NOT DEMONSTRATE, AND WHY
+*
+* Clause (c) of the same row -- dVDD/dt|fall,max = 2.30 mV/us (DR-011, re-cost
+* post-layout by DR-019) -- is violated by this deck by ~1000x: its dip edge is
+* 1 us, i.e. 2300 mV/us. That is deliberate and predates DR-027: the 1 us edge
+* is the edge the row's own root-cause investigation (#55) was run at, and
+* sim/por-brownout/control/results.md part E shows that at THIS edge no dwell
+* re-asserts RESETn inside the dip -- 5 ms (100x this deck's dwell, 167x
+* T_dip,min) still does not. So this deck's FAIL is a clause-(c) failure, not a
+* clause-(b) one, and re-costing T_dip,min neither fixes it nor is meant to.
+* The assembly-level evidence that a dip meeting ALL THREE clauses re-asserts
+* and regenerates the pulse is sim/por-brownout-slew/'s 2.30 mV/us rung
+* (81/81 at both netlist levels), whose own dip holds the rail below
+* VPOR-downarrow,min for ~1.1 ms -- 37x T_dip,min(new).
 *
 * It also carries the full-assembly confirmation of
 * spec/target-spec.md#por-reset-pulse that #14 owes: the >=1 ms minimum was
@@ -81,12 +108,14 @@
 *                    16.95 ms at the slowest corner (ss/-40C/3.63V) off this
 *                    same 1 ms ramp, so 20 ms leaves 3 ms of margin.
 *   20   -> 20.001 ms   VDD dips from vdd_val to 1.0 V over 1 us.
-*   20.001 -> 20.051 ms  held at 1.0 V for 50 us -- 5x T_dip,min = 10 us, and
-*                    well above the 1.86-8.88 us deglitch dwell
-*                    sim/por-output-chain-deglitch/ measured at the cell
-*                    level (idealised bias), so this is unambiguously a
-*                    QUALIFYING dip, not a glitch (that is sim/por-glitch/'s
-*                    job).
+*   20.001 -> 20.051 ms  held at 1.0 V for 50 us -- 1.67x T_dip,min = 30 us
+*                    (DR-027, #251), and above the 6.14-23.11 us deglitch
+*                    dwell sim/por-output-chain-deglitch/control/ measures at
+*                    the cell level at the REAL delivered bias across both
+*                    netlists, so this is unambiguously a QUALIFYING dip under
+*                    clauses (a) and (b), not a glitch (that is
+*                    sim/por-glitch/'s job). Clause (c) is a different matter
+*                    -- see "WHAT THIS DECK STILL DOES NOT DEMONSTRATE" above.
 *   20.051 -> 20.052 ms  VDD recovers from 1.0 V to vdd_val over 1 us.
 *   20.052 -> 55 ms  held at vdd_val -- RESETn must have re-asserted during
 *                    the dip and must now regenerate a full
