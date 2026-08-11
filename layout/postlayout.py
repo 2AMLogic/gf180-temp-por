@@ -174,19 +174,17 @@ def unescape(node: str) -> str:
 
 
 def logical_lines(text: str) -> list[str]:
-    """Card lines with ``+`` continuations folded in, comments dropped."""
-    lines: list[str] = []
-    for raw in text.splitlines():
-        line = raw.rstrip()
-        if not line or line.startswith("*"):
-            continue
-        if line.startswith("+"):
-            if not lines:
-                raise PostlayoutError("continuation line with nothing to continue")
-            lines[-1] += " " + line[1:].strip()
-        else:
-            lines.append(line)
-    return lines
+    """Card lines with ``+`` continuations folded in, comments dropped.
+
+    Thin adapter over ``layout/lvs_reference.py``'s ``logical_lines`` -- the
+    one shared parser for this SPICE primitive (see that module's docstring).
+    Only the exception type is translated, so callers keep seeing this
+    module's own ``PostlayoutError``.
+    """
+    try:
+        return ref.logical_lines(text)
+    except ref.ReferenceError as exc:
+        raise PostlayoutError("continuation line with nothing to continue") from exc
 
 
 def parse_extracted(text: str) -> tuple[str, list[str], list[Card]]:
