@@ -12,7 +12,7 @@ one (DUT netlist x ramp duration x supply) point per run, and writes:
     results.md          the tables below, generated from those logs
 
 This is the control experiment behind
-``spec/decision-records/DR-020-por-hysteresis-quasi-static-scope.md`` and
+``spec/decision-records/DR-021-por-hysteresis-quasi-static-scope.md`` and
 ``design/por_comparator.md``'s "The full-assembly V_hys is a ramp-rate
 measurement" section. It diagnoses record ``20260811-073945-12473c3``
 (80/81 PASS; ``v_hys_mv`` = 261.092 mV at ``ss_-40c_3.63v`` against a 250 mV
@@ -340,7 +340,7 @@ def render(results: list[dict], pdk) -> str:
         " vs. `../records/20260801-233802-32fbaa0.md`"
         f" ({SCHEMATIC_PARENT_V_HYS_MV:.3f} mV, same corner)",
         "- Conclusion drawn from these tables:"
-        " `spec/decision-records/DR-020-por-hysteresis-quasi-static-scope.md`",
+        " `spec/decision-records/DR-021-por-hysteresis-quasi-static-scope.md`",
         "",
         "## What the columns are",
         "",

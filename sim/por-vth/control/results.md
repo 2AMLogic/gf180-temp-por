@@ -10,7 +10,7 @@ transcribed by hand.
 - Solver options (from `../testbench/tb.json`): `reltol=1e-5`, `abstol=1e-15`, `vntol=1e-9`
 - DUT netlists: `layout/postlayout/temp_por_top.spice` (extracted), `design/netlist/temp_por_top.spice` (schematic)
 - Diagnoses: `../records/20260811-073945-12473c3.md` (`v_hys_mv` = 261.092 mV at `ss_-40c_3.63v`, against a 250 mV ceiling) vs. `../records/20260801-233802-32fbaa0.md` (248.740 mV, same corner)
-- Conclusion drawn from these tables: `spec/decision-records/DR-020-por-hysteresis-quasi-static-scope.md`
+- Conclusion drawn from these tables: `spec/decision-records/DR-021-por-hysteresis-quasi-static-scope.md`
 
 ## What the columns are
 

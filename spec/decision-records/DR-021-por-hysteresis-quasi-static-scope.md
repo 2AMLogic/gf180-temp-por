@@ -1,4 +1,4 @@
-# DR-020: `por-hysteresis` is a quasi-static row — 45 % of the full-assembly deck's 261 mV reading is ramp-rate-induced (37 % `VREF` displacement + 8 % comparator delay), not hysteresis
+# DR-021: `por-hysteresis` is a quasi-static row — 45 % of the full-assembly deck's 261 mV reading is ramp-rate-induced (37 % `VREF` displacement + 8 % comparator delay), not hysteresis
 
 - **Status**: proposed
 - **Date**: 2026-08-11
