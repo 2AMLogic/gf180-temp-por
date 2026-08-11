@@ -263,6 +263,11 @@ def write_results(pdk, res: dict[str, dict[str, float]]) -> None:
     lines.append("## The state behind the verdict")
     lines.append("")
     lines.append(
+        "`V_sg` (= VDD − `PG`) is the overdrive on `bias_core`'s PMOS mirror "
+        "bank — the state variable [DR-011]"
+        "(../../../spec/decision-records/DR-011-brownout-falling-slew-limit.md) "
+        "measures its starved-loop collapse on, where a NEGATIVE value means "
+        "the bank is driven fully off and every bias below it is dead. "
         "`ndg_r_max` is how far `por_output_chain`'s deglitch ramp actually "
         "got inside the window (≈0.5–0.7 is the level the PASS rows cross; "
         "0 means it never moved); `rst_r_min` is the grid's own checked "
@@ -270,10 +275,11 @@ def write_results(pdk, res: dict[str, dict[str, float]]) -> None:
     )
     lines.append("")
     lines.append(
-        "| slew (mV/µs) | supply | arm | peak `NDG`/VDD | min `POR_RAW`/VDD | "
-        "min `BIAS_OK`/VDD | min `RESETn`/VDD | grid verdict |"
+        "| slew (mV/µs) | supply | arm | min `V_sg` (mV) | peak `NDG`/VDD | "
+        "min `POR_RAW`/VDD | min `BIAS_OK`/VDD | min `RESETn`/VDD | "
+        "grid verdict |"
     )
-    lines.append("|---:|---:|---|---:|---:|---:|---:|---|")
+    lines.append("|---:|---:|---|---:|---:|---:|---:|---:|---|")
     for slew in SLEWS_MVUS:
         for vdd in band.SUPPLIES_V:
             for arm in ARMS:
@@ -285,8 +291,11 @@ def write_results(pdk, res: dict[str, dict[str, float]]) -> None:
                     v = g(name, key)
                     return "—" if v is None else f"{v:.{digits}f}"
 
+                vsg = g(name, "vsg_min")
+                vsg_s = "—" if vsg is None else f"{vsg * 1e3:+.1f}"
                 lines.append(
-                    f"| {slew:g} | {vdd:.2f} V | {arm} | {q('ndg_r_max')} | "
+                    f"| {slew:g} | {vdd:.2f} V | {arm} | {vsg_s} | "
+                    f"{q('ndg_r_max')} | "
                     f"{q('praw_r_min', 4)} | {q('bok_r_min', 4)} | "
                     f"{q('rst_r_min', 4)} | {verdict} |"
                 )

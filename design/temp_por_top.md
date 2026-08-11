@@ -227,13 +227,87 @@ record to be routed to an owning issue rather than absorbed. Two were:
 
 | Finding | Where | Routed to |
 | --- | --- | --- |
-| Falling-slew brownout response degrades: the 3.46 mV/µs rung goes 1/81 → 6/81 failures (all `SS`/`res_ss` at −40 °C), and `por-brownout`'s `ss_-40c_2.97v` stops re-asserting `RESETn` at all inside the 55 ms run (schematic: 51.58 µs) | `por-brownout-slew`, `por-brownout` | [#188](https://github.com/2AMLogic/gf180-temp-por/issues/188) |
+| Falling-slew brownout response degrades: the 3.46 mV/µs rung goes 1/81 → 6/81 failures (all `SS`/`res_ss` at −40 °C), and `por-brownout`'s `ss_-40c_2.97v` stops re-asserting `RESETn` at all inside the 55 ms run (schematic: 51.58 µs) | `por-brownout-slew`, `por-brownout` | [#188](https://github.com/2AMLogic/gf180-temp-por/issues/188) — **closed; see below** |
 | `spec/target-spec.md#por-iq` missed at 54/81 corners, unchanged post-layout — previously untracked by any issue | `temp-por-top-release` | [#189](https://github.com/2AMLogic/gf180-temp-por/issues/189) |
 
 Everything else that fails in these records failed identically before the
 re-run — `por-glitch` at 0/81 (DR-014 / DR-017's known 300 ns glitch
 response, byte-for-byte the same failure set) and `por-brownout` at 0/81
 (DR-011's falling-slew root cause) — and is not re-routed here.
+
+
+### How #188 resolved: one bound moved, one delta re-attributed
+
+Both rows in the table above were routed to #188; it ran the measurements
+neither #87 nor this document could, and they came back with different
+answers.
+
+**The falling-slew bound really did move, and is re-cost.** #87 re-ran the
+one rung `sim/por-brownout-slew/testbench/` happened to carry (3.46 mV/µs);
+#188 ran the rung that matters — the ratified bound itself — and then walked
+the ladder down. Against this same extracted netlist:
+
+| Rung | Schematic | Extracted |
+| ---: | ---: | ---: |
+| 2.30 mV/µs ([`20260811-111437-88888f3`](../sim/por-brownout-slew/records/20260811-111437-88888f3.md)) | 81/81 | **81/81** |
+| 2.40 mV/µs ([`20260811-111307-0c68175`](../sim/por-brownout-slew/records/20260811-111307-0c68175.md)) | — | **81/81** |
+| 2.45 mV/µs ([`20260811-111125-794bf81`](../sim/por-brownout-slew/records/20260811-111125-794bf81.md)) | — | **81/81** |
+| 2.50 mV/µs ([`20260811-110956-0aae891`](../sim/por-brownout-slew/records/20260811-110956-0aae891.md)) | — | 80/81 |
+| **3.40 mV/µs — the ratified bound** ([`20260811-110825-73ef5e3`](../sim/por-brownout-slew/records/20260811-110825-73ef5e3.md)) | 81/81 | **76/81** |
+| 3.46 mV/µs ([`20260811-063855-6d69544`](../sim/por-brownout-slew/records/20260811-063855-6d69544.md), #87) | 80/81 | 75/81 |
+
+The transition edge that sat between 3.44 and 3.46 mV/µs on the schematic
+export sits between **2.45 and 2.50 mV/µs** on the extracted one, and
+`spec/target-spec.md#por-brownout` clause (c) is re-cost from 3.40 to
+**2.30 mV/µs** by
+[DR-019](../spec/decision-records/DR-019-brownout-falling-slew-postlayout-recost.md).
+
+This is the same ~2 % loading story the section above tells, seen where the
+circuit has no margin to absorb it. The mechanism is `bias_core.md`'s
+starved-loop window, measured on its own state variable at the binding
+`ss`/−40 °C family
+([`sim/por-brownout-slew/control/postlayout_margin_results.md`](../sim/por-brownout-slew/control/postlayout_margin_results.md)):
+at 3.40 mV/µs the extraction takes min `V_sg` from −116.1 mV to **−297.5 mV**
+(3.63 V) and `por_output_chain`'s deglitch ramp never starts at all (peak
+`NDG`/VDD 0.706 → **0.000**), so `POR_RAW` rides the rail for the whole dip —
+DR-011's *no decision* mode rather than a late one. Below the bound both arms
+pass and the extraction costs a roughly constant −140 to −180 µs of dip-window
+margin, with `POR_RAW` asserting ~68 µs → ~145 µs after the dip starts. Which
+nets' parasitics carry that is **not** established: `PG`'s own extracted
+`R_6`/`C_6` pair is 5.08 kΩ and 68.1 fF against DR-011's ≈1.25 pF estimate for
+that node, ~5 %, so a single-net explanation does not close a 28 % boundary
+shift and a per-net attribution is left as follow-up work.
+
+**The `por-brownout` delta was not the extraction's at all.** That row's two
+moved numbers were read against `20260801-233807-32fbaa0`, whose own frozen
+snapshot differs from today's schematic netlist by exactly one device —
+`XMRLK`, the release latch [DR-016](../spec/decision-records/DR-016-por-ramp-rate-chatter-release-latch.md)
+added on 2026-08-02, after that record and before this layout. So the
+comparison spanned two changes. Re-running the schematic grid on today's
+netlist ([`20260811-112115-9807e3f`](../sim/por-brownout/records/20260811-112115-9807e3f.md))
+gives the like-for-like baseline:
+
+| | `t_reassert_us` | corners that never re-assert |
+| --- | ---: | ---: |
+| schematic, pre-`XMRLK` (`20260801-233807-32fbaa0`) | 51.26–51.58 µs | 0 / 81 |
+| schematic, today (`20260811-112115-9807e3f`) | 52.01–66.24 µs | **8 / 81** |
+| extracted (`20260811-065930-35a87a6`) | 51.67–64.25 µs | 1 / 81 |
+
+Against that baseline the extraction **improves** both numbers — it recovers
+the re-assert at 7 of the 8 lost corners and takes the worst case from
+66.24 µs back to 51.93 µs. A three-arm control
+([`sim/por-brownout/control/recovery_results.md`](../sim/por-brownout/control/recovery_results.md))
+runs the frozen pre-`XMRLK` deck beside both of today's and makes the
+attribution causal rather than chronological: `POR_RAW` still asserts on the
+recovery edge in every arm, so what a lost re-assert loses is *propagation* —
+which is what a one-way release latch is for — not the decision. The
+`por-brownout` row of the verdict table above should therefore be read as
+"0/81 → 0/81, with an incidental recovery-edge number that belongs to
+`XMRLK`", not as a post-layout regression. All of it sits ~580× outside this
+row's guaranteed falling-slew envelope either way (the deck's edge is
+~1970 mV/µs); what needs narrowing is DR-011's "the block recovers; it does
+not latch up or stay released", which is follow-up work, not a claim this
+document can repair.
 
 
 ### `sim/por-iq/` is not re-derived here — update: #83 has since landed, and the row is re-costed
@@ -353,7 +427,7 @@ being resolved or absorbed inside the re-run issues themselves:
 | Finding | Source | Issue | Status |
 | --- | --- | --- | --- |
 | `por-iq` missed at 54/81 corners — confirmed design-magnitude, not layout, on both netlist levels | #87 (this document) | [#189](https://github.com/2AMLogic/gf180-temp-por/issues/189) | **Closed** — resolved by [DR-018](../spec/decision-records/DR-018-por-iq-recost.md), re-costing the ceiling to <3.0 µA against measured apportionment; 81/81 PASS post-layout |
-| Falling-slew brownout response degrades (3.46 mV/µs rung 1→6 failures; one corner stops re-asserting `RESETn`) | #87 | [#188](https://github.com/2AMLogic/gf180-temp-por/issues/188) | Open |
+| Falling-slew brownout response degrades (3.46 mV/µs rung 1→6 failures; one corner stops re-asserting `RESETn`) | #87 | [#188](https://github.com/2AMLogic/gf180-temp-por/issues/188) | **Closed** — resolved by [DR-019](../spec/decision-records/DR-019-brownout-falling-slew-postlayout-recost.md), re-costing `por-brownout` clause (c) to 2.30 mV/µs; 81/81 PASS on both netlist levels |
 | `bias-core-designer-check` / `bias-core-startup` regress: post-brownout `VREF` reproducibility and `BIAS_OK` droop/dip push past their bounds at several cold/fast-process corners | #84 (`bias_core.md`) | [#185](https://github.com/2AMLogic/gf180-temp-por/issues/185) | Open |
 | `por-hysteresis` fails the 250 mV ceiling at the single worst full-assembly corner (`ss_-40c_3.63v`, 261.09 mV) | #85 (`por_comparator.md`) | [#187](https://github.com/2AMLogic/gf180-temp-por/issues/187) | Open |
 | Deglitch dwell's qualifying-dip floor has visibly less headroom post-layout than the schematic ever measured (root-caused, no ratified check fails) | #86 (`por_output_chain.md`, #182) | [#199](https://github.com/2AMLogic/gf180-temp-por/issues/199), [#200](https://github.com/2AMLogic/gf180-temp-por/issues/200) | Open |
