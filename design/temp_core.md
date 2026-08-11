@@ -655,10 +655,10 @@ Where it goes at tt/27 °C/3.3 V:
 ```bash
 python3 design/netlist.py --check        # netlists match the schematics
 python3 sim/build_tb.py --check          # testbench fragments match the netlists
-python3 sim/run_corners.py temp-core-designer-check -j 8
-python3 sim/run_corners.py temp-core-startup -j 8
-python3 sim/run_corners.py temp-por-top-release -j 8   # this cell in the assembly
-python3 sim/run_corners.py temp-accuracy-vt -j 8       # #13's published measured evidence
+python3 sim/run_corners.py temp-core-designer-check
+python3 sim/run_corners.py temp-core-startup
+python3 sim/run_corners.py temp-por-top-release   # this cell in the assembly
+python3 sim/run_corners.py temp-accuracy-vt       # #13's published measured evidence
 python3 sim/temp-accuracy-vt/analyze_derived.py <record-id> --write   # temp-accuracy-trimmed
 ```
 

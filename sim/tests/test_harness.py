@@ -16,7 +16,7 @@ from pathlib import Path
 SIM_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(SIM_DIR))
 
-from harness import corners, report, runner, testbench  # noqa: E402
+from harness import cliutil, corners, report, runner, testbench  # noqa: E402
 from testutil import fake_pdk  # noqa: E402
 
 
@@ -770,6 +770,43 @@ class ExtractedProvenanceRenderingTests(unittest.TestCase):
         self.assertIn("sim/por-output-chain-pulse/testbench-postlayout/y.spice", text)
         self.assertIn("sim/por-output-chain-pulse/testbench-postlayout/tb.json", text)
         self.assertNotIn("testbench/y.spice", text)
+
+
+class DefaultJobsTests(unittest.TestCase):
+    """Issue #184: the -j/--jobs default must leave headroom, not claim every
+    core -- and must never regress back to a fixed 8 or to unbounded
+    parallelism on a high-core-count host."""
+
+    def test_halves_the_host_core_count(self):
+        self.assertEqual(cliutil.default_jobs(cpu_count=8), 4)
+        self.assertEqual(cliutil.default_jobs(cpu_count=16), 8)
+        self.assertEqual(cliutil.default_jobs(cpu_count=64), 32)
+
+    def test_floors_odd_core_counts(self):
+        self.assertEqual(cliutil.default_jobs(cpu_count=9), 4)
+
+    def test_never_drops_below_one(self):
+        self.assertEqual(cliutil.default_jobs(cpu_count=1), 1)
+        self.assertEqual(cliutil.default_jobs(cpu_count=0), 1)
+
+    def test_does_not_regress_to_the_old_fixed_eight_on_a_small_host(self):
+        # The pre-#184 default was min(8, cpu_count) -- on a 2-core host that
+        # resolved to 2, the same as the new default; the regression this
+        # guards is a *larger* host still capping at a fixed value instead of
+        # scaling with available cores.
+        self.assertEqual(cliutil.default_jobs(cpu_count=2), 1)
+
+    def test_scales_with_high_core_counts_instead_of_capping_at_eight(self):
+        # The old `min(8, os.cpu_count() or 2)` default silently capped at 8
+        # regardless of host size. The new default must not reintroduce that
+        # cap -- it should keep scaling (with headroom) on a larger host.
+        self.assertGreater(cliutil.default_jobs(cpu_count=32), 8)
+
+    def test_falls_back_to_os_cpu_count_when_not_given(self):
+        # cpu_count=None resolves via os.cpu_count() (with the pre-existing
+        # `or 2` fallback for a host where that returns None) rather than
+        # raising or silently defaulting to a fixed number.
+        self.assertGreaterEqual(cliutil.default_jobs(), 1)
 
 
 if __name__ == "__main__":

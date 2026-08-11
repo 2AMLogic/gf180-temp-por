@@ -1121,10 +1121,10 @@ claim, not a checked one (klayout-tools#281).
 bash layout/run_checks.sh bias_core          # DRC/LVS on the drawn MOS portion
 python3 design/netlist.py --check            # schematic <-> committed netlist
 python3 sim/build_tb.py --check              # netlist <-> testbench fragment
-python3 sim/run_corners.py bias-core-designer-check -j 8 --timeout 900
-python3 sim/run_corners.py bias-core-ibias-sharing  -j 8 --timeout 900
-python3 sim/run_corners.py temp-por-top-release     -j 8 --timeout 1800
-python3 sim/run_corners.py bias-core-startup        -j 8 --timeout 900
+python3 sim/run_corners.py bias-core-designer-check --timeout 900
+python3 sim/run_corners.py bias-core-ibias-sharing  --timeout 900
+python3 sim/run_corners.py temp-por-top-release     --timeout 1800
+python3 sim/run_corners.py bias-core-startup        --timeout 900
 python3 sim/bias-core-startup/control/run_gmin_control.py
 ```
 

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import argparse
-import os
 import sys
 import time
 from pathlib import Path
@@ -32,7 +31,7 @@ def build_parser() -> argparse.ArgumentParser:
             "  python3 sim/run_corners.py smoke-bias\n"
             "  python3 sim/run_corners.py smoke-bias --corners tt --temps 27 \\\n"
             "      --subset-reason 'debugging convergence, not evidence'\n"
-            "  python3 sim/run_corners.py smoke-bias --corner-set mos -j 8\n"
+            "  python3 sim/run_corners.py smoke-bias --corner-set mos -j 4\n"
             "  python3 sim/run_corners.py --list\n"
             "  python3 sim/run_corners.py --check-env\n"
         ),
@@ -84,7 +83,15 @@ def build_parser() -> argparse.ArgumentParser:
         metavar="FRAC",
         help="supply tolerance as a fraction, e.g. 0.10 (0 disables the V axis)",
     )
-    parser.add_argument("-j", "--jobs", type=int, default=0, help="parallel ngspice runs")
+    parser.add_argument(
+        "-j",
+        "--jobs",
+        type=int,
+        default=0,
+        help="parallel ngspice runs (default: half the host's logical cores, "
+        "min 1 -- a per-process default that does not account for other "
+        "concurrent invocations on the same host; see cliutil.default_jobs)",
+    )
     parser.add_argument(
         "--timeout",
         type=int,
@@ -224,7 +231,7 @@ def run(args: argparse.Namespace) -> int:
     experiment_dir = tb.experiment_dir
     records_dir = experiment_dir / report.RECORDS_DIR
 
-    jobs = args.jobs or min(8, (os.cpu_count() or 2))
+    jobs = args.jobs or cliutil.default_jobs()
     # Sample git state *before* the run: the harness writes its own per-corner
     # logs into the tracked evidence tree, so sampling afterwards would mark
     # every record as taken against a dirty tree. (cliutil.provision_record

@@ -2,7 +2,7 @@
 """Run a Monte Carlo mismatch testbench (issue #15).
 
     python3 sim/run_mc.py temp-accuracy-mc
-    python3 sim/run_mc.py por-threshold-mc -j 8
+    python3 sim/run_mc.py por-threshold-mc -j 4
     python3 sim/run_mc.py temp-accuracy-mc --n 500 --seed-base 20260802
 
 Companion to ``sim/run_corners.py``: that script sweeps the deterministic
@@ -25,7 +25,6 @@ from __future__ import annotations
 
 import argparse
 import datetime as _dt
-import os
 import sys
 from pathlib import Path
 
@@ -56,7 +55,7 @@ def build_parser() -> argparse.ArgumentParser:
         epilog=(
             "Examples:\n"
             "  python3 sim/run_mc.py temp-accuracy-mc\n"
-            "  python3 sim/run_mc.py por-threshold-mc -j 8\n"
+            "  python3 sim/run_mc.py por-threshold-mc -j 4\n"
             "  python3 sim/run_mc.py --list\n"
         ),
     )
@@ -67,7 +66,15 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--list", action="store_true", help="list MC testbenches and their binding points")
     parser.add_argument("--n", type=int, default=None, help="samples per binding point (overrides tb.json's mc.n)")
     parser.add_argument("--seed-base", type=int, default=None, help="overrides tb.json's mc.seed_base")
-    parser.add_argument("-j", "--jobs", type=int, default=0, help="parallel ngspice runs")
+    parser.add_argument(
+        "-j",
+        "--jobs",
+        type=int,
+        default=0,
+        help="parallel ngspice runs (default: half the host's logical cores, "
+        "min 1 -- a per-process default that does not account for other "
+        "concurrent invocations on the same host; see cliutil.default_jobs)",
+    )
     parser.add_argument("--timeout", type=int, default=300, help="per-sample ngspice timeout in seconds")
     parser.add_argument("--claim", default="", help="overrides the manifest's 'claim'")
     parser.add_argument("--supersedes", default="", metavar="RECORD_ID", help="prior record-id this run corrects")
@@ -129,7 +136,7 @@ def run(args: argparse.Namespace) -> int:
     experiment_dir = tb.experiment_dir
     records_dir = experiment_dir / report.RECORDS_DIR
 
-    jobs = args.jobs or min(8, (os.cpu_count() or 2))
+    jobs = args.jobs or cliutil.default_jobs()
     record_id, workdir, log_dir, git, started = cliutil.provision_record(
         REPO_ROOT, WORK_DIR, records_dir, experiment_dir, tb.experiment, args.no_write,
     )
