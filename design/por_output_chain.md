@@ -212,7 +212,7 @@ the one-shot's `TIM` loses charge, in
 [`sim/por-output-chain-deglitch/control/width_results.md`](../sim/por-output-chain-deglitch/control/width_results.md).
 At both fast corners the schematic rejects a `POR_RAW` glitch **cleanly up to
 1.75 µs** and is disturbed by 2 µs — **1.75× the 1 µs chatter**
-[`../testbench/stimulus.spice`](../sim/por-output-chain-deglitch/testbench/stimulus.spice)
+[`sim/por-output-chain-deglitch/testbench/stimulus.spice`](../sim/por-output-chain-deglitch/testbench/stimulus.spice)
 applies. That 1 µs is itself an *assumption*: nothing in the ratified table
 bounds how narrow a `POR_RAW` excursion this cell must reject, so the floor is
 a design-chosen guard, and how much margin it deserves is a question for #14's
