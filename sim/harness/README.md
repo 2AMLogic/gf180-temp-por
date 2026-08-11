@@ -138,6 +138,42 @@ If you do need to override it (e.g. a known-idle host, or a shared host
 where even the default is too much), pass `-j N` explicitly — an explicit
 value always wins over the default.
 
+### ngspice's own thread parallelism (and why it must stay off)
+
+A locally-built ngspice can link `libgomp` and, by default, open an OpenMP
+team sized to the host's logical core count for device-model loading. That is
+a **second, nested** layer of parallelism underneath this harness's own
+process-level `-j` — one that only adds contention, since `-j` already runs
+one ngspice process per point. Measured on one post-layout point (21.6 ms
+transient, 8-core host, #216): 83.9 s wall with ngspice's default thread team
+vs. **3.7 s** with `set num_threads=1` — 22x slower, bit-identical results
+either way. Across a full grid the effect compounds badly enough to blow past
+`--timeout` on every point (`DEFAULT_TIMEOUT_S = 300`) without producing a
+single measurement.
+
+**`OMP_NUM_THREADS` does not fix this.** ngspice's own `num_threads` control
+variable calls `omp_set_num_threads()` itself at startup, overriding whatever
+the environment set. The only lever that works is `set num_threads=1` inside
+a `.spiceinit` ngspice reads at startup (or a deck's own `.control` block).
+
+`run_point()` (`sim/harness/runner.py`) handles this for you: before invoking
+ngspice, it writes a `.spiceinit` into the point's work directory forcing
+`set num_threads=1`. Because ngspice reads *either* a project-local
+`./.spiceinit` *or* `$HOME/.spiceinit` at startup — never both — that per-run
+file also carries forward whatever your own `$HOME/.spiceinit` sets verbatim
+(the host that surfaced #216 needs `set wnflag=1` there for gf180mcu model
+binning; losing it silently would abort every deck). Generated decks
+(`sim/.work/<slug>/<record-id>/<corner-id>.spice`) are unaffected — this is a
+process-level override, not a deck-text change, so reproducing a failing
+corner by hand still needs the same `.spiceinit` alongside it if your
+`$HOME/.spiceinit` carries settings the deck depends on.
+
+`sim/run_corners.py --check-env` reports whether this override is actually
+taking effect on your host (`threads : OK ... num_threads=1`); a `WARN` there
+— on a genuinely broken host, or if you're invoking ngspice by some other
+path that bypasses `run_point()` — is the one-call diagnostic for a grid that
+would otherwise silently blow through `--timeout` on every point.
+
 **Subsets need a reason.** `sim/README.md` requires every record's *Corner
 matrix run* field to be the full mandated matrix "unless the record states why
 a subset was used". The runner enforces that: if the grid you asked for is
