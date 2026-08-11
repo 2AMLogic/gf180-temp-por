@@ -1,0 +1,89 @@
+* por-output-chain-ibias-sharing -- stimulus half of the testbench fragment.
+*
+* The other half is a verbatim copy of design/netlist/bias_core.spice,
+* design/netlist/temp_core.spice, design/netlist/por_comparator.spice and
+* design/netlist/por_output_chain.spice, appended by sim/build_tb.py to
+* produce tb_por_ibias_sharing.spice. Edit THIS file (or the schematics),
+* never the generated fragment.
+*
+* Netlist FRAGMENT: no .include / .lib / .temp / .control / .end -- the
+* harness owns those. Parameters it supplies: vdd_val, vdd_nom, temp_c.
+*
+* WHY THIS EXPERIMENT EXISTS (issue #221)
+*
+* IBIAS is one shared net (DR-010): bias_core sources into it and temp_core,
+* por_comparator and por_output_chain each hang their own mirror-input diode
+* off it, so the source current splits. design/por_output_chain.md ("Hand-
+* off to #11: the IBIAS envelope is the real constraint") derives that this
+* cell's own deglitch dwell must not see IBIAS fall below about 0.44x
+* nominal (500 nA nominal, so ~220 nA) at the SS/-40C corner, or the
+* <=10us por-brownout ceiling is at risk. Nothing committed measures what
+* current por_output_chain actually receives on the real assembly:
+* sim/bias-core-ibias-sharing/ answers the *liveness* question (does the
+* shared node survive a disabled temp_core, DR-010) but never instantiates
+* por_output_chain and only reports the shared node's VOLTAGE, not any
+* individual consumer's share of the current. This experiment closes that
+* gap: it is a MAGNITUDE record, not a liveness one.
+*
+* Two branches, identical rail, differing only in temp_core's EN -- the
+* same asserted/released distinction sim/bias-core-ibias-sharing/ already
+* uses, extended to instantiate por_output_chain and to meter every
+* consumer leg individually rather than only the shared node's voltage:
+*
+*   A. RESETn asserted: EN = 0. temp_core is high-Z per DR-010 (its XMBD's
+*      gate is pinned to VSS through XMDNB once disabled, so it no longer
+*      clamps the node -- the clamp DR-010 removed drew the whole
+*      reference; the high-Z contract draws <=0.152 nA instead).
+*   B. RESETn released: EN = 1. temp_core's own XMBD mirror diode rejoins
+*      the shared node -- design/bias_core.md's "The shared IBIAS net"
+*      measures the node stepping DOWN at release (temp_core's mirror
+*      diode is a fourth load on a source that does not grow), which is
+*      why released is expected to be the tighter of the two states.
+*
+* Neither branch closes the startup loop through por_output_chain's own
+* RESETn output driving temp_core's EN pin back around (that closed-loop
+* dynamic is sim/temp-por-top-release/'s job, and DR-016's XMRLK release
+* latch already root-causes its transient behaviour). EN is DC-forced
+* exactly as sim/bias-core-ibias-sharing/ already does, so this experiment
+* isolates the STEADY-STATE current split at each state rather than the
+* transient that connects them.
+*
+* Each leg gets its own zero-volt ammeter in series with the cell's IBIAS
+* pin, all four tied to the same electrical node per branch (an ideal 0 V
+* source adds no impedance), using the SAME sign convention
+* sim/bias-core-ibias-sharing/ established: positive current means "flows
+* from the shared node into this device" -- bias_core's own ammeter reads
+* the total current it sources, and each consumer's ammeter reads what it
+* draws from the shared node.
+*
+* The rail is ramped (not DC-stepped) so both branches start from a real
+* cold start, exactly as sim/bias-core-ibias-sharing/ does; measurements are
+* taken well after settling.
+
+* ---- A. RESETn asserted (temp_core disabled) -------------------------
+vsupa    vdda 0 PWL(0 0 100u {vdd_val} 1 {vdd_val})
+vena     ena  0 dc 0
+vibcorea nbcorea sharea dc 0
+vibtmpa  sharea nibtmpa dc 0
+vibcmpa  sharea nibcmpa dc 0
+vibpora  sharea nibpora dc 0
+xbiasa vdda 0 nbcorea vrefa oka          bias_core
+xtempa vdda 0 nibtmpa ena ptata ctata    temp_core
+xcmpa  vdda 0 nibcmpa vrefa oka por_rawa por_comparator
+xpora  vdda 0 nibpora por_rawa resetna   por_output_chain
+Rpta ptata 0 1T
+Rcta ctata 0 1T
+
+* ---- B. RESETn released (temp_core enabled) ---------------------------
+vsupb    vddb 0 PWL(0 0 100u {vdd_val} 1 {vdd_val})
+venb     enb  vddb dc 0
+vibcoreb nbcoreb shareb dc 0
+vibtmpb  shareb nibtmpb dc 0
+vibcmpb  shareb nibcmpb dc 0
+vibporb  shareb nibporb dc 0
+xbiasb vddb 0 nbcoreb vrefb okb          bias_core
+xtempb vddb 0 nibtmpb enb ptatb ctatb    temp_core
+xcmpb  vddb 0 nibcmpb vrefb okb por_rawb por_comparator
+xporb  vddb 0 nibporb por_rawb resetnb   por_output_chain
+Rptb ptatb 0 1T
+Rctb ctatb 0 1T

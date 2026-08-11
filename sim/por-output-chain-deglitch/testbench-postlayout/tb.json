@@ -1,6 +1,6 @@
 {
   "name": "por-output-chain-deglitch",
-  "description": "Deglitch dwell, qualifying-brownout-dip capture and chatter rejection of design/por_output_chain.sch, at nominal and half IBIAS, over the full 81-point PVT grid. Post-layout composite netlist, nominal and half IBIAS. Since #200 the grid also carries the filter's glitch-rejection WIDTH margin: a third chatter burst at 1.05 us (5 % wider than the 1 us the checks above use), with the one-shot's own charge loss recorded as tim_loss_wide_pct and tim_loss_1us_pct. Those two are deliberately limit-free -- they are the margin, and a bound on them would only ever report a flip, not the movement that precedes it. The width matters most against this netlist: control/width_results.md brackets its rejection ceiling between 1.0 and 1.25 us at the fastest corners, against 1.75-2.0 us for the schematic.",
+  "description": "Deglitch dwell, qualifying-brownout-dip capture and chatter rejection of design/por_output_chain.sch, at nominal and (since issue #221) the real worst-case delivered IBIAS, over the full 81-point PVT grid. Post-layout composite netlist. The stress DUT (xdut2) was re-cut by #221 from an idealised 0.5x nominal (0.25 uA) to 91.0251 nA -- 0.182x nominal, the worst-case current sim/por-output-chain-ibias-sharing/'s post-layout record measures the assembly actually delivering to this cell's own IBIAS pin across both RESETn states. This turns dwell_pgdg_halfib_us from a PASS into a FAIL at the cold corners -- see spec/decision-records/DR-024-por-output-chain-real-ibias-delivery.md. Since #200 the grid also carries the filter's glitch-rejection WIDTH margin: a third chatter burst at 1.05 us (5 % wider than the 1 us the checks above use), with the one-shot's own charge loss recorded as tim_loss_wide_pct and tim_loss_1us_pct. Those two are deliberately limit-free -- they are the margin, and a bound on them would only ever report a flip, not the movement that precedes it. The width matters most against this netlist: control/width_results.md brackets its rejection ceiling between 1.0 and 1.25 us at the fastest corners, against 1.75-2.0 us for the schematic.",
   "claim": "spec/target-spec.md#por-brownout -- fills that row's open TBD by publishing the deglitch dwell time this cell designs to, and shows it stays under the row's T_dip,min = 10 us so a qualifying dip re-asserts RESETn and regenerates the full spec/target-spec.md#por-reset-pulse. Also covers the no-early/no-double-pulse edge case: sub-dwell POR_RAW chatter, applied both during assertion and after release, changes nothing at the pin. Deglitch is this cell's time-domain mechanism per DR-005 and is separate from the comparator's static hysteresis (#10). Deterministic corners only -- the full brownout sweep is #14's job. Post-layout re-run (#86) against layout/postlayout/por_output_chain.spice (#82/PR #180, direct klt extraction): XCDG/XCTIM are real drawn-and-extracted MiM caps plus the drawn interconnect's own parasitic R/C on the signal path -- not a schematic-ideal cap with added parasitics, since every device in this cell is drawn (0 ideal, layout/postlayout/AUDIT.md). See design/por_output_chain.md's post-layout section for the schematic-vs-extracted pulse-width/dwell delta.",
   "netlist": "tb_por_deglitch_postlayout.spice",
   "nominal_supply_v": 3.3,
@@ -32,7 +32,7 @@
     "meas tran timlo3 min v(xdut1.tim) from=12.9999m to=13.25m",
     "meas tran vmin_hold1 min v(resetn1) from=10.99m to=11.25m",
     "meas tran tpgf1 when v(xdut1.pgdg)=1.0 fall=1 td=11.995m",
-    "meas tran tpgf2 when v(xdut2.pgdg)=1.0 fall=1 td=11.995m",
+    "meas tran pgdgmin2 min v(xdut2.pgdg) from=12.0m to=12.03m",
     "meas tran tasrt1 when v(resetn1)=1.0 fall=1 td=11.995m",
     "meas tran tvalid1 when v(resetn1)=0.3 fall=1 td=11.995m",
     "meas tran vmin_dip1 min v(resetn1) from=12.0m to=12.2m",
@@ -41,7 +41,7 @@
   ],
   "measure": {
     "dwell_pgdg_1x_us": "(tpgf1-12.0e-3)*1e6",
-    "dwell_pgdg_halfib_us": "(tpgf2-12.0e-3)*1e6",
+    "pgdg_min_during_halfib_dip_v": "pgdgmin2",
     "dwell_resetn_1x_us": "(tasrt1-12.0e-3)*1e6",
     "reassert_validlow_us": "(tvalid1-12.0e-3)*1e6",
     "dwell_rise_1x_us": "(tpgr1-300.1e-6)*1e6",
@@ -58,9 +58,9 @@
     "iq_asserted_1x_na": "iasrt1*1e9"
   },
   "checks": {
-    "dwell_pgdg_halfib_us": {
-      "max": 10.0,
-      "description": "THE por-brownout check: the deglitch dwell must stay under the row's T_dip,min = 10 us, measured at the filter output on the stress DUT (half nominal IBIAS -- less bias current means a slower filter). Expected to bind at ss/-40c"
+    "pgdg_min_during_halfib_dip_v": {
+      "max": 1.0,
+      "description": "THE por-brownout check, restated as a threshold rather than a crossing TIME: a qualifying 10 us POR_RAW dip must pull the filter output (PGDG) below its 1.0 V trip point -- i.e. the dwell must not exceed T_dip,min = 10 us -- measured on the stress DUT over a 30 us window starting at the dip. Since #221 the stress DUT's IBIAS is 91.0251 nA (0.182x nominal) -- the real worst-case current sim/por-output-chain-ibias-sharing/'s post-layout record measures the assembly delivering to this pin, not an idealised 0.5x. At this current the filter is often too slow to trip AT ALL within the 10 us dip (PGDG droops and then recovers as POR_RAW returns high), which is why this check is a voltage floor rather than 'dwell_pgdg_halfib_us' (a WHEN-based crossing-time measure, kept for the DR-005-nominal DUT above): a crossing-time measure errors out of its search interval on exactly the corners this record needs to show FAILING, rather than reporting a FAIL. A value at or above 1.0 V means the qualifying dip was rejected outright, not merely late. EXPECTED TO FAIL (i.e. NOT drop below 1.0 V) at the cold corners until a lever from DR-024 lands. Binds at ss/-40c/res_ss/-40c"
     },
     "dwell_pgdg_1x_us": {
       "max": 10.0,

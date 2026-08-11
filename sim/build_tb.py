@@ -53,6 +53,14 @@ FRAGMENTS: dict[str, tuple[str, tuple[str, ...]]] = {
         "tb_ibias_sharing.spice",
         ("bias_core", "temp_core", "por_comparator"),
     ),
+    # #221: the sibling of bias-core-ibias-sharing above that also
+    # instantiates por_output_chain, so the current IT actually receives
+    # from the shared IBIAS net can be metered directly rather than
+    # inferred from the shared node's voltage alone.
+    "por-output-chain-ibias-sharing": (
+        "tb_por_ibias_sharing.spice",
+        ("bias_core", "temp_core", "por_comparator", "por_output_chain"),
+    ),
     # temp_por_top.spice already carries every sub-circuit definition the top
     # level instantiates, so one cell here is the whole four-cell assembly.
     "temp-por-top-release": ("tb_temp_por_top.spice", ("temp_por_top",)),
@@ -117,6 +125,11 @@ POSTLAYOUT_FRAGMENTS: dict[str, tuple[str, tuple[str, ...]]] = {
     "bias-core-ibias-sharing": (
         "tb_ibias_sharing.spice",
         ("bias_core", "temp_core", "por_comparator"),
+    ),
+    # #221's post-layout re-run of the four-way splice above.
+    "por-output-chain-ibias-sharing": (
+        "tb_por_ibias_sharing.spice",
+        ("bias_core", "temp_core", "por_comparator", "por_output_chain"),
     ),
     # #85's por_comparator/threshold-domain post-layout re-runs.
     "por-comparator-designer-check": (
