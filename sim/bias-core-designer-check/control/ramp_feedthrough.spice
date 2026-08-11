@@ -1,0 +1,37 @@
+* bias_core ramp-feedthrough control -- stimulus fragment (issue #208).
+*
+* A single triangle-wave rail, identical in SHAPE to
+* sim/por-vth/control/rate_ladder.spice's fragment (same 1 ms 0 -> 2.0 V
+* pre-ramp, the same 2.0 V floor, the same parameterised `tramp`
+* quasi-static segment duration) but driving bias_core ALONE -- a
+* diode-loaded IBIAS pin, an open VREF pin, no por_comparator/output-chain
+* downstream -- instead of the four-cell assembly that fragment drives.
+*
+* That isolation is the point. sim/por-vth/control/results.md
+* (issue #187/#218, DR-021) already showed the assembly-level VREF
+* displacement it measures at ss/-40C IS bias_core's own ramp-rate
+* feedthrough term (the sense divider's own RC lag is ruled out separately
+* in that record, at ~2 orders of magnitude smaller). This fragment
+* measures the same quantity directly at the source, on bias_core alone,
+* across the full PVT grid rather than the one corner that control ran at
+* -- see ../control/run_ramp_feedthrough.py's own docstring for why full-grid
+* coverage here is a deliberate, issue-#208-mandated widening of what
+* sim/README.md's "control" convention otherwise scopes to one or two
+* points.
+*
+* Netlist FRAGMENT: no .include / .lib / .temp / .control / .end -- the
+* control runner owns those, exactly as sim/harness/runner.py's
+* deck_preamble() does for the corner-swept record decks. Parameters it
+* supplies: vdd_val, tramp.
+
+.param t_pre=1m
+.param t_hold=2m
+.param t1='t_pre+tramp'
+.param t2='t1+t_hold'
+.param t3='t2+tramp'
+.param t4='t3+1m'
+
+vsup vdd 0 PWL(0 0 {t_pre} 2.0 {t1} {vdd_val} {t2} {vdd_val} {t3} 2.0 {t4} 2.0)
+vib nib ibias dc 0
+xdut vdd 0 nib vref bias_ok bias_core
+xmld ibias ibias 0 0 nfet_03v3 L=2u W=2u nf=1 m=1
