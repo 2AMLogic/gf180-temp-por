@@ -92,7 +92,9 @@ six sections (MOS, resistor, BJT, diode, MOS cap, MIM cap):
 
 Corner sets: `tt` (1), `mos` (5), `full` (9 — **the default in this repo**).
 `full` × 3 temperatures × 3 supplies = 81 operating points, about half a
-minute at `-j 8`.
+minute at full host parallelism (`-j` matched to the host's logical core
+count — see "Job parallelism (`-j`/`--jobs`)" below for what the default
+actually resolves to).
 
 `full` is the default here because both circuits in this block ride on
 passives, not just on the MOS skew: the sensing core is a vertical-PNP
@@ -110,10 +112,31 @@ naming `sim/README.md` ratifies — and one raw log under
 Override any axis from the command line:
 
 ```bash
-python3 sim/run_corners.py smoke-bias --corner-set mos -j 8
+python3 sim/run_corners.py smoke-bias --corner-set mos -j 4
 python3 sim/run_corners.py smoke-bias --corners tt res_ss --temps -40 125
 python3 sim/run_corners.py smoke-bias --supply 5.0 --supply-tol 0.10   # 5 V flavor
 ```
+
+### Job parallelism (`-j`/`--jobs`)
+
+Leave `-j` unset unless you have a specific reason to override it. Both entry
+points (`run_corners.py` via `harness/cli.py`, and `run_mc.py`) default to
+`sim/harness/cliutil.py`'s `default_jobs()`: half the host's logical cores
+(floor), minimum 1 — headroom, not a claim on every core.
+
+**This is a per-process default.** It cannot see other `run_corners.py` /
+`run_mc.py` invocations running concurrently on the same host — a second
+worktree's designer-check sweep, a third agent's Monte Carlo run, and so on.
+N concurrent invocations each independently pick this same per-process
+number, so host load still scales with N; halving the per-process default
+only buys headroom for a handful of concurrent agents, not an unbounded
+number. A host-wide budget shared *across* concurrently running agents is a
+fleet-orchestration concern this repo cannot implement on its own — see
+[rjwalters/loom#5979](https://github.com/rjwalters/loom/issues/5979).
+
+If you do need to override it (e.g. a known-idle host, or a shared host
+where even the default is too much), pass `-j N` explicitly — an explicit
+value always wins over the default.
 
 **Subsets need a reason.** `sim/README.md` requires every record's *Corner
 matrix run* field to be the full mandated matrix "unless the record states why

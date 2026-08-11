@@ -829,9 +829,9 @@ check fails today.
 
 ```bash
 python3 sim/build_tb.py --check                                  # postlayout fragments <-> layout/postlayout/*.spice
-python3 sim/run_corners.py sim/por-output-chain-pulse/testbench-postlayout    -j 8
-python3 sim/run_corners.py sim/por-output-chain-deglitch/testbench-postlayout -j 8
-python3 sim/run_corners.py sim/por-output-chain-floor/testbench-postlayout    -j 8
+python3 sim/run_corners.py sim/por-output-chain-pulse/testbench-postlayout
+python3 sim/run_corners.py sim/por-output-chain-deglitch/testbench-postlayout
+python3 sim/run_corners.py sim/por-output-chain-floor/testbench-postlayout
 ```
 
 ## Reproducing the evidence
@@ -839,11 +839,11 @@ python3 sim/run_corners.py sim/por-output-chain-floor/testbench-postlayout    -j
 ```bash
 python3 design/netlist.py --check            # schematic ↔ committed netlist
 python3 sim/build_tb.py --check              # netlist ↔ testbench fragments
-python3 sim/run_corners.py por-output-chain-pulse    -j 8
-python3 sim/run_corners.py por-output-chain-deglitch -j 8
-python3 sim/run_corners.py por-output-chain-floor    -j 8
-python3 sim/run_corners.py por-ramp-rate              -j 8   # assembly, all four rates
-python3 sim/run_corners.py por-glitch                -j 8   # assembly, VDD glitch
+python3 sim/run_corners.py por-output-chain-pulse
+python3 sim/run_corners.py por-output-chain-deglitch
+python3 sim/run_corners.py por-output-chain-floor
+python3 sim/run_corners.py por-ramp-rate              # assembly, all four rates
+python3 sim/run_corners.py por-glitch                # assembly, VDD glitch
 python3 sim/por-ramp-rate/control/run_chatter_probe.py   # issue #56, release-edge chatter
 python3 sim/por-glitch/control/run_glitch_probe.py       # issue #56, VDD-glitch mechanism
 python3 sim/por-glitch/control/run_depth_sweep.py        # issue #56, VDD-glitch depth/duration

@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -44,6 +45,28 @@ def add_author_arg(
     parser.add_argument(
         "--author", default=default, help="author for the record header"
     )
+
+
+def default_jobs(cpu_count: int | None = None) -> int:
+    """Default ``-j``/``--jobs`` when the caller didn't pass one explicitly.
+
+    Half the host's logical cores (floor), minimum 1 -- headroom, not a
+    claim on every core. ``cpu_count`` defaults to ``os.cpu_count()``, with
+    the existing ``or 2`` fallback preserved for the rare host where that
+    returns ``None``.
+
+    This is a **per-process** default: it has no visibility into other
+    ``run_corners.py``/``run_mc.py`` invocations running concurrently on the
+    same host (a second worktree's designer-check sweep, a third agent's
+    Monte Carlo run, ...). N concurrent invocations each pick this same
+    per-process number independently, so the host-wide total still scales
+    with N -- halving the per-process default only buys headroom for a
+    small, not unbounded, number of concurrent agents. A host-wide budget
+    shared *across* concurrently running agents is a fleet-orchestration
+    concern this repo cannot see or enforce; see rjwalters/loom#5979.
+    """
+    cores = cpu_count if cpu_count is not None else (os.cpu_count() or 2)
+    return max(1, cores // 2)
 
 
 def fmt(value) -> str:

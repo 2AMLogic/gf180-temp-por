@@ -542,7 +542,7 @@ under test" states the full boundary.
 bash layout/run_checks.sh por_comparator     # DRC/LVS on the drawn MOS portion
 python3 design/netlist.py --check            # schematic ↔ committed netlist
 python3 sim/build_tb.py --check              # netlist ↔ testbench fragment
-python3 sim/run_corners.py por-comparator-designer-check -j 8
+python3 sim/run_corners.py por-comparator-designer-check
 ```
 
 The last command mints a **new** record id; `sim/` is append-only, so it will
