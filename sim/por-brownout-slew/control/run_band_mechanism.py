@@ -150,7 +150,12 @@ def edge_s(vdd: float, slew_mvus: float) -> float:
 
 
 def deck(pdk, options: list[str], vdd: float, slew_mvus: float,
-         tmax_s: float | None) -> str:
+         tmax_s: float | None, netlist: Path | None = None) -> str:
+    """One control deck. ``netlist`` defaults to the schematic export this
+    control was written against; ``run_postlayout_margin.py`` (#188) passes
+    the extracted post-layout netlist instead so both arms are measured by
+    this one measurement list rather than by two drifting copies of it."""
+    netlist = ASSEMBLY_NETLIST if netlist is None else netlist
     corner = corners_mod.CORNERS[CORNER]
     edge = edge_s(vdd, slew_mvus)
     t_dip_end = T_DIP_S + edge + T_DWELL_S
@@ -182,7 +187,7 @@ def deck(pdk, options: list[str], vdd: float, slew_mvus: float,
         f".param dip_v={DIP_V!r}",
         "",
         f'.include "{os.path.relpath(FRAGMENT, deck_dir)}"',
-        f'.include "{os.path.relpath(ASSEMBLY_NETLIST, deck_dir)}"',
+        f'.include "{os.path.relpath(netlist, deck_dir)}"',
         "",
         ".control",
         "set numdgt=8",
