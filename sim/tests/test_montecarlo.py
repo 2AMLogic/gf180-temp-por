@@ -383,6 +383,124 @@ class RecordRenderingTests(unittest.TestCase):
         self.assertIn("sim/mc-experiment/netlist-snapshots/20260802-153000-1a7ef75.spice", text)
         self.assertIn("sim/mc-experiment/corners/20260802-153000-1a7ef75/", text)
 
+    def test_a_schematic_record_still_says_schematic(self):
+        """The #86 manifest fields are optional; their absence must keep the
+        ratified default rather than blanking the field (#194)."""
+        text = mc_report.render_mc_record(self.record, "mc-experiment")
+        self.assertIn(
+            "**Netlist provenance**: schematic (`sim/mc-experiment/testbench/x.spice`)",
+            text,
+        )
+        self.assertIn("python3 sim/run_mc.py mc-experiment", text)
+
+
+class ExtractedMcProvenanceRenderingTests(unittest.TestCase):
+    """#194: the Monte Carlo renderer's counterpart of test_harness.py's
+    ExtractedProvenanceRenderingTests.
+
+    ``render_mc_record`` used to hardcode ``schematic`` and the
+    ``TESTBENCH_DIR`` constant, so a Monte Carlo run against a #86
+    ``testbench-postlayout/`` directory produced a record that called its own
+    extracted netlist schematic, dropped the manifest's mandatory
+    ``layout/postlayout/AUDIT.md`` caveat, and linked a path that does not
+    exist. ``por-threshold-mc`` is the only Monte Carlo experiment with such a
+    directory, and no test covered the combination -- which is exactly how the
+    mislabelled record in
+    ``sim/por-threshold-mc/records/20260811-074902-e3e220f.md`` shipped.
+    """
+
+    def setUp(self):
+        import json
+        import tempfile
+
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        root = Path(self.tmp.name)
+        tb_dir = root / "mc-experiment" / "testbench-postlayout"
+        tb_dir.mkdir(parents=True)
+        (tb_dir / "y.spice").write_text("v1 out 0 dc {vdd_val}\n")
+        (tb_dir / "tb.json").write_text(
+            json.dumps(
+                {
+                    "name": "mc-experiment",
+                    "netlist": "y.spice",
+                    "measure": {"vout": "v(out)"},
+                    "checks": {"vout": {"min": 0.0, "max": 10.0}},
+                    "mc": {
+                        "n": 500,
+                        "seed_base": 1,
+                        "binding_points": [
+                            {"label": "a", "corner": "tt", "temp_c": 27, "vdd": 3.3}
+                        ],
+                    },
+                    "netlist_provenance": "extracted",
+                    "netlist_provenance_note": "0 ideal devices, per layout/postlayout/AUDIT.md",
+                }
+            )
+        )
+        self.tb = testbench.load(tb_dir)
+        self.pdk = fake_pdk(root / "gf180mcuD")
+        binding_points = montecarlo.load_binding_points(self.tb)
+        points = montecarlo.build_mc_grid(binding_points, n=500, seed_base=1)
+        results = [
+            PointResult(point=p, status="ok", measurements={"vout": 1.0 + 0.001 * i})
+            for i, p in enumerate(points)
+        ]
+        self.record = mc_report.build_mc_record(
+            tb=self.tb,
+            pdk=self.pdk,
+            binding_points=binding_points,
+            points=points,
+            results=results,
+            summary=montecarlo.summarize_mc(results, ["vout"], self.tb.checks),
+            ngspice="ngspice-46",
+            repo_root=SIM_DIR,
+            record_id="20260811-000000-1a7ef75",
+            started_utc="2026-08-11T00:00:00+00:00",
+            wall_seconds=1.0,
+            n_per_point=500,
+            seed_base=1,
+            derived_measures=[],
+            claim="spec/target-spec.md#por-vth-rise",
+        )
+
+    def test_provenance_line_says_extracted_and_carries_the_caveat(self):
+        text = mc_report.render_mc_record(self.record, "mc-experiment")
+        self.assertIn(
+            "**Netlist provenance**: extracted "
+            "(`sim/mc-experiment/testbench-postlayout/y.spice`)",
+            text,
+        )
+        self.assertIn("0 ideal devices, per layout/postlayout/AUDIT.md", text)
+        self.assertNotIn("**Netlist provenance**: schematic", text)
+
+    def test_links_use_the_actual_testbench_subdirectory_not_the_schematic_default(self):
+        text = mc_report.render_mc_record(self.record, "mc-experiment")
+        self.assertIn("sim/mc-experiment/testbench-postlayout/y.spice", text)
+        self.assertIn("sim/mc-experiment/testbench-postlayout/tb.json", text)
+        self.assertNotIn("testbench/y.spice", text)
+        self.assertNotIn("testbench/tb.json", text)
+
+    def test_reproduce_line_names_the_postlayout_directory_not_the_slug(self):
+        """`run_mc.py <slug>` resolves to `testbench/` -- the schematic
+        netlist -- so a postlayout record's Reproduce line must be explicit."""
+        text = mc_report.render_mc_record(self.record, "mc-experiment")
+        self.assertIn(
+            "python3 sim/run_mc.py sim/mc-experiment/testbench-postlayout", text
+        )
+
+    def test_dirty_tree_caveat_still_follows_the_provenance_note(self):
+        """Both suffixes appear, in report.py's order: note, then dirty-tree."""
+        dirty = dict(self.record)
+        dirty["environment"] = dict(self.record["environment"])
+        dirty["environment"]["git"] = {
+            "commit": "f" * 40, "short": "fffffff", "branch": "main", "dirty": True,
+        }
+        text = mc_report.render_mc_record(dirty, "mc-experiment")
+        note_at = text.index("0 ideal devices, per layout/postlayout/AUDIT.md")
+        dirty_at = text.index("dirty working tree")
+        self.assertLess(note_at, dirty_at)
+
 
 if __name__ == "__main__":
     unittest.main()

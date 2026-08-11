@@ -559,11 +559,18 @@ exports, via the `testbench-postlayout/` convention #86 established:
 | Evidence | Netlist provenance | DUT |
 | --- | --- | --- |
 | [`sim/por-comparator-designer-check/records/20260811-073514-eb36e2c.md`](../sim/por-comparator-designer-check/records/20260811-073514-eb36e2c.md) | extracted | `por_comparator` alone, idealised `VREF`/`IBIAS` |
-| [`sim/por-threshold-mc/records/20260811-074902-e3e220f.md`](../sim/por-threshold-mc/records/20260811-074902-e3e220f.md) | extracted | `por_comparator` alone, Monte Carlo local mismatch |
+| [`sim/por-threshold-mc/records/20260811-083530-4f0693a.md`](../sim/por-threshold-mc/records/20260811-083530-4f0693a.md) | extracted | `por_comparator` alone, Monte Carlo local mismatch |
 | [`sim/por-vth/records/20260811-073945-12473c3.md`](../sim/por-vth/records/20260811-073945-12473c3.md) | extracted | `temp_por_top`, real `bias_core`-driven `VREF`/`IBIAS` |
 
 It does not replace the schematic-level section above — both stand as
 independent evidence, per `sim/README.md`'s append-only convention.
+
+The Monte Carlo row cites
+[`20260811-083530-4f0693a`](../sim/por-threshold-mc/records/20260811-083530-4f0693a.md),
+which supersedes `20260811-074902-e3e220f` (the record originally linked
+here). The two carry the same measured data — nothing was re-simulated; the
+superseded record's `Netlist provenance` field said `schematic` because of a
+renderer defect in `sim/harness/mc_report.py`, fixed under #194.
 
 **The `VDD`–`SNS`–`SNSB`–`VSS` divider string is connected correctly in the
 extracted netlist.** `SNS`/`SNSB` extract as anonymous nets (no drawn label
