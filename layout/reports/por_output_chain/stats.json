@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "file": "layout/cells/por_output_chain.gds",
+  "dbu_um": 0.001,
+  "top_cell": "por_output_chain",
+  "bbox_um": {
+    "left": -5.5,
+    "bottom": -9.700000000000001,
+    "right": 219.8,
+    "top": 96.2,
+    "width": 225.3,
+    "height": 105.9
+  },
+  "total": {
+    "area_um2": 20771.3548,
+    "density": 0.8705779682278628,
+    "polygon_count": 1488,
+    "vertex_count": 5952
+  },
+  "layers": null,
+  "provenance": {
+    "gds_sha256": "475c7feaa83591e14d63e5e4971859225920e7971396552a0a32fcd18cfa3c29"
+  }
+}

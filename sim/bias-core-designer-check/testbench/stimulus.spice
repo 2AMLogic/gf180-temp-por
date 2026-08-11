@@ -13,7 +13,7 @@
 * can charge the whole of branch 1's supply current to that row without any
 * apportionment argument.
 *
-* FOUR branches, all in one transient so every number below comes from one
+* FIVE branches, all in one transient so every number below comes from one
 * corner point:
 *
 *   1. xst   STATIC DUT at this point's vdd_val, DC supply. Supplies the
@@ -38,10 +38,58 @@
 *            both ramps carry the release guard and the false-valid integral
 *            below.
 *
-*   4. xb    BROWNOUT: settle, dip to 0.5 V (rail low but nodes still
-*            charged -- the classic latch trap), recover, then collapse to
-*            0 V and recover again. `bo_*_ppm` compare the reference before
-*            and after each event.
+*   4. xb    SHALLOW BROWNOUT: settle, dip to 0.5 V (rail low but nodes
+*            still charged -- the classic latch trap), recover, hold.
+*            `bo_shallow_ppm` compares the reference before and after.
+*
+*   5. xd    DEEP BROWNOUT: settle, collapse to 0 V, recover, hold.
+*            `bo_deep_ppm` compares the reference before and after;
+*            `ok_bo_dip_mv` / `t_bo_recover_us` / `ok_bo_end_droop_mv` are
+*            taken here.
+*
+* WHY 4 AND 5 ARE SEPARATE DUTS, AND WHY THE TRANSIENT RUNS TO 30 ms
+* (issue #185). Both were one serialized branch on a 2 ms transient until
+* the post-layout re-run (#84) made the cost of that visible: this cell's
+* own documented STARVED-LOOP WINDOW (design/bias_core.md) is longer than
+* 2 ms at many corners once real interconnect parasitics are in the netlist,
+* so the 2 ms deck was shorter than the phenomenon it was measuring. Three
+* separate symptoms, all one cause:
+*
+*   - `t_bo_recover_us` read NEGATIVE at 34 of 81 points in record
+*     20260811-063744-5ff219c -- a recovery before the rail returned, which
+*     is impossible. `when v(bias_okb)=1.4 rise=last` had no genuine
+*     post-collapse crossing inside 2 ms to find, so it returned the
+*     capacitive blip BIAS_OK makes while the rail's own 10 us return ramp
+*     drags the high-impedance node through 1.4 V.
+*   - `t_false_ok_fast_us` and `t_false_ok_brownout_us` SATURATED against
+*     the integration window (14 points each within 25 us of the ceiling),
+*     understating the false-valid time by up to an order of magnitude.
+*     design/bias_core.md's own text already recorded a 4.4 ms starved
+*     window at sf/-40 C, i.e. longer than the deck that was measuring it.
+*   - `bo_shallow_ppm`, `bo_deep_ppm` and `ok_bo_end_droop_mv` are fixed
+*     wall-clock samples that consequently landed INSIDE the starved window
+*     rather than after it, so they reported the starved loop instead of the
+*     property in their own descriptions. At tt/27 C/3.63 V the 1.95 ms
+*     `ok_bo_end` sample landed in the 113 us notch during which BIAS_OK is
+*     CORRECTLY low, mid-recovery -- reading a 3630 mV droop off a cell that
+*     recovers 49 us later.
+*
+* Splitting the two events onto their own DUTs is not only about run time
+* (5 DUTs x 30 ms costs less than 4 DUTs x 50 ms would). It removes a real
+* methodological flaw: serialized, the 0.5 V dip parks the loop at the slow
+* corners and it is STILL parked when the deep collapse arrives 400 us
+* later, so `bo_deep_ppm` was never measuring recovery from a collapse of a
+* settled cell. Each branch now sees its event from the settled state and
+* gets its own recovery window.
+*
+* 30 ms is a MEASURED choice, and it is deliberately not large enough to
+* make every corner pass. ../control/run_starved_window.py takes the same
+* brownout event out to 120 ms at the corners this deck does not clear and
+* shows the reference DOES come back there -- slowly, not never -- so a
+* corner whose `bo_*_ppm` still fails at 29.9 ms is reporting a recovery
+* that is still in progress, which is the honest answer. Lengthening the
+* deck until the grid goes green would be hiding exactly the number
+* `t_false_ok_brownout_us` and `t_bo_recover_us` exist to report.
 *
 * THE FALSE-VALID INTEGRAL (Bfos / Bfof) is the correctness statement about
 * BIAS_OK: it is 1 whenever BIAS_OK is a valid high AND the reference is more
@@ -86,7 +134,7 @@ xst    vddst 0 nibst vrefst bias_okst bias_core
 xmldst ibiasst ibiasst 0 0 nfet_03v3 L=2u W=2u nf=1 m=1
 
 * ---- 2. slow ramp ----------------------------------------------------
-vsups vdds 0 PWL(0 0 500u {vdd_val} 2m {vdd_val})
+vsups vdds 0 PWL(0 0 500u {vdd_val} 30m {vdd_val})
 vibs  nibs ibiass dc 0
 xs    vdds 0 nibs vrefs bias_oks bias_core
 xmlds ibiass ibiass 0 0 nfet_03v3 L=2u W=2u nf=1 m=1
@@ -96,7 +144,7 @@ Brr9s rr9s 0 v = v(vrefs) - 0.9*v(vrefst)
 Bfos fos 0 v = ((v(bias_oks) > 0.5*v(vdds)) ? 1 : 0) * ((v(vrefst)-v(vrefs) > 0.1) ? 1 : 0)
 
 * ---- 3. fast ramp ----------------------------------------------------
-vsupf vddf 0 PWL(0 0 3.63u {vdd_val} 2m {vdd_val})
+vsupf vddf 0 PWL(0 0 3.63u {vdd_val} 30m {vdd_val})
 vibf  nibf ibiasf dc 0
 xf    vddf 0 nibf vreff bias_okf bias_core
 xmldf ibiasf ibiasf 0 0 nfet_03v3 L=2u W=2u nf=1 m=1
@@ -104,10 +152,29 @@ Bef  ef  0 v = abs(v(vreff) - v(vrefst))
 Brelf relf 0 v = (v(bias_okf) > 0.5*v(vddf)) ? (v(vddf) - 2.16667*v(vreff)) : -1
 Bfof fof 0 v = ((v(bias_okf) > 0.5*v(vddf)) ? 1 : 0) * ((v(vrefst)-v(vreff) > 0.1) ? 1 : 0)
 
-* ---- 4. brownout: shallow dip, then full collapse --------------------
+* ---- 4. shallow brownout: dip to 0.5 V, then a 29.4 ms recovery hold --
+* The rail goes below the core's dropout but every internal node keeps its
+* charge -- the state a bandgap latches in if it can. Edges are the deck's
+* original 10 us (313 mV/us at a 3.63 V rail). That is far outside
+* spec/target-spec.md#por-brownout's ratified falling-slew envelope
+* (dVDD/dt|fall,max = 3.40 mV/us, DR-011) ON PURPOSE: this branch is the
+* hostile probe of the latch question, not a conformance test of that row.
 vsupb vddb 0 PWL(0 0 100u {vdd_val} 400u {vdd_val} 410u 0.5 550u 0.5
-+ 560u {vdd_val} 950u {vdd_val} 960u 0 1100u 0 1110u {vdd_val} 2m {vdd_val})
++ 560u {vdd_val} 30m {vdd_val})
 vibb  nibb ibiasb dc 0
 xb    vddb 0 nibb vrefb bias_okb bias_core
 xmldb ibiasb ibiasb 0 0 nfet_03v3 L=2u W=2u nf=1 m=1
 Bfob fob 0 v = ((v(bias_okb) > 0.5*v(vddb)) ? 1 : 0) * ((v(vrefst)-v(vrefb) > 0.1) ? 1 : 0)
+
+* ---- 5. deep brownout: full collapse to 0 V, then a 28.8 ms hold -----
+* Same event on a cell that was settled when it arrived, rather than on one
+* the shallow dip had already parked (see the header note on why these are
+* two DUTs). `ok_bo_dip` samples this branch mid-collapse, `t_bo_rec` times
+* BIAS_OK's return, and `bo_deep_ppm` compares VREF at 940 us (settled,
+* pre-collapse) against VREF at 29.9 ms.
+vsupd vddd 0 PWL(0 0 100u {vdd_val} 950u {vdd_val} 960u 0 1100u 0
++ 1110u {vdd_val} 30m {vdd_val})
+vibd  nibd ibiasd dc 0
+xd    vddd 0 nibd vrefd bias_okd bias_core
+xmldd ibiasd ibiasd 0 0 nfet_03v3 L=2u W=2u nf=1 m=1
+Bfod fod 0 v = ((v(bias_okd) > 0.5*v(vddd)) ? 1 : 0) * ((v(vrefst)-v(vrefd) > 0.1) ? 1 : 0)

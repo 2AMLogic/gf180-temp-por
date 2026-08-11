@@ -1,0 +1,52 @@
+* ok_bo_dip decay control -- stimulus half of the control fragment (issue #185).
+*
+* The other half is a verbatim copy of ONE of
+*   design/netlist/bias_core.spice     (schematic export)
+*   layout/postlayout/bias_core.spice  (klt-extracted, #82/PR #180)
+* appended by run_ok_dip_decay.py. That netlist is the control's ONLY
+* variable; every other line here is fixed by construction.
+*
+* Netlist FRAGMENT: no .include / .lib / .temp / .control / .end -- the
+* control script owns those, and reads the corner sections and solver
+* tolerances from the harness and from ../testbench/tb.json rather than
+* restating them.
+*
+* This is ../testbench/stimulus.spice's `xbo` brownout branch, reduced to the
+* one DUT the measurement needs and with ONE deliberate change: the dead-rail
+* window is stretched from the parent deck's 3 ms (33 -> 36 ms) to 17 ms
+* (33 -> 50 ms).
+*
+* WHY STRETCH IT. The parent testbench's `ok_bo_dip_mv` is a single sample of
+* V(BIAS_OK) at 35 ms, two-thirds of the way through the 3 ms dead-rail
+* window, against a +/-300 mV bound. Post-layout (record
+* sim/bias-core-startup/records/20260811-062115-5ff219c.md) it reads
+* 303.432 mV at ss/-40 C where the schematic export reads 33.6 mV, and one
+* sample cannot distinguish the two explanations that matters between:
+*
+*   (a) the node is STUCK at ~300 mV -- a held stale valid, which is the
+*       failure XMOKC exists to prevent; or
+*   (b) the node is on the same monotonic discharge it always was, with a
+*       longer time constant, so the fixed 35 ms sample simply catches it
+*       higher up the same curve.
+*
+* Sampling the curve instead of one point on it separates them directly.
+*
+* The rail source holds 0 V for the whole window (it is a voltage source, not
+* a released node), so every internal node discharges into it -- the same
+* condition the parent deck sets up, held longer.
+*
+* The supply axis is degenerate for this experiment exactly as it is for the
+* parent testbench: the ramp passes through every supply point on its way up
+* and the dead-rail level is 0 V regardless. The parent record's own
+* ss/-40 C/2.97 V and /3.63 V rows are bit-identical, which is the
+* measurement of that degeneracy; this control therefore runs one supply.
+*
+* IBIAS carries the same two consumer-diode replica loads the parent deck
+* uses (temp_core's XMBD 4u/2u and por_comparator's XMBD 2u/2u), so the
+* shared node sees the loading it actually carries.
+
+vbo vddb 0 PWL(0 0 30m 3.63 32m 3.63 33m 0 50m 0 80m 3.63 84m 3.63)
+vibb nibb ibiasb dc 0
+xbo vddb 0 nibb vrefb bias_okb bias_core
+xldtb ibiasb ibiasb 0 0 nfet_03v3 L=2u W=4u nf=1 m=1
+xldcb ibiasb ibiasb 0 0 nfet_03v3 L=2u W=2u nf=1 m=1

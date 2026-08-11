@@ -460,8 +460,8 @@ being resolved or absorbed inside the re-run issues themselves:
 | `por-hysteresis` fails the 250 mV ceiling at the single worst full-assembly corner (`ss_-40c_3.63v`, 261.09 mV) | #85 (`por_comparator.md`) | [#187](https://github.com/2AMLogic/gf180-temp-por/issues/187) | Open |
 | Deglitch dwell's qualifying-dip floor has visibly less headroom post-layout than the schematic ever measured (root-caused, no ratified check fails) | #86 (`por_output_chain.md`, #182) | [#199](https://github.com/2AMLogic/gf180-temp-por/issues/199), [#200](https://github.com/2AMLogic/gf180-temp-por/issues/200) | Open |
 | `sim/por-iq/`'s publishing script still checks the withdrawn <1 µA ceiling, and its post-layout re-derivation is unblocked now that #83 has landed | #18 (this roll-up) | [#207](https://github.com/2AMLogic/gf180-temp-por/issues/207) | **Closed** — script now checks the DR-018-recosted <3.0 µA ceiling, and `sim/por-iq/records/20260811-084152-68c0017-por-iq-derived.md` is the post-layout-derived record, 81/81 PASS on both rows |
-| Three of this set's extracted records — and two of the schematic baselines they are compared against — are stamped "not citable as a clean-tree result" | #18 (this roll-up) | [#209](https://github.com/2AMLogic/gf180-temp-por/issues/209) | **Closed** — `sim/README.md` states the citation policy; clean-tree successors now exist for all three sole-evidence extracted records (`bias-core-designer-check`, `bias-core-startup`, `por-output-chain-floor`, re-cited in `design/bias_core.md` / `design/por_output_chain.md`); the `por-brownout-slew` schematic baseline is caveated explicitly above rather than re-run (full-assembly transient, not a cheap per-cell deck) |
-| `spec/target-spec.md#area`'s measured post-layout number was never recorded; the drawn assembly measures ~1.06 mm² against a ≤0.05 mm² planning bound | #18 (this roll-up) | [#211](https://github.com/2AMLogic/gf180-temp-por/issues/211) | Open |
+| Three of this set's extracted records — and two of the schematic baselines they are compared against — are stamped "not citable as a clean-tree result" | #18 (this roll-up) | [#209](https://github.com/2AMLogic/gf180-temp-por/issues/209) | **Closed** — `sim/README.md` states the citation policy and `sim/tests/test_stamped_record_citations.py` enforces it; clean-tree successors now exist for all three sole-evidence extracted records (`bias-core-designer-check`, `bias-core-startup`, `por-output-chain-floor`, re-cited in `design/bias_core.md` / `design/por_output_chain.md`); the `por-brownout-slew` schematic baseline is caveated explicitly above rather than re-run (full-assembly transient, not a cheap per-cell deck) |
+| `spec/target-spec.md#area`'s measured post-layout number was never recorded; the drawn assembly measures ~1.06 mm² against a ≤0.05 mm² planning bound | #18 (this roll-up) | [#211](https://github.com/2AMLogic/gf180-temp-por/issues/211) | **Closed** — resolved by [DR-022](../spec/decision-records/DR-022-area-post-layout-measurement.md), recording the measured 1.059 mm² footprint and the planning bound as not met (21.2× over); evidence wired into `layout/run_checks.sh` as regenerable `layout/reports/<cell>/stats.json` |
 
 Everything else that fails on the extracted netlist failed identically
 before the re-run (`por-brownout` at 0/81 per DR-011's falling-slew root
@@ -526,22 +526,25 @@ carry a post-layout citation carry it because something *changed* there — a
 routed regression and a re-cost — which is the case the spec table needs to
 surface.
 
-There is one exception worth naming separately, because it is a row the
-post-layout gate was specifically supposed to close and did not:
-[`area`](../spec/target-spec.md#area) still reads `[TBD-#17]` with a
-`≤0.05 mm²` planning bound whose own note says it is "a planning bound to be
-replaced by the measured post-layout number." The layout is drawn and
-assembled, #17 is closed, and that measured number is recorded nowhere in this
-repository. A one-command measurement (`klt stats layout/cells/temp_por_top.gds`)
-puts the drawn assembly's bounding box at **1334 × 794 µm = 1.059 mm²**, ~21×
-the planning bound (the sum of the four sub-cells' own boxes, 0.342 mm², is
-still ~7× it), which is consistent with the poly-ladder area
-[`layout/floorplan.md`](../layout/floorplan.md) already predicted would consume
-"essentially the whole block's ≤0.05 mm² wave-1 planning budget" on its own.
-Recording it — and deciding which of the three defensible area conventions the
-row means — is a decision record plus an operator ruling, not something this
-verification roll-up may settle, so it is routed to #211 rather than written
-into the spec here.
+There was one exception worth naming separately, because it was a row the
+post-layout gate was specifically supposed to close and, at the time this
+roll-up was first written, had not: [`area`](../spec/target-spec.md#area)
+read `[TBD-#17]` with a `≤0.05 mm²` planning bound whose own note said it was
+"a planning bound to be replaced by the measured post-layout number," and
+that measured number was recorded nowhere in this repository even though the
+layout was drawn, assembled and #17 was closed. **#211 has since closed that
+gap**: `klt stats` is now wired into `layout/run_checks.sh` as a regenerable
+step for every cell, recorded at `layout/reports/<cell>/stats.json`, and
+[DR-022](../spec/decision-records/DR-022-area-post-layout-measurement.md)
+ratifies which of the three defensible area conventions the row means (the
+assembled top cell's own bounding-box footprint) and records the result:
+**1334 × 794 µm = 1.059 mm²**, ~21× the ≤0.05 mm² planning bound (the sum of
+the four sub-cells' own boxes, 0.342 mm², is ~7× it) — consistent with the
+poly-ladder area [`layout/floorplan.md`](../layout/floorplan.md) already
+predicted would consume "essentially the whole block's ≤0.05 mm² wave-1
+planning budget" on its own. The planning bound is retained, unchanged, and
+recorded as **not met** rather than deleted or silently relaxed; no circuit
+or layout change resulted from settling this.
 
 ### 6. Provenance: five records in this set were stamped "not citable as a clean-tree result" — audited and resolved by #209
 
