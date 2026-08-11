@@ -1021,6 +1021,11 @@ Two observations that are worth more than any capacitor in this cell:
   `IBIAS` tolerance assumed today there is no capacitance in this cell that
   separates them; a tighter `IBIAS` envelope is what creates the room.
 
+Both are carried by **#199**, which cannot close until #14 reports the real
+`POR_RAW` chatter width and #11 lands an `IBIAS` envelope. **#200** carries the
+verification half: the measured rejection width belongs on the corner grid,
+not only in a control that gets overwritten on the next run.
+
 A third lever exists and is deliberately **not** taken here: `V_trip` sits at
 20 % of the rail because `XMG1` is skewed NMOS-strong, and a trip nearer
 mid-rail would make the falling journey ~2.5× longer and the same head-start
