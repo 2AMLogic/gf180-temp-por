@@ -219,6 +219,38 @@ a design-chosen guard, and how much margin it deserves is a question for #14's
 assembly-level sweeps (which is where the real chatter width near the
 comparator's threshold gets observed), not one this cell can settle alone.
 
+**The width margin is now on the corner grid too, not only in that control**
+(#200). A control runs at two corners and is overwritten on its next run;
+[`testbench/stimulus.spice`](../sim/por-output-chain-deglitch/testbench/stimulus.spice)
+therefore applies a **third** chatter burst at **1.05 µs** — 5 % wider than the
+1 µs the older checks use, and inside the 1.0 / 1.25 µs bracket the control
+measures the post-layout rejection ceiling in — after the qualifying dip has
+restarted the pulse, where it disturbs no pre-existing measurement. Records
+[`20260811-110622-d5b0168`](../sim/por-output-chain-deglitch/records/20260811-110622-d5b0168.md)
+(schematic) and
+[`20260811-110752-d5b0168`](../sim/por-output-chain-deglitch/records/20260811-110752-d5b0168.md)
+(extracted), **81/81 PASS** each:
+
+| at 1.05 µs, worst of 81 points | schematic | extracted |
+| --- | ---: | ---: |
+| `pgdg_min_during_wide_chatter` | 2.932 V | 2.452 V |
+| `tim_min_during_wide_chatter_v` (undisturbed ≈ 0.39–0.58 V) | 0.388 V | 0.395 V |
+| `tim_loss_wide_pct` — timer charge lost | **none** (−0.092 %, `TIM` only rises) | **none** (−0.090 %) |
+
+Two things that only a grid can say. First, the one-shot loses **no** charge at
+any of the 81 points at either level: `tim_loss_wide_pct` is negative
+everywhere, meaning `XMDIS` never conducted at all, so 1.05 µs is rejected —
+not merely survived — as drawn. Second, the *sensitivity* is what post-layout
+extraction changed, not the verdict: going from 1 µs to 1.05 µs costs the
+schematic 9 mV of extra `PGDG` droop (2.941 → 2.932 V, +3 %) and the extracted
+netlist 84 mV (2.536 → 2.452 V, **+19 %** on a droop that is already 15× the
+schematic's). That is the same erosion the
+[post-layout section](#root-cause-of-the-deglitch-asymmetry-and-why-cdg-is-not-resized-issue-182)
+diagnoses, now visible as a slope on the grid rather than as one number in a
+control. `tim_loss_wide_pct` and its 1 µs sibling `tim_loss_1us_pct` carry **no
+bound** on purpose: they are the margin, and a bound on them would report only
+the flip, never the movement that precedes it.
+
 **The dwell is not simply `CDG · V_trip / I` either**, and the difference is
 load-bearing for anything that changes the capacitance on this node. `NDG`'s
 ramp does not start from the rail it was sitting on: when `POR_RAW` falls,
@@ -1022,9 +1054,20 @@ Two observations that are worth more than any capacitor in this cell:
   separates them; a tighter `IBIAS` envelope is what creates the room.
 
 Both are carried by **#199**, which cannot close until #14 reports the real
-`POR_RAW` chatter width and #11 lands an `IBIAS` envelope. **#200** carries the
-verification half: the measured rejection width belongs on the corner grid,
-not only in a control that gets overwritten on the next run.
+`POR_RAW` chatter width and #11 lands an `IBIAS` envelope. The verification
+half — the measured rejection width belongs on the corner grid, not only in a
+control that gets overwritten on the next run — is **done** (#200): the grid
+now applies a 1.05 µs burst as well and records the one-shot's charge loss
+across it at all 81 points, limit-free, in
+[`20260811-110622-d5b0168`](../sim/por-output-chain-deglitch/records/20260811-110622-d5b0168.md)
+(schematic) and
+[`20260811-110752-d5b0168`](../sim/por-output-chain-deglitch/records/20260811-110752-d5b0168.md)
+(extracted). Those two records reproduce every measurement of the records they
+supersede **bit-for-bit** — the new burst sits after every pre-existing
+measurement window — so the numbers this section quotes are unaffected by the
+addition. See
+[Deglitch dwell](#deglitch-dwell--cdg-is-bounded-on-both-sides) for what they
+measure.
 
 A third lever exists and is deliberately **not** taken here: `V_trip` sits at
 20 % of the rail because `XMG1` is skewed NMOS-strong, and a trip nearer
