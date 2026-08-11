@@ -247,12 +247,28 @@ with `--supersedes <record-id>`. Do not edit or delete anything under
 `records/`, `netlist-snapshots/` or `corners/` — see the append-only rule in
 `sim/README.md`.
 
+**A run where every point failed writes nothing.** If not one point in the
+grid produced a measurement — most often because `--timeout` was too short
+for the deck's own transient span, so every point died from the same
+environmental cause rather than from anything about the circuit — the runner
+refuses to write `records/`, `netlist-snapshots/` or `corners/` at all,
+including any `--supersedes` the run was asked to record, and exits `3`. That
+mirrors the unjustified-subset gate above: a wall-clock timeout is a property
+of the machine and the flags, not of the circuit, so it is closer to an
+environment problem than to simulation evidence, and it must never be able to
+supersede a passing record. `--no-write` (debugging) still runs and reports
+normally; it just never had anything to refuse. A record with *some* passing
+points and some failed/errored ones is unaffected by this — it still writes,
+still reports `status: ERROR`, still exits `2`; only the total-failure case is
+refused.
+
 A run taken against a dirty working tree says so in the record's **Netlist
 provenance** field and is not citable as a clean-tree result.
 
 Exit codes: `0` pass · `1` a check failed · `2` a simulation failed or did not
-converge · `3` environment problem (no ngspice, no PDK, bad manifest,
-unjustified PVT subset).
+converge (including a partial failure — some points ok, some not) · `3`
+environment problem (no ngspice, no PDK, bad manifest, unjustified PVT
+subset, or every point in the grid failed).
 
 Generated decks land in `sim/.work/<experiment-slug>/<record-id>/` and are
 git-ignored, so a failing corner can be reproduced by hand with
