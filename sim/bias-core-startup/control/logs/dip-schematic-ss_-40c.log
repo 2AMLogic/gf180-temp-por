@@ -1,0 +1,94 @@
+
+Note: Compatibility modes selected: hs a
+
+
+Circuit: * ok_bo_dip decay control -- bias_core.spice @ ss/-40.0 c
+
+Doing analysis at TEMP = -40.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+Initial Transient Solution
+--------------------------
+
+Node                                   Voltage
+----                                   -------
+vddb                                         0
+nibb                              -1.73128e-29
+ibiasb                            -1.73128e-29
+xbo.na                            -3.55863e-78
+xbo.pg                             -4.7228e-91
+xbo.nbtop                         -5.62302e-82
+vrefb                              1.36772e-71
+xbo.nbg                           1.04645e-102
+xbo.xrt.11                        -5.62302e-82
+xbo.xrt.21                        -5.62302e-82
+xbo.nb                            -5.62302e-82
+xbo.xr1.11                        -5.62302e-82
+xbo.xr1.21                        -5.62299e-82
+xbo.ec                            -5.62299e-82
+xbo.xr2.11                         1.36772e-71
+xbo.xr2.21                          1.3677e-71
+xbo.er                              1.3677e-71
+xbo.pb                           -3.89359e-145
+xbo.nt                            -6.90349e-86
+xbo.n1                            -2.82477e-88
+xbo.n2                            -1.65533e-87
+xbo.nz                            -1.65533e-87
+xbo.xrz.11                        -1.65533e-87
+xbo.xrz.21                        -1.65533e-87
+xbo.ks1                           -7.33955e-74
+xbo.ks2                            1.07569e-72
+xbo.ks3                           -1.56908e-71
+xbo.ks4                            2.28887e-70
+xbo.nkg                           -3.33884e-69
+xbo.nkm                          -1.26548e-157
+xbo.tok                           -1.71139e-68
+xbo.noko                           1.21669e-70
+xbo.nokl                           1.35381e-71
+xbo.nokx                          -3.62021e-56
+bias_okb                          -4.25166e-24
+vibb#branch                         1.7281e-41
+vbo#branch                          2.1562e-36
+
+ Reference value :  6.49060e-03
+ Reference value :  1.95182e-02
+ Reference value :  3.68148e-02
+ Reference value :  5.16700e-02
+No. of Data Rows : 2892
+ok335               =  5.35559e-02
+vr335               =  5.31761e-01
+ok340               =  4.56361e-02
+vr340               =  5.26434e-01
+ok350               =  3.36336e-02
+vr350               =  5.18382e-01
+ok360               =  2.55980e-02
+vr360               =  5.12283e-01
+ok380               =  1.59995e-02
+vr380               =  5.03096e-01
+ok400               =  1.08079e-02
+vr400               =  4.96086e-01
+ok450               =  5.35565e-03
+vr450               =  4.83044e-01
+ok500               =  3.55422e-03
+vr500               =  4.73128e-01
+m_ok335 = 5.3555900000e-02
+m_vr335 = 5.3176070000e-01
+m_ok340 = 4.5636100000e-02
+m_vr340 = 5.2643400000e-01
+m_ok350 = 3.3633580000e-02
+m_vr350 = 5.1838240000e-01
+m_ok360 = 2.5598040000e-02
+m_vr360 = 5.1228350000e-01
+m_ok380 = 1.5999550000e-02
+m_vr380 = 5.0309550000e-01
+m_ok400 = 1.0807850000e-02
+m_vr400 = 4.9608630000e-01
+m_ok450 = 5.3556470000e-03
+m_vr450 = 4.8304370000e-01
+m_ok500 = 3.5542210000e-03
+m_vr500 = 4.7312760000e-01
+Note: Simulation executed from .control section 
+
+Warning: m=xx on .subckt line will override multiplier m hierarchy!
+

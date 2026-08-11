@@ -1,0 +1,44 @@
+* Starved-window anatomy control -- stimulus half of the control fragment (#185).
+*
+* The other half is a verbatim copy of ONE of
+*   design/netlist/bias_core.spice     (schematic export)
+*   layout/postlayout/bias_core.spice  (klt-extracted, #82/PR #180)
+* appended by run_starved_window.py. That netlist is the control's ONLY
+* variable in Part A; every other line here is fixed by construction.
+*
+* Netlist FRAGMENT: no .include / .lib / .temp / .control / .end -- the
+* control script owns those, and reads the corner sections and solver
+* tolerances from the harness and from ../testbench/tb.json rather than
+* restating them.
+*
+* THIS IS THE SUPERSEDED BROWNOUT BRANCH, ON PURPOSE. The rail shape below is
+* ../testbench/stimulus.spice's `xb` branch EXACTLY as it stood for record
+* sim/bias-core-designer-check/records/20260811-063744-5ff219c.md -- one DUT
+* seeing a 0.5 V dip and then a full collapse, serialized -- because the point
+* of this control is to explain that record's numbers, not to re-measure them
+* against the deck that replaced it. The only change is the hold after the
+* rail returns: 2 ms there, `t_hold` here, so the trace runs past the end of
+* the recovery instead of stopping inside it.
+*
+* The static DUT `xst` is carried over from the parent deck because every
+* false-valid and error signal in that deck is referred to ITS settled VREF at
+* the same corner, not to a hardcoded 1.2 V. Reproducing the reference means
+* reproducing that referral.
+*
+* `eb` is the reference error the parent deck's `Bfob` thresholds at 100 mV;
+* here it is exported as a continuous signal so the control can time the END of
+* the starved window (the last instant |VREF - VREF_settled| exceeds 1 %)
+* rather than only integrate a boolean over it.
+
+vsupst vddst 0 dc {vdd_val}
+vibst  nibst ibiasst dc 0
+xst    vddst 0 nibst vrefst bias_okst bias_core
+xmldst ibiasst ibiasst 0 0 nfet_03v3 L=2u W=2u nf=1 m=1
+
+vsupb vddb 0 PWL(0 0 100u {vdd_val} 400u {vdd_val} 410u 0.5 550u 0.5
++ 560u {vdd_val} 950u {vdd_val} 960u 0 1100u 0 1110u {vdd_val} {t_hold} {vdd_val})
+vibb  nibb ibiasb dc 0
+xb    vddb 0 nibb vrefb bias_okb bias_core
+xmldb ibiasb ibiasb 0 0 nfet_03v3 L=2u W=2u nf=1 m=1
+Beb  eb  0 v = abs(v(vrefb) - v(vrefst))
+Bfob fob 0 v = ((v(bias_okb) > 0.5*v(vddb)) ? 1 : 0) * ((v(vrefst)-v(vrefb) > 0.1) ? 1 : 0)
