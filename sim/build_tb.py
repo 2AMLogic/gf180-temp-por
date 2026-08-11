@@ -135,6 +135,17 @@ POSTLAYOUT_FRAGMENTS: dict[str, tuple[str, tuple[str, ...]]] = {
     "temp-core-startup": ("tb_temp_core_startup_postlayout.spice", ("temp_core",)),
     "temp-accuracy-vt": ("tb_temp_accuracy_vt_postlayout.spice", ("temp_por_top",)),
     "temp-accuracy-mc": ("tb_temp_accuracy_mc_postlayout.spice", ("temp_core",)),
+    # #87's full-assembly POR dynamic-behaviour suite. One cell each, because
+    # layout/postlayout/temp_por_top.spice is a FLAT extraction of the whole
+    # four-cell assembly -- it carries no sub-.subckt to inline separately, and
+    # its internal net names are the schematic's (xbias__*, xcmp__*, xpor__*,
+    # xtemp__*) restored through klt lvs's net correspondence.
+    "por-ramp-rate": ("tb_por_ramp_rate_postlayout.spice", ("temp_por_top",)),
+    "por-brownout": ("tb_por_brownout_postlayout.spice", ("temp_por_top",)),
+    "por-brownout-slew": ("tb_por_brownout_slew_postlayout.spice", ("temp_por_top",)),
+    "por-brownout-spurious": ("tb_por_brownout_spurious_postlayout.spice", ("temp_por_top",)),
+    "por-glitch": ("tb_por_glitch_postlayout.spice", ("temp_por_top",)),
+    "temp-por-top-release": ("tb_temp_por_top_postlayout.spice", ("temp_por_top",)),
 }
 
 
