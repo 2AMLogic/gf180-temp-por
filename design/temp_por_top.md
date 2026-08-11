@@ -236,13 +236,162 @@ response, byte-for-byte the same failure set) and `por-brownout` at 0/81
 (DR-011's falling-slew root cause) — and is not re-routed here.
 
 
-### `sim/por-iq/` is not re-derived here
+### `sim/por-iq/` is not re-derived here — update: #83 has since landed, and the row is re-costed
 
 `sim/por-iq/analyze_por_iq.py` publishes `spec/target-spec.md#por-iq` and
 `#iq-total` by reducing **`sim/temp-accuracy-vt/`'s** raw per-point logs, not
-this suite's. That experiment belongs to the temp-sensing domain re-run
-(#83), which has no post-layout record yet, so the `por-iq` derivation stays
-on the schematic-level source record until #83 lands. The `iq_por_ua` column
-of `sim/temp-por-top-release/`'s own extracted record above is the
-post-layout number for that row in the meantime; it is measured in the same
-state (target-spec.md §5 rule 1) on the same assembled path.
+this suite's. That experiment belonged to the temp-sensing domain re-run
+(#83), which had no post-layout record at the time this section was first
+written. **#83 has since merged** (PR #198,
+[`sim/temp-accuracy-vt/records/20260811-084152-68c0017.md`](../sim/temp-accuracy-vt/records/20260811-084152-68c0017.md),
+per [`temp_core.md`](temp_core.md) → "Post-layout re-run"): same 54/81 miss
+against the then-ratified 1.0 µA ceiling, values within 0.05 % of the
+schematic reading, confirming (not merely corroborating from this document's
+`temp-por-top-release` column above) that the overrun is design-magnitude,
+not layout. `spec/target-spec.md#por-iq`'s <1 µA target has since been
+re-costed to **<3.0 µA** by
+[DR-018](../spec/decision-records/DR-018-por-iq-recost.md) (issue #189,
+closed) against exactly this measured apportionment — **81/81 PASS on both
+netlist levels** against the re-costed ceiling. See "Closing roll-up for
+issue #18" below for how this fits the tracking issue's overall verdict.
+
+## Closing roll-up for issue #18: post-layout extracted re-run of the full verification suite
+
+[#18](https://github.com/2AMLogic/gf180-temp-por/issues/18) is the tracking
+issue for re-running the entire pre-layout verification suite (temp-sensing
+#13, POR #14, Monte Carlo #15) against the DRC/LVS-clean, parasitic-extracted
+layout instead of the schematic netlist. Its six re-run dependencies —
+#82 (the extraction bridge itself), #83 (temp-sensing, `temp_core.md`), #84
+(bias/reference core, `bias_core.md`), #85 (POR comparator/threshold,
+`por_comparator.md`), #86 (POR output chain, `por_output_chain.md`), and #87
+(full-assembly POR dynamic behaviour, this document, above) — are all closed
+and merged. This section is the roll-up #18's own acceptance criteria ask
+for, and it does not relax that criteria: **the suite is not fully green on
+the extracted netlist**, and this roll-up says so rather than rounding up.
+
+### 1. The IR-drop / crosstalk watch item cannot be answered by this repo's tooling today
+
+This is the most consequential thing this roll-up has to state, so it is
+stated first and without qualification: **no post-layout record this repo
+can produce may be cited as cross-domain IR-drop or crosstalk evidence.**
+`klt extract --parasitics` emits, per net, exactly one series resistor into a
+synthetic dangling `<net>__par` node and one capacitor from that node to
+substrate (see "The IR / cross-domain-coupling question" above for the exact
+cards on the four seam-crossing nets, `IBIAS`/`RESETn`/`VDD`/`VSS`). There is
+no DC path through any `R<net>` — its far end feeds only a capacitor — so no
+rail can develop IR drop in this deck by construction, and there is no
+capacitor between any two circuit nets at all, so no net-to-net coupling term
+is representable either. This is a property of the extraction model, not of
+the layout: klayout-tools#338/#592 document and close the gap partway
+(deferring the model change), and klayout-tools#701 (a Method-of-Moments
+field solver) and #709 (a PEX-aware post-layout sim flow, "Phase 2 —
+coupling + distributed RC") are the open epics that would eventually let a
+future re-run answer this. Until one of those lands, a clean-looking
+post-layout suite on this axis means "not tested," not "tested and passed" —
+and every record in this repo, including this one, is written on that basis.
+
+### 2. The one substantive, consistent finding: ~2 % uniform reset-timing lengthening
+
+Every reset-timing quantity measured across all six children lengthens by
+about the same 2 % post-layout — `t_release_ms` +1.96…+2.00 % across its grid
+extremes, `t_pulse_regen_ms` +2.98 %, the one-shot pulse width
+(`por_output_chain.md`) +1.88…+2.40 %, `por-ramp-rate`'s fast-branch minima
++2.3…+3.0 %. It is the signature of a distributed RC load on a current-starved
+ramp, not a topology change, and it is consistent across cells, testbenches,
+and both the cell-level and full-assembly netlists. It costs no ratified
+corner anywhere in the suite (worst case, `temp-por-top-release`'s release
+guard band is 1–29 ms against a 17.3 ms extracted maximum) — except at one
+already-tight design margin, `por_output_chain`'s deglitch dwell floor, where
+the *same* parasitic loading moves the qualifying-dip dwell in the *other*
+direction (−28…−36 % at some corners, not +2 %): a real, if still-passing,
+erosion of headroom against a floor this design already treats as tight,
+diagnosed by #182 and tracked forward by #199/#200 rather than by this issue.
+
+### 3. #61 / DR-013's spurious `POR_RAW` assert survives with real MOS-side parasitics
+
+`sim/por-brownout-spurious/` (#87) re-checked
+[#61](https://github.com/2AMLogic/gf180-temp-por/issues/61) /
+[DR-013](../spec/decision-records/DR-013-por-brownout-spurious-assert.md)'s
+finding — that at intermediate falling slew rates, `POR_RAW` asserts while
+the rail is still above `VPOR↑,max = 2.73 V` — with real MOS-side parasitics
+in the loop instead of the schematic ideal. **It survives.** On the worst
+branch (`b3`, the 1.0 ms / 2.30 mV/µs edge), 33 of 81 corners still assert
+above 2.73 V post-layout, peaking at 3.22 V. The footprint on all three
+checked branches shrinks relative to the schematic record (79→33, 45→13,
+20→7), but the asserts that remain also arrive later
+(`t_praw_b3_us`'s grid minimum roughly triples), consistent with the same 2 %
+per-decade slowdown from point 2 acting on a fixed measurement window — **the
+shrinkage is not evidence of a fix**, and nothing about this re-run refutes
+DR-013.
+
+### 4. Exactly one device remains schematic-ideal across all five cells: `temp_core`'s undrawn `XCC`
+
+Several of #82-#87's own acceptance-criteria bodies carry a broader-sounding
+"some devices may still be schematic-ideal" caveat, written before the
+extraction artifact these issues actually consumed was known. That caveat is
+now stale in this repo's favor: per
+[`layout/postlayout/AUDIT.md`](../layout/postlayout/AUDIT.md), across all
+five cells (`bias_core`, `por_comparator`, `por_output_chain`, `temp_core`,
+`temp_por_top`), **exactly one device is still schematic-ideal** —
+`temp_core`'s `XCC`, the 12 × 12 µm MiM compensation cap on `PG`/`NZ`
+(instance `xtemp`'s `xtemp__PG`/`xtemp__NZ` in the assembly), reserved floor
+area that cell's layout does not draw yet, tracked in #177. Every other
+device in the suite — all MOS, all 19 bipolars, all 77 resistors, and the
+other 7 MiM caps — is drawn, extracted, and LVS-matched. `XCC` sits in the
+amplifier's compensation path, so the loop's stability margin and settling
+transient shape remain a schematic-level claim until #177 resolves it; no
+other node in any of the five cells carries that caveat.
+
+### Regressions and follow-ups, routed rather than absorbed
+
+Per #18's own acceptance criteria ("any spec line that ... fails extracted
+re-opens the corresponding design issue — the spec does not get relaxed to
+pass") and `sim/README.md`'s append-only convention, every post-layout
+regression or new finding from #83-#87 was routed to its own issue instead of
+being resolved or absorbed inside the re-run issues themselves:
+
+| Finding | Source | Issue | Status |
+| --- | --- | --- | --- |
+| `por-iq` missed at 54/81 corners — confirmed design-magnitude, not layout, on both netlist levels | #87 (this document) | [#189](https://github.com/2AMLogic/gf180-temp-por/issues/189) | **Closed** — resolved by [DR-018](../spec/decision-records/DR-018-por-iq-recost.md), re-costing the ceiling to <3.0 µA against measured apportionment; 81/81 PASS post-layout |
+| Falling-slew brownout response degrades (3.46 mV/µs rung 1→6 failures; one corner stops re-asserting `RESETn`) | #87 | [#188](https://github.com/2AMLogic/gf180-temp-por/issues/188) | Open |
+| `bias-core-designer-check` / `bias-core-startup` regress: post-brownout `VREF` reproducibility and `BIAS_OK` droop/dip push past their bounds at several cold/fast-process corners | #84 (`bias_core.md`) | [#185](https://github.com/2AMLogic/gf180-temp-por/issues/185) | Open |
+| `por-hysteresis` fails the 250 mV ceiling at the single worst full-assembly corner (`ss_-40c_3.63v`, 261.09 mV) | #85 (`por_comparator.md`) | [#187](https://github.com/2AMLogic/gf180-temp-por/issues/187) | Open |
+| Deglitch dwell's qualifying-dip floor has visibly less headroom post-layout than the schematic ever measured (root-caused, no ratified check fails) | #86 (`por_output_chain.md`, #182) | [#199](https://github.com/2AMLogic/gf180-temp-por/issues/199), [#200](https://github.com/2AMLogic/gf180-temp-por/issues/200) | Open |
+
+Everything else that fails on the extracted netlist failed identically
+before the re-run (`por-brownout` at 0/81 per DR-011's falling-slew root
+cause, `por-glitch` at 0/81 per DR-014/DR-017's known glitch response) and is
+not re-routed here — the extraction confirms, rather than changes, those
+already-owned findings.
+
+### Verdict: #18 closes now
+
+**#18 closes with this roll-up, rather than staying open as a living
+tracking issue pending #188/#185/#187/#199/#200.** The literal wording of
+#18's acceptance criteria ("full suite green ... across all PVT corners") is
+not met, and this roll-up does not pretend otherwise — four issues above
+remain open. But #18's own text also says a regression "re-opens the
+corresponding design issue," not "keeps #18 open," and that mechanism is what
+this suite's own history shows working: #82 closed without waiting on
+#83-#87; #67 (the layout decomposition) closed once its five sub-issues
+landed rather than staying open through every follow-on layout defect; and
+#189, filed by this exact re-run, has already gone from open to closed via a
+normal decision-record cycle while #18 itself sat `loom:curated` waiting for
+a Builder. Holding #18 open until every downstream regression clears would
+make it a second, informal tracking mechanism duplicating what the issue
+tracker and `sim/README.md`'s regression-routing convention already do, with
+no added signal — a reader wanting the current state of any one regression
+should read that regression's own issue, not this one.
+
+What #18 close *does* certify, and only this: the parasitic-extracted netlist
+exists for all five cells and the assembly (#82), every testbench in the
+pre-layout suite has been re-run against it at least once (#83-#87), every
+regression found in doing so has an owning issue (table above), and the three
+watch items #18's own body named explicitly have each been reported rather
+than silently rounded to "clean" — the sensing core's high-impedance-node
+loading (per-node ΣC/ΣR reported in `temp_core.md`'s "Parasitic loading on
+the high-impedance nodes"; too small by two-to-six orders of magnitude to
+move any spec row), the ~2 % reset-timing lengthening this loading and
+`por_output_chain`'s own timing capacitors produce (point 2), and
+cross-domain IR/coupling, which this repo's extraction model cannot show at
+all (point 1).
