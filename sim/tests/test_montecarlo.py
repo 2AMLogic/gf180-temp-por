@@ -204,6 +204,64 @@ class DeckCompositionTests(unittest.TestCase):
         self.assertIn(".temp -40", self.deck)
 
 
+class RunMcPointTests(unittest.TestCase):
+    def setUp(self):
+        import json
+        import tempfile
+
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        root = Path(self.tmp.name)
+        tb_dir = root / "tb"
+        tb_dir.mkdir()
+        (tb_dir / "x.spice").write_text("v1 out 0 dc {vdd_val}\n")
+        (tb_dir / "tb.json").write_text(
+            json.dumps(
+                {
+                    "name": "x",
+                    "netlist": "x.spice",
+                    "measure": {"vout": "v(out)"},
+                    "analyses": ["dc temp %(temp_c)g %(temp_c)g 1"],
+                    "mc": {
+                        "n": 500,
+                        "seed_base": 1,
+                        "binding_points": [{"label": "a", "corner": "ss", "temp_c": -40, "vdd": 3.63}],
+                    },
+                }
+            )
+        )
+        self.tb = testbench.load(tb_dir)
+        self.pdk = fake_pdk(root / "gf180mcuD")
+        self.point = montecarlo.build_mc_grid(
+            montecarlo.load_binding_points(self.tb), n=500, seed_base=1
+        )[0]
+        self.workdir = root / "work"
+
+    def test_run_mc_point_writes_a_spiceinit_alongside_the_deck(self):
+        """#216/#229: the MC path shares the same per-run `.spiceinit`
+        single-threading fix as the deterministic-grid path
+        (`runner.run_point`) -- exercised here without a real ngspice by
+        faking `subprocess.run`, mirroring
+        test_harness.HarnessTests.test_run_point_writes_a_spiceinit_alongside_the_deck."""
+        from unittest import mock
+
+        def fake_run(cmd, capture_output, text, timeout, cwd, check):
+            self.assertTrue((Path(cwd) / ".spiceinit").is_file())
+            proc = mock.Mock()
+            proc.stdout = "m_vout = 1.0"
+            proc.stderr = ""
+            proc.returncode = 0
+            return proc
+
+        with mock.patch.object(montecarlo.shutil, "which", return_value="/usr/bin/ngspice"), \
+                mock.patch.object(montecarlo.subprocess, "run", side_effect=fake_run):
+            result = montecarlo.run_mc_point(self.tb, self.pdk, self.point, self.workdir)
+
+        self.assertEqual(result.status, "ok")
+        self.assertTrue((self.workdir / ".spiceinit").is_file())
+        self.assertIn("set num_threads=1", (self.workdir / ".spiceinit").read_text())
+
+
 class DeriveTempTrimTests(unittest.TestCase):
     def test_zero_curvature_zero_die_gives_only_quantisation(self):
         # K25 = vptat25_v / 298.15; pick vptattgt_v so curvature is exactly 0.

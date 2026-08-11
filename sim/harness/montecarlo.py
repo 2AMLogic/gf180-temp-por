@@ -64,7 +64,14 @@ from pathlib import Path
 
 from .corners import CORNERS, Corner
 from .pdk import Pdk
-from .runner import NGSPICE, DEFAULT_TIMEOUT_S, NgspiceMissing, PointResult, parse_measurements
+from .runner import (
+    DEFAULT_TIMEOUT_S,
+    NGSPICE,
+    NgspiceMissing,
+    PointResult,
+    parse_measurements,
+    write_run_spiceinit,
+)
 from .testbench import Testbench
 
 #: Floor ratified by spec/target-spec.md section 2: "[3σ] = process plus
@@ -322,6 +329,13 @@ def run_mc_point(
 
     if shutil.which(NGSPICE) is None:
         raise NgspiceMissing("ngspice not found on PATH")
+
+    # #216/#229: force single-threaded ngspice via a per-run .spiceinit so
+    # this harness's own process-level `-j` parallelism (run_mc_grid's
+    # ThreadPoolExecutor) doesn't contend with a nested OpenMP team inside
+    # each ngspice process. Every point in a grid shares `workdir`, so
+    # concurrent points each re-write identical content.
+    write_run_spiceinit(workdir)
 
     started = time.monotonic()
     try:
