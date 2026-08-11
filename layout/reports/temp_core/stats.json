@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "file": "layout/cells/temp_core.gds",
+  "dbu_um": 0.001,
+  "top_cell": "temp_core",
+  "bbox_um": {
+    "left": -3.0,
+    "bottom": -32.3,
+    "right": 566.25,
+    "top": 179.055,
+    "width": 569.25,
+    "height": 211.35500000000002
+  },
+  "total": {
+    "area_um2": 77689.50160000002,
+    "density": 0.6457237640804543,
+    "polygon_count": 5017,
+    "vertex_count": 20068
+  },
+  "layers": null,
+  "provenance": {
+    "gds_sha256": "852d534c2004326c2405bc689b1c12bd9e16f022ed17fcbe69fcbd8eb1866f10"
+  }
+}

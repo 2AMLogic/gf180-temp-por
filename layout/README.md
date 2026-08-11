@@ -170,12 +170,12 @@ false-clean `drc.json` (`status: clean`, `violation_count: 0`, empty
 `violations`) was textually indistinguishable from a genuine clean one before
 #102's fix, because nothing in the report recorded which GDS bytes it was run
 against — only manual inspection against a rebuilt stream caught it (#106).
-Every committed `layout/reports/<cell>/{drc,extract,lvs}.json` now pins a
-digest of its source GDS (`drc.json`/`extract.json`:
+Every committed `layout/reports/<cell>/{drc,extract,lvs,stats}.json` now pins a
+digest of its source GDS (`drc.json`/`extract.json`/`stats.json`:
 `provenance.gds_sha256`, spliced in by `run_checks.sh` right after `klt drc`/
-`klt extract` write the file, since neither writes it itself; `lvs.json`:
-`environment.layout_sha256`, already `klt lvs`'s own output), and so does
-`extracted-parasitics.json` (`layout/postlayout.py --extract`'s own record,
+`klt extract`/`klt stats` write the file, since none of them writes it itself;
+`lvs.json`: `environment.layout_sha256`, already `klt lvs`'s own output), and
+so does `extracted-parasitics.json` (`layout/postlayout.py --extract`'s own record,
 which writes the digest itself — see "Post-layout netlists" below). This
 recomputes `sha256(layout/cells/<cell>.gds)` and fails if it disagrees with
 any of those, so a cell whose GDS moves without its extraction being re-run
@@ -339,7 +339,22 @@ klt lvs layout/cells/<cell>.lvs.json --format json
 
 Exit 0 = match, 3 = mismatch, 1 = failed to run.
 
-**4. Negative controls — the part that makes step 3 mean anything.** A
+**4. Footprint / drawn-area stats** — the regenerable source of
+[`spec/target-spec.md#area`](../spec/target-spec.md#area)'s measured value
+(see [DR-022](../spec/decision-records/DR-022-area-post-layout-measurement.md)):
+
+```bash
+klt stats layout/cells/<cell>.gds --format json
+```
+
+Needs no `--deck` — `klt stats` reads geometry only (bounding box, total
+drawn/union-of-layers polygon area, density, polygon/vertex counts), not
+device recognition, so it carries no `provenance.deck` block and sits outside
+the deck-hash consistency gate above; only the GDS-hash gate applies to its
+report (`stats.json`'s spliced-in `provenance.gds_sha256`, same convention as
+`drc.json`/`extract.json`).
+
+**5. Negative controls — the part that makes step 3 mean anything.** A
 mis-wired LVS invocation that compares nothing also reports `match`, so a clean
 run is not by itself evidence. `layout/lvs_reference.py --corrupt` re-derives
 the same reference with exactly one defect injected, and the run **requires**
@@ -376,6 +391,8 @@ layout/
     <cell>/extract.json          klt extract report
     <cell>/extracted.spice       the layout-side netlist
     <cell>/lvs.json              klt lvs report
+    <cell>/stats.json            klt stats report (bbox footprint + drawn area;
+                                  spec/target-spec.md#area evidence, DR-022)
     <cell>/negative-controls.json both controls' verdicts
     <cell>/extracted-parasitics.*  the --parasitics extraction (postlayout.py)
     <cell>/postlayout-smoke.json   that cell's smoke result
@@ -403,7 +420,7 @@ five other cells' recorded runs with a deck they were never checked against
 would destroy exactly the provenance the directory exists to carry.
 
 Every report also records the GDS stream it was generated from
-(`drc.json`/`extract.json`: `provenance.gds_sha256`; `lvs.json`:
+(`drc.json`/`extract.json`/`stats.json`: `provenance.gds_sha256`; `lvs.json`:
 `environment.layout_sha256`) — see "0c. GDS-hash gate" above, and #106.
 
 ## Post-layout netlists
@@ -1265,6 +1282,37 @@ the top cell and stay internal. `lvs_reference.py` asserts the reference's own
 port list against `design/netlist/temp_por_top.spice`'s `.subckt` line, in
 order — the same ratified-pinout assertion `design/netlist.py --check` makes at
 the schematic level.
+
+**Footprint / area — [`spec/target-spec.md#area`](../spec/target-spec.md#area)'s
+measured value ([DR-022](../spec/decision-records/DR-022-area-post-layout-measurement.md)).**
+`klt stats layout/cells/temp_por_top.gds` (run by `run_checks.sh` step 4,
+recorded at `layout/reports/temp_por_top/stats.json`):
+
+```
+top_cell: temp_por_top
+bbox_um: (-140.0, -540.0) - (1194.0, 254.0)  1334.0 x 794.0
+area_um2: 369261.93960000004
+density: 0.3486247489605323
+```
+
+Three defensible numbers, all measured off the same committed GDS, differ by
+up to ~3× — which one the target-spec row means is stated explicitly there,
+not left implicit:
+
+| Measure | Value | Source |
+| --- | ---: | --- |
+| **This cell's bounding-box footprint (the row's measurement convention)** | **1334.0 × 794.0 µm = 1 059 196 µm² ≈ 1.059 mm²** | `stats.json`'s `bbox_um` |
+| Sum of the four sub-cells' own bounding boxes (`bias_core` 434.9 × 285.7, `por_comparator` 445.0 × 164.7, `por_output_chain` 225.3 × 105.9, `temp_core` 569.25 × 211.355 µm) | 341 716 µm² ≈ 0.342 mm² | each cell's own `stats.json` |
+| Drawn (union-of-layers) polygon area — not a footprint, most of the bbox is unfilled space between instances, rails and the guard rings | 369 262 µm² | `stats.json`'s `total.area_um2` |
+
+The footprint is ~3.1× the sum of the sub-cells' own boxes; the gap is
+floorplan spacing (`TOP_PLACEMENT`'s instance layout, the full-width rails,
+the perimeter guard ring and the domain-seam moat — see "The floorplan
+re-derivation itself" above), not a stray shape inflating the box. Both the
+footprint and the sub-cell sum are over the `≤0.05 mm²` wave-1 planning
+budget `spec/target-spec.md#area` carried before this measurement (21.2× and
+6.8× respectively) — see DR-022 for the full reasoning and the ratified
+disposition.
 
 ### `por_comparator_bias_okb_inv` — the flow's original proof cell (#16)
 
