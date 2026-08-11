@@ -102,6 +102,10 @@ script does NOT go through sim/run_corners.py and does NOT mint a record
 under `../records/`. What it decides is only whether a BETTER bound is
 reachable by re-routing, which is a layout question, not a spec question.
 
+Nor does it locate a boundary. Two rungs BRACKET one; locating where the
+extracted transition edge would sit after a re-route needs a corner-grid
+ladder, which is filed as #232 rather than done here.
+
 Outputs, all regenerated on every run (a control is not a record):
 
     netlists/na-<variant>.spice          the exact DUT netlist as run
@@ -879,7 +883,11 @@ def write_results(
             f"{DR019_BOUND_MVUS:g} mV/µs bound is recoverable. Where the edge "
             "would land after such a re-route is not answered here: two rungs "
             "bracket a boundary, they do not locate it, and locating it is a "
-            "corner-grid ladder's job (`../records/`), not a control's."
+            "corner-grid ladder's job (`../records/`), not a control's. That "
+            "is filed as "
+            "[#232](https://github.com/2AMLogic/gf180-temp-por/issues/232), "
+            "which proposes re-laddering against this control's own "
+            "`netlists/na-por.spice` first, before any layout is touched."
         )
         lines.append("")
 

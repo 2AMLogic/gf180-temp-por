@@ -175,7 +175,7 @@ Each row states what shorting that arm's nets did to the 3.4 mV/µs boundary, cl
 | `por` | +303.4 (+348.4) | +346.9 (+130.2) | +400.5 (+95.3) | 3/3 | **yes — converts every point `ext` fails** |
 | `all` | +340.4 (+385.4) | +393.4 (+176.7) | +455.8 (+150.6) | 3/3 | **yes — converts every point `ext` fails** |
 
-`ext` fails 2.97 V at 2.5 mV/µs; `sch` passes every point. An arm marked **yes** above removes the parasitics that carry that failure — which is a layout lever on where the extracted transition edge sits, and therefore on how much of the 2.3 mV/µs bound is recoverable. Where the edge would land after such a re-route is not answered here: two rungs bracket a boundary, they do not locate it, and locating it is a corner-grid ladder's job (`../records/`), not a control's.
+`ext` fails 2.97 V at 2.5 mV/µs; `sch` passes every point. An arm marked **yes** above removes the parasitics that carry that failure — which is a layout lever on where the extracted transition edge sits, and therefore on how much of the 2.3 mV/µs bound is recoverable. Where the edge would land after such a re-route is not answered here: two rungs bracket a boundary, they do not locate it, and locating it is a corner-grid ladder's job (`../records/`), not a control's. That is filed as [#232](https://github.com/2AMLogic/gf180-temp-por/issues/232), which proposes re-laddering against this control's own `netlists/na-por.spice` first, before any layout is touched.
 
 ## 6 — probe integrity
 
