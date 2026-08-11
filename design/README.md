@@ -91,6 +91,11 @@ Internal nets:
 | `POR_RAW` | `por_comparator` | `por_output_chain`               | hysteresis is the comparator's job; deglitch/pulse/drive are the output chain's (DR-005 ownership split) |
 | `RESETn`  | `por_output_chain` | top-level pad, `temp_core.EN`  | the sensor is enabled only after POR releases (DR-005 step 6), which keeps it out of the startup chicken-and-egg problem |
 
+The assembly itself has a document too — [`temp_por_top.md`](temp_por_top.md).
+It carries only what is true of the *loop between* the cells rather than of any
+one of them, which today is the post-layout re-run of the full-assembly
+testbench suite (#87).
+
 Two DR-005 leaves are deliberately *not* separate cells: the shared core's
 startup kick lives inside `bias_core`, and the POR startup-assist pull-down
 lives inside `por_output_chain` — the cell DR-004 makes responsible for holding
