@@ -1,0 +1,159 @@
+{
+  "name": "bias-core-designer-check",
+  "description": "Designer-level PVT check of design/bias_core.sch: settled VREF and IBIAS, always-on quiescent current against spec/target-spec.md#por-iq, absence of a degenerate zero-current state (DC operating point plus cold start, shallow brownout and full rail collapse), reference settling time and dropout voltage, and the rail at which the assembled block would release given BIAS_OK's gating. Post-layout re-run (issue #84, part of #18): DUT swapped from design/bias_core.sch's exported netlist to layout/postlayout/bias_core.spice.",
+  "claim": "Post-layout re-run of the schematic-level record in sim/bias-core-designer-check/records/ (issue #84, part of #18) -- same claim, spec/target-spec.md#por-iq -- and, as an input to #por-vth-rise / #por-vth-fall, the reference accuracy design/por_comparator.md hands to this cell (it spends only +/-0.144 % of the ratified +/-5 % threshold window itself and leaves the rest to VREF) -- now against layout/postlayout/bias_core.spice instead of design/netlist/bias_core.spice. bias_core has no remaining schematic-ideal device per #82/PR #180 (see Netlist provenance below), so this is a full post-layout re-derivation of the schematic record, not a partial one. Deterministic corners only: design.ngspice sets sw_stat_mismatch=0, so this bounds the SYSTEMATIC/corner term; local mismatch on the 8:1 PNP ratio, the R2/R1 ratio and the amplifier offset is issue #15's Monte Carlo job (still run against the schematic netlist). The por-iq result is a DELIBERATE, DOCUMENTED FAILURE at the hot/fast corners on the schematic record -- see the iq_por_ua check description and design/bias_core.md, 'Iq apportionment' -- and is expected to reproduce here; any check that flips from PASS to FAIL relative to the schematic-level record is a regression to flag and route to design/bias_core.md's owning issue, not to silently absorb. Full ramp-rate/brownout envelope against a real assembled block is #14's; this record's ramps are designer-level bounds, not that envelope.",
+  "netlist": "tb_bias_core.spice",
+  "netlist_provenance": "extracted",
+  "netlist_provenance_note": "layout/postlayout/bias_core.spice's own header (layout/postlayout/AUDIT.md): 7 body/plate net(s) (NW1, NWQ, XCC__NZ, XCC__PG, XCOK__NOKX, XCOK__VDD, vsubs) tied to the net the schematic puts them on -- the extraction deck's connectivity stack does not reach an Nwell, a substrate ring, a bipolar base well or a MiM plate. No ideal device: per #82/PR #180 all 70 devices are drawn, including the 10 vertical PNPs (XQ1/XQ8A-H/XQR), the 4 poly resistors (R1/R2/RT/RZ) and the 2 MiM caps (CC/COK) that were schematic-ideal splices before PR #180.",
+  "nominal_supply_v": 3.3,
+  "supply_tolerance": 0.1,
+  "temperatures_c": [
+    -40,
+    27,
+    125
+  ],
+  "corners": [
+    "full"
+  ],
+  "options": [
+    "reltol=1e-4",
+    "abstol=1e-15",
+    "vntol=1e-8"
+  ],
+  "analyses": [
+    "tran 4u 2m",
+    "meas tran vref_op find v(vrefst) at=0",
+    "meas tran vref_st find v(vrefst) at=1.95m",
+    "meas tran ok_st find v(bias_okst) at=1.95m",
+    "meas tran vdd_st find v(vddst) at=1.95m",
+    "meas tran iq_st find i(vsupst) at=1.95m",
+    "meas tran ib_st find i(vibst) at=1.95m",
+    "meas tran t_set when v(es)=1.2m fall=last",
+    "meas tran vdd_drop find v(vdds) when v(rr9s)=0 rise=1",
+    "meas tran t_oks when v(bias_oks)=1.4 rise=1",
+    "meas tran err_at_ok find v(es) when v(bias_oks)=1.4 rise=1",
+    "meas tran relv_slow find v(vdds) when v(rels)=0 rise=1",
+    "meas tran err_at_relv find v(es) when v(rels)=0 rise=1",
+    "meas tran relv_fast find v(vddf) when v(relf)=0 rise=1",
+    "meas tran okf_at_1v find v(bias_okf) when v(vddf)=1.0 rise=1",
+    "meas tran errf_end find v(ef) at=1.95m",
+    "meas tran bo_pre find v(vrefb) at=390u",
+    "meas tran bo_mid find v(vrefb) at=940u",
+    "meas tran bo_post find v(vrefb) at=1.95m",
+    "meas tran ok_bo_dip find v(bias_okb) at=1030u",
+    "meas tran t_bo_rec when v(bias_okb)=1.4 rise=last",
+    "meas tran t_false_s integ v(fos) from=0 to=2m",
+    "meas tran t_false_f integ v(fof) from=0 to=2m",
+    "meas tran t_false_b integ v(fob) from=0 to=2m",
+    "meas tran ok_bo_end find v(bias_okb) at=1.95m",
+    "meas tran vdd_bo find v(vddb) at=1.95m"
+  ],
+  "measure": {
+    "vref_op_v": "vref_op",
+    "vref_v": "vref_st",
+    "ok_droop_mv": "(vdd_st-ok_st)*1e3",
+    "iq_por_ua": "-iq_st*1e6",
+    "ibias_na": "ib_st*1e9",
+    "iq_own_ua": "-iq_st*1e6 - ib_st*1e6",
+    "t_settle_us": "(t_set-500e-6)*1e6",
+    "err_at_relv_mv": "err_at_relv*1e3",
+    "vdd_ref90_v": "vdd_drop",
+    "t_bo_recover_us": "(t_bo_rec-1110e-6)*1e6",
+    "t_false_ok_slow_us": "t_false_s*1e6",
+    "t_false_ok_fast_us": "t_false_f*1e6",
+    "t_false_ok_brownout_us": "t_false_b*1e6",
+    "err_at_ok_mv": "err_at_ok*1e3",
+    "t_ok_us": "t_oks*1e6",
+    "relv_slow_v": "relv_slow",
+    "relv_fast_v": "relv_fast",
+    "okf_at_1v_mv": "okf_at_1v*1e3",
+    "err_fast_end_mv": "errf_end*1e3",
+    "bo_shallow_ppm": "(bo_mid-bo_pre)/bo_pre*1e6",
+    "bo_deep_ppm": "(bo_post-bo_pre)/bo_pre*1e6",
+    "ok_bo_dip_mv": "ok_bo_dip*1e3",
+    "ok_bo_end_droop_mv": "(vdd_bo-ok_bo_end)*1e3"
+  },
+  "checks": {
+    "vref_v": {
+      "min": 1.14,
+      "max": 1.26,
+      "description": "Settled VREF. The window is spec/target-spec.md#por-vth-rise's 2.47/2.73 V divided by por_comparator's committed divider ratio 2.16667 (design/por_comparator.md): the threshold is VREF times a resistor ratio and that cell measured its own share of the window at only +/-0.144 %, so essentially the whole +/-5 % belongs here. 1.20 V typ is the value #10 sized its divider against, so landing on it is what makes that sizing stand without a re-ratio."
+    },
+    "vref_op_v": {
+      "min": 1.14,
+      "max": 1.26,
+      "description": "VREF at t=0, i.e. in the operating point ngspice solves before the transient starts, with the static branch already at full rail. This is the degenerate-state guard: a DVBE loop has a zero-current solution as well as its intended one and a DC solver will happily return it -- design/temp_core.md records that happening to #9's first revision at fs/-40 C and at both resistor corners. A dead solution reads ~0 V here and fails this bound. Passing it at all 81 points says the intended solution is the one the solver finds from cold, before the startup kick has done anything."
+    },
+    "iq_por_ua": {
+      "max": 1.0,
+      "description": "spec/target-spec.md#por-iq (<1 uA). bias_core has no enable and no off state, so this ONE number is its entire contribution to that row under SS5 accounting rule 1 -- no apportionment argument is available or needed. THIS CHECK IS EXPECTED TO FAIL at the hot/fast corners, and that failure is the deliverable: target-spec.md SS5 names #11 as the owner of exactly this conflict ('#11 must therefore either show the shared core's reset-asserted-state current fits inside <1 uA, or #1 must re-cost the row') and forbids relaxing the target to make the arithmetic work. Setting this bound anywhere other than the ratified 1.0 uA would be that relaxation. See design/bias_core.md, 'Iq apportionment', for the breakdown, for how much of it is the 0.5 uA IBIAS convention #9/#10 fixed, and for the specific remedies a re-cost would choose between."
+    },
+    "ibias_na": {
+      "min": 250.0,
+      "max": 1250.0,
+      "description": "Current actually delivered out of the IBIAS pin into a diode-connected nfet_03v3 2u/2u (por_comparator's own XMBD). Nominal is 500 nA at tt/27 C/3.30 V, the convention design/temp_core.md and design/por_comparator.md both state and both took their records against. The spread is not a sizing miss: IBIAS mirrors the loop current DVBE/R1, which is PTAT over the +-25 % ppolyf_u_3k sheet corner and the flavour's -1545 ppm/C TC, so 2.5:1 across the grid is structural. Neither consumer depends on its absolute value (both say so explicitly); the bound is here to catch a broken mirror, not to specify accuracy."
+    },
+    "ok_droop_mv": {
+      "max": 20.0,
+      "description": "VDD - V(BIAS_OK) in the settled state. por_comparator consumes BIAS_OK as a logic level into a CMOS inverter, so it has to be a hard rail-to-rail high, not a partially resolved analog level."
+    },
+    "relv_slow_v": {
+      "min": 2.47,
+      "description": "THE release guard on the slow ramp: the rail at which (BIAS_OK is a valid high) AND (VDD >= 2.16667*VREF, por_comparator's release condition) first hold together -- i.e. the VDD at which the assembled block would actually release. Bounded below by spec/target-spec.md#por-vth-rise's 2.47 V minimum. This is the real content of 'BIAS_OK must not assert before the reference has settled': a BIAS_OK that goes high early while VREF is still rail-limited is harmless, because a rail-limited VREF makes 2.16667*VREF larger than VDD by construction, and this measurement is what proves that rather than assuming it."
+    },
+    "relv_fast_v": {
+      "min": 2.47,
+      "description": "Same guard on a ~1.5-1.8 V/us ramp, at the fast end of spec/target-spec.md#por-ramp-rate. This is the hostile case: the rail arrives long before the loop settles, so the reference is still moving when the divided rail is already above 1.2 V. The amplifier lags on a rising ramp in the direction that makes the loop over-drive, i.e. VREF too HIGH and therefore the release threshold too high -- late, not early. That is why the settle detector is deliberately one-sided (design/bias_core.md, 'BIAS_OK'), and this bound is the evidence for the claim."
+    },
+    "okf_at_1v_mv": {
+      "max": 300.0,
+      "description": "BIAS_OK on the fast ramp at the instant VDD first reaches 1.0 V -- far below the core's own dropout, so nothing is biased yet. Must not be a level a downstream nfet_03v3 gate could read as high (0.3 V is below Vt at every corner in sim/devchar/SUMMARY.md). XCOK holds NOKX up through exactly this window and XMO1P/XMO1N are skewed weak-pull-up/strong-pull-down for the same reason."
+    },
+    "ok_bo_dip_mv": {
+      "max": 500.0,
+      "description": "BIAS_OK in the middle of the full rail collapse. With the rail at 0 V both output devices are far below Vt, so the pin is a high-impedance node dominated by capacitive coupling to the collapsed rail -- exactly the regime design/por_comparator.md records for POR_RAW below its operating floor. The bound is therefore an ABSOLUTE-voltage guard rather than a fraction of the rail: what matters is whether BIAS_OK could turn a downstream nfet_03v3 on, and 0.5 V is under Vt at every corner in sim/devchar/SUMMARY.md."
+    },
+    "ok_bo_end_droop_mv": {
+      "max": 20.0,
+      "description": "BIAS_OK 390 us after the rail returns from a full collapse. A startup circuit that cannot re-arm looks identical to a working one until exactly this test: an earlier revision of this cell gated its dead-loop detector on V(VREF) > Vt and left BIAS_OK stale-high for ~200 us at fs/-40 C while the core sat at near-zero current. See design/bias_core.md, 'Startup'."
+    },
+    "bo_shallow_ppm": {
+      "min": -500.0,
+      "max": 500.0,
+      "description": "VREF after recovering from a dip to 0.5 V, against VREF before it, at the same corner point. The shallow dip is the harder of the two: the rail is far below the core's dropout but every internal node keeps its charge, which is the state a bandgap latches in if it can."
+    },
+    "bo_deep_ppm": {
+      "min": -500.0,
+      "max": 500.0,
+      "description": "Same comparison after a full collapse to 0 V and a cold restart. Together with bo_shallow_ppm and vref_op_v this is the 'no stuck/latched zero-current startup state' evidence the issue asks for: reference reproduces to within a few ppm after every way of killing it."
+    },
+    "err_at_relv_mv": {
+      "max": 400.0,
+      "description": "|VREF - VREF(settled)| at the instant the release guard fires. This is the ramp-rate feedthrough term, and it is a property of Miller compensation on a supply-referenced output node rather than a settling transient: the mirror gate PG has to track VDD, so the compensation capacitor injects Cc*dVDD/dt into the amplifier's stage-1 output, which the loop can only absorb as an input-referred offset of (Cc/gm1)*dVDD/dt. The coefficient is ~2.4 us times the ramp rate, and its SIGN is toward more loop current, i.e. VREF HIGH and therefore por_comparator's threshold high -- a late release, never an early one. That sign is why the settle detector can be one-sided; this measurement is the evidence for it, and the coefficient is the number #14 needs to predict the release point at any ramp rate in spec/target-spec.md#por-ramp-rate."
+    },
+    "vdd_ref90_v": {
+      "max": 2.2,
+      "description": "The rail at which VREF first reaches 90 % of its settled value on the slow ramp -- the core's own minimum operating voltage (DR-005 startup ordering, step 3). Bounded at 2.2 V so it sits below spec/target-spec.md#por-vth-fall's 2.22 V minimum: the falling edge of the assembled block then belongs to por_comparator's divider rather than to the reference collapsing underneath it. 2.2 V is that self-consistency requirement, not a ratified row of its own."
+    },
+    "t_false_ok_slow_us": {
+      "max": 5.0,
+      "description": "Time for which BIAS_OK was a valid high while VREF was more than 100 mV away from its settled value, on the 500 us ramp (up to ~7.3 V/ms). Zero is the correctness requirement: BIAS_OK exists precisely to keep por_comparator's decision from becoming authoritative on a reference that is not yet right (DR-005 startup ordering, step 4). The bound is 5 us rather than 0 only because the integral is evaluated on the 4 us transient print grid, so a single sample straddling the BIAS_OK edge contributes one timestep; anything real is orders of magnitude larger (see the fast-ramp row)."
+    },
+    "t_false_ok_fast_us": {
+      "max": 0.0,
+      "description": "The same integral on a 1.0 V/us ramp -- spec/target-spec.md#por-ramp-rate's ratified FAST LIMIT. THIS CHECK IS EXPECTED TO FAIL at the -40 C corners, and the failure is a deliverable, not an oversight. At 1 V/us the amplifier cannot slew the mirror gate PG (which has to track VDD) with a 26 nA tail into ~1.3 pF: the loop is driven far past its operating point, parks at a small fraction of the intended current, and crawls back over milliseconds, during which the one-sided settle detector -- which has only the collapsed loop's own current to work with -- cannot pull its output down. Measured boundary: correct at ramps of 0.36 V/us and slower (10 us to full rail) at every corner, false-valid at 1.0 V/us at -40 C. The remedy is amplifier current, which is exactly the budget spec/target-spec.md#por-iq has already run out of -- see design/bias_core.md, 'Ramp-rate limit', which states the conflict and the options rather than relaxing either row."
+    },
+    "t_false_ok_brownout_us": {
+      "max": 5.0,
+      "description": "The same false-valid integral on the brownout branch, which sees a 0.5 V dip (rail below the core's dropout, nodes still charged) and then a full collapse. THIS CHECK IS EXPECTED TO FAIL at the cold slow-PMOS corners: recovery from either event puts the loop through the same parked-at-low-current state as the fast ramp, and the settle detector has only the collapsed loop's own current to move its output with. Same root cause, same remedy, same conflict with spec/target-spec.md#por-iq -- see design/bias_core.md, 'The starved-loop window'."
+    },
+    "t_bo_recover_us": {
+      "max": 900.0,
+      "description": "Time from the rail returning after a full collapse to BIAS_OK going valid again. Recorded rather than assumed: recovery is a large-signal event whose duration is set by the amplifier's slew rate at the coldest, slowest corners, and it is the number #14 needs for spec/target-spec.md#por-brownout."
+    },
+    "t_settle_us": {
+      "max": 300.0,
+      "description": "Settling time AFTER the rail stops moving: the time at which |VREF - VREF(settled at this corner)| last exceeds 1.2 mV (0.1 %), minus the 500 us ramp end. Measured this way because while the rail is still slewing the reference carries a rate-proportional offset that is NOT a settling transient -- see err_at_relv_mv. Reported for #14's ramp-rate testbench, which needs a number for how long after the rail arrives the reference can still be moving. Not a ratified row: spec/target-spec.md#por-reset-pulse states no maximum, so a slow core delays release rather than violating anything."
+    }
+  }
+}

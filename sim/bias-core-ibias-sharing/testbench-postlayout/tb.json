@@ -1,0 +1,74 @@
+{
+  "name": "bias-core-ibias-sharing",
+  "description": "Integration check on the SHARED IBIAS net in the reset-asserted state: bias_core driving a disabled temp_core and por_comparator exactly as design/netlist/temp_por_top.spice wires them, against a control with temp_core absent. Establishes whether a bias-vs-POR lockup exists at the top level, which is the half of issue #11's startup-ordering charter that no single-cell testbench can reach. Post-layout re-run (issue #84, part of #18): all three spliced cells swapped from design/netlist/{bias_core,temp_core,por_comparator}.spice to layout/postlayout/{bias_core,temp_core,por_comparator}.spice.",
+  "claim": "Post-layout re-run of the schematic-level record in sim/bias-core-ibias-sharing/records/ (issue #84, part of #18), same claim -- spec/decision-records/DR-005-temp-por-architecture-survey.md startup ordering (steps 4-6) and spec/target-spec.md#por-iq, specifically issue #11's requirement to show that no bias-vs-POR chicken-and-egg lockup state exists across corners -- now against layout/postlayout/{bias_core,temp_core,por_comparator}.spice instead of the design/netlist/ exports (see Netlist provenance below for what remains schematic-ideal in the temp_core leg). Unlike this testbench's original framing, the schematic-level record is NOT a design-defect record any more: DR-010 removed temp_core's IBIAS clamp, and the latest schematic-level record (sim/bias-core-ibias-sharing/records/) is 81/81 PASS. This re-run checks that holds with real interconnect parasitics loading the shared IBIAS/VREF nets, per DR-010 and design/bias_core.md, 'The shared IBIAS net'. It is deterministic-corners only (design.ngspice sets sw_stat_mismatch=0) and makes no threshold-accuracy claim; it only asks whether the shared bias node survives the reset-asserted state. Any check that flips from PASS to FAIL relative to the schematic-level record is a regression to flag and route to the owning design issue (design/bias_core.md / design/temp_core.md), not to silently absorb.",
+  "netlist": "tb_ibias_sharing.spice",
+  "netlist_provenance": "extracted",
+  "netlist_provenance_note": "Three-way splice (per sim/build_tb.py's FRAGMENTS -- bias_core + temp_core + por_comparator; por_output_chain is not instantiated, per the fragment's own header), each leg's caveat from its own layout/postlayout/<cell>.spice header (layout/postlayout/AUDIT.md): bias_core -- 7 body/plate ties (NW1, NWQ, XCC__NZ, XCC__PG, XCOK__NOKX, XCOK__VDD, vsubs) to the schematic's net; no ideal device, all 70 drawn (per #82/PR #180, including the 10 PNPs/4 resistors/2 MiM caps). por_comparator -- 3 body/plate ties (NW1, NW2, vsubs); no ideal device, all 21 drawn. temp_core -- 4 body/plate ties (NW1, NW2, NWQ, vsubs); XCC (cap_mim_2f0_m3m4_noshield, on PG/NZ) is IDEAL -- not drawn in this cell's layout, reserved floor area -- the one golden device this design still does not draw. Any check whose behavior depends on XCC is therefore a schematic claim for the temp_core leg even though the netlist as a whole is extracted; none of this testbench's checks do (temp_core is held disabled throughout, per the fragment's own stimulus).",
+  "nominal_supply_v": 3.3,
+  "supply_tolerance": 0.1,
+  "temperatures_c": [
+    -40,
+    27,
+    125
+  ],
+  "corners": [
+    "full"
+  ],
+  "options": [
+    "reltol=1e-5",
+    "abstol=1e-15",
+    "vntol=1e-9"
+  ],
+  "analyses": [
+    "tran 4u 600u",
+    "meas tran vib_a find v(ibiasa) at=590u",
+    "meas tran vib_b find v(ibiasb) at=590u",
+    "meas tran por_a find v(por_rawa) at=590u",
+    "meas tran por_b find v(por_rawb) at=590u",
+    "meas tran ok_a find v(oka) at=590u",
+    "meas tran ok_b find v(okb) at=590u",
+    "meas tran vref_a find v(vrefa) at=590u",
+    "meas tran iba find i(viba) at=590u",
+    "meas tran vdda find v(vdda) at=590u",
+    "meas tran vddb find v(vddb) at=590u"
+  ],
+  "measure": {
+    "vibias_shared_v": "vib_a",
+    "vibias_control_v": "vib_b",
+    "por_raw_shared_droop_mv": "(vdda-por_a)*1e3",
+    "por_raw_control_droop_mv": "(vddb-por_b)*1e3",
+    "bias_ok_shared_droop_mv": "(vdda-ok_a)*1e3",
+    "bias_ok_control_droop_mv": "(vddb-ok_b)*1e3",
+    "vref_shared_v": "vref_a",
+    "ibias_delivered_na": "iba*1e9"
+  },
+  "checks": {
+    "por_raw_control_droop_mv": {
+      "max": 20.0,
+      "description": "CONTROL branch. The rail is at this point's vdd_val, i.e. above spec/target-spec.md#por-vth-rise's 2.73 V maximum at every point of the grid, so por_comparator must be released (POR_RAW high) with a real bias_core driving its IBIAS/VREF/BIAS_OK. This is also the first evidence that bias_core's real outputs reproduce the behaviour sim/por-comparator-designer-check got from idealised 500 nA / 1.2 V stimuli."
+    },
+    "por_raw_shared_droop_mv": {
+      "max": 20.0,
+      "description": "Identical to the control except that a DISABLED temp_core is also on the shared IBIAS net -- which is exactly the reset-asserted state DR-005 startup ordering step 6 puts the block in from the first millivolt of rail until POR releases. Historically THE DEFECT and expected to fail (temp_core's disabled state used to clamp the IBIAS pin to VSS via its XMDIB, starving por_comparator's tail mirror -- a closed lockup loop): DR-010 removed that clamp, and the schematic-level record now passes this check at all 81 points, as the check's requirement-shaped wording predicted it would. This re-run's job is to confirm that still holds with real interconnect parasitics loading the shared node. A FAIL here is a genuine regression -- route it to design/bias_core.md's owning issue, not to this description's old expectation. See design/bias_core.md, 'The shared IBIAS net'."
+    },
+    "vibias_control_v": {
+      "min": 0.3,
+      "description": "The shared bias node in the control branch: a real diode drop, i.e. bias_core's output leg is in compliance and por_comparator's local mirror is biased."
+    },
+    "vibias_shared_v": {
+      "min": 0.3,
+      "description": "The same node with the disabled temp_core present. Historically expected to fail (the pre-DR-010 clamp held it near VSS regardless of what bias_core sourced into it); DR-010 removed the clamp and the schematic-level record now passes this check at all 81 points. Bounding it at a diode drop states the requirement, not the observation -- a FAIL here (schematic or extracted) is a regression, not the documented baseline."
+    },
+    "vref_shared_v": {
+      "min": 1.14,
+      "max": 1.26,
+      "description": "bias_core's VREF in the same branch. It is NOT affected by the IBIAS clamp -- the reference loop is self-biased and does not depend on the IBIAS output leg's compliance -- and this check is what proves the lockup is an interface defect on one net rather than a failure of the reference itself."
+    },
+    "ibias_delivered_na": {
+      "min": 250.0,
+      "max": 1250.0,
+      "description": "Current bias_core actually pushes into the clamped shared net. It is delivered, and then thrown away into temp_core's clamp: the full IBIAS budget is spent in the reset-asserted state and none of it reaches the consumer that needs it. That is the Iq half of the same defect -- see design/bias_core.md, 'Iq apportionment'."
+    }
+  }
+}

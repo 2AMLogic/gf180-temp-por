@@ -103,6 +103,21 @@ POSTLAYOUT_FRAGMENTS: dict[str, tuple[str, tuple[str, ...]]] = {
     "por-output-chain-pulse": ("tb_por_pulse_postlayout.spice", ("por_output_chain",)),
     "por-output-chain-deglitch": ("tb_por_deglitch_postlayout.spice", ("por_output_chain",)),
     "por-output-chain-floor": ("tb_por_floor_postlayout.spice", ("por_output_chain",)),
+    # #84's bias_core-domain post-layout re-runs. These three fragment names
+    # deliberately do NOT carry the ``_postlayout`` suffix the por-output-chain
+    # rows above use: their records under sim/bias-core-*/records/ (and the
+    # frozen sim/bias-core-*/netlist-snapshots/*.spice those records cite) were
+    # written against these exact paths, and a record is append-only evidence
+    # -- renaming the fragment would leave a committed record pointing at a
+    # file that does not exist. The ``testbench-postlayout/`` directory is
+    # what distinguishes the two fragments, not the file name; the suffix on
+    # the #86 rows is belt-and-braces, not a load-bearing convention.
+    "bias-core-designer-check": ("tb_bias_core.spice", ("bias_core",)),
+    "bias-core-startup": ("tb_bias_core_startup.spice", ("bias_core",)),
+    "bias-core-ibias-sharing": (
+        "tb_ibias_sharing.spice",
+        ("bias_core", "temp_core", "por_comparator"),
+    ),
 }
 
 

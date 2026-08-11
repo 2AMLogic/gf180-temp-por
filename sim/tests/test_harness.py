@@ -195,6 +195,7 @@ class TestbenchTests(unittest.TestCase):
                     self.assertIn(required, names)
 
     def test_netlist_provenance_defaults_to_schematic(self):
+        """sim/README.md: provenance is schematic unless the manifest says otherwise."""
         tb = testbench.load(self._write("v1 out 0 dc {vdd_val}\n"))
         self.assertEqual(tb.netlist_provenance, "schematic")
         self.assertEqual(tb.netlist_provenance_note, "")
@@ -236,6 +237,16 @@ class TestbenchTests(unittest.TestCase):
                 tb = testbench.load(manifest_path)
                 self.assertEqual(tb.netlist_provenance, "extracted")
                 self.assertIn("layout/postlayout/AUDIT.md", tb.netlist_provenance_note)
+
+    def test_extracted_provenance_requires_a_caveat_note(self):
+        """sim/README.md: an 'extracted' record must carry the netlist header's caveat,
+        so the manifest is rejected outright when the note is missing (#84) rather
+        than silently rendering a bare 'extracted' provenance line."""
+        with self.assertRaises(ValueError) as ctx:
+            testbench.load(
+                self._write("v1 out 0 dc {vdd_val}\n", {"netlist_provenance": "extracted"})
+            )
+        self.assertIn("netlist_provenance_note", str(ctx.exception))
 
 
 class DeckTests(unittest.TestCase):
