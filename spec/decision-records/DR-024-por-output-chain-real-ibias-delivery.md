@@ -83,20 +83,27 @@ corners instead of reporting a number. The check is restated as a voltage
 floor instead (`pgdg_min_during_halfib_dip_v`, `max: 1.0`) so a corner that
 never trips reports a clean FAIL rather than aborting the run; the
 crossing-time measurement is kept, unchanged, for the DR-005-nominal DUT
-(`xdut1`), which still resolves everywhere.
+(`xdut1`), which still resolves everywhere. The floor is sampled over the
+qualifying dip **itself** (12.000–12.010 ms), not over a wider window, so
+"`PGDG` below 1.0 V somewhere in this window" is exactly "dwell ≤ 10 µs" and
+borrows no slack from after `POR_RAW` returns high.
 
 **Result** (both new records, superseding
 [`20260811-110622-d5b0168`](../../sim/por-output-chain-deglitch/records/20260811-110622-d5b0168.md)
 and
 [`20260811-110752-d5b0168`](../../sim/por-output-chain-deglitch/records/20260811-110752-d5b0168.md)):
-[`20260811-143717-b4f3c5a`](../../sim/por-output-chain-deglitch/records/20260811-143717-b4f3c5a.md)
+[`20260811-150038-58e15a8`](../../sim/por-output-chain-deglitch/records/20260811-150038-58e15a8.md)
 (schematic) is **79/81 FAIL**;
-[`20260811-143859-439c620`](../../sim/por-output-chain-deglitch/records/20260811-143859-439c620.md)
+[`20260811-150342-0c44407`](../../sim/por-output-chain-deglitch/records/20260811-150342-0c44407.md)
 (post-layout) is **57/81 FAIL**, on `pgdg_min_during_halfib_dip_v` alone —
 every other check in both records is unaffected (still passing, per
-`design/por_output_chain.md`'s unrelated results). Only the two
-fastest/hottest corners (`ff_125c_2.97v`, `ff_125c_3.63v`) resolve inside the
-10 us qualifying dip window at all. This is a real, structural finding, not a
+`design/por_output_chain.md`'s unrelated results). On the schematic netlist
+only **two** points resolve inside the qualifying dip at all (`ff_125c_2.97v`
+at 0.161 V and `ff_125c_3.30v` at 0.615 V); the extracted netlist clears 24,
+all of them at 125 °C or on the `ff`/`fs` process corners, because its own
+drawn `XCDG`/`XCTIM` parasitics make the filter faster — the two levels do
+**not** disagree about the delivered current, which they measure identically
+to four significant figures. This is a real, structural finding, not a
 margin miss: at the real delivered current, `por_output_chain`'s deglitch
 filter rejects a qualifying `T_dip,min` brownout dip outright across most of
 the PVT grid, exactly as the (fabricated-citation, correct-substance) original
@@ -253,16 +260,20 @@ because no lever lands here.
 **Two follow-up issues are the concrete path forward**, filed alongside this
 record:
 
-1. A scoped redesign issue against `por_output_chain` (#12) and
+1. **[#235](https://github.com/2AMLogic/gf180-temp-por/issues/235)** — a
+   scoped redesign issue against `por_output_chain` (#12) and
    `por_comparator` (#10) to re-ratio the shared node's consumer diodes
    (lever 2), including the full re-derivation and re-verification work item
    2 above describes — the only lever of the four that can close the gap
    without either a `por-iq` renegotiation or a human spec-level call.
-2. A spec-change issue proposing `T_dip,min`'s re-cost (lever 4), carrying
+2. **[#236](https://github.com/2AMLogic/gf180-temp-por/issues/236)** — a
+   spec-change issue proposing `T_dip,min`'s re-cost (lever 4), carrying
    this record's measured 0.182x-0.608x delivered-current range and the
    arithmetic above showing why the circuit-level levers are each
    expensive, for whoever holds spec-ratification authority to weigh against
-   the block's actual brownout-immunity requirement.
+   the block's actual brownout-immunity requirement. It is labelled
+   `loom:operator-decision` rather than left in the agent queue, for the
+   reason Decision item 3 gives.
 
 **The friction-protocol trigger does not apply here.** No klayout-tools gap
 was hit — no layout work was attempted in this record, by design (see
