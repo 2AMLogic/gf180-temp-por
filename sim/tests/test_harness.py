@@ -194,6 +194,49 @@ class TestbenchTests(unittest.TestCase):
                 for required in ("res_ff", "res_ss", "bjt_ff", "bjt_ss"):
                     self.assertIn(required, names)
 
+    def test_netlist_provenance_defaults_to_schematic(self):
+        tb = testbench.load(self._write("v1 out 0 dc {vdd_val}\n"))
+        self.assertEqual(tb.netlist_provenance, "schematic")
+        self.assertEqual(tb.netlist_provenance_note, "")
+        self.assertEqual(tb.provenance()["netlist_provenance"], "schematic")
+
+    def test_netlist_provenance_extracted_is_accepted_with_its_note(self):
+        tb = testbench.load(
+            self._write(
+                "v1 out 0 dc {vdd_val}\n",
+                {
+                    "netlist_provenance": "extracted",
+                    "netlist_provenance_note": "see layout/postlayout/AUDIT.md",
+                },
+            )
+        )
+        self.assertEqual(tb.netlist_provenance, "extracted")
+        self.assertEqual(tb.netlist_provenance_note, "see layout/postlayout/AUDIT.md")
+        provenance = tb.provenance()
+        self.assertEqual(provenance["netlist_provenance"], "extracted")
+        self.assertEqual(provenance["netlist_provenance_note"], "see layout/postlayout/AUDIT.md")
+
+    def test_netlist_provenance_rejects_unknown_values(self):
+        with self.assertRaises(ValueError) as ctx:
+            testbench.load(
+                self._write("v1 out 0 dc {vdd_val}\n", {"netlist_provenance": "simulated"})
+            )
+        self.assertIn("netlist_provenance", str(ctx.exception))
+
+    def test_every_postlayout_experiment_declares_extracted_provenance(self):
+        """#86: sim/README.md requires an extracted record to say so and carry
+        the layout/postlayout/AUDIT.md caveat -- this is the manifest half of
+        that requirement, checked for every testbench-postlayout/ directory
+        the repo commits (independent of testbench.discover(), which only
+        looks under the schematic "testbench" dirname)."""
+        postlayout_dirs = sorted(SIM_DIR.glob("*/testbench-postlayout/tb.json"))
+        self.assertTrue(postlayout_dirs, "no testbench-postlayout/ manifests found under sim/")
+        for manifest_path in postlayout_dirs:
+            with self.subTest(experiment=manifest_path.parent.parent.name):
+                tb = testbench.load(manifest_path)
+                self.assertEqual(tb.netlist_provenance, "extracted")
+                self.assertIn("layout/postlayout/AUDIT.md", tb.netlist_provenance_note)
+
 
 class DeckTests(unittest.TestCase):
     def setUp(self):
@@ -654,6 +697,68 @@ class RecordRenderingTests(unittest.TestCase):
         self.assertIn(self.tb.netlist_sha256, path.read_text())
         with self.assertRaises(report.RecordExists):
             report.write_netlist_snapshot(self.tb, experiment, "20260729-153000-1a7ef75")
+
+
+class ExtractedProvenanceRenderingTests(unittest.TestCase):
+    """#86: a post-layout (extracted) record says so, carries its caveat, and
+    points at its own (non-"testbench"-named) testbench subdirectory."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        root = Path(self.tmp.name)
+        tb_dir = root / "por-output-chain-pulse" / "testbench-postlayout"
+        tb_dir.mkdir(parents=True)
+        (tb_dir / "y.spice").write_text("v1 out 0 dc {vdd_val}\n")
+        (tb_dir / "tb.json").write_text(
+            json.dumps(
+                {
+                    "name": "por-output-chain-pulse",
+                    "netlist": "y.spice",
+                    "measure": {"vout": "v(out)"},
+                    "checks": {"vout": {"min": 0.0, "max": 10.0}},
+                    "netlist_provenance": "extracted",
+                    "netlist_provenance_note": "0 ideal devices, per layout/postlayout/AUDIT.md",
+                }
+            )
+        )
+        self.tb = testbench.load(tb_dir)
+        self.pdk = fake_pdk(root / "gf180mcuD")
+        points = corners.build_grid(
+            corners.resolve_corners(["mos"]), (-40, 27, 125), corners.supply_points(3.3, 0.10)
+        )
+        results = [
+            runner.PointResult(point=p, status="ok", measurements={"vout": 1.0})
+            for p in points
+        ]
+        self.record = report.build_record(
+            tb=self.tb,
+            pdk=self.pdk,
+            points=points,
+            results=results,
+            ngspice="ngspice-46",
+            repo_root=SIM_DIR,
+            record_id="20260811-000000-1a7ef75",
+            started_utc="2026-08-11T00:00:00+00:00",
+            wall_seconds=1.0,
+            claim="spec/target-spec.md#por-reset-pulse",
+            git={"commit": "f" * 40, "short": "fffffff", "branch": "main", "dirty": False},
+        )
+
+    def test_provenance_line_says_extracted_and_carries_the_caveat(self):
+        text = report.render_record(self.record, "por-output-chain-pulse")
+        self.assertIn(
+            "**Netlist provenance**: extracted "
+            "(`sim/por-output-chain-pulse/testbench-postlayout/y.spice`)",
+            text,
+        )
+        self.assertIn("0 ideal devices, per layout/postlayout/AUDIT.md", text)
+
+    def test_links_use_the_actual_testbench_subdirectory_not_the_schematic_default(self):
+        text = report.render_record(self.record, "por-output-chain-pulse")
+        self.assertIn("sim/por-output-chain-pulse/testbench-postlayout/y.spice", text)
+        self.assertIn("sim/por-output-chain-pulse/testbench-postlayout/tb.json", text)
+        self.assertNotIn("testbench/y.spice", text)
 
 
 if __name__ == "__main__":
