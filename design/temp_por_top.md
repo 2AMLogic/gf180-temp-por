@@ -276,7 +276,8 @@ margin, with `POR_RAW` asserting ~68 µs → ~145 µs after the dip starts. Whic
 nets' parasitics carry that is **not** established: `PG`'s own extracted
 `R_6`/`C_6` pair is 5.08 kΩ and 68.1 fF against DR-011's ≈1.25 pF estimate for
 that node, ~5 %, so a single-net explanation does not close a 28 % boundary
-shift and a per-net attribution is left as follow-up work.
+shift and a per-net attribution is left to
+[#214](https://github.com/2AMLogic/gf180-temp-por/issues/214).
 
 **The `por-brownout` delta was not the extraction's at all.** That row's two
 moved numbers were read against `20260801-233807-32fbaa0`, whose own frozen
@@ -306,8 +307,9 @@ which is what a one-way release latch is for — not the decision. The
 `XMRLK`", not as a post-layout regression. All of it sits ~580× outside this
 row's guaranteed falling-slew envelope either way (the deck's edge is
 ~1970 mV/µs); what needs narrowing is DR-011's "the block recovers; it does
-not latch up or stay released", which is follow-up work, not a claim this
-document can repair.
+not latch up or stay released", which is
+[#215](https://github.com/2AMLogic/gf180-temp-por/issues/215), not a claim
+this document can repair.
 
 
 ### `sim/por-iq/` is not re-derived here — update: #83 has since landed, and the row is re-costed

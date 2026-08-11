@@ -170,7 +170,8 @@ boundary shift alone, and the extraction loads 136 of 159 nets (ΣC 5880.2 fF).
 A per-net attribution — most directly, re-running the ladder against the
 extracted netlist with individual parasitic pairs removed — is the follow-up
 that would say whether this is addressable in layout or is intrinsic to the
-starved loop at this bias level. It is filed separately rather than done
+starved loop at this bias level. It is filed as
+[#214](https://github.com/2AMLogic/gf180-temp-por/issues/214) rather than done
 here, because this record needs only the boundary, and the boundary is
 measured.
 
@@ -204,4 +205,5 @@ propagation, which is precisely what a one-way release latch is for. Both
 numbers are outside this row's guaranteed envelope by ~580× in slew either
 way; DR-011's Consequences sentence "the block recovers; it does not latch up
 or stay released" is the claim that needs narrowing, and that is routed to
-its own follow-up rather than settled here.
+[#215](https://github.com/2AMLogic/gf180-temp-por/issues/215) rather than
+settled here.
