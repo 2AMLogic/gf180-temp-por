@@ -158,7 +158,12 @@ a `.spiceinit` ngspice reads at startup (or a deck's own `.control` block).
 
 `run_point()` (`sim/harness/runner.py`) handles this for you: before invoking
 ngspice, it writes a `.spiceinit` into the point's work directory forcing
-`set num_threads=1`. Because ngspice reads *either* a project-local
+`set num_threads=1`. `run_mc_point()` (`sim/harness/montecarlo.py`, the Monte
+Carlo path driven by `sim/run_mc.py` and its own `-j`-parallel
+`run_mc_grid()`) does the same, via the identical `runner.write_run_spiceinit`
+call (#229) -- it is exposed to the same nested-OpenMP contention as the
+deterministic-grid path, since it runs under the same process/thread `-j`
+model. Because ngspice reads *either* a project-local
 `./.spiceinit` *or* `$HOME/.spiceinit` at startup — never both — that per-run
 file also carries forward whatever your own `$HOME/.spiceinit` sets verbatim
 (the host that surfaced #216 needs `set wnflag=1` there for gf180mcu model
