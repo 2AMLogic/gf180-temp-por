@@ -882,6 +882,30 @@ diagnose the delta the section above measured. They are diagnoses, not
 records — the corner-grid evidence stays in `records/` (`sim/README.md`,
 "Control experiments").
 
+### First, re-verified — and this time on a clean tree
+
+The post-layout grid was re-run against the same extracted netlist:
+[`sim/por-output-chain-deglitch/records/20260811-095259-865cea8.md`](../sim/por-output-chain-deglitch/records/20260811-095259-865cea8.md),
+**81/81 PASS**, reproducing `20260811-055634-d0ee17d`'s numbers exactly. That
+matters beyond confirmation: the #86 record says of itself that it was "taken
+against a **dirty working tree** … not citable as a clean-tree result", and
+this one is clean, so the post-layout deglitch claim now rests on a record
+whose inputs are all committed.
+
+The two numbers to carry forward are **not** the two the erosion was first
+reported in:
+
+| what | post-layout | bound | headroom |
+| --- | ---: | ---: | ---: |
+| `dwell_pgdg_halfib_us`, grid max | 8.03 µs | ≤ 10 µs, ratified `T_dip,min` | **+19.7 %** |
+| `pgdg_min_during_chatter`, grid min | 2.53616 V | ≥ 2.5 V | **+1.4 %** |
+
+The ceiling — the *ratified* bound — is comfortable. The one that is 36 mV
+from its limit is the chatter check at `ff_125c_2.97v`: the direct measurement
+of "a 1 µs `POR_RAW` glitch does not move the filter output". Schematic-level
+it read 2.94 V, a 29 mV droop; post-layout it reads 2.54 V, a 434 mV droop.
+**That, not the dwell percentages, is the erosion.**
+
 ### What actually moved: not the trip point
 
 Decomposing each edge's dwell as `(V_trip − V0) / slope`
@@ -968,7 +992,9 @@ still fits, 12 µm × 12 µm, buys the floor back only to 1.25 µs while leaving
 is 112 %; that is not margin, it is a coin flip.
 
 **So `CDG` is not resized, and no decision record is filed** — nothing ratified
-moves. `por-brownout`'s 10 µs ceiling is met post-layout with 19.8 % headroom
+moves. `por-brownout`'s 10 µs ceiling is met post-layout with 19.7 % headroom
+on the full grid (`20260811-095259-865cea8`; the 19.8 % in the table above is
+this control deck's own single-corner re-measurement of the same point)
 and stays exactly where [DR-008](../spec/decision-records/DR-008-target-spec-ratification.md)
 put it. What changes is this document: the floor is now stated as a measured
 glitch-rejection width rather than left implicit, and it is **1.00× post-layout
@@ -1008,10 +1034,18 @@ it is a re-spin of the cell and its layout, not a tweak.
 ### Reproducing this section's evidence
 
 ```bash
+python3 sim/run_corners.py sim/por-output-chain-deglitch/testbench-postlayout -j 1
 python3 sim/por-output-chain-deglitch/control/run_deglitch_asym_probe.py   # the decomposition + ablation
 python3 sim/por-output-chain-deglitch/control/run_glitch_width_sweep.py    # the measured floor
 python3 sim/por-output-chain-deglitch/control/run_cdg_tradeoff.py          # the CDG-resize tradeoff
 ```
+
+`-j 1` is not a typo. ngspice's worker threads spin-wait, so `N` concurrent
+points × `N` threads oversubscribe a busy host superlinearly: the 81-point
+grid runs in 154 s at `-j 1` and does not finish at all at `-j 8` on the same
+machine, where every point hits the harness's 300 s per-point timeout
+(record `20260811-083430-4249351` is that abort, kept because `sim/` is
+append-only).
 
 Each script regenerates its own `results.md` / `width_results.md` /
 `cdg_results.md`, its `decks/` and its raw `logs/` in place. The traces the
