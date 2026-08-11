@@ -312,7 +312,7 @@ not latch up or stay released", which is
 this document can repair.
 
 
-### `sim/por-iq/` is not re-derived here — update: #83 has since landed, and the row is re-costed
+### `sim/por-iq/` is now re-derived post-layout — update: #83 landed, the row was re-costed, and #207 minted the record
 
 `sim/por-iq/analyze_por_iq.py` publishes `spec/target-spec.md#por-iq` and
 `#iq-total` by reducing **`sim/temp-accuracy-vt/`'s** raw per-point logs, not
@@ -328,8 +328,21 @@ not layout. `spec/target-spec.md#por-iq`'s <1 µA target has since been
 re-costed to **<3.0 µA** by
 [DR-018](../spec/decision-records/DR-018-por-iq-recost.md) (issue #189,
 closed) against exactly this measured apportionment — **81/81 PASS on both
-netlist levels** against the re-costed ceiling. See "Closing roll-up for
-issue #18" below for how this fits the tracking issue's overall verdict.
+netlist levels** against the re-costed ceiling.
+
+**#207 closed the remaining publication gap.** `sim/por-iq/analyze_por_iq.py`
+itself still checked the withdrawn <1 µA ceiling (a stale constant, not a
+new finding — it predated DR-018), and `sim/por-iq/`'s own newest record was
+still the schematic-level one from before the layout re-run. Both are fixed:
+the script's `TARGET_POR_IQ_UA` now reads <3.0 µA (citing DR-018 inline), and
+running it against `sim/temp-accuracy-vt/`'s post-layout record minted
+[`sim/por-iq/records/20260811-084152-68c0017-por-iq-derived.md`](../sim/por-iq/records/20260811-084152-68c0017-por-iq-derived.md)
+— **81/81 PASS** on both rows against the currently-ratified ceilings
+(`por-iq` <3.0 µA [DR-018], `iq-total` <21 µA), same 0.656367–2.383469 µA
+range already cited above. `sim/por-iq/` is no longer the one experiment
+directory in `sim/` whose newest record is schematic-sourced. See "Closing
+roll-up for issue #18" below for how this fits the tracking issue's overall
+verdict.
 
 ## Closing roll-up for issue #18: post-layout extracted re-run of the full verification suite
 
@@ -433,7 +446,7 @@ being resolved or absorbed inside the re-run issues themselves:
 | `bias-core-designer-check` / `bias-core-startup` regress: post-brownout `VREF` reproducibility and `BIAS_OK` droop/dip push past their bounds at several cold/fast-process corners | #84 (`bias_core.md`) | [#185](https://github.com/2AMLogic/gf180-temp-por/issues/185) | Open |
 | `por-hysteresis` fails the 250 mV ceiling at the single worst full-assembly corner (`ss_-40c_3.63v`, 261.09 mV) | #85 (`por_comparator.md`) | [#187](https://github.com/2AMLogic/gf180-temp-por/issues/187) | Open |
 | Deglitch dwell's qualifying-dip floor has visibly less headroom post-layout than the schematic ever measured (root-caused, no ratified check fails) | #86 (`por_output_chain.md`, #182) | [#199](https://github.com/2AMLogic/gf180-temp-por/issues/199), [#200](https://github.com/2AMLogic/gf180-temp-por/issues/200) | Open |
-| `sim/por-iq/`'s publishing script still checks the withdrawn <1 µA ceiling, and its post-layout re-derivation is unblocked now that #83 has landed | #18 (this roll-up) | [#207](https://github.com/2AMLogic/gf180-temp-por/issues/207) | Open |
+| `sim/por-iq/`'s publishing script still checks the withdrawn <1 µA ceiling, and its post-layout re-derivation is unblocked now that #83 has landed | #18 (this roll-up) | [#207](https://github.com/2AMLogic/gf180-temp-por/issues/207) | **Closed** — script now checks the DR-018-recosted <3.0 µA ceiling, and `sim/por-iq/records/20260811-084152-68c0017-por-iq-derived.md` is the post-layout-derived record, 81/81 PASS on both rows |
 | Three of this set's extracted records — and two of the schematic baselines they are compared against — are stamped "not citable as a clean-tree result" | #18 (this roll-up) | [#209](https://github.com/2AMLogic/gf180-temp-por/issues/209) | Open |
 | `spec/target-spec.md#area`'s measured post-layout number was never recorded; the drawn assembly measures ~1.06 mm² against a ≤0.05 mm² planning bound | #18 (this roll-up) | [#211](https://github.com/2AMLogic/gf180-temp-por/issues/211) | Open |
 
@@ -474,12 +487,18 @@ Two further directories sit outside the runner's discovery and so outside the
 table above. `sim/devchar/` is the grandfathered pre-harness device
 characterization `sim/README.md` explicitly leaves as-is. `sim/por-iq/` is a
 *derivation* with no testbench of its own — it reduces
-`sim/temp-accuracy-vt/`'s raw per-point logs — and it is **the one experiment
-directory in `sim/` whose newest record is still schematic-sourced after this
-whole re-run**. That is a publication gap rather than an evidence gap
-(`por-iq`'s post-layout number is recorded in `temp-por-top-release`'s
-extracted record and cited from the spec row), and it is routed to #207 along
-with the withdrawn-<1 µA ceiling that directory's script still checks.
+`sim/temp-accuracy-vt/`'s raw per-point logs. At the time this roll-up was
+first written it was **the one experiment directory in `sim/` whose newest
+record was still schematic-sourced after this whole re-run** — a publication
+gap rather than an evidence gap (`por-iq`'s post-layout number was already
+recorded in `temp-por-top-release`'s extracted record and cited from the
+spec row), routed to #207 along
+with the withdrawn-<1 µA ceiling that directory's script then still checked.
+**#207 has since closed that gap**: the script checks the DR-018-recosted
+<3.0 µA ceiling, and `sim/por-iq/`'s newest record,
+[`20260811-084152-68c0017-por-iq-derived.md`](../sim/por-iq/records/20260811-084152-68c0017-por-iq-derived.md),
+is now post-layout-derived — see "`sim/por-iq/` is now re-derived
+post-layout" above.
 
 **On the spec table itself**: only two rows of `spec/target-spec.md` cite
 post-layout evidence in their own text today —
