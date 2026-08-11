@@ -85,6 +85,7 @@ sys.path.insert(0, str(REPO_ROOT / "sim"))
 # record used rather than reimplementing the trim model here -- two copies of
 # that formula is exactly how the two records would drift apart.
 from harness.cliutil import add_author_arg, now_iso  # noqa: E402
+from harness.report import source_provenance  # noqa: E402
 from harness.montecarlo import _TRIM_LSB_FRAC as TRIM_LSB_FRAC  # noqa: E402
 from harness.montecarlo import _TRIM_REFERENCE_K as TRIM_REFERENCE_K  # noqa: E402
 from harness.montecarlo import derive_temp_trim  # noqa: E402
@@ -272,9 +273,9 @@ def render(record_id: str, points: dict[str, dict], when: str, author: str) -> s
         f"`sim/temp-accuracy-mc/records/{record_id}.md`. Derived from that "
         "record's own raw per-sample logs; it makes no new measurement and "
         "replaces no existing one.",
-        "- **Netlist provenance**: derived — no simulation. Source record "
-        f"`{record_id}` (schematic, "
-        "`sim/temp-accuracy-mc/testbench/tb_temp_accuracy_mc.spice`).",
+        "- **Netlist provenance**: derived — no simulation of its own. "
+        f"Source record `{record_id}`, whose own **Netlist provenance** "
+        f"field reads: {source_provenance(EXPERIMENT_DIR, record_id)}",
         "- **Corner matrix run**: none of its own; re-reads every sample of the "
         "source record's binding points.",
         "- **Statistical convention**: same population as the source record "

@@ -92,6 +92,7 @@ sys.path.insert(0, str(EXPERIMENT_DIR.parent))
 
 from harness.cliutil import add_author_arg, now_iso  # noqa: E402
 from harness.corners import parse_corner_id  # noqa: E402
+from harness.report import source_provenance  # noqa: E402
 from harness.runner import load_points  # noqa: E402
 
 # design/temp_core.md "V(T) transfer and output range": the declared nominal
@@ -318,10 +319,11 @@ def render(record_id: str, trimmed, vt, supply, when: str, author: str) -> str:
         f"- **Netlist provenance**: **derivation, not a fresh simulation** — "
         f"computed by `sim/temp-accuracy-vt/analyze_derived.py` from the raw "
         f"per-point `m_*` measurements of record `{record_id}` "
-        f"(`sim/temp-accuracy-vt/corners/{record_id}/`), which is itself "
-        f"schematic-level (`design/netlist/temp_por_top.spice`, the full "
-        f"four-cell assembly). The source record keeps its own checks and its "
-        f"own PASS/FAIL and remains the primary evidence.",
+        f"(`sim/temp-accuracy-vt/corners/{record_id}/`), whose own **Netlist "
+        f"provenance** field reads: "
+        f"{source_provenance(EXPERIMENT_DIR, record_id)} "
+        f"The source record keeps its own checks and its own PASS/FAIL and "
+        f"remains the primary evidence.",
         "- **Corner matrix run**: inherited verbatim from the source record — "
         "9 process corners × 4 temperatures (−40, **25**, 27, 125 °C) × 3 "
         "supplies (2.97/3.30/3.63 V) = 108 points, i.e. the full 81-point "

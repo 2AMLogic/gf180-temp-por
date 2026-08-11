@@ -192,6 +192,38 @@ def evaluate_checks(
     return failures
 
 
+#: How a record states its provenance, so a derived record can quote it.
+_PROVENANCE_FIELD = "- **Netlist provenance**: "
+
+
+def source_provenance(experiment_dir: Path, record_id: str) -> str:
+    """What ``records/<record-id>.md`` says about its own DUT, verbatim.
+
+    A **derived** record (``analyze_derived.py``, ``analyze_breakdown.py``,
+    ``postlayout_delta.py``) runs no simulation, so its own provenance is
+    whatever its *source* record's was -- and since #86 an experiment has two
+    manifests, ``testbench/tb.json`` (schematic) and
+    ``testbench-postlayout/tb.json`` (extracted), so "the experiment's DUT" is
+    no longer a single answer a derived record can restate from a literal.
+    Reading whichever ``tb.json`` happens to be at hand is worse: it would
+    relabel a derivation from an older record with a newer manifest's
+    provenance. The source record itself is append-only and is therefore the
+    only stable answer.
+
+    Returns the field's text without its label, or an explicit "unknown"
+    string -- never a guess.
+    """
+    path = experiment_dir / RECORDS_DIR / f"{record_id}.md"
+    try:
+        text = path.read_text()
+    except OSError:
+        return f"unknown — {path} could not be read"
+    for line in text.splitlines():
+        if line.startswith(_PROVENANCE_FIELD):
+            return line[len(_PROVENANCE_FIELD):].strip()
+    return f"unknown — {path} states no **Netlist provenance** field"
+
+
 def environment(pdk: Pdk, ngspice: str, repo_root: Path, git: dict | None = None) -> dict:
     """Reproducibility provenance for the record.
 
