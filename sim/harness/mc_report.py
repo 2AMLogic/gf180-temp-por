@@ -213,7 +213,33 @@ def render_mc_record(record: dict, experiment: str) -> str:
     git = env["git"]
     pdk = env["pdk"]
 
-    provenance = f"schematic (`sim/{experiment}/{TESTBENCH_DIR}/{tb['netlist']}`)"
+    # Manifest-driven, exactly as report.py's render_record() does it (#86):
+    # tb["directory"] is the actual testbench subdirectory name (usually
+    # "testbench"; "testbench-postlayout" for an extracted-provenance sibling
+    # directory), and the provenance kind plus its mandatory caveat note come
+    # from the testbench manifest rather than being assumed. Hardcoding
+    # "schematic" here mislabelled the first post-layout Monte Carlo record
+    # (#194) -- an extracted run has to say so, and has to carry the
+    # layout/postlayout/AUDIT.md caveat sim/README.md requires of it. Falls
+    # back to the ratified defaults for records built before these fields
+    # existed.
+    testbench_dir = tb.get("directory") or TESTBENCH_DIR
+    provenance_kind = tb.get("netlist_provenance") or "schematic"
+    provenance = f"{provenance_kind} (`sim/{experiment}/{testbench_dir}/{tb['netlist']}`)"
+    note = tb.get("netlist_provenance_note") or ""
+    if note:
+        provenance += f" — {note}"
+
+    # `run_mc.py <slug>` resolves to the experiment's schematic `testbench/`
+    # directory (cliutil.resolve_tb_path), so a record taken against any other
+    # testbench directory has to spell that directory out or its Reproduce
+    # line re-runs a different netlist (#194).
+    reproduce_arg = (
+        experiment
+        if testbench_dir == TESTBENCH_DIR
+        else f"sim/{experiment}/{testbench_dir}"
+    )
+
     if git["dirty"]:
         provenance += (
             f" — **taken against a dirty working tree** at commit `{git['commit']}`; "
@@ -251,8 +277,8 @@ def render_mc_record(record: dict, experiment: str) -> str:
     lines += _result_lines(record)
     lines += [
         "- **Links**:",
-        f"  - Testbench: `sim/{experiment}/{TESTBENCH_DIR}/{tb['netlist']}`, "
-        f"`sim/{experiment}/{TESTBENCH_DIR}/tb.json`",
+        f"  - Testbench: `sim/{experiment}/{testbench_dir}/{tb['netlist']}`, "
+        f"`sim/{experiment}/{testbench_dir}/tb.json`",
         f"  - Netlist snapshot: `sim/{experiment}/{SNAPSHOT_DIR}/{record_id}.spice`",
         f"  - Raw per-sample logs (one file per (binding point, sample), "
         f"{record['total_points']} files): `sim/{experiment}/{CORNERS_DIR}/{record_id}/`",
@@ -272,7 +298,7 @@ def render_mc_record(record: dict, experiment: str) -> str:
         f"- Testbench netlist sha256: `{tb['netlist_sha256']}`",
         f"- Manifest sha256: `{tb['manifest_sha256']}`",
         f"- Wall time: {record['wall_seconds']} s",
-        f"- Reproduce: `python3 sim/run_mc.py {experiment}` "
+        f"- Reproduce: `python3 sim/run_mc.py {reproduce_arg}` "
         f"(same `mc.seed_base` in the manifest reproduces the identical sample set)",
         "",
         "---",
