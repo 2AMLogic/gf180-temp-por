@@ -180,9 +180,32 @@ judgment:
   place; only which record a citation points at, and what it says while doing
   so, changes.
 
-First applied at scale by [#209](https://github.com/2AMLogic/gf180-temp-por/issues/209),
-which audited every stamped record's citation in `design/*.md` against this
-policy.
+### The third bullet is enforced, not just written down
+
+A policy nothing checks is a policy that decays: the stamp lives in the
+record and the citation lives in a design doc, and until
+[#209](https://github.com/2AMLogic/gf180-temp-por/issues/209) nothing crossed
+the two — which is why PR #222 was able to mint two more stamped records and
+cite them uncaveated while #209 was still open.
+`sim/tests/test_stamped_record_citations.py` closes that gap: it discovers
+every stamped record under `sim/*/records/`, finds every `design/*.md`
+section citing one, and fails when such a section never names the caveat.
+It runs headless in CI as part of `sim/selftest.sh`.
+
+Two deliberate limits on that check, both documented in its own docstring:
+
+- **`design/*.md` only.** `spec/target-spec.md` and the ratified decision
+  records under `spec/decision-records/` also cite stamped records, but those
+  change through a decision record rather than through a CI nudge, so the
+  check does not demand edits to them.
+- **A shrink-only grandfather list.** The design-doc citations that predate
+  this policy are listed in the test with a note on what would clear each
+  one. New offenders fail; entries that stop being needed also fail, so the
+  list can only get shorter.
+
+First applied at scale by
+[#209](https://github.com/2AMLogic/gf180-temp-por/issues/209), which audited
+every stamped record's citation in `design/*.md` against this policy.
 
 ## Control experiments (`sim/<experiment-slug>/control/`)
 

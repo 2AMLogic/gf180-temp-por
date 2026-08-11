@@ -598,6 +598,16 @@ against a clean tree. `temp-core-designer-check`'s `…-8b7e57f` is cited only
 for the qualitative "unchanged" finding in `design/temp_core.md`, which the
 citation policy permits without a caveat.
 
+**And the policy is enforced rather than merely written down**, because this
+recurred while #209 was open: PR #222 (issue #185) minted two more stamped
+records on the replacement 30 ms `bias-core-designer-check` deck —
+`20260811-114539-9fcede8` (extracted) and `20260811-114349-9fcede8`
+(schematic) — and cited them in `design/bias_core.md` with no caveat. That
+deck is a 30 ms × 81-point transient rather than a cheap per-cell one, so
+those two are caveated at the citation site rather than re-run, and
+`sim/tests/test_stamped_record_citations.py` now fails CI on any
+`design/*.md` section that cites a stamped record without naming the caveat.
+
 ### Verdict: #18 closes now
 
 **#18 closes with this roll-up, rather than staying open as a living

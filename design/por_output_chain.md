@@ -796,7 +796,15 @@ clean-tree result" in their own `Netlist provenance` field (`sim/README.md`
 `20260811-095259-865cea8` (used below, "Root cause of the deglitch
 asymmetry") reproduces `…-055634-…`'s numbers exactly on a clean tree;
 `20260811-125812-8e43e14` does the same for `…-055424-…`. Neither the pulse
-row nor its record needed re-running — it was never stamped. See
+row nor its record needed re-running — it was never stamped.
+
+The **Supersedes** column above names the *schematic* record each row
+displaces at the doc level, which for the two re-run rows is one link further
+back than the record's own `Supersedes` field: `20260811-095259-865cea8`
+supersedes `20260811-094940-4249351`, which supersedes the stamped
+`20260811-055634-d0ee17d`, which supersedes `20260802-205904-bdc077d`;
+`20260811-125812-8e43e14` reproduces the stamped `20260811-055424-d0ee17d`,
+which supersedes the same schematic record. See
 [#209](https://github.com/2AMLogic/gf180-temp-por/issues/209).
 
 ### What "extracted" means for this cell specifically
