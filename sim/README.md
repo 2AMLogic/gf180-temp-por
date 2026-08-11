@@ -142,6 +142,48 @@ corrects or replaces a prior result, it references that prior record via
 the append-only guarantee is what makes `sim/` usable as an evidence trail;
 "fixing" an existing record in place would defeat that.
 
+## Citing a "taken against a dirty working tree" record
+
+`sim/harness/report.py` and `mc_report.py` append `— **taken against a dirty
+working tree** at commit <sha>; not citable as a clean-tree result` to a
+record's **Netlist provenance** field when the run was collected against
+uncommitted work. That is the harness refusing to let a record imply a
+reproducibility it cannot offer: nothing guarantees a future clean checkout
+of that commit reproduces exactly what the dirty tree held at run time. The
+append-only rule above means such a record is never edited, corrected, or
+deleted after the fact — so what a stamped record may be cited for, once it
+exists, needs its own policy rather than being left to each reader's
+judgment:
+
+- **Citable for direction and qualitative findings.** That a check newly
+  fails or newly passes, that a corner count shrinks or grows, that a failure
+  mode appears or disappears — these conclusions do not depend on the exact
+  netlist snapshot being reproducible from source control, only on the run
+  having actually happened against the netlist the record describes.
+- **Not citable as the precise numeric value behind a spec row, a decision
+  record's costed bound, or a schematic-vs-extracted delta computed from
+  it.** A delta is only as citable as the weaker of its two ends — if either
+  the extracted record or the schematic baseline it is compared against
+  carries the stamp, the computed delta inherits it. Ratifying a spec bound
+  or writing a decision record's cost analysis needs a clean-tree number, not
+  a stamped one.
+- **A design-doc section that cites a stamped record must do one of two
+  things**: point at a clean-tree successor record instead (no dirty-tree
+  stamp, reproducing the stamped record's numbers, cited in its place), or —
+  if no successor exists yet — name the caveat explicitly at the point of
+  citation rather than presenting the number as if it were reproducible.
+  Silence is not an option; a reader who does not already know to check the
+  **Netlist provenance** field has no way to discover the caveat otherwise.
+- **The stamped record itself is untouched.** This policy governs what
+  downstream prose may claim about a stamped record, not the record — per
+  the append-only rule above, it is never edited, corrected, or superseded in
+  place; only which record a citation points at, and what it says while doing
+  so, changes.
+
+First applied at scale by [#209](https://github.com/2AMLogic/gf180-temp-por/issues/209),
+which audited every stamped record's citation in `design/*.md` against this
+policy.
+
 ## Control experiments (`sim/<experiment-slug>/control/`)
 
 Occasionally what an experiment needs is not another result but a
@@ -325,9 +367,11 @@ whole set does and does not establish, is
 issue #18".** Read it before citing any single post-layout record: it names
 the one experiment with no post-layout re-run (and why that is correct), the
 one device still schematic-ideal in every extracted netlist, the records
-stamped "not citable as a clean-tree result", and the two effects — rail IR
-drop and net-to-net coupling — that **no** record in this directory is
-capable of evidencing today, whatever it appears to show.
+stamped "not citable as a clean-tree result" (see "Citing a 'taken against a
+dirty working tree' record", above, for what such a record may and may not be
+cited for), and the two effects — rail IR drop and net-to-net coupling — that
+**no** record in this directory is capable of evidencing today, whatever it
+appears to show.
 
 ## Pre-harness evidence (`sim/devchar/`, issue #4)
 

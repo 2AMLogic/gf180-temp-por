@@ -783,11 +783,21 @@ full 81-point PVT grid, same stimulus:
 | Evidence | Netlist provenance | Supersedes (schematic record) |
 | --- | --- | --- |
 | [`sim/por-output-chain-pulse/records/20260811-055201-d0ee17d.md`](../sim/por-output-chain-pulse/records/20260811-055201-d0ee17d.md) | extracted | `20260802-205904-bdc077d` |
-| [`sim/por-output-chain-deglitch/records/20260811-055634-d0ee17d.md`](../sim/por-output-chain-deglitch/records/20260811-055634-d0ee17d.md) | extracted | `20260802-205904-bdc077d` |
-| [`sim/por-output-chain-floor/records/20260811-055424-d0ee17d.md`](../sim/por-output-chain-floor/records/20260811-055424-d0ee17d.md) | extracted | `20260802-205904-bdc077d` |
+| [`sim/por-output-chain-deglitch/records/20260811-095259-865cea8.md`](../sim/por-output-chain-deglitch/records/20260811-095259-865cea8.md) | extracted | `20260802-205904-bdc077d` |
+| [`sim/por-output-chain-floor/records/20260811-125812-8e43e14.md`](../sim/por-output-chain-floor/records/20260811-125812-8e43e14.md) | extracted | `20260802-205904-bdc077d` |
 
 **All three are 81/81 PASS**, same as the schematic records they supersede —
-no spec-row check that passed at the schematic level fails post-layout.
+no spec-row check that passed at the schematic level fails post-layout. The
+deglitch and floor rows cite clean-tree re-runs rather than this cell's first
+post-layout pass: `20260811-055634-d0ee17d` and `20260811-055424-d0ee17d`
+were both minted against uncommitted work and are stamped "not citable as a
+clean-tree result" in their own `Netlist provenance` field (`sim/README.md`
+§ "Citing a 'taken against a dirty working tree' record").
+`20260811-095259-865cea8` (used below, "Root cause of the deglitch
+asymmetry") reproduces `…-055634-…`'s numbers exactly on a clean tree;
+`20260811-125812-8e43e14` does the same for `…-055424-…`. Neither the pulse
+row nor its record needed re-running — it was never stamped. See
+[#209](https://github.com/2AMLogic/gf180-temp-por/issues/209).
 
 ### What "extracted" means for this cell specifically
 
@@ -1079,7 +1089,7 @@ measurement** on the full 81-point PVT grid — deterministic corners only
 (`design.ngspice` sets `sw_stat_mismatch=0`; mismatch on the mirror ratio is
 #15's job, exactly as `design/bias_core.md` already states of this same
 check) — not something #199 had to add. Post-layout
-([`sim/bias-core-designer-check/records/20260811-063744-5ff219c.md`](../sim/bias-core-designer-check/records/20260811-063744-5ff219c.md),
+([`sim/bias-core-designer-check/records/20260811-123635-eb0f4ef.md`](../sim/bias-core-designer-check/records/20260811-123635-eb0f4ef.md),
 unchanged from the schematic record to 4 significant figures):
 
 | | Measured `IBIAS` | vs. 500 nA nominal | vs. this cell's 0.44×–4.7× envelope |

@@ -951,7 +951,7 @@ states the `IBIAS` window that cell can tolerate without a resize —
 0.44×–4.7× nominal — and issue #199 asks whether this cell's actual output
 falls inside it. It does, on the evidence already in this table: `ibias_na`'s
 post-layout minimum/maximum
-([`sim/bias-core-designer-check/records/20260811-063744-5ff219c.md`](../sim/bias-core-designer-check/records/20260811-063744-5ff219c.md),
+([`sim/bias-core-designer-check/records/20260811-123635-eb0f4ef.md`](../sim/bias-core-designer-check/records/20260811-123635-eb0f4ef.md),
 297.089 / 1117.85 nA) are **0.594× / 2.236×** nominal, both inside that
 envelope with margin on each side. No change follows for this cell; see
 `design/por_output_chain.md`, "#199: the two hand-offs, answered", for the
@@ -1253,9 +1253,18 @@ re-simulated.
 
 | Evidence (`Netlist provenance: extracted`) | Result | vs. schematic baseline |
 | --- | --- | --- |
-| [`sim/bias-core-designer-check/records/20260811-063744-5ff219c.md`](../sim/bias-core-designer-check/records/20260811-063744-5ff219c.md) | FAIL (as expected — see below) | **regressed**: two new failure modes, see #185 |
-| [`sim/bias-core-startup/records/20260811-062115-5ff219c.md`](../sim/bias-core-startup/records/20260811-062115-5ff219c.md) | FAIL | **regressed**: one new marginal failure, see #185 |
+| [`sim/bias-core-designer-check/records/20260811-123635-eb0f4ef.md`](../sim/bias-core-designer-check/records/20260811-123635-eb0f4ef.md) | FAIL (as expected — see below) | **regressed**: two new failure modes, see #185 |
+| [`sim/bias-core-startup/records/20260811-125228-e403f89.md`](../sim/bias-core-startup/records/20260811-125228-e403f89.md) | FAIL | **regressed**: one new marginal failure, see #185 |
 | [`sim/bias-core-ibias-sharing/records/20260811-060715-5ff219c.md`](../sim/bias-core-ibias-sharing/records/20260811-060715-5ff219c.md) | PASS, 81/81 | unchanged — matches [`sim/bias-core-ibias-sharing/records/20260801-152327-b72c10c.md`](../sim/bias-core-ibias-sharing/records/20260801-152327-b72c10c.md) |
+
+The designer-check and startup rows above cite clean-tree re-runs rather than
+this cell's first post-layout pass: `20260811-063744-5ff219c` and
+`20260811-062115-5ff219c` were both minted against uncommitted work and are
+each their experiment's *sole* post-layout evidence, so a stamped-only
+citation was not an option here per `sim/README.md`'s citation policy.
+`20260811-123635-eb0f4ef` and `20260811-125228-e403f89` reproduce their
+numbers exactly on a clean tree — see
+[#209](https://github.com/2AMLogic/gf180-temp-por/issues/209).
 
 `bias-core-designer-check`'s two documented, on-purpose failures reproduce
 **unchanged**: `iq_por_ua` (38/81 points, [Iq apportionment](#iq-apportionment))
