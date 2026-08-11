@@ -156,9 +156,11 @@ def cmd_list() -> int:
 
 def cmd_check_env() -> int:
     status = EXIT_OK
+    ngspice_ok = False
     try:
         version = runner.ngspice_version()
         print(f"ngspice : OK   {version}")
+        ngspice_ok = True
     except NgspiceMissing as exc:
         print(f"ngspice : MISSING\n{exc}")
         status = EXIT_ENVIRONMENT
@@ -170,6 +172,26 @@ def cmd_check_env() -> int:
     except PdkNotFound as exc:
         print(f"PDK     : MISSING\n{exc}")
         status = EXIT_ENVIRONMENT
+    if ngspice_ok:
+        # #216: a locally-built ngspice can link libgomp and spin up an
+        # OpenMP team sized to the host's core count for device-model
+        # loading -- nested under this harness's own process-level `-j`
+        # parallelism, that measured 22x slower on an 8-core host and can
+        # silently exceed --timeout on every point of a grid. run_point()
+        # forces single-threaded ngspice via a per-run .spiceinit; report
+        # whether that override actually takes effect on this host.
+        try:
+            threads = runner.probe_num_threads()
+            if threads == 1:
+                print(f"threads : OK   ngspice resolves num_threads={threads} "
+                      "(forced single-threaded by sim/harness's per-run .spiceinit, #216)")
+            else:
+                print(f"threads : WARN ngspice resolves num_threads={threads}, expected 1 -- "
+                      "the #216 .spiceinit override did not take effect on this host; "
+                      "expect severe per-point slowdowns / timeouts under -j > 1")
+                status = EXIT_ENVIRONMENT
+        except Exception as exc:  # noqa: BLE001 - report, don't crash --check-env
+            print(f"threads : WARN could not determine ngspice's effective thread count: {exc}")
     return status
 
 

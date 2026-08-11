@@ -298,6 +298,108 @@ class DeckTests(unittest.TestCase):
         self.assertTrue(self.deck.rstrip().endswith(".end"))
 
 
+class SpiceinitTests(unittest.TestCase):
+    """#216: ngspice's own OpenMP team (`num_threads`) fights this harness's
+    process-level `-j` parallelism -- 22x slower on an 8-core host,
+    bit-identical results. `run_point` forces single-threaded ngspice via a
+    per-run `.spiceinit`, carrying forward whatever the host's own
+    `$HOME/.spiceinit` sets (ngspice reads one or the other, never both)."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.root = Path(self.tmp.name)
+
+    def test_forces_single_threaded_ngspice(self):
+        text = runner.spiceinit_text(home_spiceinit=self.root / "no-such-home-spiceinit")
+        self.assertIn("set num_threads=1", text)
+
+    def test_absent_home_spiceinit_carries_nothing_forward(self):
+        text = runner.spiceinit_text(home_spiceinit=self.root / "no-such-home-spiceinit")
+        self.assertNotIn("carried forward", text)
+
+    def test_carries_forward_the_hosts_home_spiceinit(self):
+        home = self.root / "home-spiceinit"
+        home.write_text("set wnflag=1\n")
+        text = runner.spiceinit_text(home_spiceinit=home)
+        self.assertIn("set wnflag=1", text)
+        self.assertIn("set num_threads=1", text)
+        self.assertIn("carried forward", text)
+
+    def test_empty_home_spiceinit_carries_nothing_forward(self):
+        home = self.root / "home-spiceinit"
+        home.write_text("")
+        text = runner.spiceinit_text(home_spiceinit=home)
+        self.assertNotIn("carried forward", text)
+        self.assertIn("set num_threads=1", text)
+
+    def test_write_run_spiceinit_writes_the_workdir_dotfile(self):
+        workdir = self.root / "workdir"
+        workdir.mkdir()
+        home = self.root / "home-spiceinit"
+        home.write_text("set wnflag=1\n")
+        path = runner.write_run_spiceinit(workdir, home_spiceinit=home)
+        self.assertEqual(path, workdir / ".spiceinit")
+        self.assertEqual(path.read_text(), runner.spiceinit_text(home_spiceinit=home))
+
+    def test_run_point_writes_a_spiceinit_alongside_the_deck(self):
+        """The actual call site (`runner.py:415`'s `subprocess.run(...,
+        cwd=workdir)`) writes `workdir/.spiceinit` before invoking ngspice --
+        exercised here without a real ngspice by faking `subprocess.run`."""
+        root = self.root
+        (root / "tb").mkdir()
+        (root / "tb" / "x.spice").write_text("v1 out 0 dc {vdd_val}\n")
+        (root / "tb" / "tb.json").write_text(
+            json.dumps({"name": "x", "netlist": "x.spice", "measure": {"vout": "v(out)"}})
+        )
+        tb = testbench.load(root / "tb")
+        pdk = fake_pdk(root / "gf180mcuD")
+        point = corners.build_grid(corners.resolve_corners(["tt"]), (27,), [3.3])[0]
+        workdir = root / "work"
+
+        seen_cwd = []
+
+        def fake_run(cmd, capture_output, text, timeout, cwd, check):
+            seen_cwd.append(Path(cwd))
+            self.assertTrue((Path(cwd) / ".spiceinit").is_file())
+            proc = mock.Mock()
+            proc.stdout = "m_vout = 1.0"
+            proc.stderr = ""
+            proc.returncode = 0
+            return proc
+
+        with mock.patch.object(runner.subprocess, "run", side_effect=fake_run):
+            result = runner.run_point(tb, pdk, point, workdir)
+
+        self.assertEqual(result.status, "ok")
+        self.assertTrue((workdir / ".spiceinit").is_file())
+        self.assertIn("set num_threads=1", (workdir / ".spiceinit").read_text())
+
+    def test_probe_num_threads_parses_the_echoed_value(self):
+        with mock.patch.object(runner.shutil, "which", return_value="/usr/bin/ngspice"), \
+             mock.patch.object(runner.subprocess, "run") as run_mock:
+            proc = mock.Mock()
+            proc.stdout = "   echo NUM_THREADS=1\nNUM_THREADS=1\n"
+            proc.stderr = ""
+            run_mock.return_value = proc
+            self.assertEqual(runner.probe_num_threads(), 1)
+
+    def test_probe_num_threads_raises_when_ngspice_is_missing(self):
+        with mock.patch.object(runner.shutil, "which", return_value=None):
+            with self.assertRaises(runner.NgspiceMissing):
+                runner.probe_num_threads()
+
+    def test_probe_num_threads_raises_when_output_is_unparseable(self):
+        with mock.patch.object(runner.shutil, "which", return_value="/usr/bin/ngspice"), \
+             mock.patch.object(runner.subprocess, "run") as run_mock:
+            proc = mock.Mock()
+            proc.stdout = "no useful output here"
+            proc.stderr = ""
+            run_mock.return_value = proc
+            with self.assertRaises(RuntimeError):
+                runner.probe_num_threads()
+
+
 class ParseTests(unittest.TestCase):
     def test_parses_print_output(self):
         text = "\n".join(
