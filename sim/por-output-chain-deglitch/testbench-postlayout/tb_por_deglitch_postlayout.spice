@@ -80,9 +80,12 @@
 *                               enabled temp_core and por_comparator, per
 *                               DR-010). The binding point is RESETn
 *                               RELEASED, ss/-40C/2.97V, post-layout record
-*                               20260811-134430-cba9efb (91.0251 nA; the
-*                               schematic-level record's worst point,
-*                               91.0761 nA, is not materially different --
+*                               sim/por-output-chain-ibias-sharing/records/
+*                               20260811-142901-d43c0db.md (91.0251 nA; the
+*                               schematic-level record beside it,
+*                               20260811-142426-a9cdd7f.md, puts its own worst
+*                               point at 91.0761 nA -- not materially
+*                               different, and
 *                               design/por_output_chain.md's own "XMBD/IBIAS
 *                               watch item" already confirms the extraction
 *                               adds no series impedance on this path). This
@@ -97,11 +100,21 @@
 *                               than xdut1's to finish, so only its internal
 *                               PGDG dwell is asserted on; that is the filter
 *                               output and is the number the spec row
-*                               actually constrains. The measurement key
-*                               (dwell_pgdg_halfib_us) keeps its historical
-*                               name for continuity with every prior
-*                               append-only record it was measured against;
-*                               it is no longer literally "half nominal".
+*                               actually constrains. The measurement it is
+*                               asserted on CHANGES NAME with this re-cut:
+*                               dwell_pgdg_halfib_us (a WHEN-based crossing
+*                               TIME) becomes pgdg_min_during_halfib_dip_v (a
+*                               voltage floor sampled over the qualifying dip
+*                               itself), because at this current the filter is
+*                               frequently too slow to trip at all inside the
+*                               dip and a crossing-time measure errors out of
+*                               its search interval rather than reporting the
+*                               FAIL. Records minted before this commit carry
+*                               the old key; they are not edited, and both
+*                               keys mean "the dwell against T_dip,min = 10 us
+*                               on the stress DUT". The "halfib" in the new
+*                               key is likewise historical -- the leg is no
+*                               longer literally half nominal.
 *
 * TIMELINE
 *
