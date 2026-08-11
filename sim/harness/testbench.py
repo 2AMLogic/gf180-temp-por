@@ -176,6 +176,13 @@ def load(directory: str | Path) -> Testbench:
             f"{manifest_path}: netlist_provenance must be 'schematic' or 'extracted', "
             f"got {tb.netlist_provenance!r}"
         )
+    if tb.netlist_provenance == "extracted" and not tb.netlist_provenance_note:
+        raise ValueError(
+            f"{manifest_path}: netlist_provenance 'extracted' requires a non-empty "
+            "'netlist_provenance_note' -- sim/README.md requires an extracted record "
+            "to carry the caveat its netlist's own header carries "
+            "(see layout/postlayout/AUDIT.md)"
+        )
     validate_netlist(tb)
     return tb
 

@@ -161,6 +161,19 @@ distinct claim under test, kebab-case.
 `claim` is the default for the record's **Claim** field — the ratified spec
 line this experiment substantiates. `--claim` overrides it per run.
 
+`netlist_provenance` (optional, default `"schematic"`) and
+`netlist_provenance_note` (required, non-empty, when `netlist_provenance` is
+`"extracted"`) set the record's **Netlist provenance** field and its caveat —
+see `sim/README.md`'s "Netlist provenance" for the convention and what the
+note must say. A post-layout re-run of an existing testbench (issues #86,
+#84) lives in a sibling `<experiment-slug>/testbench-postlayout/` directory
+rather than editing `testbench/` in place — a `POSTLAYOUT_FRAGMENTS` entry in
+`sim/build_tb.py` builds its fragment from `layout/postlayout/<cell>.spice`
+(sharing the schematic sibling's `testbench/stimulus.spice`), and
+`sim/run_corners.py sim/<slug>/testbench-postlayout` (a testbench *directory*
+argument, not the bare slug, since `--list`/`discover()` only walk
+`testbench/`) runs it.
+
 The netlist is a **fragment**, not a complete deck. It must not contain
 `.include`, `.lib`, `.temp`, `.control`, `.endc` or `.end` — the harness owns
 all of those, which is what lets one netlist sweep the whole grid unedited.

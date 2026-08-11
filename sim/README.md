@@ -94,6 +94,25 @@ fields:
   list is `layout/postlayout/AUDIT.md`; quoting its row for the cell under
   test is enough. A record that says `extracted` without that caveat overstates
   what the netlist proves.
+
+  **Mechanism** (issues #86, #84): add the experiment to
+  `sim/build_tb.py`'s `POSTLAYOUT_FRAGMENTS` dict (the post-layout sibling of
+  `FRAGMENTS`). `python3 sim/build_tb.py` then builds that entry's fragment
+  from `layout/postlayout/<cell>.spice` instead of
+  `design/netlist/<cell>.spice`, into a sibling
+  `<experiment-slug>/testbench-postlayout/` directory rather than
+  `testbench/` — so a post-layout re-run's evidence sits beside the original
+  schematic-level testbench and record rather than replacing them, and the
+  schematic-level `testbench/tb.json` / fragment stay untouched. (The
+  stimulus is *shared*, read from the schematic sibling's
+  `testbench/stimulus.spice`: same DUT ports, so the same stimulus drives
+  either netlist unedited.) That directory's own hand-authored `tb.json` sets
+  `"netlist_provenance": "extracted"` and a non-empty
+  `"netlist_provenance_note"` (the caveat above — `sim/harness/testbench.py`
+  refuses to load `"extracted"` without one); `sim/run_corners.py
+  <path-to-testbench-postlayout-dir>` runs it and the harness renders both
+  fields into the record automatically (`sim/harness/README.md` "Writing a
+  testbench" has the full manifest shape).
 - **Corner matrix run** — explicit list of (process corner, temperature,
   supply) points actually executed. Must be the full PVT matrix from
   CLAUDE.md (−40/27/125 °C, ±10% supply, process corners) unless the record

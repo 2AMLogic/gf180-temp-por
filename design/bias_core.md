@@ -1165,3 +1165,74 @@ overwrite the committed ones.
 | Matching strategy for the whole block, measured area | #17 |
 | Drawing the PNPs, poly resistors and MiM caps — blocked on the extraction deck growing non-MOS device coverage (klayout-tools#219/#222) | see [Layout](#layout--partially-drawn-68) |
 | ~~`BIAS_OK` transient cross-check, root-cause and fix~~ | **done**: #46 — root-caused to the testbench's `gmin` aid, re-founded on a quasi-static transient, 81/81 PASS, no schematic change. See [Resolved](#resolved-the-bias_ok-quasi-static-failure-was-a-testbench-artefact-issues-43-46). |
+
+## Post-layout re-run (issue #84)
+
+Everything above is against the schematic export
+(`design/netlist/bias_core.spice`). Issue #84 re-ran the three
+`bias_core`-domain testbenches against the real klt-extracted netlist —
+`layout/postlayout/bias_core.spice` (and, for `bias-core-ibias-sharing`'s
+three-way splice, `layout/postlayout/{temp_core,por_comparator}.spice` too)
+— produced by #82/PR #180's direct-extraction flow, **not** the
+composite-splice approach `bias_core`'s own layout history first assumed
+(PR #94, closed unused). Per
+[`layout/postlayout/AUDIT.md`](../layout/postlayout/AUDIT.md), `bias_core`'s
+extraction has **no remaining ideal device**: all 70 devices are drawn,
+including the 10 vertical PNPs, the 4 poly resistors and the 2 MiM caps that
+the [Layout](#layout--partially-drawn-68) section above still describes as
+reserved-but-undrawn floorplan area — that section is unchanged here (it is
+`design/netlist.py`/`layout/run_checks.sh`'s scope, not this issue's), but
+the post-layout evidence below already reflects the fully-drawn cell. Each
+new run inlines a sibling `testbench-postlayout/` fragment — a
+`POSTLAYOUT_FRAGMENTS` entry in `sim/build_tb.py`, the same mechanism #86
+established for the POR output chain — beside the existing schematic-level
+`testbench/`, so none of the schematic-level records above are touched.
+
+These three runs pre-dated the reconciliation onto that shared mechanism, so
+each fragment's `* Regenerate with:` comment line was rewritten afterwards
+(from a since-removed `--postlayout <slug>` invocation to the plain
+`python3 sim/build_tb.py` the dict-driven builder emits). That comment is the
+**only** line that differs between the committed fragment and the frozen
+`netlist-snapshots/<record-id>.spice` each record cites: every SPICE card —
+stimulus, DUT, sha256-attributed sources — is byte-identical, so the results
+below are the results of the netlist the snapshots freeze and were not
+re-simulated.
+
+| Evidence (`Netlist provenance: extracted`) | Result | vs. schematic baseline |
+| --- | --- | --- |
+| [`sim/bias-core-designer-check/records/20260811-063744-5ff219c.md`](../sim/bias-core-designer-check/records/20260811-063744-5ff219c.md) | FAIL (as expected — see below) | **regressed**: two new failure modes, see #185 |
+| [`sim/bias-core-startup/records/20260811-062115-5ff219c.md`](../sim/bias-core-startup/records/20260811-062115-5ff219c.md) | FAIL | **regressed**: one new marginal failure, see #185 |
+| [`sim/bias-core-ibias-sharing/records/20260811-060715-5ff219c.md`](../sim/bias-core-ibias-sharing/records/20260811-060715-5ff219c.md) | PASS, 81/81 | unchanged — matches [`sim/bias-core-ibias-sharing/records/20260801-152327-b72c10c.md`](../sim/bias-core-ibias-sharing/records/20260801-152327-b72c10c.md) |
+
+`bias-core-designer-check`'s two documented, on-purpose failures reproduce
+**unchanged**: `iq_por_ua` (38/81 points, [Iq apportionment](#iq-apportionment))
+and the starved-loop window's `t_false_ok_fast_us` /
+`t_false_ok_brownout_us` / `t_false_ok_slow_us` (81, 81 and 3 points
+respectively — the same count as the schematic record, at the same
+corners). Real interconnect parasitics do not change either conclusion.
+
+**Two checks regress, and are routed to #185 rather than resolved here** —
+#84's scope is an honest re-run, not a redesign:
+
+- `bo_deep_ppm` / `bo_shallow_ppm` (post-brownout `VREF` reproducibility,
+  ±500 ppm bound) go from 2/2 failing corners at schematic level to 21/12
+  under extraction — the same handful of extreme cold/fast-process corners
+  that were already marginal, now pushed further out by real parasitic
+  loading on the recovery path.
+- `ok_bo_end_droop_mv` (`BIAS_OK` droop 390 µs after a full rail collapse,
+  20 mV bound) is a **new failure mode**: 0 failing corners at schematic
+  level, 3 under extraction (`tt_27c_3.63v`, `ss_27c_3.63v`,
+  `bjt_ff_27c_3.63v`), with droop up to 3630 mV — `BIAS_OK` is not settling
+  back to a hard high in the sampled window at those points.
+- `bias-core-startup`'s `ok_bo_dip_mv` (`BIAS_OK` absolute level mid-collapse,
+  ±300 mV bound) goes from 0 failing corners (schematic) to 3
+  (`ss_-40c_2.97v` / `_3.30v` / `_3.63v`, 303.432 mV vs. the 300 mV bound —
+  was 33.6 mV pre-extraction): a real, if marginal (~1.1 %), shift.
+
+`bias-core-ibias-sharing`'s shared `IBIAS`/`VREF` distribution — the
+[DR-010](#the-shared-ibias-net--resolved-by-dr-010) contract this issue's
+Watch item asked to be re-checked under real parasitic loading — holds:
+81/81 PASS, no regression on any of its checks (including the two that used
+to be the design-defect checks pre-DR-010; see the updated
+`sim/bias-core-ibias-sharing/testbench-postlayout/tb.json` check
+descriptions for why those no longer read as "expected to fail").
