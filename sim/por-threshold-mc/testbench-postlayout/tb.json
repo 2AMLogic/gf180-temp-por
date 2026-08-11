@@ -1,0 +1,59 @@
+{
+  "name": "por-threshold-mc",
+  "description": "Issue #15's Monte Carlo local-mismatch sweep of por_comparator (idealised 500 nA IBIAS / 1.2 V VREF, same cell-level DUT sim/por-comparator-designer-check/ uses): comparator input-pair offset and resistor-divider-ratio mismatch contribution to #por-vth-rise, #por-vth-fall and #por-hysteresis, each at its own spec-ratified binding (process corner, temperature, rail) point. Post-layout composite netlist.",
+  "claim": "spec/target-spec.md#por-vth-rise, #por-vth-fall, #por-hysteresis -- local-mismatch share, Monte Carlo, N>=500 per binding point, evaluated at each row's own named binding corner (5 distinct (process, temp, rail) points across the three rows -- see mc.binding_points below), against the drawn-and-extracted por_comparator netlist. Complements sim/por-vth/'s post-layout deterministic systematic/corner record. gf180mcu's mismatch parameters (mis_vth, mis_k, ...) live in the PDK's device models, not in the DUT netlist, so this run exercises the identical Monte Carlo mechanism sim/harness/montecarlo.py documents -- what changes is which W/L/m each mismatched device actually has, now the real drawn geometry (layout/postlayout/AUDIT.md: por_comparator, 21/21 devices drawn, no ideal device) rather than the schematic's.",
+  "netlist": "tb_por_threshold_mc_postlayout.spice",
+  "nominal_supply_v": 3.3,
+  "supply_tolerance": 0.1,
+  "temperatures_c": [-40, 27, 125],
+  "corners": ["full"],
+  "options": ["reltol=1e-5", "abstol=1e-15", "vntol=1e-9"],
+  "analyses": [
+    "tran 5u 15m",
+    "meas tran vpor_rise find v(vdd) when v(por_raw)=1.5 rise=1",
+    "meas tran vpor_rise_last find v(vdd) when v(por_raw)=1.5 rise=last",
+    "meas tran vpor_fall find v(vdd) when v(por_raw)=1.5 fall=1",
+    "meas tran vpor_fall_last find v(vdd) when v(por_raw)=1.5 fall=last",
+    "meas tran sns_rise find v(xdut.sns) when v(por_raw)=1.5 rise=1",
+    "meas tran sns_fall find v(xdut.sns) when v(por_raw)=1.5 fall=1"
+  ],
+  "measure": {
+    "vpor_rise_v": "vpor_rise",
+    "vpor_fall_v": "vpor_fall",
+    "v_hys_mv": "(vpor_rise-vpor_fall)*1e3",
+    "rise_chatter_mv": "(vpor_rise_last-vpor_rise)*1e3",
+    "fall_chatter_mv": "(vpor_fall-vpor_fall_last)*1e3",
+    "comp_offs_rise_mv": "(sns_rise-1.2)*1e3",
+    "comp_offs_fall_mv": "(sns_fall-1.2)*1e3"
+  },
+  "mc": {
+    "n": 500,
+    "seed_base": 20260811,
+    "binding_points": [
+      {"label": "vth-rise-max", "corner": "ss", "temp_c": -40, "vdd": 3.63},
+      {"label": "vth-rise-min", "corner": "bjt_ff", "temp_c": 125, "vdd": 2.97},
+      {"label": "vth-fall-min", "corner": "res_ss", "temp_c": -40, "vdd": 3.63},
+      {"label": "vth-fall-max", "corner": "bjt_ss", "temp_c": 125, "vdd": 2.97},
+      {"label": "hysteresis-min", "corner": "ff", "temp_c": 125, "vdd": 2.97}
+    ]
+  },
+  "checks": {
+    "vpor_rise_v": {
+      "min": 2.47,
+      "max": 2.73,
+      "description": "spec/target-spec.md#por-vth-rise ([3sigma], 2.47/2.60/2.73 V). WITH local mismatch on -- mismatch-inclusive counterpart to sim/por-vth/'s post-layout deterministic-corners-only vpor_rise_v check. Full ratified window checked at every binding point; the point named 'vth-rise-max'/'vth-rise-min' is where each edge of the window is expected to bind, per sim/por-vth/'s measured record."
+    },
+    "vpor_fall_v": {
+      "min": 2.22,
+      "max": 2.63,
+      "description": "spec/target-spec.md#por-vth-fall ([3sigma], 2.22/2.45/2.63 V), same construction as vpor_rise_v above."
+    },
+    "v_hys_mv": {
+      "min": 100.0,
+      "max": 250.0,
+      "description": "spec/target-spec.md#por-hysteresis ([3sigma], 100/150/250 mV). Both edges measured on the SAME die (one xdut instance, one triangle-wave ramp) -- see stimulus.spice for why that is load-bearing under mismatch."
+    }
+  },
+  "netlist_provenance": "extracted",
+  "netlist_provenance_note": "layout/postlayout/por_comparator.spice (klt 0.2.0, klt lvs net correspondence match 18/18 nets -- #82/#180). layout/postlayout/AUDIT.md's por_comparator row: 3 body/plate net(s) (NW1, NW2 -> VDD; vsubs -> VSS) tied to the net the schematic puts them on -- not drawn interconnect; every one of the 21 drawn devices (12 nfet_03v3 + 6 pfet_03v3 + 3 ppolyf_u_1k, including RTOP/RBOT/RHYS) is real, no ideal device. The 3 ppolyf_u_1k resistors extract under the deck's ppolyf_u_3k sheet-rho option (klayout-tools#323, deck naming only -- same drawn geometry either way). SNS (the divider tap this record's comp_offs_*_mv measurements probe) extracts as an anonymous net and is reattached by klt lvs's net correspondence, not by a drawn label -- see PR #180's smoke table (sns_v: 0.00% delta vs. schematic) for the connectivity check this record relies on."
+}
