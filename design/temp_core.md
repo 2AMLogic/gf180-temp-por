@@ -30,6 +30,16 @@ recorded evidence run, not estimated:
 | [`sim/temp-por-top-release/`](../sim/temp-por-top-release/) — record `20260802-205904-bdc077d` (re-run on the post-#56 assembly; `20260801-074334-8b7e57f` measured it before `XMRLK`) | this cell inside the **full four-cell assembly**: that `RESETn` releases and thereby enables it, and that its disabled state no longer prevents that — 81-point PVT grid |
 | [`sim/temp-accuracy-vt/`](../sim/temp-accuracy-vt/) — record `20260801-121458-660d016` (issue #13) | the **published, measured** numbers for `spec/target-spec.md`'s `temp-vt-transfer`, `temp-accuracy-untrimmed`, `temp-accuracy-trimmed` (derived), `temp-supply-sensitivity` and `temp-iq` rows, taken on the real four-cell assembly (`bias_core`-driven `IBIAS`, `RESETn`-gated enable) now that #41/DR-010 makes that path live — supersedes this cell's own idealised-500 nA-source numbers below as the ratified evidence, though those numbers land in the same neighbourhood (see each section) — 108-point PVT grid (9 corners × 4 temperatures incl. a 25 °C trim reference × 3 supplies) |
 
+> **All four of those experiments have since been re-run against the
+> post-layout extracted netlist (#83), and no check regressed.** Everything in
+> this document up to
+> ["Post-layout re-run (issue #83)"](#post-layout-re-run-issue-83) is
+> schematic-level evidence and stays as it is; that section is the separate,
+> appended answer to "does the drawn layout still do it?", with the four new
+> record-ids, the parasitic loading on this cell's high-impedance nodes, and
+> the exceptions [`layout/postlayout/AUDIT.md`](../layout/postlayout/AUDIT.md)
+> puts on an `extracted` claim.
+
 Both `temp_core` records were **re-run under
 [DR-010](../spec/decision-records/DR-010-shared-ibias-disabled-consumer-contract.md)**
 and supersede the `20260731-*` pair, which was taken before the `IBIAS`
@@ -691,4 +701,179 @@ hand-inlined copy that has since drifted.
 - **Layout matching** — issue #17. The 8:1 PNP array and the `R2/R1` ratio
   both want common-centroid/interdigitated treatment; nothing in this
   schematic prevents it, and the 8 discrete unit cells exist partly so that
-  it is possible.
+  it is possible. **The post-layout section below does not close this**: an
+  extracted netlist carries interconnect R/C and drawn device dimensions, not
+  gradient, stress or orientation effects, so "extraction changes nothing" is
+  a statement about loading, not about matching.
+
+## Post-layout re-run (issue #83)
+
+Everything above is against the schematic export
+(`design/netlist/temp_core.spice`, and `temp_por_top.spice` for the assembled
+path). Issue #83 re-ran all four temp-sensing-domain testbenches against the
+real klt-extracted netlists — `layout/postlayout/temp_core.spice` and
+`layout/postlayout/temp_por_top.spice`, produced by #82/PR #180's
+direct-extraction flow — using the sibling `testbench-postlayout/` mechanism
+#86 established (a `POSTLAYOUT_FRAGMENTS` entry in `sim/build_tb.py` plus a
+hand-authored manifest beside the existing `testbench/`). None of the
+schematic-level records above is touched, and none of the numbers above is
+restated or corrected: this section is the separate question #18 asks, *does
+the drawn layout still do it?*
+
+**What the extracted netlist is, and is not.** `temp_core` comes out as
+**114 drawn devices at their drawn dimensions** (27 `nfet_03v3`, 28
+`pfet_03v3`, 9 `pnp_10p00x10p00`, 50 `ppolyf_u`) with first-order
+interconnect R/C on 69 of 73 nets (**ΣC = 1552.3 fF**), net names restored
+through `klt lvs`'s 73/73 verified correspondence; `temp_por_top` the same for
+all four cells (238 devices, ΣC = 5880.2 fF). Per
+[`layout/postlayout/AUDIT.md`](../layout/postlayout/AUDIT.md), two things are
+*not* the layout's:
+
+- Four body/well/plate nets (`NW1`→`VDD`, `NW2`→`NT`, `NWQ`→`VSS`,
+  `vsubs`→`VSS`; 23 in the assembly) are tied where the **schematic** puts
+  them, because the extraction deck's connectivity stack does not reach an
+  Nwell, a substrate ring, a bipolar base well or a MiM plate — they extract
+  isolated and would otherwise float.
+- **`XCC` is not drawn.** The 12 × 12 µm MiM compensation cap on `PG`/`NZ` is
+  reserved floor area in this cell's layout; the netlist splices it back in at
+  its schematic value so the deck is simulatable at all. So **anything that
+  turns on the amplifier's compensation — the loop's stability margin, and
+  therefore the shape of its settling transient — remains a schematic claim**,
+  and the drawn cell is not yet a complete instance of this schematic. When
+  `XCC` is drawn, its plate parasitics and the routing to `PG`/`NZ` land on
+  top of what is measured below.
+
+Everything else — MOS, vertical PNP and poly resistor bodies alike — is a real
+extraction of drawn geometry. `temp_core` needs none of the device-model
+substitutions AUDIT.md records for the cells that use `ppolyf_u_1k` or MiM
+caps; the assembly inherits 27 resistor and 7 MiM name-only substitutions from
+its other three cells, on drawn geometry that is the schematic's either way.
+
+### The four records
+
+| Evidence (`Netlist provenance: extracted`) | Result | vs. schematic baseline |
+| --- | --- | --- |
+| [`sim/temp-core-designer-check/…/20260811-075055-b06af8e.md`](../sim/temp-core-designer-check/records/20260811-075055-b06af8e.md) | **PASS**, 216/216 points | unchanged — no check regressed |
+| [`sim/temp-core-startup/…/20260811-074657-7c1c116.md`](../sim/temp-core-startup/records/20260811-074657-7c1c116.md) | **PASS**, 81/81 points | unchanged — no check regressed |
+| [`sim/temp-accuracy-vt/…/20260811-084152-68c0017.md`](../sim/temp-accuracy-vt/records/20260811-084152-68c0017.md) (+ `-derived`) | FAIL on [`por-iq`](../spec/target-spec.md#por-iq) only, 108/108 points | unchanged — that row already failed at schematic level ([Iq apportionment is `design/bias_core.md`'s](../design/bias_core.md), #14's row, carried here only as the `temp-iq` subtrahend) |
+| [`sim/temp-accuracy-mc/…/20260811-090721-3ec259f.md`](../sim/temp-accuracy-mc/records/20260811-090721-3ec259f.md) (+ `-breakdown`) | FAIL | unchanged — the same [DR-011](../spec/decision-records/DR-011-temp-accuracy-mismatch-not-met.md) mismatch miss, on the same eight (binding point, measurement) pairs |
+
+Each supersedes its schematic-level predecessor, which stays on disk. The
+three corner-sweep records are each paired with a
+`<record-id>-postlayout-delta` derived record — `sim/postlayout_delta.py`
+joins the two grids on corner-id and re-evaluates the experiment's own
+`tb.json` checks against both, so the comparison below is generated from the
+records' own raw logs rather than transcribed.
+
+### **Zero regressions.**
+
+Across all four experiments, **no check that passed on a schematic-level
+record fails on the extracted one.** The single `MISS` in the set
+(`iq_por_ua`) is classified `MISS -> MISS`: the schematic-level record already
+carried it, so it is not a post-layout finding, and it is not re-opened here.
+Nothing in `spec/target-spec.md` moved, and nothing needed to.
+
+### Parasitic loading on the high-impedance nodes
+
+#18's acceptance criteria ask for this explicitly rather than folded into a
+pass/fail. Read out of the extracted netlist (`layout/postlayout.py` models
+each net's drawn interconnect as one lumped series R to a `<net>__par` stub
+with a lumped C to `VSS`, so the loading a node sees is its own row); the full
+table is in each delta record.
+
+| Node | Why it matters | ΣC | ΣR |
+| --- | --- | --- | --- |
+| `PTAT` | the output pad, `R2` ≈ 516 kΩ source impedance, no buffer | 39.5 fF | 962 Ω |
+| `CTAT` | the output pad, `XRISO` ≈ 20 kΩ | 32.4 fF | 509 Ω |
+| `NA` / `NB` | the amplifier inputs — `V(NA) = V(NB)` *is* the measurement | 63.1 / 43.5 fF | 2133 / 2057 Ω |
+| `NC` | `R1`'s bottom node into the 8× PNP array — not high-impedance itself, listed because the PTAT term is the voltage `V(NB) − V(NC)` across `R1` | 85.4 fF | 66 Ω |
+| `PG` | the mirror gate = the amplifier's output node (and one `XCC` plate) | 61.7 fF | 5100 Ω |
+| `NZ` | the other `XCC` plate | 29.3 fF | 106 Ω |
+| `PB` / `PCAS` | bias gate nodes, capacitively loaded only | 47.2 / 53.7 fF | 3536 / 4549 Ω |
+| `ND` / `NR` | the startup kick pair | 34.8 / 35.4 fF | 1513 / 1695 Ω |
+| `IBIAS` | the DR-010 shared node | 20.3 fF | 323 Ω |
+
+Cell total 1552.3 fF over 69 nets. In the assembled `temp_por_top` the shared
+`IBIAS` net grows to **122.6 fF / 10.6 kΩ** because it spans all four cells,
+`RESETn` carries 78.0 fF / 5.6 kΩ, and the assembly totals 5880.2 fF over 136
+nets.
+
+**None of that is enough to move a spec row, and the reason is structural**:
+every quantity these four experiments measure is a DC operating point or a
+microsecond-to-millisecond transient. The worst case here is `PTAT` — 39.5 fF
+against a 516 kΩ source impedance, a **20 ns** pole — two orders of magnitude
+below the 3–5 µs sensor start and six below the 1–17 ms reset release.
+
+### What the parasitics did do
+
+| Quantity | Schematic | Extracted | Δ |
+| --- | --- | --- | --- |
+| Systematic untrimmed error (cell) | −0.230 … +0.422 °C | −0.065 … +0.554 °C | **+0.19 °C**; 14 % → 18 % of ±3 °C |
+| Systematic untrimmed error (assembly, #13's published row) | −0.335 … +0.099 °C | −0.156 … +0.248 °C | **+0.19 °C**; 11 % → 8 % of ±3 °C |
+| After the 25 °C gain trim (derived) | −0.346 … +0.847 °C | −0.325 … +0.798 °C | −0.05 °C; 56 % → **53 %** of ±1.5 °C |
+| Amplifier systematic offset `V(NA)−V(NB)` | −5.06 … +4.26 µV | −5.80 … +4.67 µV | +0.74 µV; still ~17× inside the ±100 µV check |
+| Supply sensitivity, per point | −0.089 … +0.034 °C | −0.093 … +0.037 °C | +4.5 %; 28 % of the ±0.33 °C bound |
+| Worst output headroom margin | +260.507 mV | +260.422 mV | −0.085 mV |
+| `temp-iq`, incremental | 5.80 … 15.90 µA | 5.79 … 15.87 µA | −0.24 % |
+| **`RESETn` release time** | 5.61 … 16.95 ms | 5.73 … 17.29 ms | **+1.99 %** |
+| 10 MΩ pad-load gain error | −8.18 … −4.48 % | −8.20 … −4.49 % | +0.4 % |
+| DR-010 disabled draw from `IBIAS` | 0.00126 … 0.152 nA | 0.00126 … 0.153 nA | +0.25 %, against a 25 nA bound |
+
+Two rows are worth reading twice:
+
+- **The +0.19 °C shift in the untrimmed systematic error is a real, and
+  benign, consequence of the drawn resistors.** It is a *gain* shift —
+  `K(25 °C)` moves by +0.07 % — and it appears identically on the cell and on
+  the assembly, which is what an `R2/R1` ratio effect should do. It is
+  therefore in the class the ratified one-point 25 °C trim removes, which is
+  why the *trimmed* row moves the other way (56 % → 53 % of budget) even as
+  the untrimmed one grows. It is nowhere near binding either way: the mismatch
+  share DR-011 records dominates the untrimmed row by ~35× (±20 °C at 3σ
+  against 0.55 °C systematic) and the trimmed row by ~9× (±7.4 °C against
+  0.80 °C).
+- **The +1.99 % reset release time is the one place the drawn interconnect
+  genuinely bites.** It is the same +2.0 % `layout/postlayout/SMOKE.md`
+  measured on this assembly at the nominal point, now confirmed across the
+  whole PVT grid, and it stays inside the 1–25 ms liveness bound with room to
+  spare. It belongs to `por_output_chain`'s timing capacitors, not to this
+  cell.
+
+### What this does **not** establish
+
+- **Loop stability.** `XCC` is spliced in ideal (above), so the compensation
+  pole is the schematic's, not the layout's. A post-layout stability claim
+  needs `XCC` drawn.
+- **Mismatch as a layout property.** The post-layout Monte Carlo record
+  re-measures the local-mismatch distribution and finds it unchanged —
+  σ(`V_os`) 0.922–0.996 mV against 0.930–1.025 mV schematic, untrimmed 3σ
+  −19.12…+20.44 °C against −19.23…+19.63 °C. That is the expected result
+  (local mismatch is a property of the PDK's statistical device models, which
+  apply to the same drawn devices either way, and interconnect loading is not
+  a mismatch term) and it is worth having recorded rather than assumed:
+  **DR-011's conclusion survives extraction intact.** What it does *not* cover
+  is layout-*dependent* matching — common-centroid placement of the 8:1 PNP
+  array and the `R2`/`R1` ladder, gradient, stress and orientation effects.
+  Those are #17's, and no netlist-level extraction can see them.
+- **Anything resting on a body-tie assumption**, per the four ties listed
+  above.
+
+### Reproducing the post-layout evidence
+
+```bash
+python3 layout/postlayout.py --check      # the extracted netlists are current
+python3 sim/build_tb.py --check           # the fragments are those netlists + stimulus
+python3 sim/run_corners.py sim/temp-core-designer-check/testbench-postlayout
+python3 sim/run_corners.py sim/temp-core-startup/testbench-postlayout
+python3 sim/run_corners.py sim/temp-accuracy-vt/testbench-postlayout
+python3 sim/run_mc.py     sim/temp-accuracy-mc/testbench-postlayout
+python3 sim/temp-accuracy-vt/analyze_derived.py <record-id> --write
+python3 sim/temp-accuracy-mc/analyze_breakdown.py <record-id> --write
+python3 sim/postlayout_delta.py <slug> <extracted-id> --against <schematic-id> \
+    --high-z PTAT,CTAT,NA,NB,NC,PG,NZ,PB,PCAS,ND,NR,NT,IBIAS --write
+```
+
+The post-layout runs take a *testbench directory*, not the bare slug: a bare
+slug resolves to the schematic `testbench/` sibling, which is the point of
+keeping both. `postlayout_delta.py` exits non-zero if any check regressed from
+the schematic-level record to the extracted one, so a regression cannot be
+scrolled past; on this cell it exits 0.

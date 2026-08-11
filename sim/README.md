@@ -278,17 +278,46 @@ mismatch" for the mechanism and why the two record shapes are deliberately
 different.
 
 A **derived** record may reduce an existing record's raw logs without running
-a simulation — `sim/temp-accuracy-vt/analyze_derived.py` and
-`sim/temp-accuracy-mc/analyze_breakdown.py` both do this, minting
-`<record-id>-derived` / `<record-id>-breakdown`. A derived record cites its
-source record, makes no measurement of its own, and does not supersede the
-record it reads.
+a simulation — `sim/temp-accuracy-vt/analyze_derived.py`,
+`sim/temp-accuracy-mc/analyze_breakdown.py` and `sim/postlayout_delta.py`
+all do this, minting `<record-id>-derived` / `<record-id>-breakdown` /
+`<record-id>-postlayout-delta`. A derived record cites its source record(s),
+makes no measurement of its own, and does not supersede the record it reads.
+Its own **Netlist provenance** field quotes what its *source record* says
+about itself (`sim/harness/report.py`'s `source_provenance()`) rather than
+restating a manifest: since #86 an experiment has two manifests, and a record
+is append-only while a manifest is not, so the record is the only stable
+answer.
 
-A later post-layout extracted re-run (#18) of the original corner-matrix
-claim would live under the same `temp-accuracy/` experiment directory with
-its own `<record-id>`, `Netlist provenance: extracted (layout/... ->
-extracted netlist)`, and a `Supersedes: 20260729-153000-1a7ef75` field
-carrying a schematic-vs-extracted delta summary in its Result section.
+A post-layout extracted re-run (#18) of the original corner-matrix claim
+lives under the same experiment directory with its own `<record-id>`,
+`Netlist provenance: extracted`, and a `Supersedes` field naming the
+schematic-level record it re-runs. The **schematic-vs-extracted delta
+summary** is `sim/postlayout_delta.py`'s derived
+`<record-id>-postlayout-delta` beside it, not free text edited into either
+record's Result section: the corner runner writes one record from one run and
+never reads a second, and the append-only rule forbids going back and
+inserting the comparison afterwards. That derived record joins the two grids
+on corner-id, re-evaluates the experiment's own `tb.json` checks against
+both with the harness's own evaluator, and classifies every checked
+measurement:
+
+| transition | meaning |
+|---|---|
+| `ok -> ok` | no regression |
+| `ok -> MISS` | **a regression** — it passed on the schematic and fails post-layout |
+| `MISS -> MISS` | a miss the schematic-level record already carried |
+| `MISS -> ok` | an improvement |
+
+Per CLAUDE.md an `ok -> MISS` row goes back to its owning design issue; the
+target is not relaxed to absorb it, and the tool exits non-zero so the row
+cannot be scrolled past. Distinguishing it from `MISS -> MISS` is the whole
+point — without that, re-running an already-failing row would manufacture a
+false regression and a real one would be lost in the noise. The same record
+also tabulates the extracted netlist's per-net interconnect ΣR/ΣC on the
+nodes the caller names as high-impedance, which is what #18's acceptance
+criteria mean by reporting parasitic loading "explicitly, not just
+pass/fail".
 
 ## Pre-harness evidence (`sim/devchar/`, issue #4)
 

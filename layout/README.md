@@ -414,6 +414,16 @@ topology, first-order interconnect R/C, and the schematic's own net names.
 It is what `sim/` records with **Netlist provenance: extracted** are run
 against, and what #83–#87 consume.
 
+#83's four temp-sensing-domain re-runs are among the consumers:
+`sim/temp-core-designer-check/` `20260811-075055-b06af8e`,
+`sim/temp-core-startup/` `20260811-074657-7c1c116`, `sim/temp-accuracy-vt/`
+`20260811-084152-68c0017` and `sim/temp-accuracy-mc/`
+`20260811-090721-3ec259f`. The three corner-sweep records each carry a
+`<record-id>-postlayout-delta` derived record (`sim/postlayout_delta.py`)
+differencing them against the schematic-level record they supersede; zero
+checks regressed, and `design/temp_core.md`'s "Post-layout re-run" section
+summarises all four.
+
 ```bash
 python3 layout/postlayout.py --extract   # re-run klt (needs klt + the deck)
 python3 layout/postlayout.py             # regenerate layout/postlayout/

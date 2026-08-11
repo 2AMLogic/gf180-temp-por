@@ -125,6 +125,16 @@ POSTLAYOUT_FRAGMENTS: dict[str, tuple[str, tuple[str, ...]]] = {
     ),
     "por-threshold-mc": ("tb_por_threshold_mc_postlayout.spice", ("por_comparator",)),
     "por-vth": ("tb_por_vth_postlayout.spice", ("temp_por_top",)),
+    # #83's temp-sensing-domain post-layout re-runs. temp-accuracy-vt is the
+    # whole four-cell assembly (temp_por_top.spice already carries every
+    # sub-circuit definition it instantiates); the other three are the
+    # temp_core cell on its own. temp-accuracy-mc is a Monte Carlo experiment
+    # -- sim/run_mc.py, not sim/run_corners.py -- but the fragment it sweeps
+    # is assembled here exactly like any other.
+    "temp-core-designer-check": ("tb_temp_core_postlayout.spice", ("temp_core",)),
+    "temp-core-startup": ("tb_temp_core_startup_postlayout.spice", ("temp_core",)),
+    "temp-accuracy-vt": ("tb_temp_accuracy_vt_postlayout.spice", ("temp_por_top",)),
+    "temp-accuracy-mc": ("tb_temp_accuracy_mc_postlayout.spice", ("temp_core",)),
 }
 
 

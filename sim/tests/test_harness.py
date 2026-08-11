@@ -753,6 +753,49 @@ class RecordRenderingTests(unittest.TestCase):
         text = report.render_record(dirty, "smoke-bias")
         self.assertIn("dirty working tree", text)
 
+    def test_a_derived_record_quotes_its_source_record_not_a_manifest(self):
+        """Since #86 an experiment has two manifests; a derivation has one DUT.
+
+        The source record is append-only, so quoting it is the only answer
+        that cannot be retroactively changed by a later manifest.
+        """
+        experiment = self.tb.experiment_dir
+        records = experiment / report.RECORDS_DIR
+        records.mkdir(parents=True, exist_ok=True)
+        (records / "20260729-153000-1a7ef75.md").write_text(
+            "# Record 20260729-153000-1a7ef75\n\n"
+            "- **Netlist provenance**: schematic (`sim/smoke-bias/testbench/x.spice`)\n"
+        )
+        self.assertEqual(
+            report.source_provenance(experiment, "20260729-153000-1a7ef75"),
+            "schematic (`sim/smoke-bias/testbench/x.spice`)",
+        )
+
+    def test_an_extracted_source_records_caveat_is_carried_through(self):
+        experiment = self.tb.experiment_dir
+        records = experiment / report.RECORDS_DIR
+        records.mkdir(parents=True, exist_ok=True)
+        (records / "20260811-120000-1a7ef75.md").write_text(
+            "# Record\n\n- **Netlist provenance**: extracted "
+            "(`sim/smoke-bias/testbench-postlayout/x.spice`) — XCC is IDEAL, "
+            "not drawn; 4 body nets tied per AUDIT.md\n"
+        )
+        got = report.source_provenance(experiment, "20260811-120000-1a7ef75")
+        self.assertTrue(got.startswith("extracted"))
+        self.assertIn("XCC is IDEAL", got)
+
+    def test_an_unreadable_source_record_is_reported_not_guessed(self):
+        got = report.source_provenance(self.tb.experiment_dir, "20260729-000000-nosuch")
+        self.assertIn("unknown", got)
+
+    def test_a_source_record_with_no_provenance_field_is_reported(self):
+        experiment = self.tb.experiment_dir
+        records = experiment / report.RECORDS_DIR
+        records.mkdir(parents=True, exist_ok=True)
+        (records / "20260729-160000-1a7ef75.md").write_text("# Record\n\nnothing here\n")
+        got = report.source_provenance(experiment, "20260729-160000-1a7ef75")
+        self.assertIn("states no", got)
+
     def test_netlist_snapshot_is_frozen_and_append_only(self):
         experiment = self.tb.experiment_dir
         path = report.write_netlist_snapshot(self.tb, experiment, "20260729-153000-1a7ef75")
