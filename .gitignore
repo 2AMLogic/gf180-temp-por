@@ -86,6 +86,7 @@ sim/pdk.local.json
 .loom/*.bak
 .loom/.install.lock
 .loom/logs/
+.loom/.resync-in-progress
 # <<< loom-managed <<<
 
 # Repo Skills machine-local install metadata (absolute source path + timestamp)
