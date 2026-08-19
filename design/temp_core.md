@@ -866,15 +866,48 @@ Two rows are worth reading twice:
   is unchanged from both the schematic baseline and the pre-#259 extracted
   predecessor to within their per-corner delta tables (the paired
   `<record-id>-postlayout-delta` records above show **zero regressions**
-  across all four experiments). **What it still does not establish**: no
-  testbench in this repo's `sim/` set — schematic or extracted, before or
-  after #259 — runs a small-signal AC/loop-gain analysis, so a *quantified*
-  stability margin (phase margin, gain margin) has never been measured for
-  this loop at all; that is a coverage gap in the testbench suite, not
-  something `XCC` being drawn could have closed by itself. The clean,
-  ringing-free transient settling recorded above is evidence against gross
-  instability, not a substitute for that measurement — tracked as a
-  follow-up: [#274](https://github.com/2AMLogic/gf180-temp-por/issues/274).
+  across all four experiments).
+
+  **#274 has since closed the remaining gap**:
+  [`sim/temp-core-loop-stability/`](../sim/temp-core-loop-stability/) —
+  record `20260819-182610-a4eebe7` — is this repo's first small-signal `.ac`
+  testbench, breaking the loop at `PG` exactly as the "Error amplifier"
+  section above describes it: the amplifier's own output stays on `PG`
+  (`XMS2N`/`XMS2P` drains, the `XCC`/`XRZ` compensation network), and only
+  the two mirror-gate connections that actually close the loop — `XMP1` and
+  `XMP2`'s gates, back through `NA`/`NB` — move to a new node the testbench
+  injects an AC test signal onto (`XMP3`'s gate, the dead-end `PTAT`-readout
+  leg, is left on `PG`, since it does not feed back into the amplifier's own
+  inputs). Across the full 81-point PVT grid:
+
+  | Measurement | Min | Max |
+  | --- | --- | --- |
+  | Unity-gain crossover | 0.720 MHz (`res_ff_125c_2.97v`) | 1.640 MHz (`res_ss_-40c_3.63v`) |
+  | Phase margin | **34.2°** (`ff_-40c_2.97v`) | **47.1°** (`ss_27c_3.63v`) |
+  | Gain margin | **4.43 dB** (`res_ss_-40c_3.63v`) | **7.50 dB** (`res_ff_125c_2.97v`) |
+
+  The loop-break technique's own DC operating point was verified identical to
+  the closed loop at every one of the 81 points (`V(PG)` and the injection
+  node differ by exactly 0 mV, `checks.dc_bias_delta_mv` in the record), and
+  the DC `V(PTAT)`/`V(CTAT)` values it reports at `tt`/27 °C/3.3 V — 1.29334 V
+  / 0.65335 V — match `sim/temp-core-designer-check/`'s own clean-tree
+  schematic-level record (`20260731-230435-80f0981`: 1.293341 V / 0.653347 V)
+  to better than 1 ppm. This is a **schematic-level** record
+  (`design/netlist/temp_core.spice`, which already carries #259/DR-028's real
+  drawn `XCC` dimensions); a post-layout re-run against the extracted netlist
+  is out of scope here and can follow the same pattern the other four
+  `temp_core` testbenches already use, if/when a concrete margin bound makes
+  the extracted delta worth measuring.
+
+  **No target bound is ratified against these numbers.** Per #274's own
+  scoping question, promoting a specific phase/gain-margin requirement to
+  `spec/target-spec.md` is left as a separate, deliberate decision (its own
+  decision record) for whenever one is actually needed — nothing in either
+  this record or the transient records above shows evidence of an actual
+  instability problem; the worst-case 34.2° margin is measured at the
+  fast-process, coldest, lowest-supply corner, which is also the corner every
+  other `temp_core` record already treats as its hardest case, not a
+  surprise this record newly discovered.
 - **Mismatch as a layout property.** The post-layout Monte Carlo record
   re-measures the local-mismatch distribution and finds it unchanged —
   σ(`V_os`) 0.922–0.996 mV against 0.930–1.025 mV schematic, untrimmed 3σ
