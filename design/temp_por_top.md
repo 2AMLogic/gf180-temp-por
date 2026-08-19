@@ -69,6 +69,17 @@ siblings), not from this comparison.
 
 ### What "extracted" means for this assembly
 
+> **Update, 2026-08-19 (#259).** The one ideal device described below is now
+> **drawn**: `temp_core`'s `XCC` was laid out and routed onto `PG`/`NZ` per
+> [DR-028](../spec/decision-records/DR-028-temp-core-xcc-draw-it.md), taking
+> `temp_por_top` to **239 drawn devices, 0 ideal** (and, since #264 routed the
+> MiM plates, 145 nets rather than 159). The figures in this section describe
+> the netlists the records cited here were actually taken against, and are
+> left as recorded — this repo's `sim/` set is append-only. A claim resting on
+> the amplifier's compensation pole is still a schematic-level claim *in those
+> records*; making it a post-layout one needs a re-run, which #259 did not do
+> and [#270](https://github.com/2AMLogic/gf180-temp-por/issues/270) tracks.
+
 Per [`layout/postlayout/AUDIT.md`](../layout/postlayout/AUDIT.md)'s
 `temp_por_top` row: **238 drawn devices, 1 ideal.** The single ideal device is
 `temp_core`'s `XCC` MiM cap (here instance `xtemp`'s, on `xtemp__PG` /
@@ -427,6 +438,13 @@ shrinkage is not evidence of a fix**, and nothing about this re-run refutes
 DR-013.
 
 ### 4. Exactly one device remains schematic-ideal across all five cells: `temp_core`'s undrawn `XCC`
+
+> **Update, 2026-08-19 (#259).** No longer true of the layout: `XCC` is drawn
+> and routed, and `AUDIT.md` now reports **no** ideal device in any of the five
+> cells. It remains true of the records this roll-up indexes, which were taken
+> against netlists that spliced it in ideal — those are not re-run here (that
+> is [#270](https://github.com/2AMLogic/gf180-temp-por/issues/270)), so the
+> compensation-path caveat below still applies to *them*.
 
 Several of #82-#87's own acceptance-criteria bodies carry a broader-sounding
 "some devices may still be schematic-ideal" caveat, written before the

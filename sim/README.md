@@ -389,7 +389,10 @@ whole set does and does not establish, is
 [`design/temp_por_top.md`](../design/temp_por_top.md) § "Closing roll-up for
 issue #18".** Read it before citing any single post-layout record: it names
 the one experiment with no post-layout re-run (and why that is correct), the
-one device still schematic-ideal in every extracted netlist, the records
+one device that was still schematic-ideal in every extracted netlist those
+records were taken against (`temp_core`'s `XCC` — drawn since #259, so
+netlists regenerated after it splice nothing; the records themselves stand as
+recorded), the records
 stamped "not citable as a clean-tree result" (see "Citing a 'taken against a
 dirty working tree' record", above, for what such a record may and may not be
 cited for), and the two effects — rail IR drop and net-to-net coupling — that

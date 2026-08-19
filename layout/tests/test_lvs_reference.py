@@ -836,25 +836,127 @@ class TempCoreTest(ManifestReferenceTests, ControlCoverageTests, unittest.TestCa
         golden = (REPO_ROOT / "design" / "netlist" / "temp_core.spice").read_text()
         return lr.parse_passives(lr.subckt_body(golden, "temp_core"))
 
-    def test_the_mim_cap_is_the_only_device_left_out(self):
-        # #93 folded the PNPs and the poly resistors into the compare. XCC is
-        # the one device still outside it -- so this asserts the *whole* gap,
-        # not a list someone has to remember to shrink.
-        #
-        # It is outside by *sequencing*, not by deck limit: DR-028 decides to
-        # draw it (see UndrawnCapDecisionTest below), and this assertion is
-        # what will fail the moment the manifest gains "caps": ["XCC"], forcing
-        # the record and the prose to be brought along with the geometry.
+    def caps(self):
+        golden = (REPO_ROOT / "design" / "netlist" / "temp_core.spice").read_text()
+        return lr.parse_capacitors(lr.subckt_body(golden, "temp_core"))
+
+    def test_no_golden_device_is_left_out_of_the_compare(self):
+        # #93 folded the PNPs and the poly resistors into the compare; #259
+        # (DR-028) folded in the MiM cap XCC, which was the last one out. This
+        # asserts the *whole* gap rather than a list someone has to remember to
+        # shrink -- so it fails the moment any golden device stops being
+        # covered, and it cannot be satisfied by a manifest that quietly drops
+        # one.
         golden = (REPO_ROOT / "design" / "netlist" / "temp_core.spice").read_text()
         body = lr.subckt_body(golden, "temp_core")
         spec = lr.CELLS[self.CELL]
-        covered = set(spec["devices"]) | set(spec["resistors"]) | set(spec["bipolars"])
+        covered = (
+            set(spec["devices"])
+            | set(spec["resistors"])
+            | set(spec["bipolars"])
+            | set(spec["caps"])
+        )
         drawn_names = {
             line.split()[0]
             for line in body
             if line.split()[0].upper().startswith("X")
         }
-        self.assertEqual(drawn_names - covered, {"XCC"})
+        self.assertEqual(drawn_names - covered, set())
+
+    def test_every_mim_cap_in_the_schematic_is_drawn_and_compared(self):
+        # #259: the manifest, the drawn array table and the schematic all name
+        # the same cap set -- the same three-way agreement por_output_chain's
+        # own caps carry.
+        self.assertEqual(set(self.caps()), set(lr.CELLS[self.CELL]["caps"]))
+        self.assertEqual(set(self.caps()), set(bc.TEMP_CORE_MIM_ARRAYS))
+
+    def test_the_cap_is_drawn_as_many_times_as_its_multiplier_says(self):
+        # The deck models no `m` multiplier, so m=1 has to be exactly one drawn
+        # plate and one reference card.
+        caps = self.caps()
+        for name, (columns, rows) in bc.TEMP_CORE_MIM_ARRAYS.items():
+            self.assertEqual(columns * rows, lr.cap_units(caps[name]))
+        cards = lr.build_cap_cards(self.CELL)
+        self.assertEqual(len(cards), sum(lr.cap_units(c) for c in caps.values()))
+
+    def test_cap_value_comes_from_the_golden_plate_size_not_a_typed_number(self):
+        # The extracted capacitance is the drawn plates' overlap area times the
+        # deck's 2.0 fF/um^2, and the drawn plate size is the golden card's own
+        # c_width/c_length -- so the reference has to be derived from the same
+        # two numbers or it is only ever agreeing with itself.
+        expected = {
+            float(
+                f"{lr.to_um(cap['params']['c_width']) * lr.to_um(cap['params']['c_length']) * lr.MIM_AREA_CAP_F_UM2:.6g}"
+            )
+            for cap in self.caps().values()
+        }
+        for card in lr.build_cap_cards(self.CELL):
+            self.assertIn(float(card.value), expected)
+        self.assertIn("2.88e-13", lr.build(self.CELL))  # XCC, 12 x 12 um
+
+    def test_cap_cards_carry_the_decks_own_device_class_name(self):
+        # Without the class name KLayout's SPICE reader builds a generic CAP
+        # class and the cap compares as an unmatched device -- a class mismatch
+        # that reads like a missing device, not like a naming slip.
+        klass = lr.CAP_CLASS["cap_mim_2f0_m3m4_noshield"]
+        for line in lr.build(self.CELL).splitlines():
+            if line.startswith("C"):
+                self.assertTrue(line.endswith(f" {klass}"), line)
+
+    def test_cap_plate_nets_are_the_golden_cards_own_nodes(self):
+        # #259 draws XCC *routed* -- bottom plate onto PG, top plate onto NZ,
+        # the two nodes its golden card names -- rather than floating, so the
+        # reference names those nodes instead of synthesizing an isolated pair.
+        # A floating plate would still LVS-match against a synthesized pair,
+        # which is exactly why this is asserted here and not left to the
+        # compare.
+        caps = self.caps()
+        cards = lr.build_cap_cards(self.CELL)
+        for name, cap in caps.items():
+            nodes = list(cap["nodes"])
+            matching = [card for card in cards if card.nodes == nodes]
+            self.assertEqual(len(matching), lr.cap_units(cap), name)
+        declared = set(lr.CELLS[self.CELL]["ports"]) | set(
+            lr.CELLS[self.CELL].get("internal", [])
+        )
+        plates = {net for card in cards for net in card.nodes}
+        self.assertTrue(plates <= declared, plates - declared)
+        self.assertFalse(
+            [net for net in plates if "." in net], "no synthesized XC*. plate net"
+        )
+
+    def test_the_drawn_mim_plate_is_the_golden_plate_size(self):
+        # Plate area *is* the capacitance, so a plate drawn at a size the
+        # golden netlist does not name is a wrong capacitor DRC would happily
+        # pass. _mim_block reads c_width/c_length; this pins it.
+        caps = self.caps()
+        plates, _x1, _y1 = bc._mim_block(
+            caps, bc.TEMP_CORE_MIM_ARRAYS, bc._MIM_X0, bc._MIM_Y0
+        )
+        for name, _x, _y, width, height in plates:
+            self.assertEqual(width, lr.to_um(caps[name]["params"]["c_width"]))
+            self.assertEqual(height, lr.to_um(caps[name]["params"]["c_length"]))
+
+    def test_the_top_plates_escape_island_clears_the_bottom_plate(self):
+        # MIMTM.1 (1.2 um bottom-plate space, drawn at MIM_SPACE_UM) applies to
+        # the free-standing Metal4 island _cap_top_route lands its second Via4
+        # on just as much as to a second plate -- and unlike the plate-to-plate
+        # case _mim_block owns, the island's placement is this cell's own
+        # constant. DRC is the real gate; this fails first and by name.
+        plates, _x1, _y1 = bc._mim_block(
+            self.caps(), bc.TEMP_CORE_MIM_ARRAYS, bc._MIM_X0, bc._MIM_Y0
+        )
+        edge = bc.MIM_ENCLOSURE_UM
+        pad = bc.CAP_ROUTE_PAD_UM / 2.0
+        ix, iy = bc._MIM_ISLAND_XY
+        island = (ix - pad, iy - pad, ix + pad, iy + pad)
+        for _name, x, y, width, height in plates:
+            bottom = (x - edge, y - edge, x + width + edge, y + height + edge)
+            gap_x = max(bottom[0] - island[2], island[0] - bottom[2])
+            gap_y = max(bottom[1] - island[3], island[1] - bottom[3])
+            self.assertGreaterEqual(
+                round(max(gap_x, gap_y), 3), bc.MIM_SPACE_UM, (bottom, island)
+            )
 
     def test_every_resistor_is_a_series_string_of_its_own_length(self):
         # The bank draws straight bodies and strings them, so the reference has
@@ -2154,15 +2256,32 @@ class Poly2ContactEnclosureTest(unittest.TestCase):
         self.assertAlmostEqual(bc.POLY2_CONT_ENC_UM, 0.07)
 
 
-#: Every file that explains *why* ``temp_core``'s ``XCC`` is not drawn. The
-#: explanation is a decision, not a fact about the tool, so each of these has to
-#: point at the record that carries it -- otherwise the next reader inherits the
-#: retracted justification instead of the decision that replaced it.
+#: Every file that discusses ``temp_core``'s ``XCC``. Each one carried the
+#: *reason it was not drawn* for as long as it was not drawn, and each now has
+#: to point at the record that decided it -- otherwise the next reader inherits
+#: a retracted justification instead of the decision that replaced it, which is
+#: exactly what happened once already.
 XCC_EXPLAINERS = (
     Path("README.md"),
     Path("layout/README.md"),
     Path("layout/build_cells.py"),
     Path("layout/lvs_reference.py"),
+)
+
+#: Wording that would still tell a reader ``XCC`` is not drawn -- every shape
+#: these four files actually used for it. Searched case-insensitively over
+#: whitespace-normalized text; the record itself is exempt, because its Context
+#: is *about* the period when this was true. Sentence-scoped (``[^.]``) and
+#: kept close to the name on purpose: ``bias_core`` has a cap called ``XCC``
+#: too, and its own history mentions devices that "were not drawn".
+XCC_UNDRAWN_CLAIM = re.compile(
+    r"XCC[^.]{0,60}?"
+    r"(is not drawn|is still not drawn|stays out|is undrawn|not drawn in"
+    r"|reserved floor area|which is not drawn)"
+    r"|(undrawn|not-drawn)[^.]{0,40}?XCC"
+    r"|(one device|the one device)[^.]{0,40}?(stays out|is still excluded)"
+    r"|(still )?does not draw[^.]{0,40}?XCC",
+    re.IGNORECASE,
 )
 
 #: Every reference to the tool gap DR-028 retracts. klayout-tools#314 is closed
@@ -2180,16 +2299,18 @@ PLATE_GAP_WINDOW = 400
 
 
 class UndrawnCapDecisionTest(unittest.TestCase):
-    """DR-028 is the record of *why* ``temp_core``'s ``XCC`` is still undrawn.
+    """DR-028 decided ``temp_core``'s ``XCC`` is drawn; #259 drew it.
 
-    The layout state it describes is asserted by
-    ``TempCoreTest.test_the_mim_cap_is_the_only_device_left_out`` and by
-    ``test_postlayout.py``'s undrawn-capacitor tests. What is asserted *here* is
-    the thing that actually rotted last time: the recorded justification. It sat
-    in four files as settled fact for weeks after the tool fixed it
-    (klayout-tools#314), which is how a scope deferral came to read like a
-    permanent deck limit. Pinning "every explainer cites the record" makes the
-    next such reversal a test failure rather than an archaeology exercise.
+    The layout state is asserted by ``TempCoreTest``'s own cap coverage and by
+    ``test_postlayout.py``'s no-undrawn-capacitor tests. What is asserted *here*
+    is the thing that actually rotted last time: the recorded justification. The
+    reasons for leaving ``XCC`` out sat in four files as settled fact for weeks
+    after the tool fixed one of them (klayout-tools#314), which is how a scope
+    deferral came to read like a permanent deck limit. Now that the decision is
+    executed, the same four files are pinned the other way -- none of them may
+    still tell a reader the cap is undrawn, and each must point at the record
+    -- so the next such reversal is a test failure rather than an archaeology
+    exercise.
     """
 
     RECORD = Path("spec/decision-records/DR-028-temp-core-xcc-draw-it.md")
@@ -2201,6 +2322,30 @@ class UndrawnCapDecisionTest(unittest.TestCase):
         text = self.record_text()
         for token in ("XCC", "temp_core", "klayout-tools#314", "## Decision"):
             self.assertIn(token, text, f"DR-028 does not mention {token!r}")
+
+    def test_the_record_states_the_decision_is_in_effect(self):
+        # #259 executed it. A record still reading "Accepted -- sequenced
+        # behind ..." would send a reader looking for work that is done.
+        status = [
+            line for line in self.record_text().splitlines()
+            if line.startswith("- **Status**:")
+        ]
+        self.assertEqual(len(status), 1, "DR-028 has no single Status line")
+        self.assertRegex(status[0], r"(?i)in effect|implemented|executed|done")
+        self.assertIn("#259", self.record_text())
+
+    def test_no_explainer_still_says_the_cap_is_undrawn(self):
+        # The stale-assertion failure mode this whole class exists for, in the
+        # other direction: prose that outlives the geometry it describes.
+        for path in XCC_EXPLAINERS:
+            with self.subTest(path=str(path)):
+                text = re.sub(r"\s+", " ", (REPO_ROOT / path).read_text())
+                match = XCC_UNDRAWN_CLAIM.search(text)
+                self.assertIsNone(
+                    match,
+                    f"{path} still describes XCC as undrawn: "
+                    f"{match.group(0) if match else ''!r}",
+                )
 
     def test_the_record_follows_the_decision_record_template(self):
         text = self.record_text()
@@ -2223,7 +2368,8 @@ class UndrawnCapDecisionTest(unittest.TestCase):
                 self.assertIn(
                     "DR-028",
                     text,
-                    f"{path} explains the undrawn XCC without citing DR-028",
+                    f"{path} discusses XCC without citing DR-028, the record "
+                    "that decided it is drawn",
                 )
 
     def test_every_citation_of_the_plate_gap_says_it_is_closed(self):

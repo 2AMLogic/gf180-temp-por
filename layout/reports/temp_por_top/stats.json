@@ -12,13 +12,13 @@
     "height": 794.0
   },
   "total": {
-    "area_um2": 372409.8852,
-    "density": 0.3515967632052991,
-    "polygon_count": 18694,
-    "vertex_count": 74776
+    "area_um2": 373073.271,
+    "density": 0.3522230739164423,
+    "polygon_count": 18727,
+    "vertex_count": 74908
   },
   "layers": null,
   "provenance": {
-    "gds_sha256": "33843b0e8f9f28a9d9ae054cb6d81dade47898653a09c80975d87bc8b7f701ee"
+    "gds_sha256": "a119a12b1fa2daff64772a4a804a0ea14f17c68dc9357fe167dfd287df0628fd"
   }
 }

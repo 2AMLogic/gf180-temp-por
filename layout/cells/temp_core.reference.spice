@@ -116,4 +116,5 @@ Q111 vsubs NWQ NC bjt AE=100P
 Q112 vsubs NWQ NC bjt AE=100P
 Q113 vsubs NWQ NC bjt AE=100P
 Q114 vsubs NWQ NC bjt AE=100P
+C115 PG NZ 2.88e-13 cap_mim_2f0_m4m5_noshield
 .ENDS temp_core

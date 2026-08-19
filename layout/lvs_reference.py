@@ -36,23 +36,25 @@ documented limits of ``klt``'s curated ``gf180mcu`` extraction deck (see
   inside it. The schematic's body node (``VDD``) is rewritten to a per-well net
   named by the manifest, connected to nothing else.
 
-Three further rewrites apply to the non-MOS device classes the deck now models
--- the drawn MiM capacitor (``caps``), the drawn poly resistor (``resistors``)
-and the drawn vertical bipolar (``bipolars``) in the manifest below:
+Two further rewrites apply to the non-MOS device classes the deck now models --
+the drawn vertical bipolar (``bipolars``) and the drawn poly resistor
+(``resistors``) in the manifest below; the drawn MiM capacitor (``caps``) needs
+none any more, and the first bullet below records why:
 
-* **MiM plates** -- ``klt``'s extraction registers a recognised capacitor's two
-  plate regions as their own self-connected connectivity nodes, *not* as part
-  of the deck's metal/via stack (``CapacitorDevice``'s own documented "Known
-  limitation"), and the top plate's layer (``FuseTop``) is not in that stack at
-  all. So however the plates are wired in the drawn layout, each extracts as an
-  isolated two-terminal net pair. The schematic's plate nodes are rewritten to
-  per-instance isolated nets named after them (``XCDG.NDG`` / ``XCDG.VSS``), so
-  the loss is visible on the face of the reference netlist rather than implied.
-  Filed generically as klayout-tools#314 -- **since closed and fixed upstream**
-  (the deck now declares ``top_plate_via`` / ``top_plate_via_metal``, so a
-  *routed* plate does reach the stack). This block's caps are still drawn
-  floating, so the rewrite above still describes what the committed geometry
-  proves; re-routing them is #264's job, not this module's.
+* **MiM plates** -- no rewrite any more, and that is the point. ``klt`` used to
+  register a recognised capacitor's two plate regions as their own
+  self-connected connectivity nodes, *not* as part of the deck's metal/via
+  stack, with the top plate's layer (``FuseTop``) outside that stack
+  altogether, so however the plates were wired in the drawn layout each
+  extracted as an isolated two-terminal net pair and the reference had to name
+  them after per-instance isolated nets (``XCDG.NDG`` / ``XCDG.VSS``). Filed
+  generically as klayout-tools#314, **since closed and fixed upstream** (the
+  deck now declares ``top_plate_via`` / ``top_plate_via_metal``, so a *routed*
+  plate does reach the stack), and every MiM card in this block is now drawn
+  routed onto the schematic nodes it names -- the other four by #264, and
+  ``temp_core``'s ``XCC`` by #259. So :func:`cap_plate_nets` returns each
+  card's own declared nodes and a clean compare answers for plate
+  *connectivity* as well as plate area.
 * **Bipolar base and collector** -- the deck recognises a vertical bipolar as
   ``Nwell`` ∩ ``DRC_BJT`` (base) with a ``Comp`` emitter inside it and *no
   drawn collector*: the collector is the substrate, so it lands on the same
@@ -70,9 +72,9 @@ and the drawn vertical bipolar (``bipolars``) in the manifest below:
 
 All of these are *deliberate fidelity loss*: they make the reference describe
 what the deck can actually see. A clean LVS here therefore proves device count,
-device sizing, MiM plate area (hence capacitance), drawn resistor and bipolar
-geometry, and signal-net topology -- **not** that wells and substrate are
-correctly tied, and **not** what either MiM plate is connected to. Filed
+device sizing, MiM plate area (hence capacitance) *and* the nets both of a
+MiM's plates land on, drawn resistor and bipolar geometry, and signal-net
+topology -- **not** that wells and substrate are correctly tied. Filed
 upstream as tool friction; tracked in ``layout/README.md``.
 """
 
@@ -315,9 +317,8 @@ BIPOLAR_BASE_MARGIN_UM = 1.5
 #: so the undeclared-net guard below stays a real check rather than a rubber
 #: stamp. ``wells`` groups the PMOS devices that share one drawn Nwell onto one
 #: body net. ``caps`` (optional) lists the drawn MiM capacitors, in emission
-#: order; their plate nets are synthesized per instance rather than declared,
-#: because the deck cannot connect a recognised capacitor's plates to anything
-#: (see :func:`cap_plate_nets`).
+#: order; their plate nets are the golden card's own two nodes, because every
+#: drawn plate in this block is routed onto them (see :func:`cap_plate_nets`).
 #:
 #: The two remaining drawn classes follow the same pattern. ``resistors`` and
 #: ``bipolars`` (both optional) list the cell's poly resistors and vertical
@@ -491,8 +492,9 @@ CELLS = {
         "resistor_fold": ResistorFold(
             style="string", max_um=300.0, target_um=250.0
         ),
-        # The 2 MiM caps. Plate nets are per-instance isolated -- see
-        # `cap_plate_nets` -- so they prove capacitance, not connectivity.
+        # The 2 MiM caps. Both plates of both are routed onto the nodes their
+        # golden cards name (#264), so they prove connectivity as well as
+        # capacitance -- see `cap_plate_nets`.
         "caps": ["XCC", "XCOK"],
         "ports": ["BIAS_OK", "IBIAS", "VDD", "VREF", "VSS", SUBSTRATE_NET],
         "internal": [
@@ -546,20 +548,20 @@ CELLS = {
             ]
         },
     },
-    # temp_core: every device of design/netlist/temp_core.spice except the MiM
-    # cap XCC. The vertical PNPs (XQ1/XQ8A..H) and the poly resistors
-    # (XR1/XR2*/XRISO/XRZ) used to be drawn as sibling top cells, outside this
-    # compare, because the curated deck could not model them; #93 folded them
-    # back in once klayout-tools#222/#223 landed and the marker geometry was
-    # drawn. XCC stays out *for now* -- but by sequencing, not by deck limit:
-    # DR-028 (spec/decision-records/DR-028-temp-core-xcc-draw-it.md) decides to
-    # draw it, and this manifest gains a "caps": ["XCC"] entry once the four
-    # already-drawn MiM cards are routed to their schematic nets (#264), whose
-    # via-stack pattern drawing XCC reuses. Of the two blockers
-    # that were once recorded here, only the m3m4 -> m4m5 stack substitution
-    # survives (CAP_CLASS below already makes it for four other golden cards);
-    # klayout-tools#314 is closed and a routed MiM plate now does reach the
-    # deck's connectivity stack -- see layout/README.md -> "Known deck limits".
+    # temp_core: every device of design/netlist/temp_core.spice. The vertical
+    # PNPs (XQ1/XQ8A..H) and the poly resistors (XR1/XR2*/XRISO/XRZ) used to be
+    # drawn as sibling top cells, outside this compare, because the curated
+    # deck could not model them; #93 folded them back in once
+    # klayout-tools#222/#223 landed and the marker geometry was drawn. The MiM
+    # cap XCC was the last one out, and it is in as of #259 (the "caps" field
+    # below), which executes DR-028
+    # (spec/decision-records/DR-028-temp-core-xcc-draw-it.md) on the via-stack
+    # pattern #264 established for this block's other four MiM cards. Of the
+    # two reasons once recorded for leaving it out, only the m3m4 -> m4m5 stack
+    # substitution survives (CAP_CLASS below makes it for every golden card
+    # here); klayout-tools#314 is closed and a routed MiM plate now does reach
+    # the deck's connectivity stack -- see layout/README.md -> "Known deck
+    # limits".
     "temp_core": {
         "source": "temp_core.spice",
         "subckt": "temp_core",
@@ -666,6 +668,9 @@ CELLS = {
         # the base ring's VSS tie is invisible and the base is an anonymous
         # net carrying only base terminals.
         "bjt_well": "NWQ",
+        # The cell's one MiM cap, drawn and routed onto its own golden nodes
+        # (PG/NZ) since #259 -- see the note above this manifest.
+        "caps": ["XCC"],
         "ports": [
             "VSS",
             "VDD",
@@ -696,10 +701,9 @@ CELLS = {
             "T0",
             # Drawn as routing tracks (and so labelled, and so pins) only
             # since #93 folded the passives in: NC joins XR1 to the eight
-            # XQ8 emitters, NZ is XRZ's free end. NZ's other schematic
-            # connection is to XCC, which is not drawn (see the note above
-            # this manifest), so NZ carries exactly one device terminal --
-            # the same situation por_comparator's SNS/SNSB are in.
+            # XQ8 emitters, NZ joins XRZ's free end to XCC's top plate --
+            # two device terminals since #259 drew the cap and routed that
+            # plate onto it, one before.
             "NC",
             "NZ",
             SUBSTRATE_NET,
@@ -769,11 +773,11 @@ CELLS = {
         ],
         # The cell's 2 MiM caps, in emission order (fixes C1..C5 numbering).
         # XCTIM is m=4, so it contributes 4 drawn units; the layout draws the
-        # same 5 plates from the same golden c_width/c_length. Their plate nets
-        # are per-instance isolated (see `cap_plate_nets`) -- the deck cannot
-        # wire a recognised capacitor's plates to anything -- so unlike the MOS
-        # devices they prove capacitance, not connectivity. Both schematic plate
-        # nodes (NDG, TIM) also carry MOS terminals, so no net depends on them.
+        # same 5 plates from the same golden c_width/c_length. Every plate is
+        # routed onto the node its own card names (#264; see `cap_plate_nets`),
+        # so they prove connectivity as well as capacitance. Both schematic
+        # plate nodes (NDG, TIM) also carry MOS terminals, so no net depends on
+        # them.
         "caps": ["XCDG", "XCTIM"],
         "ports": ["IBIAS", "POR_RAW", "RESETn", "VDD", "VSS", SUBSTRATE_NET],
         "internal": [
@@ -1507,9 +1511,9 @@ def cap_plate_nets(cap: dict) -> list[str]:
     (``XCTIM``'s four units all land on the same ``TIM``/``VSS`` pair), so
     there is nothing left to disambiguate per instance.
 
-    ``temp_core``'s own undrawn ``XCC`` is a different question -- DR-028
-    (``spec/decision-records/DR-028-temp-core-xcc-draw-it.md``) decides it is
-    drawn too, not left synthesized.
+    ``temp_core``'s own ``XCC`` followed in #259, executing DR-028
+    (``spec/decision-records/DR-028-temp-core-xcc-draw-it.md``): it is drawn
+    and routed the same way, so no card in this block is synthesized any more.
     """
     return list(cap["nodes"])
 

@@ -3,12 +3,12 @@
   "cell": "temp_por_top",
   "note": "recorded by layout/postlayout.py --extract; the committed extracted.spice/extract.json of the DRC/LVS flow are not touched by this run",
   "netlist_path": "layout/reports/temp_por_top/extracted-parasitics.spice",
-  "netlist_sha256": "156cdc0aed667191592194e4af4f1c1eb9da2bb2c260ec0fc9d83091519f66bf",
+  "netlist_sha256": "e39d507eff49d428af6c561c5ebfe1fc5dd6c0b5b88d6d8221cd55dd663424f9",
   "top_cell_pins": true,
-  "device_count": 238,
+  "device_count": 239,
   "device_counts": {
     "bjt": 19,
-    "cap_mim_2f0_m4m5_noshield": 7,
+    "cap_mim_2f0_m4m5_noshield": 8,
     "nfet": 71,
     "pfet": 64,
     "ppolyf_u": 50,
@@ -20,8 +20,8 @@
     "nets_total": 145,
     "nets_with_parasitics": 136,
     "fraction": 0.9379,
-    "total_resistance_ohm": 280929.308,
-    "total_capacitance_ff": 5900.535586
+    "total_resistance_ohm": 280929.3522,
+    "total_capacitance_ff": 5900.569376
   },
   "warnings": [
     "167 poly-layer shapes not part of any recognised nfet/pfet gate touch contact at 2+ separate points (the resistor-body signature) and carry no resistor-marker layer at all; this deck may not model the device class drawn here, and its terminals have been absorbed into ordinary interconnect as an unintended short -- see docs/cli/extract.md's 'Known limitation: unmodelled device geometry'.",
@@ -35,13 +35,13 @@
       "name": "gf180mcu",
       "content_hash": "sha256:1256c45b3e472635b03a1888d0730822c1872b4a912a2c90fc1e4e7cd14a3913"
     },
-    "gds_sha256": "33843b0e8f9f28a9d9ae054cb6d81dade47898653a09c80975d87bc8b7f701ee"
+    "gds_sha256": "a119a12b1fa2daff64772a4a804a0ea14f17c68dc9357fe167dfd287df0628fd"
   },
   "lvs": {
     "status": "match",
     "nets_layout": 145,
     "nets_matched": 145,
-    "devices_matched": 238,
+    "devices_matched": 239,
     "category_counts": {
       "device.body_unverified": 2
     }

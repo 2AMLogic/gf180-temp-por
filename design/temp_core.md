@@ -734,14 +734,23 @@ all four cells (238 devices, ΣC = 5880.2 fF). Per
   them, because the extraction deck's connectivity stack does not reach an
   Nwell, a substrate ring, a bipolar base well or a MiM plate — they extract
   isolated and would otherwise float.
-- **`XCC` is not drawn.** The 12 × 12 µm MiM compensation cap on `PG`/`NZ` is
-  reserved floor area in this cell's layout; the netlist splices it back in at
-  its schematic value so the deck is simulatable at all. So **anything that
-  turns on the amplifier's compensation — the loop's stability margin, and
-  therefore the shape of its settling transient — remains a schematic claim**,
-  and the drawn cell is not yet a complete instance of this schematic. When
-  `XCC` is drawn, its plate parasitics and the routing to `PG`/`NZ` land on
-  top of what is measured below.
+- **`XCC` was not drawn when these records were taken.** The 12 × 12 µm MiM
+  compensation cap on `PG`/`NZ` was reserved floor area in this cell's layout,
+  and the netlist spliced it back in at its schematic value so the deck was
+  simulatable at all. So **anything in the records below that turns on the
+  amplifier's compensation — the loop's stability margin, and therefore the
+  shape of its settling transient — is a schematic claim**, not a post-layout
+  one.
+
+  > **Update, 2026-08-19 (#259).** `XCC` is now drawn and routed onto
+  > `PG`/`NZ`
+  > ([DR-028](../spec/decision-records/DR-028-temp-core-xcc-draw-it.md)), so
+  > netlists regenerated after #259 splice nothing: `temp_core` extracts
+  > 115/115 devices and `AUDIT.md` reports no ideal device anywhere. The
+  > records below were **not** re-run — this repo's `sim/` set is append-only
+  > and re-running them is [#270](https://github.com/2AMLogic/gf180-temp-por/issues/270)
+  > — so the caveat above still describes them exactly. Its plate parasitics
+  > and the routing to `PG`/`NZ` land on top of what is measured below.
 
 Everything else — MOS, vertical PNP and poly resistor bodies alike — is a real
 extraction of drawn geometry. `temp_core` needs none of the device-model
@@ -840,9 +849,12 @@ Two rows are worth reading twice:
 
 ### What this does **not** establish
 
-- **Loop stability.** `XCC` is spliced in ideal (above), so the compensation
-  pole is the schematic's, not the layout's. A post-layout stability claim
-  needs `XCC` drawn.
+- **Loop stability.** `XCC` was spliced in ideal in the netlists these records
+  name (above), so the compensation pole they exercise is the schematic's, not
+  the layout's. `XCC` is drawn as of #259, which removes the obstacle but not
+  the gap: a post-layout stability claim needs a re-run against the new
+  netlist, tracked in
+  [#270](https://github.com/2AMLogic/gf180-temp-por/issues/270).
 - **Mismatch as a layout property.** The post-layout Monte Carlo record
   re-measures the local-mismatch distribution and finds it unchanged —
   σ(`V_os`) 0.922–0.996 mV against 0.930–1.025 mV schematic, untrimmed 3σ

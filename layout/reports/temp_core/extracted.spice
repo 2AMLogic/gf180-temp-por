@@ -161,104 +161,106 @@ Q$62 vsubs \$53 NC bjt AE=100P PE=40U AB=144P PB=48U AC=144P PC=48U NE=1
 Q$63 vsubs \$53 NC bjt AE=100P PE=40U AB=144P PB=48U AC=144P PC=48U NE=1
 * device instance $64 r0 *1 533,109 bjt
 Q$64 vsubs \$53 NC bjt AE=100P PE=40U AB=144P PB=48U AC=144P PC=48U NE=1
-* device instance $65 r0 *1 307,92.867 ppolyf_u
-R$65 NB \$70 vsubs 10453.625 ppolyf_u
-* device instance $66 r0 *1 310,92.867 ppolyf_u
-R$66 NC \$70 vsubs 10453.625 ppolyf_u
-* device instance $67 r0 *1 313,90.762 ppolyf_u
-R$67 NA \$68 vsubs 9716.875 ppolyf_u
-* device instance $68 r0 *1 316,90.762 ppolyf_u
-R$68 CTAT \$68 vsubs 9716.875 ppolyf_u
-* device instance $69 r0 *1 319,113 ppolyf_u
-R$69 NZ \$71 vsubs 17500 ppolyf_u
-* device instance $70 r0 *1 322,113 ppolyf_u
-R$70 \$30 \$71 vsubs 17500 ppolyf_u
-* device instance $71 r0 *1 325,113 ppolyf_u
-R$71 \$30 \$72 vsubs 17500 ppolyf_u
-* device instance $72 r0 *1 328,113 ppolyf_u
-R$72 \$31 \$72 vsubs 17500 ppolyf_u
-* device instance $73 r0 *1 331,113 ppolyf_u
-R$73 \$31 \$73 vsubs 17500 ppolyf_u
-* device instance $74 r0 *1 334,113 ppolyf_u
-R$74 \$32 \$73 vsubs 17500 ppolyf_u
-* device instance $75 r0 *1 337,113 ppolyf_u
-R$75 \$32 \$74 vsubs 17500 ppolyf_u
-* device instance $76 r0 *1 340,113 ppolyf_u
-R$76 \$33 \$74 vsubs 17500 ppolyf_u
-* device instance $77 r0 *1 343,113 ppolyf_u
-R$77 \$33 \$75 vsubs 17500 ppolyf_u
-* device instance $78 r0 *1 346,113 ppolyf_u
-R$78 N2 \$75 vsubs 17500 ppolyf_u
-* device instance $79 r0 *1 349,118.262 ppolyf_u
-R$79 PTAT \$76 vsubs 19341.875 ppolyf_u
-* device instance $80 r0 *1 352,118.262 ppolyf_u
-R$80 \$34 \$76 vsubs 19341.875 ppolyf_u
-* device instance $81 r0 *1 355,118.262 ppolyf_u
-R$81 \$34 \$77 vsubs 19341.875 ppolyf_u
-* device instance $82 r0 *1 358,118.262 ppolyf_u
-R$82 \$35 \$77 vsubs 19341.875 ppolyf_u
-* device instance $83 r0 *1 361,118.262 ppolyf_u
-R$83 \$35 \$78 vsubs 19341.875 ppolyf_u
-* device instance $84 r0 *1 364,118.262 ppolyf_u
-R$84 \$36 \$78 vsubs 19341.875 ppolyf_u
-* device instance $85 r0 *1 367,118.262 ppolyf_u
-R$85 \$36 \$79 vsubs 19341.875 ppolyf_u
-* device instance $86 r0 *1 370,118.262 ppolyf_u
-R$86 \$37 \$79 vsubs 19341.875 ppolyf_u
-* device instance $87 r0 *1 373,118.262 ppolyf_u
-R$87 \$37 \$80 vsubs 19341.875 ppolyf_u
-* device instance $88 r0 *1 376,118.262 ppolyf_u
-R$88 \$38 \$80 vsubs 19341.875 ppolyf_u
-* device instance $89 r0 *1 379,118.262 ppolyf_u
-R$89 \$38 \$81 vsubs 19341.875 ppolyf_u
-* device instance $90 r0 *1 382,118.262 ppolyf_u
-R$90 \$39 \$81 vsubs 19341.875 ppolyf_u
-* device instance $91 r0 *1 385,118.262 ppolyf_u
-R$91 \$39 \$82 vsubs 19341.875 ppolyf_u
-* device instance $92 r0 *1 388,118.262 ppolyf_u
-R$92 \$40 \$82 vsubs 19341.875 ppolyf_u
-* device instance $93 r0 *1 391,118.262 ppolyf_u
-R$93 \$40 \$83 vsubs 19341.875 ppolyf_u
-* device instance $94 r0 *1 394,118.262 ppolyf_u
-R$94 \$41 \$83 vsubs 19341.875 ppolyf_u
-* device instance $95 r0 *1 397,118.262 ppolyf_u
-R$95 \$41 \$84 vsubs 19341.875 ppolyf_u
-* device instance $96 r0 *1 400,118.262 ppolyf_u
-R$96 \$42 \$84 vsubs 19341.875 ppolyf_u
-* device instance $97 r0 *1 403,118.262 ppolyf_u
-R$97 \$42 \$85 vsubs 19341.875 ppolyf_u
-* device instance $98 r0 *1 406,118.262 ppolyf_u
-R$98 \$43 \$85 vsubs 19341.875 ppolyf_u
-* device instance $99 r0 *1 409,118.262 ppolyf_u
-R$99 \$43 \$86 vsubs 19341.875 ppolyf_u
-* device instance $100 r0 *1 412,118.262 ppolyf_u
-R$100 \$44 \$86 vsubs 19341.875 ppolyf_u
-* device instance $101 r0 *1 415,118.262 ppolyf_u
-R$101 \$44 \$87 vsubs 19341.875 ppolyf_u
-* device instance $102 r0 *1 418,118.262 ppolyf_u
-R$102 T5 \$87 vsubs 19341.875 ppolyf_u
-* device instance $103 r0 *1 421,120.427 ppolyf_u
-R$103 T5 \$88 vsubs 20099.625 ppolyf_u
-* device instance $104 r0 *1 424,120.427 ppolyf_u
-R$104 T4 \$88 vsubs 20099.625 ppolyf_u
-* device instance $105 r0 *1 427,91.672 ppolyf_u
-R$105 T4 \$69 vsubs 10035.375 ppolyf_u
-* device instance $106 r0 *1 430,91.672 ppolyf_u
-R$106 T3 \$69 vsubs 10035.375 ppolyf_u
-* device instance $107 r0 *1 433,77.295 ppolyf_u
-R$107 T3 \$60 vsubs 5003.25 ppolyf_u
-* device instance $108 r0 *1 436,77.295 ppolyf_u
-R$108 T2 \$60 vsubs 5003.25 ppolyf_u
-* device instance $109 r0 *1 439,70.105 ppolyf_u
-R$109 T2 \$56 vsubs 2486.75 ppolyf_u
-* device instance $110 r0 *1 442,70.105 ppolyf_u
-R$110 T1 \$56 vsubs 2486.75 ppolyf_u
-* device instance $111 r0 *1 445,66.507 ppolyf_u
-R$111 T1 \$51 vsubs 1227.625 ppolyf_u
-* device instance $112 r0 *1 448,66.507 ppolyf_u
-R$112 T0 \$51 vsubs 1227.625 ppolyf_u
-* device instance $113 r0 *1 451,64.712 ppolyf_u
-R$113 T0 \$50 vsubs 599.375 ppolyf_u
-* device instance $114 r0 *1 454,64.712 ppolyf_u
-R$114 VSS \$50 vsubs 599.375 ppolyf_u
+* device instance $65 r0 *1 206.7,68.7 cap_mim_2f0_m4m5_noshield
+C$65 PG NZ 2.88e-13 cap_mim_2f0_m4m5_noshield
+* device instance $66 r0 *1 307,92.867 ppolyf_u
+R$66 NB \$70 vsubs 10453.625 ppolyf_u
+* device instance $67 r0 *1 310,92.867 ppolyf_u
+R$67 NC \$70 vsubs 10453.625 ppolyf_u
+* device instance $68 r0 *1 313,90.762 ppolyf_u
+R$68 NA \$68 vsubs 9716.875 ppolyf_u
+* device instance $69 r0 *1 316,90.762 ppolyf_u
+R$69 CTAT \$68 vsubs 9716.875 ppolyf_u
+* device instance $70 r0 *1 319,113 ppolyf_u
+R$70 NZ \$71 vsubs 17500 ppolyf_u
+* device instance $71 r0 *1 322,113 ppolyf_u
+R$71 \$30 \$71 vsubs 17500 ppolyf_u
+* device instance $72 r0 *1 325,113 ppolyf_u
+R$72 \$30 \$72 vsubs 17500 ppolyf_u
+* device instance $73 r0 *1 328,113 ppolyf_u
+R$73 \$31 \$72 vsubs 17500 ppolyf_u
+* device instance $74 r0 *1 331,113 ppolyf_u
+R$74 \$31 \$73 vsubs 17500 ppolyf_u
+* device instance $75 r0 *1 334,113 ppolyf_u
+R$75 \$32 \$73 vsubs 17500 ppolyf_u
+* device instance $76 r0 *1 337,113 ppolyf_u
+R$76 \$32 \$74 vsubs 17500 ppolyf_u
+* device instance $77 r0 *1 340,113 ppolyf_u
+R$77 \$33 \$74 vsubs 17500 ppolyf_u
+* device instance $78 r0 *1 343,113 ppolyf_u
+R$78 \$33 \$75 vsubs 17500 ppolyf_u
+* device instance $79 r0 *1 346,113 ppolyf_u
+R$79 N2 \$75 vsubs 17500 ppolyf_u
+* device instance $80 r0 *1 349,118.262 ppolyf_u
+R$80 PTAT \$76 vsubs 19341.875 ppolyf_u
+* device instance $81 r0 *1 352,118.262 ppolyf_u
+R$81 \$34 \$76 vsubs 19341.875 ppolyf_u
+* device instance $82 r0 *1 355,118.262 ppolyf_u
+R$82 \$34 \$77 vsubs 19341.875 ppolyf_u
+* device instance $83 r0 *1 358,118.262 ppolyf_u
+R$83 \$35 \$77 vsubs 19341.875 ppolyf_u
+* device instance $84 r0 *1 361,118.262 ppolyf_u
+R$84 \$35 \$78 vsubs 19341.875 ppolyf_u
+* device instance $85 r0 *1 364,118.262 ppolyf_u
+R$85 \$36 \$78 vsubs 19341.875 ppolyf_u
+* device instance $86 r0 *1 367,118.262 ppolyf_u
+R$86 \$36 \$79 vsubs 19341.875 ppolyf_u
+* device instance $87 r0 *1 370,118.262 ppolyf_u
+R$87 \$37 \$79 vsubs 19341.875 ppolyf_u
+* device instance $88 r0 *1 373,118.262 ppolyf_u
+R$88 \$37 \$80 vsubs 19341.875 ppolyf_u
+* device instance $89 r0 *1 376,118.262 ppolyf_u
+R$89 \$38 \$80 vsubs 19341.875 ppolyf_u
+* device instance $90 r0 *1 379,118.262 ppolyf_u
+R$90 \$38 \$81 vsubs 19341.875 ppolyf_u
+* device instance $91 r0 *1 382,118.262 ppolyf_u
+R$91 \$39 \$81 vsubs 19341.875 ppolyf_u
+* device instance $92 r0 *1 385,118.262 ppolyf_u
+R$92 \$39 \$82 vsubs 19341.875 ppolyf_u
+* device instance $93 r0 *1 388,118.262 ppolyf_u
+R$93 \$40 \$82 vsubs 19341.875 ppolyf_u
+* device instance $94 r0 *1 391,118.262 ppolyf_u
+R$94 \$40 \$83 vsubs 19341.875 ppolyf_u
+* device instance $95 r0 *1 394,118.262 ppolyf_u
+R$95 \$41 \$83 vsubs 19341.875 ppolyf_u
+* device instance $96 r0 *1 397,118.262 ppolyf_u
+R$96 \$41 \$84 vsubs 19341.875 ppolyf_u
+* device instance $97 r0 *1 400,118.262 ppolyf_u
+R$97 \$42 \$84 vsubs 19341.875 ppolyf_u
+* device instance $98 r0 *1 403,118.262 ppolyf_u
+R$98 \$42 \$85 vsubs 19341.875 ppolyf_u
+* device instance $99 r0 *1 406,118.262 ppolyf_u
+R$99 \$43 \$85 vsubs 19341.875 ppolyf_u
+* device instance $100 r0 *1 409,118.262 ppolyf_u
+R$100 \$43 \$86 vsubs 19341.875 ppolyf_u
+* device instance $101 r0 *1 412,118.262 ppolyf_u
+R$101 \$44 \$86 vsubs 19341.875 ppolyf_u
+* device instance $102 r0 *1 415,118.262 ppolyf_u
+R$102 \$44 \$87 vsubs 19341.875 ppolyf_u
+* device instance $103 r0 *1 418,118.262 ppolyf_u
+R$103 T5 \$87 vsubs 19341.875 ppolyf_u
+* device instance $104 r0 *1 421,120.427 ppolyf_u
+R$104 T5 \$88 vsubs 20099.625 ppolyf_u
+* device instance $105 r0 *1 424,120.427 ppolyf_u
+R$105 T4 \$88 vsubs 20099.625 ppolyf_u
+* device instance $106 r0 *1 427,91.672 ppolyf_u
+R$106 T4 \$69 vsubs 10035.375 ppolyf_u
+* device instance $107 r0 *1 430,91.672 ppolyf_u
+R$107 T3 \$69 vsubs 10035.375 ppolyf_u
+* device instance $108 r0 *1 433,77.295 ppolyf_u
+R$108 T3 \$60 vsubs 5003.25 ppolyf_u
+* device instance $109 r0 *1 436,77.295 ppolyf_u
+R$109 T2 \$60 vsubs 5003.25 ppolyf_u
+* device instance $110 r0 *1 439,70.105 ppolyf_u
+R$110 T2 \$56 vsubs 2486.75 ppolyf_u
+* device instance $111 r0 *1 442,70.105 ppolyf_u
+R$111 T1 \$56 vsubs 2486.75 ppolyf_u
+* device instance $112 r0 *1 445,66.507 ppolyf_u
+R$112 T1 \$51 vsubs 1227.625 ppolyf_u
+* device instance $113 r0 *1 448,66.507 ppolyf_u
+R$113 T0 \$51 vsubs 1227.625 ppolyf_u
+* device instance $114 r0 *1 451,64.712 ppolyf_u
+R$114 T0 \$50 vsubs 599.375 ppolyf_u
+* device instance $115 r0 *1 454,64.712 ppolyf_u
+R$115 VSS \$50 vsubs 599.375 ppolyf_u
 .ENDS temp_core

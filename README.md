@@ -38,20 +38,21 @@ project has:
   (issue #18 and its children #82–#87).
 
 **Where that leaves the layout.** It is drawn and assembled. DRC is
-clean on all five cells including `temp_por_top` (238 devices, 159
+clean on all five cells including `temp_por_top` (239 devices, 145
 nets), and each is LVS-matched device-for-device and net-for-net against
-its schematic-derived reference netlist. One device is still excluded
-from that compare — `temp_core`'s MiM compensation cap `XCC` — so the
-assembly is **not** LVS'd *whole*, and that cap is spliced back in at its
-schematic value wherever a simulation needs it. That exclusion is no
-longer a standing design decision: it is decided to be reversed by
+its schematic-derived reference netlist — **whole**, with no device
+excluded. The last exclusion was `temp_core`'s MiM compensation cap
+`XCC`, spliced into post-layout netlists at its schematic value rather
+than drawn; it is drawn and routed as of #259, executing
 [DR-028](spec/decision-records/DR-028-temp-core-xcc-draw-it.md) (issue
-#177), which found both of its recorded justifications expired, and
-sequenced the drawing behind a migration of this repo's layout evidence
-onto a published `klt` release. Guard-ring and well-tie *correctness* is checked by nothing in
-this flow, because the deck has no tap or well-label layer; the status
-block at the top of [`layout/README.md`](layout/README.md) carries that
-and the rest of the known deck limits.
+#177), which found both of its recorded justifications expired. Nothing
+in `layout/postlayout/` is spliced in ideal any more. Recorded `sim/`
+results that predate it stay valid for the netlists they name, and say
+so in their own provenance lines. Guard-ring and well-tie *correctness*
+is checked by nothing in this flow, because the deck has no tap or
+well-label layer; the status block at the top of
+[`layout/README.md`](layout/README.md) carries that and the rest of the
+known deck limits.
 
 **The assembled footprint measures 1.059 mm² (1334 × 794 µm), not "tiny."**
 This block's stated reason to exist includes that a small, self-contained

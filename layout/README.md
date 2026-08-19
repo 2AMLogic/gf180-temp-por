@@ -19,15 +19,19 @@ interactive KLayout session, no netgen/magic.
 > top cells that used to hold them. #91 then drew `por_comparator`'s
 > 3-segment sense divider as real `ppolyf_u_1k`-class poly resistors (**21**
 > drawn, up from 18), and #90 drew `bias_core`'s **16**: 10 vertical PNPs, 4
-> poly resistors (strung into 24 legs) and 2 MiM caps. **Every sub-circuit is
-> now whole at the *cell* level** — every device in all four schematics is
-> drawn, extracted and compared, except `temp_core`'s single MiM cap.
-> `temp_por_top` has now caught up with all four of #90/#91/#92/#93 and issue
-> #56's release latch (#97): re-deriving its floorplan against the four grown
-> sub-cell footprints (`por_comparator`'s divider and `bias_core`'s passives
-> had each outgrown the #72-era gap between instances) takes the assembly from
-> **198** to **238** devices and **131** to **159** nets, same ratified 5-pad
-> pinout, same guard-ring/rail/seam-moat treatment. Every cell under test is
+> poly resistors (strung into 24 legs) and 2 MiM caps. Finally #259 drew
+> `temp_core`'s own MiM cap `XCC` (**115** drawn, up from 114), which was the
+> last golden device anywhere in the block that the layout did not draw.
+> **Every sub-circuit is now whole at the *cell* level, with nothing left
+> over** — every device in all four schematics is drawn, extracted and
+> compared. `temp_por_top` has caught up with all four of #90/#91/#92/#93 and
+> issue #56's release latch (#97): re-deriving its floorplan against the four
+> grown sub-cell footprints (`por_comparator`'s divider and `bias_core`'s
+> passives had each outgrown the #72-era gap between instances) took the
+> assembly from **198** to **238** devices and **131** to **159** nets, and
+> #259's cap takes it to **239** (the net count is **145** since #264 routed
+> the MiM plates onto real nets) — same ratified 5-pad pinout, same
+> guard-ring/rail/seam-moat treatment. Every cell under test is
 > LVS-clean against the schematic-derived netlist with every applicable
 > negative control detected (three per cell where a cell draws a resistor or a
 > bipolar: topology, device-param, and passive-param). **DRC is clean
@@ -536,11 +540,11 @@ manifest, and all of them are enumerated per cell in
    and listed per cell in `AUDIT.md` — 3 ties in `por_comparator`, 9 in
    `temp_por_top`. MiM plates used to need the same treatment
    ([klayout-tools#314](https://github.com/2AMLogic/klayout-tools/issues/314),
-   **closed and fixed upstream**), but `bias_core`'s and `por_output_chain`'s
-   drawn caps are now routed onto their schematic nodes (#264), so their
-   plates are ordinary nets with nothing left to tie —
-   [DR-028](../spec/decision-records/DR-028-temp-core-xcc-draw-it.md) is the
-   one remaining undrawn MiM cap (`temp_core`'s `XCC`), sequenced behind #264.
+   **closed and fixed upstream**), but every drawn cap in the block is now
+   routed onto its schematic nodes — `bias_core`'s and `por_output_chain`'s
+   by #264, `temp_core`'s `XCC` by #259
+   ([DR-028](../spec/decision-records/DR-028-temp-core-xcc-draw-it.md)) — so
+   their plates are ordinary nets with nothing left to tie.
 
 Two deck substitutions are also undone, both already documented under "Known
 deck limits" below: a `ppolyf_u_3k` body recognised as `ppolyf_u_1k`
@@ -556,13 +560,16 @@ every high-sheet-rho resistor, including the POR sense divider.
 | | |
 | --- | --- |
 | From the layout | every device and its dimensions; the whole topology; first-order R/C on every net with drawn routing (60–95 % of nets per cell — see `AUDIT.md`) |
-| From the schematic | the body/well/plate ties above, and net *names* |
-| Not present | `temp_core`'s `XCC` MiM cap — the one golden device this block still does not draw (see its cell section below; [DR-028](../spec/decision-records/DR-028-temp-core-xcc-draw-it.md) decides to draw it, sequenced behind #264); spliced in **ideal** and flagged in the netlist header |
+| From the schematic | the body/well ties above, and net *names* |
+| Not present | **nothing.** Every golden device in all four schematics is drawn, extracted and in the netlist; `AUDIT.md`'s "ideal (not drawn)" column reads 0 for every cell. `temp_core`'s `XCC` was the last exception and #259 drew it ([DR-028](../spec/decision-records/DR-028-temp-core-xcc-draw-it.md)) |
 
 So a claim taken on one of these netlists is a post-layout claim about
 interconnect loading and device geometry, and a schematic claim about anything
-that turns on `XCC` or on a body-tie assumption. `sim/README.md`'s **Netlist
-provenance** field requires a record to say so.
+that turns on a body-tie assumption. `sim/README.md`'s **Netlist provenance**
+field requires a record to say so. Records written before #259 name netlists
+that did splice `XCC` in ideal, and stay valid for those netlists — the
+`sim/` set is append-only, and the caveat in each of their provenance lines
+still describes the netlist it names.
 
 ### Verification
 
@@ -1155,22 +1162,31 @@ marker over the shared n+ base ring would extract a 26th device the golden
 netlist never asked for, and marking the sixteen dummies would add sixteen
 more.
 
-**One device stays out for now: the MiM cap `XCC` — decided to be drawn, not
-yet drawn.** It is still the one device the post-layout netlist splices in
-**ideal** (`layout/postlayout/temp_core.spice` and `temp_por_top.spice`,
-flagged in each netlist's own header and in `postlayout/AUDIT.md`), so nothing
-in this flow overstates what the layout proves. But the two blockers this
-section used to cite as settled fact have both expired, and
-[DR-028](../spec/decision-records/DR-028-temp-core-xcc-draw-it.md) records the
-decision to draw it:
+**The MiM cap `XCC` is drawn too, as of #259 — this cell now draws every
+golden device it has.** It was the last one out anywhere in the block, and the
+last thing any post-layout netlist here spliced in **ideal**; both
+`layout/postlayout/temp_core.spice` and `temp_por_top.spice` now read "No
+ideal device: every golden device is drawn", and `postlayout/AUDIT.md`'s
+"ideal (not drawn)" column is zero for every cell. A 12 × 12 µm plate from the
+same `_mim_block()`/`_mim_cap()` helpers the other four cards use, in the free
+band above the PMOS row, with its bottom plate routed onto `PG` and its top
+plate onto `NZ` (the two nodes its golden card names) through the same
+Via4/Metal5 escape #264 established — so the compare answers for its
+connectivity, not only its capacitance.
+
+[DR-028](../spec/decision-records/DR-028-temp-core-xcc-draw-it.md) is the
+record that decided this, after finding that both blockers this section used
+to cite as settled fact had expired:
 
 * **the metal-flavour substitution is real but is not a differentiator.** The
   deck models exactly one MiM device (`cap_mim_2f0_m4m5_noshield`, the DRM's
   5-metal-level Option B) while this cell's cap is the `m3m4` flavour the
   schematic names (klayout-tools#315, closed without the `m3m4` variant being
-  modelled). `lvs_reference.CAP_CLASS` already makes exactly that substitution
-  for all four golden MiM cards this block *does* draw, so applying it to
-  `XCC` accepts a fidelity loss this block has already accepted twice.
+  modelled). `lvs_reference.CAP_CLASS` already made exactly that substitution
+  for the other four golden MiM cards in this block, so applying it to `XCC`
+  accepts a fidelity loss this block had already accepted twice. It is the one
+  property of this cap that is still not what the schematic names, and it is
+  permanent.
 * **the plate-net isolation is fixed at the tool, and at the drawing.**
   klayout-tools#314 is closed: the `gf180mcu` deck now carries
   `top_plate_via` (`Via4`) / `top_plate_via_metal` (`Metal5`) on its
@@ -1178,21 +1194,16 @@ decision to draw it:
   graph and can be LVS'd against their real schematic nets. "A drawn `XCC`
   would compare as a capacitor floating between two anonymous nets" no
   longer describes the tool, and #264 closed the drawing half too: the four
-  drawn cards' plates are now routed onto their schematic nodes directly
+  other drawn cards' plates are routed onto their schematic nodes directly
   (`lvs_reference.cap_plate_nets` returns each card's own two nodes, not a
-  synthesized isolated pair), so `XCC` would join four already-proven
-  connectivity compares, not a fifth still-isolated one.
+  synthesized isolated pair), which is the pattern `XCC` joined as the fifth.
 
-What actually separates `XCC` from them today is only that its plate geometry
-is not drawn at all, so nothing about its size, placement or routing is under
-check. DR-028 sequences the drawing behind a migration of this repo's layout
-evidence onto a *published* `klt` release: the committed reports here were
-produced against a deck content hash that `klt deck resolve` reports never
-shipped in any release, and under the only obtainable `klt` today
-(0.2.0) `run_checks.sh` fails on **unmodified** committed geometry — see
-[Known deck limits](#known-deck-limits--what-a-clean-lvs-here-does-not-prove).
-Until that migration lands there is no consistent `layout/reports/` state a
-changed `temp_core` could be committed against.
+DR-028 also made the sequencing binding, and it held: the drawing waited for
+the migration of this repo's layout evidence onto a *published* `klt` release
+(#258 — the committed reports used to name a deck content hash `klt deck
+resolve` reports never shipped) and then for #264, which routed the four
+already-drawn cards and so established the via stack this cap reuses. Both
+landed first; #259 is the geometry.
 
 Two deck-imposed rewrites apply to the folded-in passives, mirroring the ones
 `lvs_reference.py`'s module docstring already states for the MOS bodies: a
@@ -1210,8 +1221,8 @@ Recorded result (`layout/reports/temp_core/`):
 | Check | Result |
 | ----- | ------ |
 | `klt drc --deck gf180mcu` | clean — 0 violations |
-| `klt extract --deck gf180mcu` | 114 devices (27 nfet, 28 pfet, 50 `ppolyf_u`, 9 `bjt`), 73 nets, 30 pins |
-| `klt lvs` | **match** — 114/114 devices, 73/73 nets, 30/30 pins, 0 errors (2 `device.body_unverified` warnings) |
+| `klt extract --deck gf180mcu` | 115 devices (27 nfet, 28 pfet, 50 `ppolyf_u`, 9 `bjt`, 1 `cap_mim_2f0_m4m5_noshield`), 73 nets, 30 pins |
+| `klt lvs` | **match** — 115/115 devices, 73/73 nets, 30/30 pins, 0 errors (2 `device.body_unverified` warnings). 114 devices and the same 73 nets before #259 drew `XCC`: the cap landed on `PG`/`NZ`, two nets the compare already had, so it added a device and no net. |
 | negative control `topology` | detected (exit 3; `device.unmatched` 1, `topology` 1) |
 | negative control `device-param` | detected (exit 3; `device.property` 5, `topology` 1) |
 | negative control `passive-param` | detected (exit 3; `device.property` 11, `topology` 3) |
@@ -1298,21 +1309,19 @@ Each of these was negative-controlled by deliberately introducing the defect it
 describes and confirming the check fires. What is *still* a design-review claim,
 and the only one left, is that `VSS` is the right net to tie the rings to.
 
-**Coverage — now whole, except one cell's one MiM cap.** #97 caught this
-assembly up with every one of #90/#91/#92/#93 and issue #56's `XMRLK` in one
-pass, rather than reworking the floorplan once per sub-cell change. Extraction
-being flat, every sub-circuit's drawn devices now flow straight into this
-compare: `bias_core`'s `XQ1`/`XQ8A..H`/`XQR` PNPs, `XR1`/`XR2`/`XRT`/`XRZ`
-resistors and `XCC`/`XCOK` MiM caps (#90); `por_comparator`'s
-`XRTOP`/`XRBOT`/`XRHYS` divider (#91); `por_output_chain`'s `XCDG`/`XCTIM` MiM
-units (#92) and its `XMRLK` release latch (issue #56); `temp_core`'s PNP array
-and `R2` gain ladder (#93). The **238** devices below are every device in all
-four schematics **except `temp_core`'s own MiM cap `XCC`**, which stays outside
-the compare everywhere — no sub-cell draws it (see `temp_core`'s own section
-above, and [DR-028](../spec/decision-records/DR-028-temp-core-xcc-draw-it.md),
-which decides to draw it), and extraction being flat cannot make `temp_por_top`
-see a device none of its instances draws. When it is drawn, this count becomes
-**239** and the block's ideal-device count becomes zero.
+**Coverage — whole.** #97 caught this assembly up with every one of
+#90/#91/#92/#93 and issue #56's `XMRLK` in one pass, rather than reworking the
+floorplan once per sub-cell change. Extraction being flat, every sub-circuit's
+drawn devices flow straight into this compare: `bias_core`'s
+`XQ1`/`XQ8A..H`/`XQR` PNPs, `XR1`/`XR2`/`XRT`/`XRZ` resistors and
+`XCC`/`XCOK` MiM caps (#90); `por_comparator`'s `XRTOP`/`XRBOT`/`XRHYS`
+divider (#91); `por_output_chain`'s `XCDG`/`XCTIM` MiM units (#92) and its
+`XMRLK` release latch (issue #56); `temp_core`'s PNP array and `R2` gain
+ladder (#93), and its MiM cap `XCC` (#259, executing
+[DR-028](../spec/decision-records/DR-028-temp-core-xcc-draw-it.md)). The
+**239** devices below are every device in all four schematics, with none left
+over: the count moved 238 → 239 when `XCC` was drawn, and the block's
+ideal-device count became zero at the same time.
 
 **The floorplan re-derivation itself.** #91's divider and #90's passives each
 grew their cell's footprint well past the #72-era placeholder-sized gap
@@ -1355,8 +1364,8 @@ Recorded result (`layout/reports/temp_por_top/`):
 | Check | Result |
 | ----- | ------ |
 | `klt drc --deck gf180mcu` | **clean** — 0 violations (was 92 before the floorplan re-derivation, then 2 inherited from #102/#103 until #105 fixed `por_comparator` at the source) |
-| `klt extract --deck gf180mcu --top-cell-pins` | 238 devices (71 nfet, 64 pfet, 50 `ppolyf_u`, 27 `ppolyf_u_1k`, 19 `bjt`, 7 `cap_mim_2f0_m4m5_noshield`), 145 nets, 6 pins |
-| `klt lvs` | **match** — 238/238 devices, 145/145 nets, 6/6 pins, 0 errors (2 warnings: `device.body_unverified`). Net count dropped from 159 to 145 when #264 routed the 7 MiM caps' 14 plates onto their schematic nets instead of 14 synthesized isolated ones. |
+| `klt extract --deck gf180mcu --top-cell-pins` | 239 devices (71 nfet, 64 pfet, 50 `ppolyf_u`, 27 `ppolyf_u_1k`, 19 `bjt`, 8 `cap_mim_2f0_m4m5_noshield`), 145 nets, 6 pins |
+| `klt lvs` | **match** — 239/239 devices, 145/145 nets, 6/6 pins, 0 errors (2 warnings: `device.body_unverified`). Net count dropped from 159 to 145 when #264 routed the 7 already-drawn MiM caps' 14 plates onto their schematic nets instead of 14 synthesized isolated ones; #259's 8th cap (`temp_core`'s `XCC`) added a device but no net, landing on `PG`/`NZ`, which the compare already had. |
 | negative control `topology` | detected (exit 3; `device.body_unverified` 2, `device.unmatched` 1, `topology` 2) |
 | negative control `device-param` | detected (exit 3; `device.body_unverified` 2, `device.property` 5, `topology` 2) |
 | negative control `passive-param` | detected (exit 3; `device.body_unverified` 2, `device.property` 11, `topology` 5) |
@@ -1472,9 +1481,10 @@ filed upstream per this repo's friction protocol.
   and `por_output_chain`'s `XCDG`/`XCTIM` are now wired — bottom plate on
   `Metal4`→`Via3`→`Metal3`→`Via2`→`Metal2`→`Via1`→`Metal1`, top plate on
   `FuseTop`→`Via4`→`Metal5`→`Via4`→a second `Metal4` island→…→`Metal1` — onto
-  the schematic nodes their golden cards name, so today's compare here
-  answers for plate connectivity as well as plate area for all four drawn
-  cards. And
+  the schematic nodes their golden cards name, and **#259 draws and routes
+  `temp_core`'s `XCC` the same way**, so today's compare here answers for
+  plate connectivity as well as plate area for every MiM card in the block.
+  And
   [klayout-tools#315](https://github.com/2AMLogic/klayout-tools/issues/315) —
   the deck models exactly one of the PDK's MiM stack variants, so a schematic
   instantiating the other (`..._m3m4_...`) has to be drawn as the modelled one.
@@ -1488,17 +1498,14 @@ filed upstream per this repo's friction protocol.
   `bias_core`'s 4 poly resistors, 10 vertical PNPs and 2 MiM caps extract as
   24 `ppolyf_u_1k` + 10 `bjt` + 2 MiM, which makes that cell whole. (See each
   cell's own section above for its marker geometry and drawing decision.)
-  `temp_core`'s own MiM cap `XCC` is the one device left out anywhere. Of the
-  two reasons `por_output_chain`'s substitution above states, only the first
-  still holds: **klayout-tools#314 is closed** — the deck's `CapacitorDevice`
-  now carries `top_plate_via` (`Via4`) / `top_plate_via_metal` (`Metal5`), so a
-  routed MiM plate *does* reach the connectivity graph. Drawing `XCC` is
-  therefore decided
-  ([DR-028](../spec/decision-records/DR-028-temp-core-xcc-draw-it.md)) and
-  sequenced behind #264, which routed the four already-drawn MiM cards'
-  plates -- `bias_core`'s `XCC`/`XCOK`, `por_output_chain`'s `XCDG`/`XCTIM` --
-  to their schematic nets through the `Via4`/`Metal5` stack the closed #314
-  opened up, and so establishes the via-stack pattern drawing `XCC` reuses.
+  **#259 closed the last of it.** `temp_core`'s own MiM cap `XCC` used to be
+  the one golden device left out anywhere; it is drawn now, executing
+  [DR-028](../spec/decision-records/DR-028-temp-core-xcc-draw-it.md), and it
+  is routed onto `PG`/`NZ` rather than floating — the fifth card through the
+  via stack the closed #314 opened up and #264 established on the other four.
+  **No cell in this block leaves a golden device undrawn any more**, which is
+  what takes `temp_por_top` from 238 to 239 devices and every `AUDIT.md`
+  ideal-device count to zero.
   Two deck-*option* limits surfaced doing this, neither a missing capability:
   - **The high-rho poly resistor's sheet resistance is a deck option, not
     drawn geometry.** `ppolyf_u_1k`/`_2k`/`_3k` are geometrically identical —
@@ -1676,12 +1683,15 @@ filed upstream per this repo's friction protocol.
     the lifted limit *was* used, and by choice, not by need.
   - The MiM caps stopped being undrawn: the gf180mcu MiM stack (`Metal4` +
     `FuseTop` + the two marker layers) is in the deck's layer set, which is what
-    let #92 draw `por_output_chain`'s and #90 `bias_core`'s. `temp_core`'s is
-    still the missing marker geometry in *that* cell, not the deck — unchanged
-    by #93, which drew its resistor and bipolar markers but deliberately left
-    `XCC` out. That deferral is now reversed by decision:
-    [DR-028](../spec/decision-records/DR-028-temp-core-xcc-draw-it.md) (see
-    `temp_core`'s own section above).
+    let #92 draw `por_output_chain`'s and #90 `bias_core`'s. `temp_core`'s cap
+    was the last one missing that marker geometry — a gap in *that* cell, not
+    in the deck, left by #93, which drew its resistor and bipolar markers but
+    deferred the cap. #259 closed it, per
+    [DR-028](../spec/decision-records/DR-028-temp-core-xcc-draw-it.md), and
+    used the lifted limit for the plate's own `Metal2`–`Metal5` escape route
+    (see `temp_core`'s own section above) — the second cell here to route
+    above Metal1 inside itself, and again by choice of the device, not of the
+    signal routing.
   `layout/floorplan.md`'s "Routing / metal-level note" carries the same
   re-check.
 - **DRC is a curated subset.** Width/space/enclosure across Poly2/Comp/Contact/

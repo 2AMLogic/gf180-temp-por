@@ -208,20 +208,40 @@ class SubstitutionTest(unittest.TestCase):
 
 
 class UndrawnDeviceTest(unittest.TestCase):
-    def test_temp_core_reports_its_one_undrawn_cap(self):
-        undrawn = pl.undrawn_capacitors("temp_core")
-        self.assertEqual([cap["name"] for cap in undrawn], ["XCC"])
-        self.assertEqual(undrawn[0]["nodes"], ["PG", "NZ"])
+    def test_temp_core_has_no_undrawn_cap_left(self):
+        # #259 (DR-028) drew XCC, which was the last golden device in this
+        # block the layout did not draw. It is in temp_core's manifest now, so
+        # the manifest-derived splice list is empty -- and nothing in this
+        # cell's post-layout netlist is ideal.
+        self.assertEqual(pl.undrawn_capacitors("temp_core"), [])
+        self.assertIn("XCC", lr.CELLS["temp_core"]["caps"])
 
-    def test_cells_that_draw_everything_report_nothing(self):
-        for cell in ("bias_core", "por_comparator", "por_output_chain"):
+    def test_no_cell_reports_an_undrawn_cap(self):
+        for cell in pl.CELLS:
             with self.subTest(cell=cell):
                 self.assertEqual(pl.undrawn_capacitors(cell), [])
 
-    def test_the_assembly_inherits_it_under_the_instance_rename(self):
-        undrawn = pl.undrawn_capacitors("temp_por_top")
-        self.assertEqual([cap["instance"] for cap in undrawn], ["xtemp"])
-        self.assertEqual(undrawn[0]["nodes"], ["xtemp.PG", "xtemp.NZ"])
+    def test_the_assembly_inherits_nothing_ideal_from_its_instances(self):
+        # The assembly's list is composed from its four sub-cells under the
+        # instance rename, so this is the same claim one level up: with every
+        # sub-cell drawing every golden device, temp_por_top splices nothing.
+        self.assertEqual(pl.undrawn_capacitors("temp_por_top"), [])
+        lines, records = pl.ideal_cards("temp_por_top")
+        self.assertEqual((lines, records), ([], []))
+
+    def test_a_cap_dropped_from_the_manifest_comes_back_as_ideal(self):
+        # The empty lists above must mean "everything is drawn", not "this
+        # never reports anything": drop XCC from the manifest and it reappears,
+        # on its own golden nodes, under the instance rename too.
+        spec = lr.CELLS["temp_core"]
+        self.addCleanup(lr.CELLS.__setitem__, "temp_core", spec)
+        lr.CELLS["temp_core"] = {**spec, "caps": []}
+        undrawn = pl.undrawn_capacitors("temp_core")
+        self.assertEqual([cap["name"] for cap in undrawn], ["XCC"])
+        self.assertEqual(undrawn[0]["nodes"], ["PG", "NZ"])
+        assembled = pl.undrawn_capacitors("temp_por_top")
+        self.assertEqual([cap["instance"] for cap in assembled], ["xtemp"])
+        self.assertEqual(assembled[0]["nodes"], ["xtemp.PG", "xtemp.NZ"])
 
     def test_every_ideal_card_is_flagged_in_the_netlist_header(self):
         for cell in pl.CELLS:

@@ -602,8 +602,10 @@ don't move the threshold".** `RTOP`/`RBOT`/`RHYS` are **not** schematic-ideal
 splices in this netlist: #91 drew the divider for real, and
 `layout/postlayout/AUDIT.md` confirms all 3 `ppolyf_u_1k` resistors extract
 as real two-terminal devices (`por_comparator`: 21/21 devices drawn, no ideal
-device; `temp_por_top`: 238/239, the one exception — `temp_core`'s `XCC` MiM
-cap — sitting outside this cell's own signal path). So a clean result below
+device; `temp_por_top`: 238/239 when this was recorded, the one exception —
+`temp_core`'s `XCC` MiM cap — sitting outside this cell's own signal path,
+and 239/239 with no ideal device at all since #259 drew it). So a clean
+result below
 is a claim about the divider **as physically drawn**, not merely that
 MOS-side parasitic loading leaves an assumed-ideal ratio unmoved.
 
