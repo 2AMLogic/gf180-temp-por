@@ -3,7 +3,7 @@
   "cell": "bias_core",
   "note": "recorded by layout/postlayout.py --extract; the committed extracted.spice/extract.json of the DRC/LVS flow are not touched by this run",
   "netlist_path": "layout/reports/bias_core/extracted-parasitics.spice",
-  "netlist_sha256": "09ed8e07cf995df780db0fdcfc4b86c6c74c8fd3ca1b0906b496f8467ce9047d",
+  "netlist_sha256": "b3dc2b3561ec45ffb32b493239e1bd2e4b47a5ab6294fe24a4e5bda5e9e89588",
   "top_cell_pins": false,
   "device_count": 70,
   "device_counts": {
@@ -19,8 +19,8 @@
     "nets_total": 54,
     "nets_with_parasitics": 47,
     "fraction": 0.8704,
-    "total_resistance_ohm": 130836.8101,
-    "total_capacitance_ff": 1919.995057
+    "total_resistance_ohm": 130836.7927,
+    "total_capacitance_ff": 1919.981427
   },
   "warnings": [
     "28 poly-layer shapes not part of any recognised nfet/pfet gate touch contact at 2+ separate points (the resistor-body signature) and carry no resistor-marker layer at all; this deck may not model the device class drawn here, and its terminals have been absorbed into ordinary interconnect as an unintended short -- see docs/cli/extract.md's 'Known limitation: unmodelled device geometry'."
@@ -32,7 +32,7 @@
       "name": "gf180mcu",
       "content_hash": "sha256:1256c45b3e472635b03a1888d0730822c1872b4a912a2c90fc1e4e7cd14a3913"
     },
-    "gds_sha256": "6d6236d05ae0cd822ebab5aa819194b3fdf709a17c9258b48b799671e2e23852"
+    "gds_sha256": "215b742bbc05cfd0ca6ff41940aaee54dd0e1283f92fed00435cc93be5e772d3"
   },
   "lvs": {
     "status": "match",

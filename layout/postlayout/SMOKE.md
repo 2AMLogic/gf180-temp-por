@@ -10,13 +10,13 @@ module docstring of `layout/postlayout_smoke.py` for why.
 | cell | measure | post-layout | schematic | Δ | sanity window | verdict |
 |---|---|---|---|---|---|---|
 | `bias_core` | `vref_v` | 1.19944 | 1.19935 | +0.01 % | 0.9 … 1.5 | ok |
-| `bias_core` | `bias_ok_v` | 3.3 | 3.3 | +0.00 % | 2.9 … 3.31 | ok |
+| `bias_core` | `bias_ok_v` | 3.3 | 3.3 | -0.00 % | 2.9 … 3.31 | ok |
 | `bias_core` | `ibias_ua` | 0.545193 | 0.545511 | -0.06 % | 0.05 … 5 | ok |
 | `bias_core` | `pg_v` | 2.52383 | 2.5238 | +0.00 % | 0.5 … 3.31 | ok |
 | `por_comparator` | `por_raw_v` | 3.3 | 3.3 | +0.00 % | 2.9 … 3.31 | ok |
 | `por_comparator` | `sns_v` | 1.61228 | 1.61228 | +0.00 % | 1 … 2.5 | ok |
 | `por_comparator` | `snsb_v` | 0.165661 | 0.165661 | -0.00 % | 0.05 … 0.6 | ok |
-| `por_output_chain` | `t_release_ms` | 5.90034 | 5.7794 | +2.09 % | 0.05 … 19 | ok |
+| `por_output_chain` | `t_release_ms` | 5.90035 | 5.7794 | +2.09 % | 0.05 … 19 | ok |
 | `por_output_chain` | `resetn_final_v` | 3.3 | 3.3 | +0.00 % | 2.9 … 3.31 | ok |
 | `temp_core` | `ptat_v` | 1.29399 | 1.29334 | +0.05 % | 0.5 … 2.5 | ok |
 | `temp_core` | `ctat_v` | 0.653274 | 0.653347 | -0.01 % | 0.3 … 1.2 | ok |

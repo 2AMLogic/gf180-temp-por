@@ -333,7 +333,7 @@ RVREF VREF VREF__par 7695.5815
 * device instance VREF r0 *1 0,0 
 CVREF VREF__par vsubs 7.3513489e-14
 * device instance VSS r0 *1 0,0 
-RVSS VSS VSS__par 145.0301
+RVSS VSS VSS__par 145.0127
 * device instance VSS r0 *1 0,0 
-CVSS VSS__par vsubs 2.53093198e-13
+CVSS VSS__par vsubs 2.53079568e-13
 .ENDS bias_core

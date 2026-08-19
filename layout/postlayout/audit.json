@@ -16,8 +16,8 @@
         "nets_total": 54,
         "nets_with_parasitics": 47,
         "fraction": 0.8704,
-        "total_resistance_ohm": 130836.8101,
-        "total_capacitance_ff": 1919.995057
+        "total_resistance_ohm": 130836.7927,
+        "total_capacitance_ff": 1919.981427
       },
       "ties": {
         "vsubs": "VSS",
@@ -60,7 +60,7 @@
           "name": "gf180mcu",
           "content_hash": "sha256:1256c45b3e472635b03a1888d0730822c1872b4a912a2c90fc1e4e7cd14a3913"
         },
-        "gds_sha256": "6d6236d05ae0cd822ebab5aa819194b3fdf709a17c9258b48b799671e2e23852"
+        "gds_sha256": "215b742bbc05cfd0ca6ff41940aaee54dd0e1283f92fed00435cc93be5e772d3"
       },
       "lvs_status": "match"
     },
@@ -77,8 +77,8 @@
         "nets_total": 18,
         "nets_with_parasitics": 15,
         "fraction": 0.8333,
-        "total_resistance_ohm": 18117.5272,
-        "total_capacitance_ff": 472.981153
+        "total_resistance_ohm": 18117.4588,
+        "total_capacitance_ff": 472.926636
       },
       "ties": {
         "vsubs": "VSS",
@@ -111,7 +111,7 @@
           "name": "gf180mcu",
           "content_hash": "sha256:1256c45b3e472635b03a1888d0730822c1872b4a912a2c90fc1e4e7cd14a3913"
         },
-        "gds_sha256": "45b4b14914c4e651e4488b9732988faee047047fb95887b71a126ae331815168"
+        "gds_sha256": "c60a2ef35e34d6d4e0e70ba0a9937467b37676cc94a041b325e2117d5da44412"
       },
       "lvs_status": "match"
     },
@@ -128,8 +128,8 @@
         "nets_total": 30,
         "nets_with_parasitics": 18,
         "fraction": 0.6,
-        "total_resistance_ohm": 66322.3222,
-        "total_capacitance_ff": 828.580517
+        "total_resistance_ohm": 66322.3828,
+        "total_capacitance_ff": 828.589603
       },
       "ties": {
         "vsubs": "VSS",
@@ -169,7 +169,7 @@
           "name": "gf180mcu",
           "content_hash": "sha256:1256c45b3e472635b03a1888d0730822c1872b4a912a2c90fc1e4e7cd14a3913"
         },
-        "gds_sha256": "475c7feaa83591e14d63e5e4971859225920e7971396552a0a32fcd18cfa3c29"
+        "gds_sha256": "7929251a11eea645aaf7e216ca52d4a16b5ae5675d83c39f1e00c6a7dfc133cc"
       },
       "lvs_status": "match"
     },
@@ -245,8 +245,8 @@
         "nets_total": 159,
         "nets_with_parasitics": 136,
         "fraction": 0.8553,
-        "total_resistance_ohm": 280923.0157,
-        "total_capacitance_ff": 5880.216382
+        "total_resistance_ohm": 280923.0554,
+        "total_capacitance_ff": 5880.15732
       },
       "ties": {
         "vsubs": "VSS",
@@ -317,7 +317,7 @@
           "name": "gf180mcu",
           "content_hash": "sha256:1256c45b3e472635b03a1888d0730822c1872b4a912a2c90fc1e4e7cd14a3913"
         },
-        "gds_sha256": "cfa19694b87948b218e34ba33f42c3b0b2b7ea17932c62292d780422ed34c584"
+        "gds_sha256": "80aa08eb1a48cbf7342a15479d3f983cd3e8bf48ff910c25b184cb5afcbb1d17"
       },
       "lvs_status": "match"
     }

@@ -109,7 +109,7 @@ RVREF VREF VREF__par 1314.9134
 * device instance VREF r0 *1 0,0 
 CVREF VREF__par vsubs 1.1576327e-14
 * device instance VSS r0 *1 0,0 
-RVSS VSS VSS__par 129.7465
+RVSS VSS VSS__par 129.6781
 * device instance VSS r0 *1 0,0 
-CVSS VSS__par vsubs 1.989616e-13
+CVSS VSS__par vsubs 1.98907083e-13
 .ENDS por_comparator

@@ -41,12 +41,12 @@
     "extracted_netlist": null
   },
   "provenance": {
-    "klt_version": "0.1.0",
+    "klt_version": "0.2.0",
     "klayout_version": "0.30.10",
     "pdk": null,
     "deck": {
       "name": "gf180mcu",
-      "content_hash": "sha256:be1a89e0f899a68c60baeeedffe1b4d76b965bd763e1b16beed1c85937872b1d"
+      "content_hash": "sha256:1256c45b3e472635b03a1888d0730822c1872b4a912a2c90fc1e4e7cd14a3913"
     },
     "input": null
   },
@@ -62,7 +62,8 @@
         "reference": null,
         "class": "nfet"
       },
-      "property": null
+      "property": null,
+      "details": null
     },
     {
       "category": "device.body_unverified",
@@ -75,7 +76,8 @@
         "reference": null,
         "class": "pfet"
       },
-      "property": null
+      "property": null,
+      "details": null
     }
   ],
   "net_correspondence": [

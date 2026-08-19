@@ -15,6 +15,7 @@
       "33/0",
       "34/0",
       "36/0",
+      "41/0",
       "42/0",
       "46/0",
       "53/0",
@@ -45,20 +46,21 @@
       "metal5.space.1",
       "metal5.width.1",
       "metaltop.space.1",
-      "metaltop.width.1"
+      "metaltop.width.1",
+      "mim.enclosing.via4.1"
     ]
   },
   "provenance": {
-    "klt_version": "0.1.0",
+    "klt_version": "0.2.0",
     "klayout_version": "0.30.10",
     "pdk": null,
     "deck": {
       "name": "gf180mcu",
-      "content_hash": "sha256:be1a89e0f899a68c60baeeedffe1b4d76b965bd763e1b16beed1c85937872b1d"
+      "content_hash": "sha256:1256c45b3e472635b03a1888d0730822c1872b4a912a2c90fc1e4e7cd14a3913"
     },
     "input": {
-      "content_hash": "sha256:475c7feaa83591e14d63e5e4971859225920e7971396552a0a32fcd18cfa3c29"
+      "content_hash": "sha256:7929251a11eea645aaf7e216ca52d4a16b5ae5675d83c39f1e00c6a7dfc133cc"
     },
-    "gds_sha256": "475c7feaa83591e14d63e5e4971859225920e7971396552a0a32fcd18cfa3c29"
+    "gds_sha256": "7929251a11eea645aaf7e216ca52d4a16b5ae5675d83c39f1e00c6a7dfc133cc"
   }
 }

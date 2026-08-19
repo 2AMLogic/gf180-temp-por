@@ -13,7 +13,7 @@ for where this sits in the flow.
 | cell | drawn devices | ideal (not drawn) | parasitic R/C cards | nets with parasitics | ΣR | ΣC |
 |---|---|---|---|---|---|---|
 | `bias_core` | 70 | 0 | 94 | 47/54 (87.0 %) | 130837 Ω | 1920.0 fF |
-| `por_comparator` | 21 | 0 | 30 | 15/18 (83.3 %) | 18118 Ω | 473.0 fF |
+| `por_comparator` | 21 | 0 | 30 | 15/18 (83.3 %) | 18117 Ω | 472.9 fF |
 | `por_output_chain` | 33 | 0 | 36 | 18/30 (60.0 %) | 66322 Ω | 828.6 fF |
 | `temp_core` | 114 | 1 | 138 | 69/73 (94.5 %) | 65734 Ω | 1552.3 fF |
 | `temp_por_top` | 238 | 1 | 272 | 136/159 (85.5 %) | 280923 Ω | 5880.2 fF |

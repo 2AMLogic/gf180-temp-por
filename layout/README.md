@@ -79,13 +79,52 @@ negative controls were detected. Every JSON report is rewritten under
 `layout/reports/` and committed as evidence — except a frozen cell's, which a
 whole-repo run checks but does not overwrite (see [Frozen cells](#frozen-cells)).
 
+### The pinned toolchain
+
+Every report under `layout/reports/` is evidence for **one** `klt` build, and
+which one is declared in [`layout/toolchain.json`](toolchain.json):
+
+```json
+"klt":  { "version": "klt 0.2.0", "install": "uv tool install --force klayout-tools==0.2.0",
+          "release": { "package_version": "0.2.0", "git_tag": "v0.2.0", "git_commit": "c8e4f8cd…" } },
+"deck": { "name": "gf180mcu", "content_hash": "sha256:1256c45b…" }
+```
+
+The **deck content hash is the identity**, not the version string. A source
+build of `klayout-tools` made after a release tag still reports that tag's
+package version, so a post-tag build and the release it was built after both
+say `klt 0.2.0` while shipping different decks — which is how this repo's
+entire committed evidence base came to name a deck no release ships (#258; see
+[Known deck limits](#known-deck-limits--what-a-clean-lvs-here-does-not-prove)
+for the full account and the tool-side issue it was filed as).
+
+Two gates enforce the pin, and they check different things:
+
+- **Live**, before anything is written: `run_checks.sh` probes the `klt` on
+  `PATH` (a throwaway `klt drc` on the smallest committed cell) and refuses to
+  run unless the deck hash it reports *is* the pinned one. The error names the
+  install command. This is what makes the pin a precondition rather than a
+  note.
+- **Committed**: `python3 layout/lvs_reference.py --check-deck-hash` requires
+  every committed `drc.json` to name the pinned hash — not merely to agree
+  with its neighbours, which is the check that passed all the way through the
+  incident above.
+
+Moving the pin is a deliberate act: edit `layout/toolchain.json`, install that
+build, and run `bash layout/run_checks.sh --regen-all` to re-stamp every
+non-frozen cell onto it in one go.
+
 ### Prerequisites
 
 | Need | Why | Check |
 | ---- | --- | ----- |
-| [`klt`](https://github.com/2AMLogic/klayout-tools) on `PATH` | runs DRC, extraction, LVS | `klt --version` |
+| the **pinned** [`klt`](https://github.com/2AMLogic/klayout-tools) on `PATH` | runs DRC, extraction, LVS | `bash layout/run_checks.sh --check-env` |
 | the `klayout` python module | only to *rebuild* `layout/cells/*.gds` | `python3 -c "import klayout.db"` |
 | a gf180mcu PDK install | not required by this flow | `klt pdk find` |
+
+`klt --version` is deliberately **not** the check in that first row: it cannot
+tell the pinned release from a source build made after it. `--check-env`
+reports the pin, the live deck hash, and whether they agree.
 
 `run_checks.sh` finds the `klayout` module on `python3`, else on `klt`'s own
 interpreter, else via `uv run --with klayout python3`; if none of those work it
@@ -101,7 +140,15 @@ here. That is why this flow runs in environments where the simulation flow
 Everything below is what `run_checks.sh` runs; it is spelled out so a step can
 be run by hand while debugging a cell.
 
-**0. Staleness gates.** Both generated inputs are regenerated and compared
+**0. Live-toolchain gate.** The very first thing, before any staleness check
+and before any report is written: the `klt` on `PATH` has to be the one
+[`layout/toolchain.json`](toolchain.json) pins, established by the deck
+content hash it actually produces rather than by the version string it
+reports. See ["The pinned toolchain"](#the-pinned-toolchain) above for why the
+version string is not enough. `bash layout/run_checks.sh --check-env` runs the
+same gate and prints both sides without running anything else.
+
+**0a. Staleness gates.** Both generated inputs are regenerated and compared
 against what is committed, so a recorded clean run can never be a run against
 sources that have since moved:
 
@@ -110,13 +157,15 @@ python3 layout/build_cells.py   --check   # committed GDS still matches its sour
 python3 layout/lvs_reference.py --check   # reference netlist still matches design/
 ```
 
-**0b. Deck-hash consistency gate.** A recorded DRC-clean verdict is only
-meaningful relative to one `klt` deck revision, so every committed
+**0b. Deck-hash gate.** A recorded DRC-clean verdict is only meaningful
+relative to one `klt` deck revision, so every committed
 `layout/reports/*/drc.json` has to agree on `provenance.deck.content_hash` —
 otherwise the evidence describes two different rule sets and a clean report
-for one cell says nothing about another's. Unscoped even for a single-cell
-run, since it is a property of the whole `layout/reports/` directory, not of
-any one cell; tolerates whichever cell is currently listed in
+for one cell says nothing about another's — **and** that one hash has to be
+the pinned one, or the whole directory can agree perfectly on a deck nobody
+can install (#258). Unscoped even for a single-cell run, since it is a
+property of the whole `layout/reports/` directory, not of any one cell;
+tolerates whichever cell is currently listed in
 `lvs_reference.FROZEN_DECK_CELLS` (none, today) while its own issue reworks it:
 
 ```bash
@@ -373,6 +422,7 @@ They fail independently — that is why there are two, per klayout-tools'
 ```
 layout/
   run_checks.sh                  the repeatable invocation (source of truth)
+  toolchain.json                 the pinned klt build + deck content hash
   build_cells.py                 builds cells/*.gds, byte-reproducibly
   lvs_reference.py               derives cells/*.reference.spice from design/netlist/
   postlayout.py                  derives postlayout/*.spice from the extraction
@@ -386,7 +436,9 @@ layout/
     audit.json / AUDIT.md        what is the layout's and what is not
     SMOKE.md                     the nominal-corner smoke table
   reports/
-    environment.json             klt version + deck the reports were produced with
+    environment.json             klt version + deck hash + release the reports
+                                  were produced with (after the fact; the
+                                  precondition is toolchain.json above)
     <cell>/drc.json              klt drc report
     <cell>/extract.json          klt extract report
     <cell>/extracted.spice       the layout-side netlist
@@ -406,18 +458,18 @@ Reports are regenerated wholesale by `run_checks.sh` and are byte-stable across
 runs (paths are repo-relative, digests are content-based), so a re-run that
 changes nothing produces an empty `git diff` — that is the repeatability check.
 
-That byte-stability is across runs with the **same** `klt`. Every report records
-the deck it was produced against (`provenance.deck.content_hash`), and `klt`
-0.1.0's curated decks are still moving without a version bump — so the committed
-set is *heterogeneous by cell*: each cell's reports carry whatever deck was
-current when that cell last landed, and a re-run against a newer `klt`
-legitimately rewrites them (new deck hash, plus any diagnostic field the newer
-extractor emits). Re-running the whole flow to normalise that is a deliberate,
-separate act, not a side effect of touching one cell: a PR that changes one
-cell's geometry regenerates **that cell's** reports and leaves the rest alone,
-because `reports/` is append-only evidence (`CLAUDE.md`) and silently restamping
-five other cells' recorded runs with a deck they were never checked against
-would destroy exactly the provenance the directory exists to carry.
+That byte-stability is across runs with the **same** `klt`, which since #258 is
+not left to chance: the committed set is homogeneous by construction, because
+every report has to name the deck [`layout/toolchain.json`](toolchain.json)
+pins and the live gate refuses to write one that would not. A PR that changes
+one cell's geometry still regenerates **that cell's** reports and leaves the
+rest alone — `reports/` is append-only evidence (`CLAUDE.md`), and restamping
+five other cells' recorded runs as a side effect of touching one would destroy
+exactly the provenance the directory exists to carry. What has changed is that
+a single-cell regeneration can no longer land on a *different* deck than its
+neighbours without the gate saying so. Moving to a new `klt` is therefore a
+deliberate, separate act: move the pin, then
+`bash layout/run_checks.sh --regen-all`.
 
 Every report also records the GDS stream it was generated from
 (`drc.json`/`extract.json`/`stats.json`: `provenance.gds_sha256`; `lvs.json`:
@@ -503,7 +555,7 @@ every high-sheet-rho resistor, including the POR sense divider.
 | --- | --- |
 | From the layout | every device and its dimensions; the whole topology; first-order R/C on every net with drawn routing (60–95 % of nets per cell — see `AUDIT.md`) |
 | From the schematic | the body/well/plate ties above, and net *names* |
-| Not present | `temp_core`'s `XCC` MiM cap — the one golden device this block still does not draw (see its cell section below; [DR-028](../spec/decision-records/DR-028-temp-core-xcc-draw-it.md) decides to draw it, sequenced behind a toolchain migration); spliced in **ideal** and flagged in the netlist header |
+| Not present | `temp_core`'s `XCC` MiM cap — the one golden device this block still does not draw (see its cell section below; [DR-028](../spec/decision-records/DR-028-temp-core-xcc-draw-it.md) decides to draw it, sequenced behind #264); spliced in **ideal** and flagged in the netlist header |
 
 So a claim taken on one of these netlists is a post-layout claim about
 interconnect loading and device geometry, and a schematic claim about anything
@@ -1433,9 +1485,10 @@ filed upstream per this repo's friction protocol.
   routed MiM plate *does* reach the connectivity graph. Drawing `XCC` is
   therefore decided
   ([DR-028](../spec/decision-records/DR-028-temp-core-xcc-draw-it.md)) and
-  sequenced behind the toolchain-reproducibility bullet below; the four drawn
-  MiM cards, still drawn floating for the superseded reason, are re-routed by
-  the same follow-up.
+  sequenced behind #264, which re-routes the four already-drawn MiM cards --
+  still drawn floating for the superseded reason -- to their schematic nets
+  through the `Via4`/`Metal5` stack the closed #314 opened up, and so
+  establishes the via-stack pattern drawing `XCC` reuses.
   Two deck-*option* limits surfaced doing this, neither a missing capability:
   - **The high-rho poly resistor's sheet resistance is a deck option, not
     drawn geometry.** `ppolyf_u_1k`/`_2k`/`_3k` are geometrically identical —
@@ -1671,46 +1724,73 @@ filed upstream per this repo's friction protocol.
   `run_checks.sh`, also unscoped, but — unlike the deck-hash guard — **not**
   tolerant of frozen cells: a frozen cell's own reports still have to match
   its own committed GDS).
-- **The committed evidence is not reproducible from a published `klt`, and the
-  only obtainable one fails on unmodified geometry.** Measured 2026-08-19 while
-  verifying [DR-028](../spec/decision-records/DR-028-temp-core-xcc-draw-it.md);
-  it is a *state* of this repo, not a tool defect, and it gates every further
-  layout change:
-  - Every report here names `klt 0.1.0` and deck content hash
-    `sha256:be1a89e0…872b1d`. `klt deck resolve` — the tool's own
-    hash → release lookup — reports that **no released deck ships that hash**
-    ("may predate the table's start, be from an unreleased build, or never have
-    shipped"; the table covers v0.1.0..v0.2.0). PyPI's published
-    `klayout-tools==0.1.0` is not a substitute: it self-reports `klt 0.0.1` and
-    has no `extract` or `lvs` subcommand at all.
-  - Under `klt 0.2.0` — the only obtainable release with `extract`/`lvs` — a
-    whole-repo `bash layout/run_checks.sh` on **unchanged committed GDS** gives
-    `bias_core` **LVS mismatch** (its MiM caps are drawn floating, and with
-    klayout-tools#314 fixed their plates are on the connectivity graph, so they
-    no longer pair with the reference's synthesized isolated plate nets), and
-    `por_output_chain` + `temp_por_top` **11 × `metal1.enclosing.contact.1`**
-    each (a rule 0.2.0 adds at 0.005 µm, re-derived from the PDK's own
-    `contact.drc` CO.6; the violations are 0.22 × 0.01 µm slivers on existing
-    contact landings). 0.2.0 also extends the MiM capacitance model with a
-    perimeter/fringe term (`perim_cap_f_um`) that
-    `lvs_reference.MIM_AREA_CAP_F_UM2`'s area-only model does not carry.
-  - The deck-hash gate correctly refuses a per-cell regeneration, so there is
-    **no partial migration**: the repair is a whole-repo one, and it has to fix
-    the three failures above rather than merely re-stamp them. Until it lands,
-    the committed reports stand as the evidence of record for the toolchain
-    they name, and no layout geometry here can change.
+- **`klt --version` is not a build identity, and this repo learned it the hard
+  way.** *(Diagnosed and fixed by #258; the entry stays because the failure is
+  a property of the tool's identity surface, not a one-off mistake.)* A source
+  build of `klayout-tools` made *after* a release tag still carries that tag's
+  package version, so a post-tag build and the release it was built after both
+  self-report the same `klt <version>` string while shipping **different**
+  decks. Nothing in this flow could tell them apart, and the whole committed
+  evidence base was recorded against an unreleased build: every report named
+  `klt 0.1.0` and deck content hash `sha256:be1a89e0…872b1d`, which `klt deck
+  resolve` — the tool's own hash → release lookup — reports **no released deck
+  ships**. The deck-hash gate did not catch it, because the reports all agreed
+  with *each other*; what none of them agreed with was a *release*. Two things
+  follow, both now in the flow:
+  - **The pin.** [`layout/toolchain.json`](toolchain.json) names the one `klt`
+    build this evidence is for, by deck content hash and by release
+    coordinates (package version, git tag, git commit) — see
+    ["The pinned toolchain"](#the-pinned-toolchain) above. `run_checks.sh`
+    probes the live `klt` and refuses to produce evidence against anything
+    else, *before* writing a report; `--check-deck-hash` requires every
+    committed report to name the pinned hash, not merely to agree with its
+    neighbours.
+  - **A residual tool gap**, filed generically as
+    [klayout-tools#1202](https://github.com/2AMLogic/klayout-tools/issues/1202):
+    a consumer has no cheap, first-class way to ask which deck revision the
+    installed tool will use. `run_checks.sh` gets it by running a throwaway
+    `klt drc` on a committed cell and reading
+    `provenance.deck.content_hash` back out of the report — correct, but a
+    full DRC run as a version probe. And the release a consumer must pin to in
+    order to reproduce this evidence (`klt 0.2.0`) predates `klt deck resolve`
+    itself, so the pinned build cannot resolve its own pin; `run_checks.sh`
+    runs the resolver opportunistically and reports rather than fails when it
+    is absent.
 
-`layout/reports/environment.json` records the `klt` version each report was
-produced with, because several of the limits above are version-dependent.
-Re-run `run_checks.sh` after upgrading `klt` and commit the refreshed reports
-— `run_checks.sh` now checks that every committed cell's `drc.json` agrees on
-`provenance.deck.content_hash` before running anything else, so a report
-regenerated against a new `klt` for only some cells is caught immediately
-rather than becoming this section's next entry. Once that gate is already
-failing, `bash layout/run_checks.sh --regen-all` is what repairs it (the plain
-command aborts at the gate before it can regenerate anything — #108); see
-"Repairing a split" above for why deferring the gate that way does not weaken
-it.
+  Every "`klt 0.1.0`" elsewhere in this file and in `layout/floorplan.md` names
+  that same unreleased build. Those statements are still accurate about *when*
+  a capability first appeared in this repo's working environment; they are not
+  statements about a published release, and nothing should be reproduced
+  against them. The pinned `klt 0.2.0` is what the committed evidence answers
+  to.
+
+  The three failures this was first mistaken for are recorded in #258 and were
+  measured against that same unreleased build, not against `klt 0.2.0`: under
+  the pinned release every cell is DRC-clean and LVS-match. One of them was a
+  real drawing defect all the same — 11 × `metal1.enclosing.contact.1`, the
+  0.22 × 0.01 µm contact-landing slivers a `w = 0.5 µm` device's Metal1 riser
+  left uncovered — and it is fixed in the drawn geometry
+  (`build_cells.RISER_BASE_Y_UM`), so the cells are clean under the newer deck
+  that carries the rule as well as under the pinned one. The other two were
+  properties of that build, not of this layout: its `CapacitorDevice` refines
+  the MiM capacitance model with a perimeter/fringe term the pinned deck does
+  not have, which is why `lvs_reference` now writes the deck's law in full
+  (`MIM_AREA_CAP_F_UM2` **and** `MIM_PERIM_CAP_F_UM`, the latter pinned at the
+  pinned deck's own zero) rather than hard-coding the area-only special case.
+
+`layout/reports/environment.json` records the `klt` version, the deck content
+hash and the release each report was produced with, because several of the
+limits above are version-dependent — but it records them *after the fact*,
+which is exactly why the pin above exists as well. Re-run `run_checks.sh`
+after moving the pin and commit the refreshed reports; `run_checks.sh` checks
+that every committed cell's `drc.json` names the pinned deck before running
+anything else, so a report regenerated against a different `klt` for only some
+cells is caught immediately rather than becoming this section's next entry.
+Once that gate is already failing, `bash layout/run_checks.sh --regen-all` is
+what repairs it (the plain command aborts at the gate before it can regenerate
+anything — #108, extended to the GDS-hash gate by #258 so a deliberate
+geometry change can bootstrap too); see "Repairing a split" above for why
+deferring the gates that way does not weaken them.
 
 ## Adding a cell (for #17 / #18)
 

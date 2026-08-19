@@ -52,7 +52,7 @@ and the drawn vertical bipolar (``bipolars``) in the manifest below:
   (the deck now declares ``top_plate_via`` / ``top_plate_via_metal``, so a
   *routed* plate does reach the stack). This block's caps are still drawn
   floating, so the rewrite above still describes what the committed geometry
-  proves; re-routing them is DR-028's job, not this module's.
+  proves; re-routing them is #264's job, not this module's.
 * **Bipolar base and collector** -- the deck recognises a vertical bipolar as
   ``Nwell`` ∩ ``DRC_BJT`` (base) with a ``Comp`` emitter inside it and *no
   drawn collector*: the collector is the substrate, so it lands on the same
@@ -82,6 +82,7 @@ import argparse
 import hashlib
 import json
 import re
+import shlex
 import sys
 from collections.abc import Callable, Sequence
 from pathlib import Path
@@ -92,6 +93,29 @@ REPO_ROOT = LAYOUT_DIR.parent
 NETLIST_DIR = REPO_ROOT / "design" / "netlist"
 CELLS_DIR = LAYOUT_DIR / "cells"
 REPORTS_DIR = LAYOUT_DIR / "reports"
+
+#: The pinned toolchain: which ``klt`` build (and therefore which ``gf180mcu``
+#: deck revision) every report under ``layout/reports/`` is evidence for. See
+#: :func:`toolchain` and ``layout/toolchain.json`` itself.
+TOOLCHAIN_PATH = LAYOUT_DIR / "toolchain.json"
+
+
+def toolchain(path: Path = TOOLCHAIN_PATH) -> dict:
+    """Read ``layout/toolchain.json`` -- the pinned ``klt`` build and deck.
+
+    Split out (rather than read inline at each call site) because three
+    separate gates have to agree on it and none of them may carry its own
+    copy: ``run_checks.sh``'s live-toolchain gate, this module's
+    :func:`check_deck_hash_consistency`, and the ``environment.json`` each
+    run writes.
+    """
+    return json.loads(path.read_text())
+
+
+def pinned_deck_hash(path: Path = TOOLCHAIN_PATH) -> str:
+    """The ``provenance.deck.content_hash`` every committed report must name."""
+    return toolchain(path)["deck"]["content_hash"]
+
 
 #: Cells whose committed artefacts are deliberately held at an older build than
 #: their sources would produce, keyed by cell name. Read by **both**
@@ -153,15 +177,37 @@ DEVICE_CLASS = {
 #: generically as klayout-tools#315 (``layout/README.md`` -> "Known deck limits").
 CAP_CLASS = {"cap_mim_2f0_m3m4_noshield": "cap_mim_2f0_m4m5_noshield"}
 
-#: Capacitance per square micrometre of MiM plate *overlap*, in Farads --
-#: ``klt``'s curated ``gf180mcu`` deck's own ``area_cap_f_um2`` for
-#: ``cap_mim_2f0_m4m5_noshield`` (2.0 fF/um^2, the PDK's own default
-#: ``MIM_CAP='2'`` density, and the ``2f0`` in the device name). This module is
-#: stdlib-only by design (no PDK, no klayout, no klt import), so the number is
-#: transcribed here with its provenance rather than read out of the deck; the
-#: extracted capacitance is ``plate overlap area * this``, so a wrong value here
-#: shows up immediately as a ``device.property`` LVS mismatch, not as silence.
+#: The MiM capacitance law, transcribed from the **pinned** deck (see
+#: ``layout/toolchain.json``). ``klt``'s ``CapacitorDevice`` computes
+#:
+#:     C = area_cap_f_um2 * A + perim_cap_f_um * P
+#:
+#: over the recognised plate overlap's area ``A`` and perimeter ``P``. Both
+#: coefficients are properties of the *deck*, not of this block, so both are
+#: pinned here alongside the deck hash that fixes them:
+#:
+#: * :data:`MIM_AREA_CAP_F_UM2` -- the pinned deck's own ``area_cap_f_um2``
+#:   for ``cap_mim_2f0_m4m5_noshield``: 2.0 fF/um^2, the PDK's own default
+#:   ``MIM_CAP='2'`` density and the ``2f0`` in the device name, taken by the
+#:   deck from the official LVS runset's ``mimcap_extraction.lvs``.
+#: * :data:`MIM_PERIM_CAP_F_UM` -- the pinned deck's own ``perim_cap_f_um``,
+#:   which is **zero**: at ``klayout-tools`` v0.2.0 the deck models the LVS
+#:   runset's single-term, area-only call and declares no perimeter/fringe
+#:   term at all. It is named here rather than left implicit because the term
+#:   is not zero forever: a later, unreleased klayout-tools build refines both
+#:   coefficients to the ngspice model card's own two-term law
+#:   (``sm141064.ngspice``'s ``cap_mim_2f0fF``: ``c_cox`` 1.99e-15 F/um^2 and
+#:   ``c_capsw`` 2.383e-16 F/um). Writing the law in full means moving the
+#:   toolchain pin to a release that carries that change is a two-constant
+#:   edit here, not a rederivation of what the formula even is.
+#:
+#: This module is stdlib-only by design (no PDK, no klayout, no klt import),
+#: so both numbers are transcribed with their provenance rather than read out
+#: of the deck; the extracted capacitance is exactly the expression above, so
+#: a wrong value here shows up immediately as a ``device.property`` LVS
+#: mismatch, not as silence.
 MIM_AREA_CAP_F_UM2 = 2.0e-15
+MIM_PERIM_CAP_F_UM = 0.0
 
 #: gf180mcu PDK resistor subcircuit -> (extracted device class, sheet rho in
 #: ohms per square). One table for **both** poly-resistor families this block
@@ -507,8 +553,9 @@ CELLS = {
     # back in once klayout-tools#222/#223 landed and the marker geometry was
     # drawn. XCC stays out *for now* -- but by sequencing, not by deck limit:
     # DR-028 (spec/decision-records/DR-028-temp-core-xcc-draw-it.md) decides to
-    # draw it, and this manifest gains a "caps": ["XCC"] entry when the layout
-    # evidence base moves onto a published klt release. Of the two blockers
+    # draw it, and this manifest gains a "caps": ["XCC"] entry once the four
+    # already-drawn MiM cards are routed to their schematic nets (#264), whose
+    # via-stack pattern drawing XCC reuses. Of the two blockers
     # that were once recorded here, only the m3m4 -> m4m5 stack substitution
     # survives (CAP_CLASS below already makes it for four other golden cards);
     # klayout-tools#314 is closed and a routed MiM plate now does reach the
@@ -1459,11 +1506,28 @@ def cap_plate_nets(name: str, cap: dict, unit: int, units: int) -> list[str]:
     i.e. ``Via4`` up to ``Metal5``). The plates in *this* block are still drawn
     floating, so this synthesis is still the correct description of what the
     committed geometry proves -- but it is a property of the drawing, not of
-    the tool, and it goes away when the caps are routed. See DR-028
-    (``spec/decision-records/DR-028-temp-core-xcc-draw-it.md``).
+    the tool, and it goes away when the caps are routed (#264; DR-028,
+    ``spec/decision-records/DR-028-temp-core-xcc-draw-it.md``, is what decides
+    the same for ``temp_core``'s own undrawn ``XCC``).
     """
     tag = name if units == 1 else f"{name}.{unit}"
     return [f"{tag}.{node}" for node in cap["nodes"]]
+
+
+def mim_capacitance_f(width_um: float, length_um: float) -> float:
+    """One drawn MiM unit's extracted capacitance, in Farads.
+
+    The pinned deck's own law over the plates' rectangular overlap: area times
+    :data:`MIM_AREA_CAP_F_UM2` plus perimeter times
+    :data:`MIM_PERIM_CAP_F_UM`. Both plates are drawn as concentric rectangles
+    (``build_cells._mim_cap``) with the bottom one strictly larger, so the
+    overlap *is* the top plate and its area/perimeter are the golden card's own
+    ``c_width``/``c_length``.
+    """
+    return (
+        width_um * length_um * MIM_AREA_CAP_F_UM2
+        + 2.0 * (width_um + length_um) * MIM_PERIM_CAP_F_UM
+    )
 
 
 def build_cap_cards(cell: str, rename=None) -> list[Card]:
@@ -1471,11 +1535,11 @@ def build_cap_cards(cell: str, rename=None) -> list[Card]:
 
     Plate dimensions are read out of the golden netlist's own ``c_width`` /
     ``c_length`` -- the same source ``build_cells.py`` draws the plates from --
-    and the capacitance is that overlap area times :data:`MIM_AREA_CAP_F_UM2`,
-    which is exactly what ``klt extract`` computes from the drawn geometry. So a
-    plate drawn at the wrong size fails LVS on the value rather than passing
-    against a number typed to agree with it. ``rename`` follows the same
-    convention as :func:`build_cards` -- used only by :func:`build_assembly`.
+    and the capacitance is :func:`mim_capacitance_f` of that overlap, which is
+    exactly what ``klt extract`` computes from the drawn geometry. So a plate
+    drawn at the wrong size fails LVS on the value rather than passing against
+    a number typed to agree with it. ``rename`` follows the same convention as
+    :func:`build_cards` -- used only by :func:`build_assembly`.
     """
     spec = CELLS[cell]
     names = spec.get("caps", [])
@@ -1495,7 +1559,7 @@ def build_cap_cards(cell: str, rename=None) -> list[Card]:
         width_um = to_um(cap["params"]["c_width"])
         length_um = to_um(cap["params"]["c_length"])
         units = cap_units(cap)
-        value_f = width_um * length_um * MIM_AREA_CAP_F_UM2
+        value_f = mim_capacitance_f(width_um, length_um)
         for unit in range(1, units + 1):
             nets = cap_plate_nets(name, cap, unit, units)
             plates = [net if rename is None else rename(net) for net in nets]
@@ -1658,9 +1722,12 @@ def build(cell: str, corrupt: str | None = None) -> str:
     return "\n".join(lines) + "\n"
 
 
-def check_deck_hash_consistency(reports_dir: Path = REPORTS_DIR) -> list[str]:
+def check_deck_hash_consistency(
+    reports_dir: Path = REPORTS_DIR, toolchain_path: Path = TOOLCHAIN_PATH
+) -> list[str]:
     """Fail loudly if committed ``layout/reports/*/drc.json`` disagree on
-    ``provenance.deck.content_hash``.
+    ``provenance.deck.content_hash``, **or** agree on a hash that is not the
+    one ``layout/toolchain.json`` pins.
 
     ``layout/reports/`` is append-only evidence (repo ``CLAUDE.md``,
     "Verification is the product"): every committed report is supposed to
@@ -1669,6 +1736,17 @@ def check_deck_hash_consistency(reports_dir: Path = REPORTS_DIR) -> list[str]:
     else in this flow checked that invariant, so two cells' reports could (and
     did, see #103) silently drift onto two different deck revisions with no
     error anywhere.
+
+    Agreement alone turned out not to be enough (#258). Every report can agree
+    perfectly on a deck hash that **no released** ``klt`` ships -- which is
+    exactly what happened: an unreleased, post-tag source build of
+    ``klayout-tools`` reports the same ``klt <version>`` string as the release
+    it was built after, so nothing in the flow could tell the two apart and
+    the whole evidence base was recorded against a deck nobody could install.
+    So the agreed hash is also compared against ``layout/toolchain.json``'s
+    pin, which is a hash ``klt deck resolve`` can name a release for (the
+    ``run_checks.sh`` toolchain gate asserts that half, live, before any
+    report is written).
 
     Cells in :data:`FROZEN_DECK_CELLS` are excluded from the agreement check
     (their own committed report can lag while the cell is intentionally
@@ -1714,6 +1792,29 @@ def check_deck_hash_consistency(reports_dir: Path = REPORTS_DIR) -> list[str]:
             f"layout/run_checks.sh) before committing. (Excluded as frozen: "
             f"{', '.join(frozen) if frozen else 'none'}.)"
         )
+
+    # ... and the one deck they agree on has to be the pinned one (#258).
+    try:
+        pinned = pinned_deck_hash(toolchain_path)
+    except (OSError, json.JSONDecodeError, KeyError) as error:
+        failures.append(
+            f"could not read the pinned deck hash from {toolchain_path}: {error}"
+        )
+        return failures
+    for content_hash in distinct:
+        if content_hash != pinned:
+            offenders = sorted(
+                cell for cell, value in hashes.items() if value == content_hash
+            )
+            failures.append(
+                f"committed layout/reports/*/drc.json name deck "
+                f"{content_hash} ({', '.join(offenders)}), but "
+                f"{toolchain_path.name} pins {pinned}. Either install the "
+                "pinned klt and regenerate (bash layout/run_checks.sh "
+                f"--regen-all), or move the pin in {toolchain_path.name} to a "
+                "hash `klt deck resolve` can name a release for and regenerate "
+                "against that."
+            )
     return failures
 
 
@@ -1896,6 +1997,16 @@ def main(argv: list[str] | None = None) -> int:
         ),
     )
     parser.add_argument(
+        "--pinned-toolchain",
+        action="store_true",
+        help=(
+            "print layout/toolchain.json's pin as shell-assignable "
+            "KEY=VALUE lines (PIN_KLT_VERSION, PIN_DECK, PIN_DECK_HASH, "
+            "PIN_INSTALL, PIN_RELEASE). Read by layout/run_checks.sh so the "
+            "pin is declared exactly once, in the JSON"
+        ),
+    )
+    parser.add_argument(
         "--list-frozen-deck-cells",
         action="store_true",
         help=(
@@ -1932,6 +2043,24 @@ def main(argv: list[str] | None = None) -> int:
             "cell names are positional only with --pinned-report-cells; "
             "use --cell to select a cell"
         )
+    if args.pinned_toolchain:
+        pin = toolchain()
+        release = pin["klt"]["release"]
+        for key, value in (
+            ("PIN_KLT_VERSION", pin["klt"]["version"]),
+            ("PIN_DECK", pin["deck"]["name"]),
+            ("PIN_DECK_HASH", pin["deck"]["content_hash"]),
+            ("PIN_INSTALL", pin["klt"]["install"]),
+            (
+                "PIN_RELEASE",
+                f"klayout-tools {release['package_version']} "
+                f"({release['git_tag']}, {release['git_commit']})",
+            ),
+        ):
+            # Shell-quoted: run_checks.sh `eval`s these, and every value here
+            # contains spaces.
+            print(f"{key}={shlex.quote(value)}")
+        return 0
     if args.list_frozen_deck_cells:
         for cell in sorted(FROZEN_DECK_CELLS):
             print(cell)

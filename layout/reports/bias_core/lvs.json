@@ -37,17 +37,17 @@
   "environment": {
     "engine": "klayout",
     "engine_version": "0.30.10",
-    "layout_sha256": "6d6236d05ae0cd822ebab5aa819194b3fdf709a17c9258b48b799671e2e23852",
+    "layout_sha256": "215b742bbc05cfd0ca6ff41940aaee54dd0e1283f92fed00435cc93be5e772d3",
     "reference_sha256": "897ff2d0abdf692d8f897a5c2d9bd43ea3803fd3f2399d03b1bf8fb97c84b661",
     "extracted_netlist": null
   },
   "provenance": {
-    "klt_version": "0.1.0",
+    "klt_version": "0.2.0",
     "klayout_version": "0.30.10",
     "pdk": null,
     "deck": {
       "name": "gf180mcu",
-      "content_hash": "sha256:be1a89e0f899a68c60baeeedffe1b4d76b965bd763e1b16beed1c85937872b1d"
+      "content_hash": "sha256:1256c45b3e472635b03a1888d0730822c1872b4a912a2c90fc1e4e7cd14a3913"
     },
     "input": null
   },
@@ -63,7 +63,8 @@
         "reference": null,
         "class": "nfet"
       },
-      "property": null
+      "property": null,
+      "details": null
     },
     {
       "category": "device.body_unverified",
@@ -76,7 +77,8 @@
         "reference": null,
         "class": "pfet"
       },
-      "property": null
+      "property": null,
+      "details": null
     },
     {
       "category": "topology",
@@ -88,7 +90,8 @@
         "reference": "XCC.NZ"
       },
       "device": null,
-      "property": null
+      "property": null,
+      "details": null
     },
     {
       "category": "topology",
@@ -100,7 +103,8 @@
         "reference": "XCOK.NOKX"
       },
       "device": null,
-      "property": null
+      "property": null,
+      "details": null
     },
     {
       "category": "topology",
@@ -112,7 +116,8 @@
         "reference": "XCC.PG"
       },
       "device": null,
-      "property": null
+      "property": null,
+      "details": null
     },
     {
       "category": "topology",
@@ -124,7 +129,8 @@
         "reference": "XCOK.VDD"
       },
       "device": null,
-      "property": null
+      "property": null,
+      "details": null
     }
   ],
   "net_correspondence": [

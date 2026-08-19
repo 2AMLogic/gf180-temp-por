@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "note": [
+    "The one klt build layout/reports/ is evidence for. Recorded here so a run",
+    "can check it *before* producing evidence, instead of naming it after the",
+    "fact in layout/reports/environment.json. layout/run_checks.sh refuses to",
+    "run against any other build; layout/lvs_reference.py --check-deck-hash",
+    "requires every committed report to name this deck. Regenerate after",
+    "moving the pin: bash layout/run_checks.sh --regen-all"
+  ],
+  "klt": {
+    "version": "klt 0.2.0",
+    "install": "uv tool install --force klayout-tools==0.2.0",
+    "release": {
+      "package_version": "0.2.0",
+      "git_tag": "v0.2.0",
+      "git_commit": "c8e4f8cd77a563cc6f612877f48c1148a556b25c"
+    }
+  },
+  "deck": {
+    "name": "gf180mcu",
+    "content_hash": "sha256:1256c45b3e472635b03a1888d0730822c1872b4a912a2c90fc1e4e7cd14a3913",
+    "resolved_by": [
+      "klt deck resolve --deck gf180mcu --content-hash sha256:1256c45b3e472635b03a1888d0730822c1872b4a912a2c90fc1e4e7cd14a3913",
+      "-> deck: gf180mcu / git_tag: v0.2.0 / package_version: 0.2.0.",
+      "`klt deck resolve` postdates the pinned release, so klt 0.2.0 itself",
+      "cannot run that command; the resolution above was taken from a later",
+      "klayout-tools build whose release-history table covers v0.1.0..v0.2.0.",
+      "run_checks.sh runs it opportunistically and reports rather than fails",
+      "when the subcommand is absent -- the check with teeth is that the klt",
+      "on PATH actually produces the content_hash above."
+    ]
+  },
+  "why_the_version_string_is_not_enough": [
+    "`klt --version` reports the package version, which a source build made",
+    "after a tag still carries -- so a post-tag build of klayout-tools and the",
+    "released v0.2.0 both say `klt 0.2.0` while shipping different decks. The",
+    "deck content hash is what tells them apart. This repo's committed evidence",
+    "once named a deck hash no release ships (#258) precisely because only the",
+    "version string was ever checked, and then only after the fact."
+  ]
+}

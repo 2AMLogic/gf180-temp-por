@@ -37,18 +37,19 @@
   "environment": {
     "engine": "klayout",
     "engine_version": "0.30.10",
-    "layout_sha256": "cfa19694b87948b218e34ba33f42c3b0b2b7ea17932c62292d780422ed34c584",
+    "layout_sha256": "80aa08eb1a48cbf7342a15479d3f983cd3e8bf48ff910c25b184cb5afcbb1d17",
     "reference_sha256": "6ef65dc0cb891d69622f783872889fae3131a2eecd08c87da4f61ccdaaf76761",
     "extracted_netlist": null
   },
   "provenance": {
-    "klt_version": "0.1.0",
+    "klt_version": "0.2.0",
     "klayout_version": "0.30.10",
     "pdk": null,
     "deck": {
       "name": "gf180mcu",
-      "content_hash": "sha256:be1a89e0f899a68c60baeeedffe1b4d76b965bd763e1b16beed1c85937872b1d"
-    }
+      "content_hash": "sha256:1256c45b3e472635b03a1888d0730822c1872b4a912a2c90fc1e4e7cd14a3913"
+    },
+    "input": null
   },
   "mismatches": [
     {
@@ -62,7 +63,8 @@
         "reference": null,
         "class": "nfet"
       },
-      "property": null
+      "property": null,
+      "details": null
     },
     {
       "category": "device.body_unverified",
@@ -75,7 +77,8 @@
         "reference": null,
         "class": "pfet"
       },
-      "property": null
+      "property": null,
+      "details": null
     },
     {
       "category": "topology",
@@ -87,7 +90,8 @@
         "reference": "XPOR.XCTIM.1.TIM"
       },
       "device": null,
-      "property": null
+      "property": null,
+      "details": null
     },
     {
       "category": "topology",
@@ -99,7 +103,8 @@
         "reference": "XPOR.XCTIM.2.TIM"
       },
       "device": null,
-      "property": null
+      "property": null,
+      "details": null
     },
     {
       "category": "topology",
@@ -111,7 +116,8 @@
         "reference": "XPOR.XCDG.NDG"
       },
       "device": null,
-      "property": null
+      "property": null,
+      "details": null
     },
     {
       "category": "topology",
@@ -123,7 +129,8 @@
         "reference": "XPOR.XCDG.VSS"
       },
       "device": null,
-      "property": null
+      "property": null,
+      "details": null
     },
     {
       "category": "topology",
@@ -135,7 +142,8 @@
         "reference": "XBIAS.XCC.NZ"
       },
       "device": null,
-      "property": null
+      "property": null,
+      "details": null
     },
     {
       "category": "topology",
@@ -147,7 +155,8 @@
         "reference": "XBIAS.XCOK.NOKX"
       },
       "device": null,
-      "property": null
+      "property": null,
+      "details": null
     },
     {
       "category": "topology",
@@ -159,7 +168,8 @@
         "reference": "XPOR.XCTIM.3.TIM"
       },
       "device": null,
-      "property": null
+      "property": null,
+      "details": null
     },
     {
       "category": "topology",
@@ -171,7 +181,8 @@
         "reference": "XPOR.XCTIM.4.TIM"
       },
       "device": null,
-      "property": null
+      "property": null,
+      "details": null
     },
     {
       "category": "topology",
@@ -183,7 +194,8 @@
         "reference": "XPOR.XCTIM.2.VSS"
       },
       "device": null,
-      "property": null
+      "property": null,
+      "details": null
     },
     {
       "category": "topology",
@@ -195,7 +207,8 @@
         "reference": "XPOR.XCTIM.1.VSS"
       },
       "device": null,
-      "property": null
+      "property": null,
+      "details": null
     },
     {
       "category": "topology",
@@ -207,7 +220,8 @@
         "reference": "XBIAS.XCOK.VDD"
       },
       "device": null,
-      "property": null
+      "property": null,
+      "details": null
     },
     {
       "category": "topology",
@@ -219,7 +233,8 @@
         "reference": "XBIAS.XCC.PG"
       },
       "device": null,
-      "property": null
+      "property": null,
+      "details": null
     },
     {
       "category": "topology",
@@ -231,7 +246,8 @@
         "reference": "XPOR.XCTIM.4.VSS"
       },
       "device": null,
-      "property": null
+      "property": null,
+      "details": null
     },
     {
       "category": "topology",
@@ -243,7 +259,8 @@
         "reference": "XPOR.XCTIM.3.VSS"
       },
       "device": null,
-      "property": null
+      "property": null,
+      "details": null
     }
   ],
   "net_correspondence": [

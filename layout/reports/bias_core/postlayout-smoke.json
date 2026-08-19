@@ -17,9 +17,9 @@
   "measurements": [
     {
       "measure": "vref_v",
-      "postlayout": 1.1994384803,
-      "schematic": 1.1993493869,
-      "delta_frac": 7.428477554004921e-05,
+      "postlayout": 1.1994384843,
+      "schematic": 1.1993493769,
+      "delta_frac": 7.429644915506544e-05,
       "window": [
         0.9,
         1.5
@@ -30,8 +30,8 @@
     {
       "measure": "bias_ok_v",
       "postlayout": 3.29999981,
-      "schematic": 3.29999981,
-      "delta_frac": 0.0,
+      "schematic": 3.2999998101,
+      "delta_frac": -3.030303455411617e-11,
       "window": [
         2.9,
         3.31
@@ -41,9 +41,9 @@
     },
     {
       "measure": "ibias_ua",
-      "postlayout": 0.54519255248,
-      "schematic": 0.54551117361,
-      "delta_frac": -0.0005840781003467036,
+      "postlayout": 0.54519255572,
+      "schematic": 0.54551117401,
+      "delta_frac": -0.0005840728937922286,
       "window": [
         0.05,
         5.0
@@ -53,9 +53,9 @@
     },
     {
       "measure": "pg_v",
-      "postlayout": 2.5238284953,
-      "schematic": 2.5237964567,
-      "delta_frac": 1.2694605349438264e-05,
+      "postlayout": 2.523828495,
+      "schematic": 2.523796458,
+      "delta_frac": 1.2693971377300653e-05,
       "window": [
         0.5,
         3.31
