@@ -267,15 +267,21 @@ def leaf_body_ties(cell: str, rename=None) -> dict[str, str]:
 
     Every key here is a net the extraction produces **isolated**, because the
     deck's connectivity stack does not reach it: the substrate global, each
-    drawn Nwell, the bipolars' shared base well, and each MiM plate. The value
-    is read out of the golden netlist through ``lvs_reference``'s own manifest,
-    so a schematic change moves the tie with it.
+    drawn Nwell and the bipolars' shared base well. The value is read out of
+    the golden netlist through ``lvs_reference``'s own manifest, so a
+    schematic change moves the tie with it.
+
+    Every drawn MiM plate used to need an entry here too (a synthesized,
+    per-instance isolated net, e.g. ``XCDG.NDG``), before #264 routed each
+    cap's plates onto the schematic nodes their golden card names directly --
+    now that ``lvs_reference.cap_plate_nets`` returns those nodes rather than
+    a synthesized stand-in, a plate's own reference net already *is* the
+    schematic net it stands for, so there is nothing left to tie.
     """
     spec = ref.CELLS[cell]
     _text, body = golden(cell)
     devices = ref.parse_devices(body)
     passives = ref.parse_passives(body)
-    caps = ref.parse_capacitors(body)
 
     def out(net: str) -> str:
         return net if rename is None else rename(net)
@@ -314,14 +320,6 @@ def leaf_body_ties(cell: str, rename=None) -> dict[str, str]:
             passives[name]["nodes"][1] for name in spec.get("bipolars", [])
         ]
         ties[out(bjt_well)] = out(_unique(bases, f"bipolar well {bjt_well}", cell))
-
-    for name in spec.get("caps", []):
-        cap = caps[name]
-        units = ref.cap_units(cap)
-        for unit in range(1, units + 1):
-            plates = ref.cap_plate_nets(name, cap, unit, units)
-            for plate, node in zip(plates, cap["nodes"]):
-                ties[out(plate)] = out(node)
 
     return ties
 

@@ -527,18 +527,20 @@ manifest, and all of them are enumerated per cell in
    landed in `klt` 0.2.0), and this flow reads it rather than re-deriving it.
    Every cell is required to be `status: match` with every net paired before a
    netlist is written.
-3. **Body, well and plate nets come out isolated.** The extraction deck's
-   connectivity stack does not join an Nwell, a substrate ring, a bipolar base
-   well or a MiM plate to the routing that reaches it — which is why every
-   `lvs.json` here carries `device.body_unverified`, and why
-   [klayout-tools#314](https://github.com/2AMLogic/klayout-tools/issues/314)
-   was filed for the MiM half (**now closed and fixed upstream**; this block's
-   caps are still drawn floating, so the tie is still needed here —
-   [DR-028](../spec/decision-records/DR-028-temp-core-xcc-draw-it.md) routes
-   them). Honest for a compare; unsimulatable. Each is tied
-   to the net the *schematic* puts it on, taken from `lvs_reference.py`'s
-   manifest (so a schematic change moves the tie with it) and listed per cell
-   in `AUDIT.md` — 3 ties in `por_comparator`, 23 in `temp_por_top`.
+3. **Body and well nets come out isolated.** The extraction deck's
+   connectivity stack does not join an Nwell, a substrate ring or a bipolar
+   base well to the routing that reaches it — which is why every `lvs.json`
+   here carries `device.body_unverified`. Honest for a compare; unsimulatable.
+   Each is tied to the net the *schematic* puts it on, taken from
+   `lvs_reference.py`'s manifest (so a schematic change moves the tie with it)
+   and listed per cell in `AUDIT.md` — 3 ties in `por_comparator`, 9 in
+   `temp_por_top`. MiM plates used to need the same treatment
+   ([klayout-tools#314](https://github.com/2AMLogic/klayout-tools/issues/314),
+   **closed and fixed upstream**), but `bias_core`'s and `por_output_chain`'s
+   drawn caps are now routed onto their schematic nodes (#264), so their
+   plates are ordinary nets with nothing left to tie —
+   [DR-028](../spec/decision-records/DR-028-temp-core-xcc-draw-it.md) is the
+   one remaining undrawn MiM cap (`temp_core`'s `XCC`), sequenced behind #264.
 
 Two deck substitutions are also undone, both already documented under "Known
 deck limits" below: a `ppolyf_u_3k` body recognised as `ppolyf_u_1k`
@@ -656,17 +658,19 @@ Consequences to carry forward, stated so nobody has to re-derive them:
   reference. The drawn Nwell tap ring that ties the base to `VSS` is a
   design-review claim, like every other tie in this repo
   ([klayout-tools#303](https://github.com/2AMLogic/klayout-tools/issues/303)).
-- **MiM plates own no net** *as drawn*. Unchanged from `por_output_chain`: at
-  the deck this repo's evidence was produced against, `klt` registered a
-  recognised capacitor's plates outside its own metal/via stack, so no drawn
-  routing could put a plate on a schematic net
+- **MiM plates now own the schematic's own net.** At the deck this repo's
+  evidence was first produced against, `klt` registered a recognised
+  capacitor's plates outside its own metal/via stack, so no drawn routing
+  could put a plate on a schematic net
   ([klayout-tools#314](https://github.com/2AMLogic/klayout-tools/issues/314) —
-  **closed, fixed upstream**, and reversed for this block by
-  [DR-028](../spec/decision-records/DR-028-temp-core-xcc-draw-it.md)),
-  and the drawn device class is the deck's `m4m5` stack where the schematic
-  says `m3m4`
-  ([#315](https://github.com/2AMLogic/klayout-tools/issues/315)). `NZ`
-  therefore reaches the compare through `XRZ`'s terminal alone.
+  **closed, fixed upstream** in the pinned `klt 0.2.0`). `XCC`'s two plates
+  are now routed (`Metal4`→…→`Metal1` for the bottom plate, `FuseTop`→`Via4`→
+  `Metal5`→`Via4`→a second `Metal4` island→…→`Metal1` for the top) onto
+  `PG`/`NZ`, and `XCOK`'s onto `VDD`/`NOKX` — the two cards' own golden nodes
+  (#264). The drawn device class is still the deck's `m4m5` stack where the
+  schematic says `m3m4`
+  ([#315](https://github.com/2AMLogic/klayout-tools/issues/315)), undone the
+  same way as the resistor sheet-rho substitution above.
 - Nothing here says the reference is 1.20 V, that `R2/R1` is 11.726, or that
   the 8:1 emitter ratio *achieves* its target ΔV_BE. Those are `sim/`'s claims,
   unchanged. What the layout now does say is that the 8× leg is drawn as eight
@@ -934,25 +938,25 @@ class. What each half of the compare now answers for:
 | Device | Drawn as | What LVS proves | What it does not |
 | --- | --- | --- | --- |
 | 28 MOS | Comp/Poly2/Contact/Metal1 | count, sizing, signal-net topology | body ties (see below) |
-| 5 MiM units | `FuseTop` + `CAP_MK` + `MIM_L_MK` over `Metal4` | count, **plate area → capacitance** (242 fF and 4 × 1.568 pF, from the golden `c_width`/`c_length`) | what either plate is connected to |
+| 5 MiM units | `FuseTop` + `CAP_MK` + `MIM_L_MK` over `Metal4`, plates routed to `NDG`/`TIM`/`VSS` (#264) | count, **plate area → capacitance** (242 fF and 4 × 1.568 pF, from the golden `c_width`/`c_length`), **and connectivity** — each plate lands on the schematic node its golden card names | — |
 
 The connectivity gap was the deck's, not the drawing's: at the `klt` revision
-these plates were drawn against, `klt` registered a recognised capacitor's two
-plates as their own self-connected nodes *outside* its metal/via stack, with the
-top plate's layer (`FuseTop`) not in that stack at all, so **no drawn routing
-could put a MiM plate on a schematic net** — every cap extracts as an isolated
-pair of nets whatever is drawn around it. Drawing plate-to-rail routing anyway
-would have added real geometry no check in this flow could read, so it was not
-drawn. `lvs_reference.py` names the plate nets after the
-schematic nodes they are *meant* to be on (`XCDG.NDG`, `XCTIM.3.VSS`) so the
-loss is legible in the reference netlist instead of hiding behind an anonymous
-node. Filed generically:
+these plates were first drawn against, `klt` registered a recognised
+capacitor's two plates as their own self-connected nodes *outside* its
+metal/via stack, with the top plate's layer (`FuseTop`) not in that stack at
+all, so **no drawn routing could put a MiM plate on a schematic net** — every
+cap extracted as an isolated pair of nets whatever was drawn around it. Filed
+generically:
 [klayout-tools#314](https://github.com/2AMLogic/klayout-tools/issues/314) —
-**since closed and fixed upstream**: the deck's `CapacitorDevice` now declares
-`top_plate_via` (`Via4`) / `top_plate_via_metal` (`Metal5`), so routing these
-plates for real would now be checked. The plates here are still drawn floating
-because they predate that fix; re-routing them is
-[DR-028](../spec/decision-records/DR-028-temp-core-xcc-draw-it.md).
+**closed and fixed upstream**: the deck's `CapacitorDevice` now declares
+`top_plate_via` (`Via4`) / `top_plate_via_metal` (`Metal5`), so a routed plate
+lands on the connectivity graph. #264 draws that routing: `XCDG`'s bottom
+plate (`Metal4`→`Via3`→`Metal3`→`Via2`→`Metal2`→`Via1`→`Metal1`) reaches
+`NDG`, and both cards' top plates (`FuseTop`→`Via4`→`Metal5`→`Via4`→a second
+`Metal4` island→…→`Metal1`, strapped together on `Metal5` since the two cards
+share `VSS`) reach `VSS`; `XCTIM`'s four bottom plates strap onto `TIM` on
+`Metal3`. `lvs_reference.py`'s `cap_plate_nets` therefore returns each card's
+own golden nodes directly rather than a synthesized per-instance net pair.
 
 A second, smaller substitution: the schematics instantiate the PDK's
 **4-metal-level** MiM (`cap_mim_2f0_m3m4_noshield`); the curated deck models
@@ -971,15 +975,17 @@ above. So the resistor half of the deck's coverage gap
 ([#222](https://github.com/2AMLogic/klayout-tools/issues/222)) does not bear on
 this cell at all.
 
-The plate-net gap **costs no net** in the compare: `NDG` and `TIM` each carry
-MOS terminals as well as a cap terminal, so every net in the schematic still
-exists on both sides with every one of its MOS connections.
-`layout/tests/test_lvs_reference.py` asserts that rather than leaving it to this
-paragraph, so a future schematic edit that made a cap the sole owner of a node
-fails loudly instead of quietly narrowing what LVS answers for. And the two
-**capacitor values** — the deglitch dwell and the one-shot width — are no longer
-purely `sim/`'s claim: the drawn area behind them is now checked against the
-schematic, though the wiring that delivers them is not.
+Even before #264 routed the plates, the (then-synthesized) plate-net gap
+**cost no net** in the compare: `NDG` and `TIM` each carry MOS terminals as
+well as a cap terminal, so every net in the schematic still existed on both
+sides with every one of its MOS connections.
+`layout/tests/test_lvs_reference.py` asserts that rather than leaving it to
+this paragraph, so a future schematic edit that made a cap the sole owner of a
+node fails loudly instead of quietly narrowing what LVS answers for. And the
+two **capacitor values** — the deglitch dwell and the one-shot width — are no
+longer purely `sim/`'s claim: both the drawn area behind them and, since #264,
+the wiring that delivers them to `NDG`/`TIM` are checked against the
+schematic.
 
 **Structure.** Same scheme as `bias_core`: **horizontal Poly2 tracks (one per
 signal net) with vertical Metal1 risers**. `VDD`/`VSS` are Metal1 rails above
@@ -1165,15 +1171,17 @@ decision to draw it:
   modelled). `lvs_reference.CAP_CLASS` already makes exactly that substitution
   for all four golden MiM cards this block *does* draw, so applying it to
   `XCC` accepts a fidelity loss this block has already accepted twice.
-* **the plate-net isolation is fixed at the tool.** klayout-tools#314 is
-  closed: the `gf180mcu` deck now carries `top_plate_via` (`Via4`) /
-  `top_plate_via_metal` (`Metal5`) on its `CapacitorDevice`, so a *routed* MiM
-  cap's plates reach the connectivity graph and can be LVS'd against their
-  real schematic nets. "A drawn `XCC` would compare as a capacitor floating
-  between two anonymous nets" no longer describes the tool — and it never
-  distinguished `XCC` anyway, since the four drawn cards extract onto isolated
-  plate nets too and are reattached to their schematic nodes by
-  `lvs_reference.cap_plate_nets`.
+* **the plate-net isolation is fixed at the tool, and at the drawing.**
+  klayout-tools#314 is closed: the `gf180mcu` deck now carries
+  `top_plate_via` (`Via4`) / `top_plate_via_metal` (`Metal5`) on its
+  `CapacitorDevice`, so a *routed* MiM cap's plates reach the connectivity
+  graph and can be LVS'd against their real schematic nets. "A drawn `XCC`
+  would compare as a capacitor floating between two anonymous nets" no
+  longer describes the tool, and #264 closed the drawing half too: the four
+  drawn cards' plates are now routed onto their schematic nodes directly
+  (`lvs_reference.cap_plate_nets` returns each card's own two nodes, not a
+  synthesized isolated pair), so `XCC` would join four already-proven
+  connectivity compares, not a fifth still-isolated one.
 
 What actually separates `XCC` from them today is only that its plate geometry
 is not drawn at all, so nothing about its size, placement or routing is under
@@ -1347,11 +1355,11 @@ Recorded result (`layout/reports/temp_por_top/`):
 | Check | Result |
 | ----- | ------ |
 | `klt drc --deck gf180mcu` | **clean** — 0 violations (was 92 before the floorplan re-derivation, then 2 inherited from #102/#103 until #105 fixed `por_comparator` at the source) |
-| `klt extract --deck gf180mcu --top-cell-pins` | 238 devices (71 nfet, 64 pfet, 50 `ppolyf_u`, 27 `ppolyf_u_1k`, 19 `bjt`, 7 `cap_mim_2f0_m4m5_noshield`), 159 nets, 6 pins |
-| `klt lvs` | **match** — 238/238 devices, 159/159 nets, 6/6 pins, 0 errors (16 warnings: 2 `device.body_unverified`, 14 ambiguous-pairing `topology` from the 7 MiM caps' isolated plate nets) |
-| negative control `topology` | detected (exit 3; `device.body_unverified` 2, `device.unmatched` 1, `topology` 16) |
-| negative control `device-param` | detected (exit 3; `device.body_unverified` 2, `device.property` 5, `topology` 16) |
-| negative control `passive-param` | detected (exit 3; `device.body_unverified` 2, `device.property` 11, `topology` 19) |
+| `klt extract --deck gf180mcu --top-cell-pins` | 238 devices (71 nfet, 64 pfet, 50 `ppolyf_u`, 27 `ppolyf_u_1k`, 19 `bjt`, 7 `cap_mim_2f0_m4m5_noshield`), 145 nets, 6 pins |
+| `klt lvs` | **match** — 238/238 devices, 145/145 nets, 6/6 pins, 0 errors (2 warnings: `device.body_unverified`). Net count dropped from 159 to 145 when #264 routed the 7 MiM caps' 14 plates onto their schematic nets instead of 14 synthesized isolated ones. |
+| negative control `topology` | detected (exit 3; `device.body_unverified` 2, `device.unmatched` 1, `topology` 2) |
+| negative control `device-param` | detected (exit 3; `device.body_unverified` 2, `device.property` 5, `topology` 2) |
+| negative control `passive-param` | detected (exit 3; `device.body_unverified` 2, `device.property` 11, `topology` 5) |
 
 `bash layout/run_checks.sh temp_por_top` runs end to end unattended and
 exits 0 — DRC clean, extraction recorded, LVS match, every applicable
@@ -1460,11 +1468,13 @@ filed upstream per this repo's friction protocol.
   fixed upstream** — the deck's `CapacitorDevice` now declares
   `top_plate_via` (`Via4`) and `top_plate_via_metal` (`Metal5`), so a routed
   plate reaches the connectivity graph and a MiM cap can be compared on its
-  nets as well as its area. **The caps in this block are still drawn floating**,
-  because they were drawn for the older behaviour, so today's compare here
-  still answers only for plate area — a property of this drawing, not of the
-  tool. Re-routing them (and drawing `temp_core`'s `XCC` at last) is
-  [DR-028](../spec/decision-records/DR-028-temp-core-xcc-draw-it.md). And
+  nets as well as its area. **#264 routes them**: `bias_core`'s `XCC`/`XCOK`
+  and `por_output_chain`'s `XCDG`/`XCTIM` are now wired — bottom plate on
+  `Metal4`→`Via3`→`Metal3`→`Via2`→`Metal2`→`Via1`→`Metal1`, top plate on
+  `FuseTop`→`Via4`→`Metal5`→`Via4`→a second `Metal4` island→…→`Metal1` — onto
+  the schematic nodes their golden cards name, so today's compare here
+  answers for plate connectivity as well as plate area for all four drawn
+  cards. And
   [klayout-tools#315](https://github.com/2AMLogic/klayout-tools/issues/315) —
   the deck models exactly one of the PDK's MiM stack variants, so a schematic
   instantiating the other (`..._m3m4_...`) has to be drawn as the modelled one.
@@ -1485,10 +1495,10 @@ filed upstream per this repo's friction protocol.
   routed MiM plate *does* reach the connectivity graph. Drawing `XCC` is
   therefore decided
   ([DR-028](../spec/decision-records/DR-028-temp-core-xcc-draw-it.md)) and
-  sequenced behind #264, which re-routes the four already-drawn MiM cards --
-  still drawn floating for the superseded reason -- to their schematic nets
-  through the `Via4`/`Metal5` stack the closed #314 opened up, and so
-  establishes the via-stack pattern drawing `XCC` reuses.
+  sequenced behind #264, which routed the four already-drawn MiM cards'
+  plates -- `bias_core`'s `XCC`/`XCOK`, `por_output_chain`'s `XCDG`/`XCTIM` --
+  to their schematic nets through the `Via4`/`Metal5` stack the closed #314
+  opened up, and so establishes the via-stack pattern drawing `XCC` reuses.
   Two deck-*option* limits surfaced doing this, neither a missing capability:
   - **The high-rho poly resistor's sheet resistance is a deck option, not
     drawn geometry.** `ppolyf_u_1k`/`_2k`/`_3k` are geometrically identical —
@@ -1800,8 +1810,12 @@ deferring the gates that way does not weaken them.
    netlist it derives from, the devices to take, the layout's own pin set
    (`ports`), its unlabelled internal nets (`internal`), and which PMOS devices
    share which drawn Nwell (`wells`), plus any non-MOS devices the cell draws:
-   `caps` (MiM — plate nets are synthesized per instance, not declared, because
-   the deck cannot connect a plate to anything), `resistors` (+ an optional
+   `caps` (MiM — plate nets are the card's own declared nodes, on the
+   assumption the plates are drawn routed onto them (#264); a cell that still
+   draws a MiM cap's plates floating needs its own per-instance isolated net
+   synthesis instead of `cap_plate_nets`'s current one-line return, because
+   the deck cannot connect an unrouted plate to anything), `resistors` (+ an
+   optional
    `resistor_fold` — the leg count comes from `resistor_segments`, and the
    nodes between legs are synthesized the same way) and `bipolars` +
    `bjt_well` (vertical bipolars — the collector is rewritten to the substrate

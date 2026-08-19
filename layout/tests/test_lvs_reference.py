@@ -591,19 +591,26 @@ class PorOutputChainManifestTest(ManifestReferenceTests, TopologyControlManifest
             if line.startswith("C"):
                 self.assertTrue(line.endswith(f" {klass}"), line)
 
-    def test_cap_plate_nets_are_isolated_per_drawn_unit(self):
-        # klt cannot connect a recognised capacitor's plates to anything (see
-        # cap_plate_nets), so each drawn unit's two plates must be their own
-        # nets -- sharing one would describe a layout the deck cannot produce
-        # and would fail LVS on net count.
-        plates = [
-            net for card in lr.build_cap_cards(self.CELL) for net in card.nodes
-        ]
-        self.assertEqual(len(plates), len(set(plates)))
+    def test_cap_plate_nets_are_the_golden_cards_own_nodes(self):
+        # #264: every drawn MiM unit is routed onto the schematic nodes its
+        # golden card names (build_cells.py's _cap_bottom_route/_cap_top_route
+        # and their strapped counterparts), so cap_plate_nets no longer
+        # synthesizes a per-instance isolated net pair -- every one of a
+        # card's m= drawn units shares the same two *declared* nets.
+        caps = self.caps()
+        cards = lr.build_cap_cards(self.CELL)
+        for name, cap in caps.items():
+            nodes = list(cap["nodes"])
+            matching = [card for card in cards if card.nodes == nodes]
+            self.assertEqual(len(matching), lr.cap_units(cap), name)
         declared = set(lr.CELLS[self.CELL]["ports"]) | set(
             lr.CELLS[self.CELL]["internal"]
         )
-        self.assertFalse(set(plates) & declared)
+        plates = {net for card in cards for net in card.nodes}
+        self.assertTrue(plates <= declared, plates - declared)
+        self.assertFalse(
+            [net for net in plates if "." in net], "no synthesized XC*. plate net"
+        )
 
     def test_the_caps_own_no_net_by_themselves(self):
         # bias_core's undrawn passives delete three nets from both sides of the

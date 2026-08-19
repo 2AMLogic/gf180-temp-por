@@ -11,7 +11,7 @@
       "category_counts": {
         "device.body_unverified": 2,
         "device.unmatched": 1,
-        "topology": 6
+        "topology": 2
       }
     },
     {
@@ -23,7 +23,7 @@
       "category_counts": {
         "device.body_unverified": 2,
         "device.property": 5,
-        "topology": 6
+        "topology": 2
       }
     },
     {
@@ -35,7 +35,7 @@
       "category_counts": {
         "device.body_unverified": 2,
         "device.property": 11,
-        "topology": 9
+        "topology": 5
       }
     }
   ]

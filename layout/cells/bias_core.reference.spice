@@ -70,6 +70,6 @@ Q65 vsubs NWQ EC bjt AE=100P
 Q66 vsubs NWQ EC bjt AE=100P
 Q67 vsubs NWQ EC bjt AE=100P
 Q68 vsubs NWQ ER bjt AE=100P
-C69 XCC.PG XCC.NZ 8e-13 cap_mim_2f0_m4m5_noshield
-C70 XCOK.VDD XCOK.NOKX 7.2e-14 cap_mim_2f0_m4m5_noshield
+C69 PG NZ 8e-13 cap_mim_2f0_m4m5_noshield
+C70 VDD NOKX 7.2e-14 cap_mim_2f0_m4m5_noshield
 .ENDS bias_core

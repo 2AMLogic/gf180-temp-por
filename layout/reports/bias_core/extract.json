@@ -5,10 +5,10 @@
   "top": "bias_core",
   "dbu_um": 0.001,
   "netlist_path": "layout/reports/bias_core/extracted.spice",
-  "netlist_sha256": "59a9f19fc921fca342e6dc85aed190c5485f477abc21c8d1b6f74a280f6f24fc",
+  "netlist_sha256": "24ea282e08b0d6f110e3cfa686a928f1a17fcc065a2d7401966df9b4312357b8",
   "status": "extracted",
   "device_count": 70,
-  "net_count": 54,
+  "net_count": 50,
   "pin_count": 6,
   "device_counts": {
     "bjt": 10,
@@ -31,7 +31,7 @@
       "name": "$1",
       "class": "nfet",
       "nets": {
-        "s": "$17",
+        "s": "$18",
         "g": "VDD",
         "d": "VDD",
         "b": "vsubs"
@@ -46,8 +46,8 @@
       "class": "nfet",
       "nets": {
         "s": "VSS",
-        "g": "$15",
-        "d": "$15",
+        "g": "$16",
+        "d": "$16",
         "b": "vsubs"
       },
       "params": {
@@ -60,8 +60,8 @@
       "class": "nfet",
       "nets": {
         "s": "VSS",
-        "g": "$15",
-        "d": "$14",
+        "g": "$16",
+        "d": "$15",
         "b": "vsubs"
       },
       "params": {
@@ -74,8 +74,8 @@
       "class": "nfet",
       "nets": {
         "s": "VSS",
-        "g": "$21",
-        "d": "$14",
+        "g": "$22",
+        "d": "$15",
         "b": "vsubs"
       },
       "params": {
@@ -88,8 +88,8 @@
       "class": "nfet",
       "nets": {
         "s": "VSS",
-        "g": "$14",
-        "d": "$16",
+        "g": "$15",
+        "d": "$17",
         "b": "vsubs"
       },
       "params": {
@@ -102,8 +102,8 @@
       "class": "nfet",
       "nets": {
         "s": "VSS",
-        "g": "$10",
-        "d": "$10",
+        "g": "$11",
+        "d": "$11",
         "b": "vsubs"
       },
       "params": {
@@ -116,8 +116,8 @@
       "class": "nfet",
       "nets": {
         "s": "VSS",
-        "g": "$10",
-        "d": "$11",
+        "g": "$11",
+        "d": "$12",
         "b": "vsubs"
       },
       "params": {
@@ -130,7 +130,7 @@
       "class": "nfet",
       "nets": {
         "s": "VSS",
-        "g": "$16",
+        "g": "$17",
         "d": "BIAS_OK",
         "b": "vsubs"
       },
@@ -144,7 +144,7 @@
       "class": "nfet",
       "nets": {
         "s": "VSS",
-        "g": "$11",
+        "g": "$12",
         "d": "$3",
         "b": "vsubs"
       },
@@ -158,8 +158,8 @@
       "class": "nfet",
       "nets": {
         "s": "VSS",
-        "g": "$12",
-        "d": "$21",
+        "g": "$13",
+        "d": "$22",
         "b": "vsubs"
       },
       "params": {
@@ -172,8 +172,8 @@
       "class": "pfet",
       "nets": {
         "s": "VDD",
-        "g": "$7",
-        "d": "$12",
+        "g": "$8",
+        "d": "$13",
         "b": "$38"
       },
       "params": {
@@ -185,9 +185,9 @@
       "name": "$2",
       "class": "nfet",
       "nets": {
-        "s": "$18",
-        "g": "$17",
-        "d": "$17",
+        "s": "$19",
+        "g": "$18",
+        "d": "$18",
         "b": "vsubs"
       },
       "params": {
@@ -200,8 +200,8 @@
       "class": "pfet",
       "nets": {
         "s": "VDD",
-        "g": "$7",
-        "d": "$13",
+        "g": "$8",
+        "d": "$14",
         "b": "$38"
       },
       "params": {
@@ -214,8 +214,8 @@
       "class": "pfet",
       "nets": {
         "s": "VDD",
-        "g": "$7",
-        "d": "$16",
+        "g": "$8",
+        "d": "$17",
         "b": "$38"
       },
       "params": {
@@ -228,7 +228,7 @@
       "class": "pfet",
       "nets": {
         "s": "VDD",
-        "g": "$16",
+        "g": "$17",
         "d": "BIAS_OK",
         "b": "$38"
       },
@@ -243,7 +243,7 @@
       "nets": {
         "s": "VDD",
         "g": "$3",
-        "d": "$6",
+        "d": "$7",
         "b": "$38"
       },
       "params": {
@@ -256,8 +256,8 @@
       "class": "pfet",
       "nets": {
         "s": "VDD",
-        "g": "$7",
-        "d": "$7",
+        "g": "$8",
+        "d": "$8",
         "b": "$38"
       },
       "params": {
@@ -270,8 +270,8 @@
       "class": "pfet",
       "nets": {
         "s": "VDD",
-        "g": "$7",
-        "d": "$9",
+        "g": "$8",
+        "d": "$10",
         "b": "$38"
       },
       "params": {
@@ -284,7 +284,7 @@
       "class": "pfet",
       "nets": {
         "s": "VDD",
-        "g": "$7",
+        "g": "$8",
         "d": "$3",
         "b": "$38"
       },
@@ -299,7 +299,7 @@
       "nets": {
         "s": "VDD",
         "g": "$3",
-        "d": "$35",
+        "d": "$4",
         "b": "$38"
       },
       "params": {
@@ -313,7 +313,7 @@
       "nets": {
         "s": "VDD",
         "g": "$3",
-        "d": "$4",
+        "d": "$5",
         "b": "$38"
       },
       "params": {
@@ -339,9 +339,9 @@
       "name": "$3",
       "class": "nfet",
       "nets": {
-        "s": "$19",
-        "g": "$18",
-        "d": "$18",
+        "s": "$20",
+        "g": "$19",
+        "d": "$19",
         "b": "vsubs"
       },
       "params": {
@@ -353,9 +353,9 @@
       "name": "$30",
       "class": "pfet",
       "nets": {
-        "s": "$13",
-        "g": "$35",
-        "d": "$14",
+        "s": "$14",
+        "g": "$4",
+        "d": "$15",
         "b": "$38"
       },
       "params": {
@@ -367,9 +367,9 @@
       "name": "$31",
       "class": "pfet",
       "nets": {
-        "s": "$13",
-        "g": "$4",
-        "d": "$15",
+        "s": "$14",
+        "g": "$5",
+        "d": "$16",
         "b": "$38"
       },
       "params": {
@@ -381,9 +381,9 @@
       "name": "$32",
       "class": "pfet",
       "nets": {
-        "s": "$9",
-        "g": "$35",
-        "d": "$10",
+        "s": "$10",
+        "g": "$4",
+        "d": "$11",
         "b": "$38"
       },
       "params": {
@@ -395,9 +395,9 @@
       "name": "$33",
       "class": "pfet",
       "nets": {
-        "s": "$9",
-        "g": "$23",
-        "d": "$11",
+        "s": "$10",
+        "g": "$24",
+        "d": "$12",
         "b": "$38"
       },
       "params": {
@@ -410,7 +410,7 @@
       "class": "pfet",
       "nets": {
         "s": "VDD",
-        "g": "$7",
+        "g": "$8",
         "d": "IBIAS",
         "b": "$38"
       },
@@ -424,8 +424,8 @@
       "class": "bjt",
       "nets": {
         "c": "vsubs",
-        "b": "$26",
-        "e": "$24"
+        "b": "$27",
+        "e": "$25"
       },
       "params": {}
     },
@@ -434,8 +434,8 @@
       "class": "bjt",
       "nets": {
         "c": "vsubs",
-        "b": "$26",
-        "e": "$24"
+        "b": "$27",
+        "e": "$25"
       },
       "params": {}
     },
@@ -444,8 +444,8 @@
       "class": "bjt",
       "nets": {
         "c": "vsubs",
-        "b": "$26",
-        "e": "$24"
+        "b": "$27",
+        "e": "$25"
       },
       "params": {}
     },
@@ -454,8 +454,8 @@
       "class": "bjt",
       "nets": {
         "c": "vsubs",
-        "b": "$26",
-        "e": "$24"
+        "b": "$27",
+        "e": "$25"
       },
       "params": {}
     },
@@ -464,146 +464,13 @@
       "class": "bjt",
       "nets": {
         "c": "vsubs",
-        "b": "$26",
-        "e": "$35"
+        "b": "$27",
+        "e": "$4"
       },
       "params": {}
     },
     {
       "name": "$4",
-      "class": "nfet",
-      "nets": {
-        "s": "$20",
-        "g": "$19",
-        "d": "$19",
-        "b": "vsubs"
-      },
-      "params": {
-        "l_um": 8.0,
-        "w_um": 1.0
-      }
-    },
-    {
-      "name": "$40",
-      "class": "bjt",
-      "nets": {
-        "c": "vsubs",
-        "b": "$26",
-        "e": "$24"
-      },
-      "params": {}
-    },
-    {
-      "name": "$41",
-      "class": "bjt",
-      "nets": {
-        "c": "vsubs",
-        "b": "$26",
-        "e": "$36"
-      },
-      "params": {}
-    },
-    {
-      "name": "$42",
-      "class": "bjt",
-      "nets": {
-        "c": "vsubs",
-        "b": "$26",
-        "e": "$24"
-      },
-      "params": {}
-    },
-    {
-      "name": "$43",
-      "class": "bjt",
-      "nets": {
-        "c": "vsubs",
-        "b": "$26",
-        "e": "$24"
-      },
-      "params": {}
-    },
-    {
-      "name": "$44",
-      "class": "bjt",
-      "nets": {
-        "c": "vsubs",
-        "b": "$26",
-        "e": "$24"
-      },
-      "params": {}
-    },
-    {
-      "name": "$45",
-      "class": "cap_mim_2f0_m4m5_noshield",
-      "nets": {
-        "a": "$40",
-        "b": "$42"
-      },
-      "params": {
-        "c_f": 7.2e-14,
-        "area_um2": 36.0
-      }
-    },
-    {
-      "name": "$46",
-      "class": "cap_mim_2f0_m4m5_noshield",
-      "nets": {
-        "a": "$39",
-        "b": "$41"
-      },
-      "params": {
-        "c_f": 8e-13,
-        "area_um2": 400.0
-      }
-    },
-    {
-      "name": "$47",
-      "class": "ppolyf_u_1k",
-      "nets": {
-        "a": "VREF",
-        "b": "$48",
-        "w": "vsubs"
-      },
-      "params": {
-        "r_ohm": 128250.0,
-        "l_um": 256.5,
-        "w_um": 2.0,
-        "area_um2": 513.0
-      }
-    },
-    {
-      "name": "$48",
-      "class": "ppolyf_u_1k",
-      "nets": {
-        "a": "$34",
-        "b": "$48",
-        "w": "vsubs"
-      },
-      "params": {
-        "r_ohm": 128250.0,
-        "l_um": 256.5,
-        "w_um": 2.0,
-        "area_um2": 513.0
-      }
-    },
-    {
-      "name": "$49",
-      "class": "ppolyf_u_1k",
-      "nets": {
-        "a": "$34",
-        "b": "$49",
-        "w": "vsubs"
-      },
-      "params": {
-        "r_ohm": 128250.0,
-        "l_um": 256.5,
-        "w_um": 2.0,
-        "area_um2": 513.0
-      }
-    },
-    {
-      "name": "$5",
       "class": "nfet",
       "nets": {
         "s": "$21",
@@ -617,11 +484,144 @@
       }
     },
     {
+      "name": "$40",
+      "class": "bjt",
+      "nets": {
+        "c": "vsubs",
+        "b": "$27",
+        "e": "$25"
+      },
+      "params": {}
+    },
+    {
+      "name": "$41",
+      "class": "bjt",
+      "nets": {
+        "c": "vsubs",
+        "b": "$27",
+        "e": "$37"
+      },
+      "params": {}
+    },
+    {
+      "name": "$42",
+      "class": "bjt",
+      "nets": {
+        "c": "vsubs",
+        "b": "$27",
+        "e": "$25"
+      },
+      "params": {}
+    },
+    {
+      "name": "$43",
+      "class": "bjt",
+      "nets": {
+        "c": "vsubs",
+        "b": "$27",
+        "e": "$25"
+      },
+      "params": {}
+    },
+    {
+      "name": "$44",
+      "class": "bjt",
+      "nets": {
+        "c": "vsubs",
+        "b": "$27",
+        "e": "$25"
+      },
+      "params": {}
+    },
+    {
+      "name": "$45",
+      "class": "cap_mim_2f0_m4m5_noshield",
+      "nets": {
+        "a": "VDD",
+        "b": "$17"
+      },
+      "params": {
+        "c_f": 7.2e-14,
+        "area_um2": 36.0
+      }
+    },
+    {
+      "name": "$46",
+      "class": "cap_mim_2f0_m4m5_noshield",
+      "nets": {
+        "a": "$3",
+        "b": "$26"
+      },
+      "params": {
+        "c_f": 8e-13,
+        "area_um2": 400.0
+      }
+    },
+    {
+      "name": "$47",
+      "class": "ppolyf_u_1k",
+      "nets": {
+        "a": "VREF",
+        "b": "$44",
+        "w": "vsubs"
+      },
+      "params": {
+        "r_ohm": 128250.0,
+        "l_um": 256.5,
+        "w_um": 2.0,
+        "area_um2": 513.0
+      }
+    },
+    {
+      "name": "$48",
+      "class": "ppolyf_u_1k",
+      "nets": {
+        "a": "$35",
+        "b": "$44",
+        "w": "vsubs"
+      },
+      "params": {
+        "r_ohm": 128250.0,
+        "l_um": 256.5,
+        "w_um": 2.0,
+        "area_um2": 513.0
+      }
+    },
+    {
+      "name": "$49",
+      "class": "ppolyf_u_1k",
+      "nets": {
+        "a": "$35",
+        "b": "$45",
+        "w": "vsubs"
+      },
+      "params": {
+        "r_ohm": 128250.0,
+        "l_um": 256.5,
+        "w_um": 2.0,
+        "area_um2": 513.0
+      }
+    },
+    {
+      "name": "$5",
+      "class": "nfet",
+      "nets": {
+        "s": "$22",
+        "g": "$21",
+        "d": "$21",
+        "b": "vsubs"
+      },
+      "params": {
+        "l_um": 8.0,
+        "w_um": 1.0
+      }
+    },
+    {
       "name": "$50",
       "class": "ppolyf_u_1k",
       "nets": {
-        "a": "$33",
-        "b": "$49",
+        "a": "$34",
+        "b": "$45",
         "w": "vsubs"
       },
       "params": {
@@ -635,8 +635,8 @@
       "name": "$51",
       "class": "ppolyf_u_1k",
       "nets": {
-        "a": "$33",
-        "b": "$50",
+        "a": "$34",
+        "b": "$46",
         "w": "vsubs"
       },
       "params": {
@@ -650,8 +650,8 @@
       "name": "$52",
       "class": "ppolyf_u_1k",
       "nets": {
-        "a": "$32",
-        "b": "$50",
+        "a": "$33",
+        "b": "$46",
         "w": "vsubs"
       },
       "params": {
@@ -665,8 +665,8 @@
       "name": "$53",
       "class": "ppolyf_u_1k",
       "nets": {
-        "a": "$32",
-        "b": "$51",
+        "a": "$33",
+        "b": "$47",
         "w": "vsubs"
       },
       "params": {
@@ -680,8 +680,8 @@
       "name": "$54",
       "class": "ppolyf_u_1k",
       "nets": {
-        "a": "$31",
-        "b": "$51",
+        "a": "$32",
+        "b": "$47",
         "w": "vsubs"
       },
       "params": {
@@ -695,8 +695,8 @@
       "name": "$55",
       "class": "ppolyf_u_1k",
       "nets": {
-        "a": "$31",
-        "b": "$52",
+        "a": "$32",
+        "b": "$48",
         "w": "vsubs"
       },
       "params": {
@@ -710,8 +710,8 @@
       "name": "$56",
       "class": "ppolyf_u_1k",
       "nets": {
-        "a": "$30",
-        "b": "$52",
+        "a": "$31",
+        "b": "$48",
         "w": "vsubs"
       },
       "params": {
@@ -725,8 +725,8 @@
       "name": "$57",
       "class": "ppolyf_u_1k",
       "nets": {
-        "a": "$30",
-        "b": "$47",
+        "a": "$31",
+        "b": "$43",
         "w": "vsubs"
       },
       "params": {
@@ -740,8 +740,8 @@
       "name": "$58",
       "class": "ppolyf_u_1k",
       "nets": {
-        "a": "$29",
-        "b": "$47",
+        "a": "$30",
+        "b": "$43",
         "w": "vsubs"
       },
       "params": {
@@ -755,8 +755,8 @@
       "name": "$59",
       "class": "ppolyf_u_1k",
       "nets": {
-        "a": "$29",
-        "b": "$46",
+        "a": "$30",
+        "b": "$42",
         "w": "vsubs"
       },
       "params": {
@@ -771,7 +771,7 @@
       "class": "nfet",
       "nets": {
         "s": "VSS",
-        "g": "$21",
+        "g": "$22",
         "d": "$3",
         "b": "vsubs"
       },
@@ -784,8 +784,8 @@
       "name": "$60",
       "class": "ppolyf_u_1k",
       "nets": {
-        "a": "$28",
-        "b": "$46",
+        "a": "$29",
+        "b": "$42",
         "w": "vsubs"
       },
       "params": {
@@ -799,8 +799,8 @@
       "name": "$61",
       "class": "ppolyf_u_1k",
       "nets": {
-        "a": "$28",
-        "b": "$53",
+        "a": "$29",
+        "b": "$49",
         "w": "vsubs"
       },
       "params": {
@@ -814,8 +814,8 @@
       "name": "$62",
       "class": "ppolyf_u_1k",
       "nets": {
-        "a": "$36",
-        "b": "$53",
+        "a": "$37",
+        "b": "$49",
         "w": "vsubs"
       },
       "params": {
@@ -829,8 +829,8 @@
       "name": "$63",
       "class": "ppolyf_u_1k",
       "nets": {
-        "a": "$25",
-        "b": "$45",
+        "a": "$26",
+        "b": "$41",
         "w": "vsubs"
       },
       "params": {
@@ -844,8 +844,8 @@
       "name": "$64",
       "class": "ppolyf_u_1k",
       "nets": {
-        "a": "$27",
-        "b": "$45",
+        "a": "$28",
+        "b": "$41",
         "w": "vsubs"
       },
       "params": {
@@ -859,8 +859,8 @@
       "name": "$65",
       "class": "ppolyf_u_1k",
       "nets": {
-        "a": "$27",
-        "b": "$44",
+        "a": "$28",
+        "b": "$40",
         "w": "vsubs"
       },
       "params": {
@@ -874,8 +874,8 @@
       "name": "$66",
       "class": "ppolyf_u_1k",
       "nets": {
-        "a": "$11",
-        "b": "$44",
+        "a": "$12",
+        "b": "$40",
         "w": "vsubs"
       },
       "params": {
@@ -889,8 +889,8 @@
       "name": "$67",
       "class": "ppolyf_u_1k",
       "nets": {
-        "a": "$23",
-        "b": "$43",
+        "a": "$24",
+        "b": "$39",
         "w": "vsubs"
       },
       "params": {
@@ -904,8 +904,8 @@
       "name": "$68",
       "class": "ppolyf_u_1k",
       "nets": {
-        "a": "$24",
-        "b": "$43",
+        "a": "$25",
+        "b": "$39",
         "w": "vsubs"
       },
       "params": {
@@ -919,8 +919,8 @@
       "name": "$69",
       "class": "ppolyf_u_1k",
       "nets": {
-        "a": "$4",
-        "b": "$37",
+        "a": "$5",
+        "b": "$36",
         "w": "vsubs"
       },
       "params": {
@@ -935,8 +935,8 @@
       "class": "nfet",
       "nets": {
         "s": "VSS",
-        "g": "$6",
-        "d": "$6",
+        "g": "$7",
+        "d": "$7",
         "b": "vsubs"
       },
       "params": {
@@ -948,8 +948,8 @@
       "name": "$70",
       "class": "ppolyf_u_1k",
       "nets": {
-        "a": "$23",
-        "b": "$37",
+        "a": "$24",
+        "b": "$36",
         "w": "vsubs"
       },
       "params": {
@@ -964,8 +964,8 @@
       "class": "nfet",
       "nets": {
         "s": "VSS",
-        "g": "$6",
-        "d": "$7",
+        "g": "$7",
+        "d": "$8",
         "b": "vsubs"
       },
       "params": {
@@ -978,8 +978,8 @@
       "class": "nfet",
       "nets": {
         "s": "VSS",
-        "g": "$12",
-        "d": "$12",
+        "g": "$13",
+        "d": "$13",
         "b": "vsubs"
       },
       "params": {
@@ -992,7 +992,7 @@
     {
       "name": "$10",
       "pin": false,
-      "device_count": 4
+      "device_count": 3
     },
     {
       "name": "$11",
@@ -1007,12 +1007,12 @@
     {
       "name": "$13",
       "pin": false,
-      "device_count": 3
+      "device_count": 4
     },
     {
       "name": "$14",
       "pin": false,
-      "device_count": 4
+      "device_count": 3
     },
     {
       "name": "$15",
@@ -1027,7 +1027,7 @@
     {
       "name": "$17",
       "pin": false,
-      "device_count": 3
+      "device_count": 5
     },
     {
       "name": "$18",
@@ -1047,32 +1047,32 @@
     {
       "name": "$21",
       "pin": false,
-      "device_count": 4
+      "device_count": 3
     },
     {
-      "name": "$23",
+      "name": "$22",
       "pin": false,
-      "device_count": 3
+      "device_count": 4
     },
     {
       "name": "$24",
       "pin": false,
-      "device_count": 9
+      "device_count": 3
     },
     {
       "name": "$25",
       "pin": false,
-      "device_count": 1
+      "device_count": 9
     },
     {
       "name": "$26",
       "pin": false,
-      "device_count": 10
+      "device_count": 2
     },
     {
       "name": "$27",
       "pin": false,
-      "device_count": 2
+      "device_count": 10
     },
     {
       "name": "$28",
@@ -1087,7 +1087,7 @@
     {
       "name": "$3",
       "pin": false,
-      "device_count": 7
+      "device_count": 8
     },
     {
       "name": "$30",
@@ -1117,7 +1117,7 @@
     {
       "name": "$35",
       "pin": false,
-      "device_count": 4
+      "device_count": 2
     },
     {
       "name": "$36",
@@ -1137,27 +1137,27 @@
     {
       "name": "$39",
       "pin": false,
-      "device_count": 1
+      "device_count": 2
     },
     {
       "name": "$4",
       "pin": false,
-      "device_count": 3
+      "device_count": 4
     },
     {
       "name": "$40",
       "pin": false,
-      "device_count": 1
+      "device_count": 2
     },
     {
       "name": "$41",
       "pin": false,
-      "device_count": 1
+      "device_count": 2
     },
     {
       "name": "$42",
       "pin": false,
-      "device_count": 1
+      "device_count": 2
     },
     {
       "name": "$43",
@@ -1195,39 +1195,19 @@
       "device_count": 2
     },
     {
-      "name": "$50",
+      "name": "$5",
       "pin": false,
-      "device_count": 2
-    },
-    {
-      "name": "$51",
-      "pin": false,
-      "device_count": 2
-    },
-    {
-      "name": "$52",
-      "pin": false,
-      "device_count": 2
-    },
-    {
-      "name": "$53",
-      "pin": false,
-      "device_count": 2
-    },
-    {
-      "name": "$6",
-      "pin": false,
-      "device_count": 4
+      "device_count": 3
     },
     {
       "name": "$7",
       "pin": false,
-      "device_count": 9
+      "device_count": 4
     },
     {
-      "name": "$9",
+      "name": "$8",
       "pin": false,
-      "device_count": 3
+      "device_count": 9
     },
     {
       "name": "BIAS_OK",
@@ -1242,7 +1222,7 @@
     {
       "name": "VDD",
       "pin": true,
-      "device_count": 14
+      "device_count": 15
     },
     {
       "name": "VREF",
@@ -1261,7 +1241,7 @@
     }
   ],
   "warnings": [
-    "28 poly-layer shapes not part of any recognised nfet/pfet gate touch contact at 2+ separate points (the resistor-body signature) and carry no resistor-marker layer at all; this deck may not model the device class drawn here, and its terminals have been absorbed into ordinary interconnect as an unintended short -- see docs/cli/extract.md's 'Known limitation: unmodelled device geometry'."
+    "29 poly-layer shapes not part of any recognised nfet/pfet gate touch contact at 2+ separate points (the resistor-body signature) and carry no resistor-marker layer at all; this deck may not model the device class drawn here, and its terminals have been absorbed into ordinary interconnect as an unintended short -- see docs/cli/extract.md's 'Known limitation: unmodelled device geometry'."
   ],
   "black_box_regions": [],
   "unmodelled_poly": [
@@ -1516,6 +1496,15 @@
         "top": 2.0
       },
       "reason": "unmarked"
+    },
+    {
+      "bbox_um": {
+        "left": 265.3,
+        "bottom": 2.4,
+        "right": 424.9,
+        "top": 2.8
+      },
+      "reason": "unmarked"
     }
   ],
   "merged_net_labels": [],
@@ -1529,9 +1518,9 @@
       "content_hash": "sha256:1256c45b3e472635b03a1888d0730822c1872b4a912a2c90fc1e4e7cd14a3913"
     },
     "input": {
-      "content_hash": "sha256:215b742bbc05cfd0ca6ff41940aaee54dd0e1283f92fed00435cc93be5e772d3"
+      "content_hash": "sha256:b2e68f8087bcf31cb329785109e93551ecc416b6659cc7c7d7b51ef79e4cdf96"
     },
-    "gds_sha256": "215b742bbc05cfd0ca6ff41940aaee54dd0e1283f92fed00435cc93be5e772d3"
+    "gds_sha256": "b2e68f8087bcf31cb329785109e93551ecc416b6659cc7c7d7b51ef79e4cdf96"
   },
   "parasitics": null
 }
