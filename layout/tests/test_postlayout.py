@@ -133,22 +133,24 @@ class BodyTieTest(unittest.TestCase):
         # extracts their shared Nwell isolated, the schematic ties it to VSS.
         self.assertEqual(pl.body_ties("bias_core")["NWQ"], "VSS")
 
-    def test_mim_plates_tie_to_the_nodes_the_schematic_names(self):
+    def test_mim_plates_no_longer_need_a_body_tie(self):
+        # #264 routes bias_core's and por_output_chain's drawn MiM plates
+        # onto the schematic nodes their golden cards name, so
+        # lvs_reference.cap_plate_nets returns those nodes directly rather
+        # than a synthesized per-instance isolated net -- a plate's own
+        # reference net already *is* the schematic net it stands for, so
+        # leaf_body_ties has nothing left to tie for any of them.
         ties = pl.body_ties("por_output_chain")
-        self.assertEqual(ties["XCDG.NDG"], "NDG")
-        self.assertEqual(ties["XCDG.VSS"], "VSS")
-        # m=4 is four drawn units, each with its own pair of isolated plates.
-        for unit in range(1, 5):
-            self.assertEqual(ties[f"XCTIM.{unit}.TIM"], "TIM")
-            self.assertEqual(ties[f"XCTIM.{unit}.VSS"], "VSS")
+        self.assertFalse(
+            [key for key in ties if key.startswith(("XCDG.", "XCTIM."))]
+        )
+        self.assertNotIn("NDG", ties)
+        self.assertNotIn("TIM", ties)
 
     def test_assembly_ties_are_per_instance(self):
         ties = pl.body_ties("temp_por_top")
         self.assertEqual(ties["xbias.NW1"], "VDD")
         self.assertEqual(ties["xcmp.NW2"], "VDD")
-        self.assertEqual(ties["xbias.XCC.PG"], "xbias.PG")
-        # Two instances that both have a net called PG keep two distinct nets.
-        self.assertNotEqual(ties["xbias.XCC.PG"], "xtemp.PG")
 
     def test_a_well_tied_to_a_local_node_is_not_forced_to_the_rail(self):
         # temp_core's NW2 holds the cascode pair whose schematic body node is

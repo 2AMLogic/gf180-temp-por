@@ -12,11 +12,11 @@ for where this sits in the flow.
 
 | cell | drawn devices | ideal (not drawn) | parasitic R/C cards | nets with parasitics | ΣR | ΣC |
 |---|---|---|---|---|---|---|
-| `bias_core` | 70 | 0 | 94 | 47/54 (87.0 %) | 130837 Ω | 1920.0 fF |
+| `bias_core` | 70 | 0 | 94 | 47/50 (94.0 %) | 130842 Ω | 1940.1 fF |
 | `por_comparator` | 21 | 0 | 30 | 15/18 (83.3 %) | 18117 Ω | 472.9 fF |
-| `por_output_chain` | 33 | 0 | 36 | 18/30 (60.0 %) | 66322 Ω | 828.6 fF |
+| `por_output_chain` | 33 | 0 | 36 | 18/20 (90.0 %) | 66323 Ω | 828.9 fF |
 | `temp_core` | 114 | 1 | 138 | 69/73 (94.5 %) | 65734 Ω | 1552.3 fF |
-| `temp_por_top` | 238 | 1 | 272 | 136/159 (85.5 %) | 280923 Ω | 5880.2 fF |
+| `temp_por_top` | 238 | 1 | 272 | 136/145 (93.8 %) | 280929 Ω | 5900.5 fF |
 
 `nets with parasitics` is the klayout-tools#283 sanity check: a run
 that silently loaded nothing reads 0 here, and `--extract` refuses to
@@ -46,57 +46,29 @@ it. Those nets are extracted **isolated**, which is honest for a
 compare and unsimulatable. Each is tied to the net the schematic puts
 it on, derived from `lvs_reference`'s manifest:
 
-* **`bias_core`** — 7 ties:
+* **`bias_core`** — 3 ties:
   * `NW1` → `VDD`
   * `NWQ` → `VSS`
-  * `XCC__NZ` → `NZ`
-  * `XCC__PG` → `PG`
-  * `XCOK__NOKX` → `NOKX`
-  * `XCOK__VDD` → `VDD`
   * `vsubs` → `VSS`
 * **`por_comparator`** — 3 ties:
   * `NW1` → `VDD`
   * `NW2` → `VDD`
   * `vsubs` → `VSS`
-* **`por_output_chain`** — 12 ties:
+* **`por_output_chain`** — 2 ties:
   * `NW1` → `VDD`
-  * `XCDG__NDG` → `NDG`
-  * `XCDG__VSS` → `VSS`
-  * `XCTIM__1__TIM` → `TIM`
-  * `XCTIM__1__VSS` → `VSS`
-  * `XCTIM__2__TIM` → `TIM`
-  * `XCTIM__2__VSS` → `VSS`
-  * `XCTIM__3__TIM` → `TIM`
-  * `XCTIM__3__VSS` → `VSS`
-  * `XCTIM__4__TIM` → `TIM`
-  * `XCTIM__4__VSS` → `VSS`
   * `vsubs` → `VSS`
 * **`temp_core`** — 4 ties:
   * `NW1` → `VDD`
   * `NW2` → `NT`
   * `NWQ` → `VSS`
   * `vsubs` → `VSS`
-* **`temp_por_top`** — 23 ties:
+* **`temp_por_top`** — 9 ties:
   * `vsubs` → `VSS`
   * `xbias__NW1` → `VDD`
   * `xbias__NWQ` → `VSS`
-  * `xbias__XCC__NZ` → `xbias__NZ`
-  * `xbias__XCC__PG` → `xbias__PG`
-  * `xbias__XCOK__NOKX` → `xbias__NOKX`
-  * `xbias__XCOK__VDD` → `VDD`
   * `xcmp__NW1` → `VDD`
   * `xcmp__NW2` → `VDD`
   * `xpor__NW1` → `VDD`
-  * `xpor__XCDG__NDG` → `xpor__NDG`
-  * `xpor__XCDG__VSS` → `VSS`
-  * `xpor__XCTIM__1__TIM` → `xpor__TIM`
-  * `xpor__XCTIM__1__VSS` → `VSS`
-  * `xpor__XCTIM__2__TIM` → `xpor__TIM`
-  * `xpor__XCTIM__2__VSS` → `VSS`
-  * `xpor__XCTIM__3__TIM` → `xpor__TIM`
-  * `xpor__XCTIM__3__VSS` → `VSS`
-  * `xpor__XCTIM__4__TIM` → `xpor__TIM`
-  * `xpor__XCTIM__4__VSS` → `VSS`
   * `xtemp__NW1` → `VDD`
   * `xtemp__NW2` → `xtemp__NT`
   * `xtemp__NWQ` → `VSS`

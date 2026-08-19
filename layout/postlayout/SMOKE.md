@@ -16,12 +16,12 @@ module docstring of `layout/postlayout_smoke.py` for why.
 | `por_comparator` | `por_raw_v` | 3.3 | 3.3 | +0.00 % | 2.9 … 3.31 | ok |
 | `por_comparator` | `sns_v` | 1.61228 | 1.61228 | +0.00 % | 1 … 2.5 | ok |
 | `por_comparator` | `snsb_v` | 0.165661 | 0.165661 | -0.00 % | 0.05 … 0.6 | ok |
-| `por_output_chain` | `t_release_ms` | 5.90035 | 5.7794 | +2.09 % | 0.05 … 19 | ok |
+| `por_output_chain` | `t_release_ms` | 5.90049 | 5.7794 | +2.10 % | 0.05 … 19 | ok |
 | `por_output_chain` | `resetn_final_v` | 3.3 | 3.3 | +0.00 % | 2.9 … 3.31 | ok |
 | `temp_core` | `ptat_v` | 1.29399 | 1.29334 | +0.05 % | 0.5 … 2.5 | ok |
 | `temp_core` | `ctat_v` | 0.653274 | 0.653347 | -0.01 % | 0.3 … 1.2 | ok |
 | `temp_core` | `pg_v` | 2.23406 | 2.23522 | -0.05 % | 0.5 … 3.31 | ok |
-| `temp_por_top` | `t_release_ms` | 10.2703 | 10.0681 | +2.01 % | 1 … 29 | ok |
+| `temp_por_top` | `t_release_ms` | 10.2705 | 10.0681 | +2.01 % | 1 … 29 | ok |
 | `temp_por_top` | `resetn_final_v` | 3.3 | 3.3 | +0.00 % | 2.9 … 3.31 | ok |
 | `temp_por_top` | `ptat_final_v` | 1.29309 | 1.29248 | +0.05 % | 0.5 … 2.5 | ok |
 | `temp_por_top` | `ctat_final_v` | 0.653274 | 0.653347 | -0.01 % | 0.3 … 1.2 | ok |

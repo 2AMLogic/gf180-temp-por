@@ -5,16 +5,16 @@
   "reference": "por_output_chain.reference.spice",
   "top": "por_output_chain",
   "status": "match",
-  "mismatch_count": 13,
+  "mismatch_count": 3,
   "category_counts": {
     "device.body_unverified": 2,
-    "topology": 11
+    "topology": 1
   },
   "counts": {
     "nets": {
-      "layout": 30,
-      "reference": 30,
-      "matched": 30
+      "layout": 20,
+      "reference": 20,
+      "matched": 20
     },
     "devices": {
       "layout": 33,
@@ -37,8 +37,8 @@
   "environment": {
     "engine": "klayout",
     "engine_version": "0.30.10",
-    "layout_sha256": "7929251a11eea645aaf7e216ca52d4a16b5ae5675d83c39f1e00c6a7dfc133cc",
-    "reference_sha256": "9df73647b08d158da7934f17c46ee402c49651e85dc6306fbc6cd9f27cfb104c",
+    "layout_sha256": "25943ef873ddc2800a6108ed59bff2a8e6d5bdfb3fd1f435a6609c8156aef538",
+    "reference_sha256": "885c47b5723e89269994f17fa7df2be3c7a9f60d6b510b48a8d020a6b3346528",
     "extracted_netlist": null
   },
   "provenance": {
@@ -83,136 +83,6 @@
     {
       "category": "topology",
       "severity": "warning",
-      "description": "nets were paired ambiguously; the comparer resolved it structurally (consider a hints.same_nets entry to pin this down)",
-      "side": "both",
-      "net": {
-        "layout": "$20",
-        "reference": "XCTIM.1.TIM"
-      },
-      "device": null,
-      "property": null,
-      "details": null
-    },
-    {
-      "category": "topology",
-      "severity": "warning",
-      "description": "nets were paired ambiguously; the comparer resolved it structurally (consider a hints.same_nets entry to pin this down)",
-      "side": "both",
-      "net": {
-        "layout": "$21",
-        "reference": "XCTIM.2.TIM"
-      },
-      "device": null,
-      "property": null,
-      "details": null
-    },
-    {
-      "category": "topology",
-      "severity": "warning",
-      "description": "nets were paired ambiguously; the comparer resolved it structurally (consider a hints.same_nets entry to pin this down)",
-      "side": "both",
-      "net": {
-        "layout": "$22",
-        "reference": "XCDG.NDG"
-      },
-      "device": null,
-      "property": null,
-      "details": null
-    },
-    {
-      "category": "topology",
-      "severity": "warning",
-      "description": "nets were paired ambiguously; the comparer resolved it structurally (consider a hints.same_nets entry to pin this down)",
-      "side": "both",
-      "net": {
-        "layout": "$23",
-        "reference": "XCDG.VSS"
-      },
-      "device": null,
-      "property": null,
-      "details": null
-    },
-    {
-      "category": "topology",
-      "severity": "warning",
-      "description": "nets were paired ambiguously; the comparer resolved it structurally (consider a hints.same_nets entry to pin this down)",
-      "side": "both",
-      "net": {
-        "layout": "$24",
-        "reference": "XCTIM.3.TIM"
-      },
-      "device": null,
-      "property": null,
-      "details": null
-    },
-    {
-      "category": "topology",
-      "severity": "warning",
-      "description": "nets were paired ambiguously; the comparer resolved it structurally (consider a hints.same_nets entry to pin this down)",
-      "side": "both",
-      "net": {
-        "layout": "$25",
-        "reference": "XCTIM.4.TIM"
-      },
-      "device": null,
-      "property": null,
-      "details": null
-    },
-    {
-      "category": "topology",
-      "severity": "warning",
-      "description": "nets were paired ambiguously; the comparer resolved it structurally (consider a hints.same_nets entry to pin this down)",
-      "side": "both",
-      "net": {
-        "layout": "$26",
-        "reference": "XCTIM.1.VSS"
-      },
-      "device": null,
-      "property": null,
-      "details": null
-    },
-    {
-      "category": "topology",
-      "severity": "warning",
-      "description": "nets were paired ambiguously; the comparer resolved it structurally (consider a hints.same_nets entry to pin this down)",
-      "side": "both",
-      "net": {
-        "layout": "$27",
-        "reference": "XCTIM.2.VSS"
-      },
-      "device": null,
-      "property": null,
-      "details": null
-    },
-    {
-      "category": "topology",
-      "severity": "warning",
-      "description": "nets were paired ambiguously; the comparer resolved it structurally (consider a hints.same_nets entry to pin this down)",
-      "side": "both",
-      "net": {
-        "layout": "$28",
-        "reference": "XCTIM.3.VSS"
-      },
-      "device": null,
-      "property": null,
-      "details": null
-    },
-    {
-      "category": "topology",
-      "severity": "warning",
-      "description": "nets were paired ambiguously; the comparer resolved it structurally (consider a hints.same_nets entry to pin this down)",
-      "side": "both",
-      "net": {
-        "layout": "$29",
-        "reference": "XCTIM.4.VSS"
-      },
-      "device": null,
-      "property": null,
-      "details": null
-    },
-    {
-      "category": "topology",
-      "severity": "warning",
       "description": "device class has no counterpart on the other side, but no devices of this class were extracted either -- not a real topology mismatch",
       "side": "layout",
       "net": null,
@@ -228,37 +98,37 @@
       "pin": true
     },
     {
-      "layout": "$12",
+      "layout": "$6",
       "reference": "ND1",
       "pin": false
     },
     {
-      "layout": "$8",
+      "layout": "$11",
       "reference": "NDG",
       "pin": false
     },
     {
-      "layout": "$7",
+      "layout": "$10",
       "reference": "NDGN",
       "pin": false
     },
     {
-      "layout": "$15",
+      "layout": "$16",
       "reference": "NDGP",
       "pin": false
     },
     {
-      "layout": "$2",
+      "layout": "$3",
       "reference": "NDL",
       "pin": false
     },
     {
-      "layout": "$14",
+      "layout": "$15",
       "reference": "NNAND",
       "pin": false
     },
     {
-      "layout": "$16",
+      "layout": "$8",
       "reference": "NTS",
       "pin": false
     },
@@ -268,17 +138,17 @@
       "pin": false
     },
     {
-      "layout": "$6",
+      "layout": "$2",
       "reference": "PDN",
       "pin": false
     },
     {
-      "layout": "$9",
+      "layout": "$12",
       "reference": "PGDG",
       "pin": false
     },
     {
-      "layout": "$10",
+      "layout": "$5",
       "reference": "PGDGB",
       "pin": false
     },
@@ -298,12 +168,12 @@
       "pin": false
     },
     {
-      "layout": "$11",
+      "layout": "$13",
       "reference": "TIM",
       "pin": false
     },
     {
-      "layout": "$13",
+      "layout": "$14",
       "reference": "TRIP",
       "pin": false
     },
@@ -321,56 +191,6 @@
       "layout": "vsubs",
       "reference": "VSUBS",
       "pin": true
-    },
-    {
-      "layout": "$22",
-      "reference": "XCDG.NDG",
-      "pin": false
-    },
-    {
-      "layout": "$23",
-      "reference": "XCDG.VSS",
-      "pin": false
-    },
-    {
-      "layout": "$20",
-      "reference": "XCTIM.1.TIM",
-      "pin": false
-    },
-    {
-      "layout": "$26",
-      "reference": "XCTIM.1.VSS",
-      "pin": false
-    },
-    {
-      "layout": "$21",
-      "reference": "XCTIM.2.TIM",
-      "pin": false
-    },
-    {
-      "layout": "$27",
-      "reference": "XCTIM.2.VSS",
-      "pin": false
-    },
-    {
-      "layout": "$24",
-      "reference": "XCTIM.3.TIM",
-      "pin": false
-    },
-    {
-      "layout": "$28",
-      "reference": "XCTIM.3.VSS",
-      "pin": false
-    },
-    {
-      "layout": "$25",
-      "reference": "XCTIM.4.TIM",
-      "pin": false
-    },
-    {
-      "layout": "$29",
-      "reference": "XCTIM.4.VSS",
-      "pin": false
     }
   ]
 }

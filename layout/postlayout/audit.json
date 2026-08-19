@@ -13,20 +13,16 @@
       "device_total": 70,
       "parasitic_cards": 94,
       "coverage": {
-        "nets_total": 54,
+        "nets_total": 50,
         "nets_with_parasitics": 47,
-        "fraction": 0.8704,
-        "total_resistance_ohm": 130836.7927,
-        "total_capacitance_ff": 1919.981427
+        "fraction": 0.94,
+        "total_resistance_ohm": 130841.6954,
+        "total_capacitance_ff": 1940.064947
       },
       "ties": {
         "vsubs": "VSS",
         "NW1": "VDD",
-        "NWQ": "VSS",
-        "XCC__PG": "PG",
-        "XCC__NZ": "NZ",
-        "XCOK__VDD": "VDD",
-        "XCOK__NOKX": "NOKX"
+        "NWQ": "VSS"
       },
       "ideal_devices": [],
       "substitutions": [
@@ -60,7 +56,7 @@
           "name": "gf180mcu",
           "content_hash": "sha256:1256c45b3e472635b03a1888d0730822c1872b4a912a2c90fc1e4e7cd14a3913"
         },
-        "gds_sha256": "215b742bbc05cfd0ca6ff41940aaee54dd0e1283f92fed00435cc93be5e772d3"
+        "gds_sha256": "b2e68f8087bcf31cb329785109e93551ecc416b6659cc7c7d7b51ef79e4cdf96"
       },
       "lvs_status": "match"
     },
@@ -125,25 +121,15 @@
       "device_total": 33,
       "parasitic_cards": 36,
       "coverage": {
-        "nets_total": 30,
+        "nets_total": 20,
         "nets_with_parasitics": 18,
-        "fraction": 0.6,
-        "total_resistance_ohm": 66322.3828,
-        "total_capacitance_ff": 828.589603
+        "fraction": 0.9,
+        "total_resistance_ohm": 66323.225,
+        "total_capacitance_ff": 828.884348
       },
       "ties": {
         "vsubs": "VSS",
-        "NW1": "VDD",
-        "XCDG__NDG": "NDG",
-        "XCDG__VSS": "VSS",
-        "XCTIM__1__TIM": "TIM",
-        "XCTIM__1__VSS": "VSS",
-        "XCTIM__2__TIM": "TIM",
-        "XCTIM__2__VSS": "VSS",
-        "XCTIM__3__TIM": "TIM",
-        "XCTIM__3__VSS": "VSS",
-        "XCTIM__4__TIM": "TIM",
-        "XCTIM__4__VSS": "VSS"
+        "NW1": "VDD"
       },
       "ideal_devices": [],
       "substitutions": [
@@ -169,7 +155,7 @@
           "name": "gf180mcu",
           "content_hash": "sha256:1256c45b3e472635b03a1888d0730822c1872b4a912a2c90fc1e4e7cd14a3913"
         },
-        "gds_sha256": "7929251a11eea645aaf7e216ca52d4a16b5ae5675d83c39f1e00c6a7dfc133cc"
+        "gds_sha256": "25943ef873ddc2800a6108ed59bff2a8e6d5bdfb3fd1f435a6609c8156aef538"
       },
       "lvs_status": "match"
     },
@@ -242,33 +228,19 @@
       "device_total": 238,
       "parasitic_cards": 272,
       "coverage": {
-        "nets_total": 159,
+        "nets_total": 145,
         "nets_with_parasitics": 136,
-        "fraction": 0.8553,
-        "total_resistance_ohm": 280923.0554,
-        "total_capacitance_ff": 5880.15732
+        "fraction": 0.9379,
+        "total_resistance_ohm": 280929.308,
+        "total_capacitance_ff": 5900.535586
       },
       "ties": {
         "vsubs": "VSS",
         "xbias__NW1": "VDD",
         "xbias__NWQ": "VSS",
-        "xbias__XCC__PG": "xbias__PG",
-        "xbias__XCC__NZ": "xbias__NZ",
-        "xbias__XCOK__VDD": "VDD",
-        "xbias__XCOK__NOKX": "xbias__NOKX",
         "xcmp__NW1": "VDD",
         "xcmp__NW2": "VDD",
         "xpor__NW1": "VDD",
-        "xpor__XCDG__NDG": "xpor__NDG",
-        "xpor__XCDG__VSS": "VSS",
-        "xpor__XCTIM__1__TIM": "xpor__TIM",
-        "xpor__XCTIM__1__VSS": "VSS",
-        "xpor__XCTIM__2__TIM": "xpor__TIM",
-        "xpor__XCTIM__2__VSS": "VSS",
-        "xpor__XCTIM__3__TIM": "xpor__TIM",
-        "xpor__XCTIM__3__VSS": "VSS",
-        "xpor__XCTIM__4__TIM": "xpor__TIM",
-        "xpor__XCTIM__4__VSS": "VSS",
         "xtemp__NW1": "VDD",
         "xtemp__NW2": "xtemp__NT",
         "xtemp__NWQ": "VSS"
@@ -317,7 +289,7 @@
           "name": "gf180mcu",
           "content_hash": "sha256:1256c45b3e472635b03a1888d0730822c1872b4a912a2c90fc1e4e7cd14a3913"
         },
-        "gds_sha256": "80aa08eb1a48cbf7342a15479d3f983cd3e8bf48ff910c25b184cb5afcbb1d17"
+        "gds_sha256": "33843b0e8f9f28a9d9ae054cb6d81dade47898653a09c80975d87bc8b7f701ee"
       },
       "lvs_status": "match"
     }

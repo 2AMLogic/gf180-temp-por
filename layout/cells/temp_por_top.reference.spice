@@ -70,8 +70,8 @@ Q65 vsubs xbias.NWQ xbias.EC bjt AE=100P
 Q66 vsubs xbias.NWQ xbias.EC bjt AE=100P
 Q67 vsubs xbias.NWQ xbias.EC bjt AE=100P
 Q68 vsubs xbias.NWQ xbias.ER bjt AE=100P
-C69 xbias.XCC.PG xbias.XCC.NZ 8e-13 cap_mim_2f0_m4m5_noshield
-C70 xbias.XCOK.VDD xbias.XCOK.NOKX 7.2e-14 cap_mim_2f0_m4m5_noshield
+C69 xbias.PG xbias.NZ 8e-13 cap_mim_2f0_m4m5_noshield
+C70 VDD xbias.NOKX 7.2e-14 cap_mim_2f0_m4m5_noshield
 M71 xcmp.BIAS_OKB BIAS_OK VSS vsubs nfet L=0.5U W=1U
 M72 xcmp.BIAS_OKB BIAS_OK VDD xcmp.NW2 pfet L=0.5U W=2U
 M73 xcmp.NA xcmp.NA xcmp.VDDA xcmp.NW1 pfet L=1U W=4U
@@ -121,11 +121,11 @@ M116 xpor.RSTB xpor.TRIP VDD xpor.NW1 pfet L=0.5U W=4U
 M117 xpor.RSTB xpor.PGDG VDD xpor.NW1 pfet L=0.5U W=4U
 M118 xpor.RSTB RESETn VDD xpor.NW1 pfet L=10U W=0.5U
 M119 RESETn xpor.RSTB VDD xpor.NW1 pfet L=1U W=1U
-C120 xpor.XCDG.NDG xpor.XCDG.VSS 2.42e-13 cap_mim_2f0_m4m5_noshield
-C121 xpor.XCTIM.1.TIM xpor.XCTIM.1.VSS 1.568e-12 cap_mim_2f0_m4m5_noshield
-C122 xpor.XCTIM.2.TIM xpor.XCTIM.2.VSS 1.568e-12 cap_mim_2f0_m4m5_noshield
-C123 xpor.XCTIM.3.TIM xpor.XCTIM.3.VSS 1.568e-12 cap_mim_2f0_m4m5_noshield
-C124 xpor.XCTIM.4.TIM xpor.XCTIM.4.VSS 1.568e-12 cap_mim_2f0_m4m5_noshield
+C120 xpor.NDG VSS 2.42e-13 cap_mim_2f0_m4m5_noshield
+C121 xpor.TIM VSS 1.568e-12 cap_mim_2f0_m4m5_noshield
+C122 xpor.TIM VSS 1.568e-12 cap_mim_2f0_m4m5_noshield
+C123 xpor.TIM VSS 1.568e-12 cap_mim_2f0_m4m5_noshield
+C124 xpor.TIM VSS 1.568e-12 cap_mim_2f0_m4m5_noshield
 M125 IBIAS xtemp.NBG VSS vsubs nfet L=2U W=4U
 M126 IBIAS RESETn xtemp.NBG vsubs nfet L=0.5U W=2U
 M127 xtemp.NBG xtemp.ENB VSS vsubs nfet L=0.5U W=2U

@@ -1487,31 +1487,31 @@ def cap_units(cap: dict) -> int:
     return int(value)
 
 
-def cap_plate_nets(name: str, cap: dict, unit: int, units: int) -> list[str]:
-    """The two isolated nets one drawn MiM unit's plates extract onto.
+def cap_plate_nets(cap: dict) -> list[str]:
+    """The two schematic nets one drawn MiM card's plates land on.
 
-    At the ``klt`` revision these cells were drawn and this repo's committed
-    evidence was produced against, ``klt`` registered a recognised capacitor's
-    plates as their own self-connected connectivity nodes, with the top plate's
-    layer outside the deck's metal stack entirely, so *no* drawn routing could
-    put either plate on a schematic net (``CapacitorDevice``'s "Known
-    limitation"; see the module docstring). The reference therefore names each
-    plate after the schematic node it is *meant* to be on, scoped to its own
-    instance so it stays isolated: ``XCDG.NDG``, ``XCTIM.3.VSS``. Reading the
-    reference netlist shows the fidelity loss rather than hiding it behind an
-    anonymous ``n17``.
+    Before #264 this synthesized a per-instance isolated net pair
+    (``XCDG.NDG``, ``XCTIM.3.VSS``): the ``klt`` revision these cells were
+    first drawn against registered a recognised capacitor's plates as their
+    own self-connected connectivity nodes, with the top plate's layer outside
+    the deck's metal stack entirely, so *no* drawn routing could put either
+    plate on a schematic net (klayout-tools#314). That limitation is fixed
+    upstream (closed; the deck's ``CapacitorDevice`` now carries
+    ``top_plate_via`` / ``top_plate_via_metal``, i.e. ``Via4`` up to
+    ``Metal5``) **and** the plates in ``bias_core``/``por_output_chain`` are
+    now drawn routed onto them (``build_cells.py``'s ``_cap_bottom_route`` /
+    ``_cap_top_route`` and their strapped counterparts), so the reference can
+    simply name the card's own two nodes -- ``klt`` registers ``P1`` as
+    ``nodes[0]`` (the bottom plate) and ``P2`` as ``nodes[1]`` (the top), and
+    every drawn unit of one card's ``m>1`` multiplier shares both nodes
+    (``XCTIM``'s four units all land on the same ``TIM``/``VSS`` pair), so
+    there is nothing left to disambiguate per instance.
 
-    **That limitation is fixed upstream** (klayout-tools#314 closed; the deck's
-    ``CapacitorDevice`` now carries ``top_plate_via`` / ``top_plate_via_metal``,
-    i.e. ``Via4`` up to ``Metal5``). The plates in *this* block are still drawn
-    floating, so this synthesis is still the correct description of what the
-    committed geometry proves -- but it is a property of the drawing, not of
-    the tool, and it goes away when the caps are routed (#264; DR-028,
-    ``spec/decision-records/DR-028-temp-core-xcc-draw-it.md``, is what decides
-    the same for ``temp_core``'s own undrawn ``XCC``).
+    ``temp_core``'s own undrawn ``XCC`` is a different question -- DR-028
+    (``spec/decision-records/DR-028-temp-core-xcc-draw-it.md``) decides it is
+    drawn too, not left synthesized.
     """
-    tag = name if units == 1 else f"{name}.{unit}"
-    return [f"{tag}.{node}" for node in cap["nodes"]]
+    return list(cap["nodes"])
 
 
 def mim_capacitance_f(width_um: float, length_um: float) -> float:
@@ -1560,9 +1560,9 @@ def build_cap_cards(cell: str, rename=None) -> list[Card]:
         length_um = to_um(cap["params"]["c_length"])
         units = cap_units(cap)
         value_f = mim_capacitance_f(width_um, length_um)
-        for unit in range(1, units + 1):
-            nets = cap_plate_nets(name, cap, unit, units)
-            plates = [net if rename is None else rename(net) for net in nets]
+        nets = cap_plate_nets(cap)
+        plates = [net if rename is None else rename(net) for net in nets]
+        for _unit in range(1, units + 1):
             cards.append(
                 Card("C", klass, plates, f"{value_f:.6g}")
             )

@@ -19,9 +19,9 @@
   "measurements": [
     {
       "measure": "t_release_ms",
-      "postlayout": 5.900349,
+      "postlayout": 5.900491,
       "schematic": 5.779396,
-      "delta_frac": 0.020928311539821824,
+      "delta_frac": 0.020952881581397003,
       "window": [
         0.05,
         19.0

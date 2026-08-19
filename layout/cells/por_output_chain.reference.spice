@@ -30,9 +30,9 @@ M25 RSTB TRIP VDD NW1 pfet L=0.5U W=4U
 M26 RSTB PGDG VDD NW1 pfet L=0.5U W=4U
 M27 RSTB RESETn VDD NW1 pfet L=10U W=0.5U
 M28 RESETn RSTB VDD NW1 pfet L=1U W=1U
-C29 XCDG.NDG XCDG.VSS 2.42e-13 cap_mim_2f0_m4m5_noshield
-C30 XCTIM.1.TIM XCTIM.1.VSS 1.568e-12 cap_mim_2f0_m4m5_noshield
-C31 XCTIM.2.TIM XCTIM.2.VSS 1.568e-12 cap_mim_2f0_m4m5_noshield
-C32 XCTIM.3.TIM XCTIM.3.VSS 1.568e-12 cap_mim_2f0_m4m5_noshield
-C33 XCTIM.4.TIM XCTIM.4.VSS 1.568e-12 cap_mim_2f0_m4m5_noshield
+C29 NDG VSS 2.42e-13 cap_mim_2f0_m4m5_noshield
+C30 TIM VSS 1.568e-12 cap_mim_2f0_m4m5_noshield
+C31 TIM VSS 1.568e-12 cap_mim_2f0_m4m5_noshield
+C32 TIM VSS 1.568e-12 cap_mim_2f0_m4m5_noshield
+C33 TIM VSS 1.568e-12 cap_mim_2f0_m4m5_noshield
 .ENDS por_output_chain

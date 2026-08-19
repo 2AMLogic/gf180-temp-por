@@ -28,7 +28,13 @@ Layers are the gf180mcu drawn layers ``klt``'s curated ``gf180mcu`` deck reads
     Contact 33/0 · Metal1 34/0 · Metal2 36/0
     Metal1 pin/label purpose 34/10 (net names -> extracted pin names)
     Metal4 46/0 · FuseTop 75/0 · CAP_MK 117/5 · MIM_L_MK 117/10
-                    (the MiM capacitor stack, ``por_output_chain`` only)
+                    (the MiM capacitor stack, ``bias_core`` and
+                    ``por_output_chain``)
+    Via3 40/0 · Via4 41/0 · Metal5 81/0
+                    (the drawn MiM units' plate routing, #264 -- Metal4 is
+                    the bottom plate itself; the top plate's only escape is
+                    Via4 -> Metal5 -> a second Via4 down a fresh Metal4
+                    island, both cells only)
     SAB 49/0 · RES_MK 110/5
                     (the poly-resistor marker pair, ``temp_core``'s R2 ladder
                     only, #93)
@@ -79,25 +85,46 @@ POLY2 = (30, 0)
 CONTACT = (33, 0)
 METAL1 = (34, 0)
 METAL1_LABEL = (34, 10)
-#: Upper routing layers. Used only by ``temp_por_top`` (#72): every sub-circuit
-#: cell below is Metal1-only, and stays that way. See ``temp_por_top``'s
-#: docstring and ``layout/floorplan.md`` -> "Routing / metal-level note" for
-#: why the block-level assembly may use them and the sub-cells do not.
+#: Upper routing layers. Signal routing on these is ``temp_por_top`` (#72)
+#: only: every sub-circuit cell below is Metal1-only for its own MOS/passive
+#: nets, and stays that way. See ``temp_por_top``'s docstring and
+#: ``layout/floorplan.md`` -> "Routing / metal-level note" for why the
+#: block-level assembly may use them and the sub-cells do not for *signal*
+#: routing. ``bias_core`` and ``por_output_chain`` are the one exception
+#: (#264): each drawn MiM unit's two plates use this whole stack -- see
+#: :data:`VIA3`/:data:`VIA4`/:data:`METAL5` below -- but only to *escape* a
+#: capacitor plate down to that cell's own Metal1/Poly2 nets, never to carry
+#: a signal between two ordinary devices.
 VIA1 = (35, 0)
 METAL2 = (36, 0)
 METAL2_LABEL = (36, 10)
 VIA2 = (38, 0)
 METAL3 = (42, 0)
-#: The gf180mcu MiM capacitor stack, used only by ``por_output_chain`` (#92).
-#: ``klt``'s curated deck recognises exactly one MiM device class,
-#: ``cap_mim_2f0_m4m5_noshield`` -- the DRM's "10.4.2 MIM Option B" 5-metal
-#: stack -- as a ``FuseTop`` top plate carrying **both** marker layers over a
-#: ``Metal4`` bottom plate. All four layers are read by the extraction deck, and
-#: ``Metal4`` by the DRC deck's ``mim.*`` rules; none is an annotation layer.
+#: The gf180mcu MiM capacitor stack, drawn by both ``bias_core`` (#90) and
+#: ``por_output_chain`` (#92). ``klt``'s curated deck recognises exactly one
+#: MiM device class, ``cap_mim_2f0_m4m5_noshield`` -- the DRM's "10.4.2 MIM
+#: Option B" 5-metal stack -- as a ``FuseTop`` top plate carrying **both**
+#: marker layers over a ``Metal4`` bottom plate. All four layers are read by
+#: the extraction deck, and ``Metal4`` by the DRC deck's ``mim.*`` rules; none
+#: is an annotation layer.
 METAL4 = (46, 0)
 FUSETOP = (75, 0)
 CAP_MK = (117, 5)
 MIM_L_MK = (117, 10)
+#: The MiM top plate's only way off ``FuseTop``, per ``klt``'s
+#: ``CapacitorDevice`` (klayout-tools#314, fixed in the pinned ``klt 0.2.0``):
+#: a ``Via4`` landing on the top plate wires it up to ``Metal5``, and
+#: ``Metal5``'s only way back down is a *second* ``Via4`` onto a fresh
+#: ``Metal4`` island -- never the bottom plate's own ``Metal4``, which would
+#: trip ``mim.space.1`` (#264's "Implementation notes" has the full topology
+#: and the DRC rules that switch on once this geometry exists).
+#: ``extract._exclude_capacitor_top_via_overlap`` (klayout-tools#364) keeps
+#: the first ``Via4`` -- sitting, by the DRM's own ``MIMTM.2``, on top of the
+#: bottom plate it is meant to be insulated from -- out of the deck's generic
+#: via connectivity, so it does not short the two plates.
+VIA3 = (40, 0)
+VIA4 = (41, 0)
+METAL5 = (81, 0)
 #: Implant and device-marker layers -- the drawn poly resistors' and vertical
 #: bipolars' own stack, shared by ``temp_core`` (#93) and ``bias_core`` (#90).
 #: Only ``DRC_BJT`` carries a rule in ``klt``'s curated ``gf180mcu`` DRC deck
@@ -573,6 +600,284 @@ def _mim_block(
     return rects, cursor - gap, top - gap
 
 
+# --------------------------------------------------------------------------- #
+# MiM plate routing (#264): every drawn unit's two plates, connected to the
+# schematic nodes their golden card names -- shared by bias_core and
+# por_output_chain, the only two cells that draw a MiM cap.
+#
+# Topology (see :data:`VIA4`'s docstring for why the top plate needs a second
+# Metal4 island rather than just landing beside the bottom plate)::
+#
+#     bottom plate:  Metal4 (the plate itself) -> Via3 -> Metal3 -> Via2 ->
+#                     Metal2 -> Via1 -> the target net's own Metal1
+#     top plate:      FuseTop -> Via4 -> Metal5 -> Via4 -> a second Metal4
+#                     island -> Via3 -> Metal3 -> Via2 -> Metal2 -> Via1 ->
+#                     the target net's own Metal1
+#
+# Every route below ends the same way once it reaches Metal3: one vertical
+# leg down to the anchor's own y, then one horizontal leg on Metal2 over to
+# the anchor's own x (:func:`_cap_descend`) -- so a caller only ever has to
+# say where a plate is and where its net already has a Metal1 point, never
+# how to get from one to the other.
+# --------------------------------------------------------------------------- #
+
+#: Width of a MiM plate's escape wire on Metal2/Metal3/Metal5, in um. Neither
+#: cell routes anything else on these layers, so the only rules in play are
+#: each layer's own ``width``/``space`` (0.28 um, per #264's rule survey of
+#: the pinned deck) -- drawn with a wide margin over that, and over the
+#: `VIA_SIDE_UM` via it always carries centred, so a future deck's
+#: ``metalN.enclosing.viaN`` (0.01 um, not live yet) is cleared too without
+#: needing to know that check exists.
+CAP_ROUTE_W_UM = 0.5
+#: Side of the free-standing Metal4 "escape island" a MiM top plate's route
+#: lands its second Via4 on (see :data:`VIA4`'s docstring), square. Every
+#: caller below keeps it :data:`MIM_SPACE_UM` clear of every bottom plate --
+#: `mim.space.1`, live in the pinned deck today -- by choosing where the
+#: island sits, not by the island's own size.
+CAP_ROUTE_PAD_UM = 0.9
+#: How far apart, in um, two different via layers land when they would
+#: otherwise coincide exactly: a plate's own Via3 (bottom-plate landing) and
+#: Via4 (top-plate escape) when they share one plate's centre, and the escape
+#: island's Via3 (down to Metal3) and Via4 (up to Metal5) sharing the
+#: island's. Small enough that the offset via stays inside even the smallest
+#: drawn plate (XCOK's 6x6 um card, :data:`CAP_ROUTE_PAD_UM`'s island) with
+#: room to spare.
+CAP_ROUTE_VIA_OFFSET_UM = 0.5
+#: How far above a cell's VDD rail the escape lane for every top-plate route
+#: in it sits (bias_core and por_output_chain both draw their MiM block only
+#: a few um above VDD, per each cell's own docstring diagram) -- clear of the
+#: rail (no rule ties Metal4 to Metal1) and, by construction, clear of the
+#: MiM block's own bottom plates by more than :data:`MIM_SPACE_UM`.
+CAP_ESCAPE_CLEAR_UM = 1.0
+#: How far above a Poly2 track's own contact a MiM route's new Metal1 anchor
+#: point sits -- a short stub, exactly like a device's own riser, just not
+#: owned by any device (see :func:`_cap_track_anchor`).
+CAP_ANCHOR_STUB_UM = 0.6
+
+
+def _cap_wire(
+    b: CellBuilder, spec, x0: float, y0: float, x1: float, y1: float,
+    width: float = CAP_ROUTE_W_UM,
+) -> None:
+    """A Manhattan wire on ``spec`` from ``(x0, y0)`` to ``(x1, y1)`` -- one
+    straight box if the two points already share an x or y (a single point,
+    if they share both), an "L" (vertical leg then horizontal) otherwise.
+    Every MiM plate route below is a short chain of these, one per metal
+    level, so a via at either end always lands inside the wire that carries
+    it rather than needing its own separate pad.
+    """
+    half = width / 2.0
+    if x0 == x1 and y0 == y1:
+        b.box(spec, x0 - half, y0 - half, x0 + half, y0 + half)
+    elif x0 == x1:
+        b.box(spec, x0 - half, min(y0, y1), x0 + half, max(y0, y1))
+    elif y0 == y1:
+        b.box(spec, min(x0, x1), y0 - half, max(x0, x1), y0 + half)
+    else:
+        b.box(spec, x0 - half, min(y0, y1), x0 + half, max(y0, y1))
+        b.box(spec, min(x0, x1), y1 - half, max(x0, x1), y1 + half)
+
+
+def _cap_pad(b: CellBuilder, spec, x: float, y: float, size: float = CAP_ROUTE_W_UM) -> None:
+    """A ``size``-square pad on ``spec`` centred at ``(x, y)``.
+
+    Used where a via's enclosure on one of its two layers is already handled
+    by a bigger, independently-sized shape (the escape island's own
+    :data:`CAP_ROUTE_PAD_UM` square) -- so only the *other* layer needs a
+    small pad of its own, sized just for the via, rather than
+    :func:`_cap_via`'s matched pair (which would needlessly redraw, and
+    potentially oversize, the bigger shape already there).
+    """
+    half = size / 2.0
+    b.box(spec, x - half, y - half, x + half, y + half)
+
+
+def _cap_via(
+    b: CellBuilder, spec, below, above, x: float, y: float,
+    pad: float = CAP_ROUTE_W_UM,
+) -> None:
+    """One via at ``(x, y)``, plus a ``pad``-square on each of the two metal
+    layers it connects.
+
+    A wire built by :func:`_cap_wire` stops exactly at the via it lands on,
+    so relying on the wire's own edge for enclosure leaves the via uncovered
+    on every side the wire does *not* approach from -- a via at the far end
+    of a dead-end wire, which every via below is, has no wire on its far
+    side at all. Drawing an explicit pad first (harmless where it lands on
+    an already-large shape, like a plate) makes every via's enclosure
+    independent of which direction its own wire happens to run.
+    """
+    half = pad / 2.0
+    b.box(below, x - half, y - half, x + half, y + half)
+    b.box(above, x - half, y - half, x + half, y + half)
+    b.via(spec, x, y)
+
+
+def _cap_track_anchor(
+    b: CellBuilder, track_y: dict[str, float], net: str, x: float, y: float,
+) -> tuple[float, float]:
+    """A minimal new Metal1 point on ``net``'s already-drawn Poly2 track, for
+    a MiM plate route's Via1 to land on -- one more terminal on that track,
+    exactly like a device's own riser (:func:`_draw_tiles`), just not owned
+    by any device. Returns the ``(x, y)`` :func:`_cap_bottom_route` /
+    :func:`_cap_top_route` / their strapped counterparts take as an anchor.
+
+    A rail net (``VDD``/``VSS``) needs none of this: both rails are drawn
+    wide enough, and far enough across each cell, that a route's Via1 lands
+    inside the rail's own existing Metal1 directly -- pass that point as the
+    anchor without calling this function at all.
+    """
+    b.contact(x, track_y[net])
+    half = CAP_ROUTE_W_UM / 2.0
+    b.box(METAL1, x - half, track_y[net] - 0.3, x + half, y + half)
+    return (x, y)
+
+
+def _cap_descend(
+    b: CellBuilder, from_xy: tuple[float, float], anchor_xy: tuple[float, float],
+) -> None:
+    """Via2 -> Metal2 -> Via1 from a point already on Metal3 down to
+    ``anchor_xy`` -- the shared last leg every MiM plate route below ends
+    with, single-unit or strapped alike.
+    """
+    fx, fy = from_xy
+    ax, ay = anchor_xy
+    _cap_via(b, VIA2, METAL2, METAL3, fx, fy)
+    _cap_wire(b, METAL2, fx, fy, ax, ay)
+    _cap_via(b, VIA1, METAL1, METAL2, ax, ay)
+
+
+def _cap_bottom_route(
+    b: CellBuilder, plate_xy: tuple[float, float], anchor_xy: tuple[float, float],
+) -> None:
+    """Route one drawn MiM bottom plate (``Metal4``, already drawn by
+    :func:`_mim_cap`) up to ``anchor_xy`` through Via3 -> Metal3 -> Via2 ->
+    Metal2 -> Via1 (:func:`_cap_descend`). No new Metal4 is drawn beyond a
+    landing pad: ``plate_xy`` lands directly on the bottom plate itself, so
+    this is an *ordinary* via the deck's generic per-layer connectivity wires
+    up on its own -- unlike the top plate's, below, which needs the deck's
+    special-cased handling (:data:`VIA4`'s docstring).
+    """
+    px, py = plate_xy
+    ax, ay = anchor_xy
+    _cap_via(b, VIA3, METAL3, METAL4, px, py)
+    _cap_wire(b, METAL3, px, py, px, ay)
+    _cap_descend(b, (px, ay), anchor_xy)
+
+
+def _cap_top_route(
+    b: CellBuilder,
+    plate_xy: tuple[float, float],
+    anchor_xy: tuple[float, float],
+    island_xy: tuple[float, float],
+) -> None:
+    """Route one drawn MiM top plate (``FuseTop``) up to ``anchor_xy`` the
+    same way :func:`_cap_bottom_route` finishes, but starting with the extra
+    hop only a top plate needs: Via4 (landing directly on the plate) ->
+    Metal5 -> a second Via4, onto a fresh ``CAP_ROUTE_PAD_UM`` square Metal4
+    "escape island" at ``island_xy`` (the caller's job to keep
+    :data:`MIM_SPACE_UM` clear of every bottom plate), then Via3 -> Metal3 ->
+    Via2 -> Metal2 -> Via1 exactly as the bottom plate does.
+    """
+    px, py = plate_xy
+    ix, iy = island_xy
+    half_off = CAP_ROUTE_VIA_OFFSET_UM / 2.0
+    via4_xy = (ix, iy + half_off)
+    via3_xy = (ix, iy - half_off)
+    _cap_via(b, VIA4, FUSETOP, METAL5, px, py)
+    _cap_wire(b, METAL5, px, py, *via4_xy)
+    pad = CAP_ROUTE_PAD_UM / 2.0
+    b.box(METAL4, ix - pad, iy - pad, ix + pad, iy + pad)
+    _cap_pad(b, METAL5, *via4_xy)
+    b.via(VIA4, *via4_xy)
+    _cap_pad(b, METAL3, *via3_xy)
+    b.via(VIA3, *via3_xy)
+    _ax, ay = anchor_xy
+    _cap_wire(b, METAL3, ix, iy - half_off, ix, ay)
+    _cap_descend(b, (ix, ay), anchor_xy)
+
+
+def _cap_strap_bottom_route(
+    b: CellBuilder,
+    plate_xys: list[tuple[float, float]],
+    anchor_xy: tuple[float, float],
+) -> None:
+    """Like :func:`_cap_bottom_route`, but for several drawn plates of one
+    ``m>1`` MiM card that share a node (``XCTIM``'s four): one Via3 per
+    plate, tied by a Metal3 "comb" -- one vertical leg per distinct plate x --
+    whose legs are joined by a Via2/Metal2 tie at the lowest shared y, not a
+    Metal3 one, before the descent to ``anchor_xy`` continues on Metal3 from
+    the leftmost leg.
+
+    A same-layer Metal3 tie would run the width of the whole comb (here,
+    ``XCTIM``'s two plate columns are ~31 um apart) with no guard against
+    whatever a top-level assembly's own Metal3 happens to occupy in between:
+    ``temp_por_top`` runs its domain-seam VSS tie down a full-height Metal3
+    column at a fixed x inside this cell's own footprint, and
+    ``_TopRoutes.check`` (``temp_por_top``'s own short/short-circuit guard)
+    cannot see a sub-cell's geometry to catch the crossing -- it surfaced only
+    as an LVS mismatch at ``temp_por_top`` (#264), not as a DRC or ``check()``
+    failure at either level. Metal2 has no full-height top-level occupant
+    anywhere near this cell's y-range (only small pin-escape pads, at ys well
+    outside a MiM block's own span), so a tie on Metal2 is not just a fix for
+    the one collision found -- it removes the whole class of "this cell's
+    y-range is compatible with a top-level Metal3 riser at any x" risk that a
+    Metal3 tie carries.
+    """
+    xs = sorted({px for px, _py in plate_xys})
+    ys = [py for _px, py in plate_xys]
+    y_lo, y_hi = min(ys), max(ys)
+    _ax, ay = anchor_xy
+    trunk_x = xs[0]
+    for px, py in plate_xys:
+        _cap_via(b, VIA3, METAL3, METAL4, px, py)
+    for x in xs:
+        _cap_wire(b, METAL3, x, y_lo, x, y_hi)
+    if len(xs) > 1:
+        for x in xs:
+            _cap_via(b, VIA2, METAL2, METAL3, x, y_lo)
+        _cap_wire(b, METAL2, xs[0], y_lo, xs[-1], y_lo)
+    _cap_wire(b, METAL3, trunk_x, y_lo, trunk_x, ay)
+    _cap_descend(b, (trunk_x, ay), anchor_xy)
+
+
+def _cap_strap_top_route(
+    b: CellBuilder,
+    plate_xys: list[tuple[float, float]],
+    anchor_xy: tuple[float, float],
+    island_xy: tuple[float, float],
+) -> None:
+    """Like :func:`_cap_top_route`, but for several drawn plates -- possibly
+    spanning more than one ``m>1`` card, as ``por_output_chain``'s ``XCTIM``
+    (4 units) and ``XCDG`` (1) both do here, since both cards' top plates
+    share the ``VSS`` node -- that share their top-plate node: one Via4 per
+    plate, landing inside one Metal5 sheet sized to bound every plate's own
+    Via4 and the escape island's. Neither cell this is used from routes
+    anything else on Metal5, so one filled rectangle is exactly as much strap
+    as a comb would be, with none of a comb's own bookkeeping.
+    """
+    half = CAP_ROUTE_W_UM / 2.0
+    half_off = CAP_ROUTE_VIA_OFFSET_UM / 2.0
+    ix, iy = island_xy
+    via4_xy = (ix, iy + half_off)
+    via3_xy = (ix, iy - half_off)
+    points = list(plate_xys) + [via4_xy]
+    xs = [x for x, _y in points]
+    ys = [y for _x, y in points]
+    b.box(METAL5, min(xs) - half, min(ys) - half, max(xs) + half, max(ys) + half)
+    for px, py in plate_xys:
+        _cap_via(b, VIA4, FUSETOP, METAL5, px, py)
+    pad = CAP_ROUTE_PAD_UM / 2.0
+    b.box(METAL4, ix - pad, iy - pad, ix + pad, iy + pad)
+    _cap_pad(b, METAL5, *via4_xy)
+    b.via(VIA4, *via4_xy)
+    _cap_pad(b, METAL3, *via3_xy)
+    b.via(VIA3, *via3_xy)
+    _ax, ay = anchor_xy
+    _cap_wire(b, METAL3, ix, iy - half_off, ix, ay)
+    _cap_descend(b, (ix, ay), anchor_xy)
+
+
 #: Poly space between two adjacent legs of a drawn serpentine resistor, in um
 #: (DRM ``PL.3a`` asks 0.24; drawn at 1.0 so the fold is readable and the bend
 #: that joins two legs is the same width as a leg).
@@ -855,20 +1160,20 @@ def _draw_guard_ring(
 
 def _bias_core_passives(
     b: CellBuilder, px0: float, track_y: dict[str, float], vss_y1: float
-) -> tuple[float, float]:
-    """Draw ``bias_core``'s 16 non-MOS devices; return the block's ``(x1, y1)``.
+) -> tuple[list[tuple[str, float, float, float, float]], float, float]:
+    """Draw ``bias_core``'s 16 non-MOS devices; return the drawn MiM plates
+    and the block's ``(x1, y1)``.
 
     Three regions, left to right / bottom to top from ``px0``:
 
     * the **PNP array** -- one drawn Nwell holding all ten emitters, each with
       its own ``DRC_BJT`` mark, laid out per :data:`BIAS_CORE_PNP_SLOTS`, with a
       VSS-tied Nwell tap ring around it and one Metal1 escape riser per net;
-    * the **MiM caps**, above the array, drawn but connected to nothing -- at
-      the deck revision they were drawn against, ``klt`` registered a
-      recognised capacitor's plates outside its own metal/via stack, so no
-      drawn routing could put a plate on a net (klayout-tools#314, **since
-      closed and fixed upstream**; routing them is #264's job, not this
-      function's);
+    * the **MiM caps**, above the array -- drawn here, routed by the caller
+      (``bias_core``) once the whole frame's own geometry (row tracks, VDD
+      rail, passive-block tracks) exists to route them onto (#264: routing a
+      cap plate has to reach back across the cell, so it belongs where the
+      rest of the frame is in scope, not in here);
     * the **resistor banks**, each a fold from :func:`_poly_resistor` whose leg
       count and length come from ``lvs_reference.resistor_segments`` -- the same
       function the reference netlist declares them from.
@@ -1019,7 +1324,7 @@ def _bias_core_passives(
         bank_x += bank_w + RES_BANK_GAP_UM
         block_y1 = max(block_y1, PASSIVE_BASE_Y_UM + segments[0] + width)
 
-    return bank_x - RES_BANK_GAP_UM, block_y1
+    return mim_plates, bank_x - RES_BANK_GAP_UM, block_y1
 
 
 def bias_core(b: CellBuilder) -> None:
@@ -1038,6 +1343,16 @@ def bias_core(b: CellBuilder) -> None:
     of them a *device* rather than interconnect is drawn here and every one of
     those four nets is now a distinct extracted net. See
     :func:`_bias_core_passives`.
+
+    **What the caps are connected to.** As of #264, both: ``XCC``'s plates
+    land on ``PG``/``NZ`` and ``XCOK``'s on ``VDD``/``NOKX`` (both cards'
+    golden nodes, ``design/netlist/bias_core.spice``), each through the
+    ``Metal2``-``Metal5`` escape route ``_cap_bottom_route``/
+    ``_cap_top_route`` draw once this function's own frame (row tracks, VDD
+    rail, passive-block tracks) exists to route onto -- see the "MiM plate
+    routing" section near the end of this function's body, and
+    :data:`VIA4`'s docstring for why a top plate's route needs a second
+    ``Metal4`` island.
 
     **Structure** (all dimensions from ``design/netlist/bias_core.spice``)::
 
@@ -1137,7 +1452,9 @@ def bias_core(b: CellBuilder) -> None:
     b.box(METAL1, p_x0 - 0.6, tie_y1, p_x0 - 0.2, vdd_y1)
 
     # --- the passive/bipolar block, and its own track band ------------------
-    block_x1, block_y1 = _bias_core_passives(b, passive_x0, passive_track_y, vss_y1)
+    mim_plates, block_x1, block_y1 = _bias_core_passives(
+        b, passive_x0, passive_track_y, vss_y1
+    )
     for net, y in passive_track_y.items():
         half_w = TRACK_W_UM / 2.0
         x0 = jog_x[net] - 0.6 if net in jog_x else passive_x0 - 0.6
@@ -1160,8 +1477,11 @@ def bias_core(b: CellBuilder) -> None:
     gy1 = max(vdd_y1, block_y1) + clear
 
     # --- supply rails ------------------------------------------------------
-    # VSS runs the full cell width: the passive block's Nwell tap ties to it.
-    b.box(METAL1, gx0 + 2.5, vdd_y0, row_x1 + 2.0, vdd_y1)
+    # Both run the full cell width: VSS because the passive block's Nwell tap
+    # ties to it, VDD because XCOK's routed bottom plate (below) needs a
+    # Metal1 landing under the passive block too -- neither reason applied
+    # before #90/#264 drew anything out there.
+    b.box(METAL1, gx0 + 2.5, vdd_y0, block_x1 + 1.0, vdd_y1)
     b.box(METAL1, gx0 + 1.0, vss_y0, block_x1 + 1.0, vss_y1)
     b.box(COMP, gx0 + 2.3, vss_y0, block_x1 + 0.7, vss_y1)
     for x in _span(gx0 + 2.8, block_x1 + 0.2, TAP_PITCH_UM):
@@ -1170,6 +1490,49 @@ def bias_core(b: CellBuilder) -> None:
     # --- guard ring: continuous, VSS-tied, contacted at 1 um ---------------
     # Tied to VSS by abutting the VSS rail's left end; no floating segment.
     _draw_guard_ring(b, gx0, gy0, gx1, gy1)
+
+    # --- MiM plate routing (#264) -------------------------------------------
+    # Both drawn caps' plates, connected to the schematic nodes their golden
+    # cards name (design/netlist/bias_core.spice): ``klt`` registers a
+    # capacitor's ``P1``/bottom plate as its ``nodes[0]`` and its ``P2``/top
+    # plate as ``nodes[1]``, so XCC is bottom=PG top=NZ and XCOK is
+    # bottom=VDD top=NOKX. PG and NOKX are row tracks with no reach into the
+    # passive block; NZ already does (it is one of the block's own tracks);
+    # VDD now does too, having just been extended above. Every top plate
+    # escapes through its own fresh Metal4 island in the gap between the VDD
+    # rail and the MiM block's own bottom plates (see
+    # :data:`CAP_ESCAPE_CLEAR_UM`).
+    mim = {
+        name: (x + width / 2.0, y + height / 2.0)
+        for name, x, y, width, height in mim_plates
+    }
+    off = CAP_ROUTE_VIA_OFFSET_UM / 2.0
+    escape_y = vdd_y1 + CAP_ESCAPE_CLEAR_UM
+
+    xcc_cx, xcc_cy = mim["XCC"]
+    pg_anchor = _cap_track_anchor(
+        b, track_y, "PG", row_x1 + 0.6, track_y["PG"] + CAP_ANCHOR_STUB_UM
+    )
+    _cap_bottom_route(b, (xcc_cx - off, xcc_cy), pg_anchor)
+    nz_anchor = _cap_track_anchor(
+        b,
+        passive_track_y,
+        "NZ",
+        xcc_cx - 6.0,
+        passive_track_y["NZ"] + CAP_ANCHOR_STUB_UM,
+    )
+    _cap_top_route(b, (xcc_cx + off, xcc_cy), nz_anchor, (xcc_cx - 6.0, escape_y))
+
+    xcok_cx, xcok_cy = mim["XCOK"]
+    _cap_bottom_route(
+        b, (xcok_cx - off, xcok_cy), (xcok_cx - 3.0, (vdd_y0 + vdd_y1) / 2.0)
+    )
+    nokx_anchor = _cap_track_anchor(
+        b, track_y, "NOKX", row_x1 + 0.6, track_y["NOKX"] + CAP_ANCHOR_STUB_UM
+    )
+    _cap_top_route(
+        b, (xcok_cx + off, xcok_cy), nokx_anchor, (xcok_cx + 3.0, escape_y)
+    )
 
     # --- pins --------------------------------------------------------------
     b.label("VDD", row_x1, (vdd_y0 + vdd_y1) / 2.0)
@@ -1289,15 +1652,15 @@ POC_MIM_ARRAYS = {"XCTIM": (2, 2), "XCDG": (1, 1)}
 
 def por_output_chain(b: CellBuilder) -> None:
     """All of ``por_output_chain`` (``design/por_output_chain.sch``) -- the 28
-    MOS devices and, since #92, both MiM caps.
+    MOS devices and, since #92, both MiM caps, routed since #264.
 
-    **What is drawn, and what is still not proven.** The cell has 30 devices:
-    28 single-finger MOS (14 pfet, 14 nfet) and 2 MiM caps (``XCDG`` 11x11 um,
-    ``XCTIM`` 4 x 28x28 um). All 30 are drawn and all 30 are extracted and
-    compared -- 33 extracted devices, because ``XCTIM``'s ``m=4`` draws as four
-    units and the deck models no multiplier. The 28th MOS, ``XMRLK``, is the
-    release latch issue #56 added (DR-016); it is placed beside ``XMDBNI``,
-    whose gate net (``ND1``) and drawn geometry it shares.
+    **What is drawn.** The cell has 30 devices: 28 single-finger MOS (14
+    pfet, 14 nfet) and 2 MiM caps (``XCDG`` 11x11 um, ``XCTIM`` 4 x 28x28 um).
+    All 30 are drawn and all 30 are extracted and compared -- 33 extracted
+    devices, because ``XCTIM``'s ``m=4`` draws as four units and the deck
+    models no multiplier. The 28th MOS, ``XMRLK``, is the release latch issue
+    #56 added (DR-016); it is placed beside ``XMDBNI``, whose gate net
+    (``ND1``) and drawn geometry it shares.
 
     The caps were reserved floor area until #92: ``klt``'s curated ``gf180mcu``
     deck used to recognise ``nfet``/``pfet`` only (klayout-tools#219), so drawn
@@ -1305,35 +1668,24 @@ def por_output_chain(b: CellBuilder) -> None:
     shorted (klayout-tools#288). ``klt 0.1.0`` declares
     ``cap_mim_2f0_m4m5_noshield`` (#225 landed), so the plates are now real:
     ``FuseTop`` top plate carrying both ``CAP_MK`` and ``MIM_L_MK``, over a
-    ``Metal4`` bottom plate -- see :func:`_mim_cap`. That is the whole of the
-    upper-level geometry in this cell; signal routing is still Metal1-only.
+    ``Metal4`` bottom plate -- see :func:`_mim_cap`. Every MOS device's own
+    routing is still Metal1-only; the caps' own plate-to-net routing, added by
+    #264, is the cell's only Metal2-Metal5 geometry (see the "MiM plate
+    routing" section near the end of this function's body, and :data:`VIA4`'s
+    docstring for the topology).
 
-    What the compare now proves about them is their **capacitance**: the
-    extracted value is the drawn plates' overlap area times the deck's
-    2.0 fF/um^2, checked against the same golden ``c_width``/``c_length`` the
-    plates are drawn from. What it still does not prove is **what either plate
-    is connected to**. At the deck revision these plates were drawn against,
-    ``klt`` registered a recognised capacitor's plates as
-    their own self-connected nodes outside the deck's metal/via stack, and the
-    top plate's layer was not in that stack at all, so no drawn routing could
-    put a
-    plate on a schematic net -- every cap extracts as an isolated pair of nets
-    whatever is drawn around it. Drawing plate-to-rail routing anyway would have
-    added
-    real geometry that no check in this flow could read, so it is not drawn, and
-    ``lvs_reference.py`` names the plate nets after the schematic nodes they are
-    *meant* to be on (``XCDG.NDG``) so the gap is legible in the reference
-    netlist. Filed generically as klayout-tools#314 -- **since closed and fixed
-    upstream**, so routing them would now be checked; that is #264's job, not
-    this cell's as drawn. (And #315 for the deck
-    modelling only the 5-metal MiM variant, still open in effect.)
-    ``layout/README.md`` records both.
-
-    That gap costs **no net** in the compare: both ``NDG`` and ``TIM`` carry MOS
-    terminals as well, so every net in the schematic still exists on both sides
-    with all of its MOS connections. And the two capacitor *values* -- the
-    deglitch dwell and the one-shot width -- are no longer purely ``sim/``'s
-    claim: the drawn area behind them is now checked.
+    **What the compare now proves.** The extracted capacitance is the drawn
+    plates' overlap area times the deck's 2.0 fF/um^2, checked against the
+    same golden ``c_width``/``c_length`` the plates are drawn from -- as it
+    always was. What #264 adds is **connectivity**: each drawn unit's two
+    plates land on the schematic nodes its golden card names (``XCDG`` on
+    ``NDG``/``VSS``, ``XCTIM`` on ``TIM``/``VSS``) rather than each extracting
+    as its own isolated net pair, closing the gap ``klayout-tools#314``
+    (fixed upstream, in the pinned ``klt 0.2.0``) had left open. Both
+    ``NDG`` and ``TIM`` also carry MOS terminals, so no net's existence in
+    the compare depended on the caps either way -- what changes is that the
+    cap terminals now answer to the *same* nets those MOS terminals do,
+    instead of to a synthesized stand-in.
 
     **Placement.** ``layout/floorplan.md`` puts this cell nearest the
     ``RESETn`` pad, "shortest path from the push-pull output driver", and in
@@ -1367,14 +1719,19 @@ def por_output_chain(b: CellBuilder) -> None:
         |  VSS rail (Metal1) over a p-substrate tap strap (COMP)              |
         +---------------------------------------------------------------------+
 
-    Signal routing is Metal1-only -- the scheme this cell was drawn with when
-    the extraction deck declared one metal level, kept because it works and
-    redrawing a proven cell to use a capability it does not need is a
-    regression risk for no gain. The MiM block's ``Metal4`` is the cell's only
-    geometry above Metal1, and it is device geometry, not routing. The scheme
-    that makes 28 devices routable on one metal is ``bias_core``'s: **horizontal
-    Poly2 tracks, one per signal net, with vertical Metal1 risers**, so a riser
-    crosses every track it does not belong to with no contact.
+    MOS-to-MOS signal routing is Metal1-only -- the scheme this cell was drawn
+    with when the extraction deck declared one metal level, kept because it
+    works and redrawing a proven cell to use a capability it does not need is
+    a regression risk for no gain. The scheme that makes 28 devices routable
+    on one metal is ``bias_core``'s: **horizontal Poly2 tracks, one per
+    signal net, with vertical Metal1 risers**, so a riser crosses every track
+    it does not belong to with no contact. The MiM block's own ``Metal4`` is
+    device geometry, not routing; the ``Metal2``-``Metal5`` the caps' plate
+    routing (#264) adds is real routing, but it only ever escapes a cap plate
+    down to this same Metal1/Poly2 scheme's own tracks and rails -- nothing
+    else in the cell ever touches those four layers, so a route on them can
+    only ever short two of the caps' own nets to each other, never to a MOS
+    device's.
 
     **Matching.** ``layout/floorplan.md``'s ranked, #15-data-driven
     common-centroid plan covers ``temp_core`` (ranks 1-3) and ``por_comparator``
@@ -1471,6 +1828,58 @@ def por_output_chain(b: CellBuilder) -> None:
     # --- MiM caps: drawn, not reserved (#92) -------------------------------
     for _name, x, y, w, h in mim_plates:
         _mim_cap(b, x, y, w, h)
+
+    # --- MiM plate routing (#264) -------------------------------------------
+    # Both cards' plates, connected to the schematic nodes their golden cards
+    # name (design/netlist/por_output_chain.spice): ``klt`` registers a
+    # capacitor's ``P1``/bottom plate as its ``nodes[0]`` and its
+    # ``P2``/top plate as ``nodes[1]``, so ``XCDG`` is bottom=NDG top=VSS and
+    # ``XCTIM`` is bottom=TIM top=VSS -- the two cards share their top-plate
+    # node, so all five drawn units' top plates strap onto one route
+    # (:func:`_cap_strap_top_route`). ``XCTIM``'s own four bottom plates
+    # strap the same way onto ``TIM`` (:func:`_cap_strap_bottom_route`);
+    # ``XCDG``'s one bottom plate is a single-unit route
+    # (:func:`_cap_bottom_route`) straight onto ``NDG``. The ``TIM`` and
+    # ``NDG`` Poly2 tracks, and the ``VSS`` rail, already reach under the
+    # whole MiM block (drawn the full row width above), but a new anchor
+    # dropped at an arbitrary x under the block risks landing on top of one
+    # of the 28 devices' own risers on that same track packed in below --
+    # exactly what happened here in review (a plate-centred NDG anchor
+    # shorted onto XMG2N's own PGDGB drain riser). Landing past the row's own
+    # right edge instead (:data:`CAP_ANCHOR_STUB_UM`'s x, one past the last
+    # riser column, mirroring ``bias_core``'s ``PG``/``NOKX`` anchors) keeps
+    # every new anchor clear of every device's own Metal1 by construction,
+    # for the price of a longer Metal2 jog. ``VSS`` needs none of this: a
+    # point on the rail's own already-continuous Metal1 is never a short,
+    # wherever it lands.
+    xctim = [
+        (x + w / 2.0, y + h / 2.0) for name, x, y, w, h in mim_plates if name == "XCTIM"
+    ]
+    xcdg_x, xcdg_y, xcdg_w, xcdg_h = next(
+        (x, y, w, h) for name, x, y, w, h in mim_plates if name == "XCDG"
+    )
+    xcdg_c = (xcdg_x + xcdg_w / 2.0, xcdg_y + xcdg_h / 2.0)
+    off = CAP_ROUTE_VIA_OFFSET_UM / 2.0
+
+    tim_anchor = _cap_track_anchor(
+        b, track_y, "TIM", row_x1 + 0.6, track_y["TIM"] + CAP_ANCHOR_STUB_UM
+    )
+    _cap_strap_bottom_route(b, [(cx - off, cy) for cx, cy in xctim], tim_anchor)
+
+    ndg_anchor = _cap_track_anchor(
+        b, track_y, "NDG", row_x1 + 0.6, track_y["NDG"] + CAP_ANCHOR_STUB_UM
+    )
+    _cap_bottom_route(b, (xcdg_c[0] - off, xcdg_c[1]), ndg_anchor)
+
+    # The escape island's x sits under XCTIM's second column -- clear (in x)
+    # of XCDG's own bottom plate, though only the island's y (below every
+    # bottom plate in the block) is what `mim.space.1` actually needs.
+    island_xy = (xctim[1][0] + 3.0, vdd_y1 + CAP_ESCAPE_CLEAR_UM)
+    vss_anchor = (island_xy[0], (vss_y0 + vss_y1) / 2.0)
+    vss_plate_xys = [(cx + off, cy) for cx, cy in xctim] + [
+        (xcdg_c[0] + off, xcdg_c[1])
+    ]
+    _cap_strap_top_route(b, vss_plate_xys, vss_anchor, island_xy)
 
     # --- pins --------------------------------------------------------------
     b.label("VDD", row_x1, (vdd_y0 + vdd_y1) / 2.0)
