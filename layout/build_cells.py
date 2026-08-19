@@ -838,9 +838,12 @@ def _bias_core_passives(
     * the **PNP array** -- one drawn Nwell holding all ten emitters, each with
       its own ``DRC_BJT`` mark, laid out per :data:`BIAS_CORE_PNP_SLOTS`, with a
       VSS-tied Nwell tap ring around it and one Metal1 escape riser per net;
-    * the **MiM caps**, above the array, drawn but connected to nothing -- the
-      deck registers a recognised capacitor's plates outside its own metal/via
-      stack, so no drawn routing can put a plate on a net (klayout-tools#314);
+    * the **MiM caps**, above the array, drawn but connected to nothing -- at
+      the deck revision they were drawn against, ``klt`` registered a
+      recognised capacitor's plates outside its own metal/via stack, so no
+      drawn routing could put a plate on a net (klayout-tools#314, **since
+      closed and fixed upstream**; routing them is DR-028's job, not this
+      function's);
     * the **resistor banks**, each a fold from :func:`_poly_resistor` whose leg
       count and length come from ``lvs_reference.resistor_segments`` -- the same
       function the reference netlist declares them from.
@@ -1284,16 +1287,22 @@ def por_output_chain(b: CellBuilder) -> None:
     extracted value is the drawn plates' overlap area times the deck's
     2.0 fF/um^2, checked against the same golden ``c_width``/``c_length`` the
     plates are drawn from. What it still does not prove is **what either plate
-    is connected to**. ``klt`` registers a recognised capacitor's plates as
+    is connected to**. At the deck revision these plates were drawn against,
+    ``klt`` registered a recognised capacitor's plates as
     their own self-connected nodes outside the deck's metal/via stack, and the
-    top plate's layer is not in that stack at all, so no drawn routing can put a
+    top plate's layer was not in that stack at all, so no drawn routing could
+    put a
     plate on a schematic net -- every cap extracts as an isolated pair of nets
-    whatever is drawn around it. Drawing plate-to-rail routing anyway would add
-    real geometry that no check in this flow can read, so it is not drawn, and
+    whatever is drawn around it. Drawing plate-to-rail routing anyway would have
+    added
+    real geometry that no check in this flow could read, so it is not drawn, and
     ``lvs_reference.py`` names the plate nets after the schematic nodes they are
     *meant* to be on (``XCDG.NDG``) so the gap is legible in the reference
-    netlist. Filed generically as klayout-tools#314 (and #315 for the deck
-    modelling only the 5-metal MiM variant); ``layout/README.md`` records both.
+    netlist. Filed generically as klayout-tools#314 -- **since closed and fixed
+    upstream**, so routing them would now be checked; that is DR-028's job, not
+    this cell's as drawn. (And #315 for the deck
+    modelling only the 5-metal MiM variant, still open in effect.)
+    ``layout/README.md`` records both.
 
     That gap costs **no net** in the compare: both ``NDG`` and ``TIM`` carry MOS
     terminals as well, so every net in the schematic still exists on both sides
@@ -2323,7 +2332,9 @@ def temp_core(b: CellBuilder) -> None:
     or compared, so keeping the split would have kept 59 real devices
     permanently outside the only check that could answer for their wiring.
 
-    One device stays out: the MiM cap ``XCC``. See :func:`_temp_core_passives`.
+    One device stays out for now: the MiM cap ``XCC``. Decided to be drawn
+    (``spec/decision-records/DR-028-temp-core-xcc-draw-it.md``), sequenced
+    behind a toolchain migration. See :func:`_temp_core_passives`.
     """
     _temp_core_body(b)
 
@@ -2448,22 +2459,31 @@ def _temp_core_passives(b: CellBuilder, channel: _Channel) -> None:
     need (klayout-tools#222/#223) and this repo owns the marker geometry that
     turns drawn poly and drawn diffusion into those devices.
 
-    **The MiM cap ``XCC`` is still not drawn**, and that is a deck limit, not
-    an oversight. Two independent blockers, either one sufficient:
+    **The MiM cap ``XCC`` is still not drawn -- but that is now a sequencing
+    state, not a deck limit.** The two blockers this docstring used to state as
+    settled fact have both expired, and
+    ``spec/decision-records/DR-028-temp-core-xcc-draw-it.md`` decides to draw
+    it:
 
-    * the deck models exactly one MiM device, ``cap_mim_2f0_m4m5_noshield``
-      (bottom plate ``Metal4``, top plate ``FuseTop``), while this block's cap
-      is the ``m3m4`` flavour the schematic names. Drawing the ``m4m5`` stack
-      to make the deck recognise *something* would be drawing a different
-      device than the schematic asks for;
-    * a recognised MiM's two plate regions are registered as their own
-      self-connected nodes and are **not** wired into the deck's
-      contact/via/metal connectivity stack, so the extracted cap's terminals
-      are anonymous nets no matter what the layout connects them to. A drawn
-      ``XCC`` would compare as a capacitor floating between two nets, which
-      says less than leaving it out and saying so.
+    * the deck still models exactly one MiM device,
+      ``cap_mim_2f0_m4m5_noshield`` (bottom plate ``Metal4``, top plate
+      ``FuseTop``), while this block's cap is the ``m3m4`` flavour the
+      schematic names (klayout-tools#315). That substitution is real, but it is
+      not a reason to single ``XCC`` out: ``lvs_reference.CAP_CLASS`` already
+      makes it for all four golden MiM cards this block does draw;
+    * the claim that a recognised MiM's plate regions are **not** wired into
+      the deck's contact/via/metal connectivity stack is **no longer true**.
+      klayout-tools#314 is closed and the ``gf180mcu`` deck's
+      ``CapacitorDevice`` now carries ``top_plate_via`` (``Via4``) /
+      ``top_plate_via_metal`` (``Metal5``), so a *routed* MiM cap's plates
+      reach the connectivity graph and can be compared against real schematic
+      nets.
 
-    See ``layout/README.md`` -> "Known deck limits".
+    DR-028 sequences the drawing behind a migration of this repo's layout
+    evidence onto a published ``klt`` release -- see ``layout/README.md`` ->
+    "Known deck limits" for the measurement behind that. Until then this cell
+    draws no ``XCC`` and ``postlayout.py`` keeps splicing it in ideal, which is
+    disclosed everywhere it matters.
     """
     right = _temp_core_resistor_bank(b, channel, _FIELD_X0, _FIELD_Y0)
     _temp_core_pnp_array(b, channel, right + _Q_GAP, _FIELD_Y0)

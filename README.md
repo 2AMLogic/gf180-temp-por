@@ -40,12 +40,15 @@ project has:
 **Where that leaves the layout.** It is drawn and assembled. DRC is
 clean on all five cells including `temp_por_top` (238 devices, 159
 nets), and each is LVS-matched device-for-device and net-for-net against
-its schematic-derived reference netlist. One device is deliberately
-excluded from that compare — `temp_core`'s MiM compensation cap `XCC`,
-which the curated extraction deck cannot model in this block's m3m4
-flavour (issue #177) — so the assembly is **not** LVS'd *whole*, and
-that cap is spliced back in at its schematic value wherever a simulation
-needs it. Guard-ring and well-tie *correctness* is checked by nothing in
+its schematic-derived reference netlist. One device is still excluded
+from that compare — `temp_core`'s MiM compensation cap `XCC` — so the
+assembly is **not** LVS'd *whole*, and that cap is spliced back in at its
+schematic value wherever a simulation needs it. That exclusion is no
+longer a standing design decision: it is decided to be reversed by
+[DR-028](spec/decision-records/DR-028-temp-core-xcc-draw-it.md) (issue
+#177), which found both of its recorded justifications expired, and
+sequenced the drawing behind a migration of this repo's layout evidence
+onto a published `klt` release. Guard-ring and well-tie *correctness* is checked by nothing in
 this flow, because the deck has no tap or well-label layer; the status
 block at the top of [`layout/README.md`](layout/README.md) carries that
 and the rest of the known deck limits.

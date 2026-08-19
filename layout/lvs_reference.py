@@ -48,7 +48,11 @@ and the drawn vertical bipolar (``bipolars``) in the manifest below:
   isolated two-terminal net pair. The schematic's plate nodes are rewritten to
   per-instance isolated nets named after them (``XCDG.NDG`` / ``XCDG.VSS``), so
   the loss is visible on the face of the reference netlist rather than implied.
-  Filed generically as klayout-tools#314.
+  Filed generically as klayout-tools#314 -- **since closed and fixed upstream**
+  (the deck now declares ``top_plate_via`` / ``top_plate_via_metal``, so a
+  *routed* plate does reach the stack). This block's caps are still drawn
+  floating, so the rewrite above still describes what the committed geometry
+  proves; re-routing them is DR-028's job, not this module's.
 * **Bipolar base and collector** -- the deck recognises a vertical bipolar as
   ``Nwell`` ∩ ``DRC_BJT`` (base) with a ``Comp`` emitter inside it and *no
   drawn collector*: the collector is the substrate, so it lands on the same
@@ -501,10 +505,14 @@ CELLS = {
     # (XR1/XR2*/XRISO/XRZ) used to be drawn as sibling top cells, outside this
     # compare, because the curated deck could not model them; #93 folded them
     # back in once klayout-tools#222/#223 landed and the marker geometry was
-    # drawn. XCC stays out: the deck models only the 5LM (Metal4/Metal5) MiM
-    # option and this block's cap is the m3m4 flavour, and a recognised MiM's
-    # plate nets are not joined to the routing connectivity stack at all --
-    # see layout/README.md -> "Known deck limits".
+    # drawn. XCC stays out *for now* -- but by sequencing, not by deck limit:
+    # DR-028 (spec/decision-records/DR-028-temp-core-xcc-draw-it.md) decides to
+    # draw it, and this manifest gains a "caps": ["XCC"] entry when the layout
+    # evidence base moves onto a published klt release. Of the two blockers
+    # that were once recorded here, only the m3m4 -> m4m5 stack substitution
+    # survives (CAP_CLASS below already makes it for four other golden cards);
+    # klayout-tools#314 is closed and a routed MiM plate now does reach the
+    # deck's connectivity stack -- see layout/README.md -> "Known deck limits".
     "temp_core": {
         "source": "temp_core.spice",
         "subckt": "temp_core",
@@ -1435,14 +1443,24 @@ def cap_units(cap: dict) -> int:
 def cap_plate_nets(name: str, cap: dict, unit: int, units: int) -> list[str]:
     """The two isolated nets one drawn MiM unit's plates extract onto.
 
-    ``klt`` registers a recognised capacitor's plates as their own
-    self-connected connectivity nodes and the top plate's layer is not in the
-    deck's metal stack at all, so *no* drawn routing can put either plate on a
-    schematic net (``CapacitorDevice``'s "Known limitation"; see the module
-    docstring). The reference therefore names each plate after the schematic
-    node it is *meant* to be on, scoped to its own instance so it stays
-    isolated: ``XCDG.NDG``, ``XCTIM.3.VSS``. Reading the reference netlist shows
-    the fidelity loss rather than hiding it behind an anonymous ``n17``.
+    At the ``klt`` revision these cells were drawn and this repo's committed
+    evidence was produced against, ``klt`` registered a recognised capacitor's
+    plates as their own self-connected connectivity nodes, with the top plate's
+    layer outside the deck's metal stack entirely, so *no* drawn routing could
+    put either plate on a schematic net (``CapacitorDevice``'s "Known
+    limitation"; see the module docstring). The reference therefore names each
+    plate after the schematic node it is *meant* to be on, scoped to its own
+    instance so it stays isolated: ``XCDG.NDG``, ``XCTIM.3.VSS``. Reading the
+    reference netlist shows the fidelity loss rather than hiding it behind an
+    anonymous ``n17``.
+
+    **That limitation is fixed upstream** (klayout-tools#314 closed; the deck's
+    ``CapacitorDevice`` now carries ``top_plate_via`` / ``top_plate_via_metal``,
+    i.e. ``Via4`` up to ``Metal5``). The plates in *this* block are still drawn
+    floating, so this synthesis is still the correct description of what the
+    committed geometry proves -- but it is a property of the drawing, not of
+    the tool, and it goes away when the caps are routed. See DR-028
+    (``spec/decision-records/DR-028-temp-core-xcc-draw-it.md``).
     """
     tag = name if units == 1 else f"{name}.{unit}"
     return [f"{tag}.{node}" for node in cap["nodes"]]
