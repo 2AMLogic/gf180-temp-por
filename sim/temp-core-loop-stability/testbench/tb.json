@@ -1,0 +1,48 @@
+{
+  "name": "temp-core-loop-stability",
+  "description": "Small-signal .ac loop-gain testbench for temp_core's error amplifier loop (issue #274). Breaks the loop at PG -- the amplifier's own output stays on that node (probed via v(xdut.pg)); the two mirror-gate connections that actually close the loop (XMP1, XMP2) move to a new node PG_FB the testbench injects an AC test signal onto. Reports the closed-loop-equivalent open-loop gain T(jw) = V(xdut.pg)/V(pg_fb), its unity-gain crossover frequency, phase margin there, and gain margin at the frequency the loop phase crosses zero. See testbench/tb_temp_core_loop_stability.spice's header for the break-point construction and the algebra showing the measured ratio does not depend on the injection source's polarity or amplitude, and design/temp_core.md's 'Error amplifier' section for the topology this loop implements.",
+  "claim": "design/temp_core.md#loop-stability -- not a spec/target-spec.md claim: issue #274's own scoping question ('does a phase-margin bound belong in spec/target-spec.md?') is resolved here as 'not yet' -- every sim/temp-core-*/ transient record already shows the loop settling cleanly at every PVT point with no ringing or non-convergence, so there is no evidence of an actual instability problem motivating a new ratified bound today. This record closes the coverage gap (a quantified phase/gain margin has never been measured for this loop at all) and gives design/temp_core.md something to cite instead of merely naming the gap; promoting a specific number to spec/target-spec.md is left as a separate, deliberate decision (its own decision record) for whenever a concrete margin requirement is actually needed. Deterministic corners only (design.ngspice sets sw_stat_mismatch=0) -- mismatch on this loop's own devices is out of scope for a stability-margin measurement (mismatch perturbs the DC operating point and the input-referred offset, not the small-signal loop dynamics around it).",
+  "netlist": "tb_temp_core_loop_stability.spice",
+  "nominal_supply_v": 3.3,
+  "supply_tolerance": 0.1,
+  "temperatures_c": [-40, 27, 125],
+  "corners": ["full"],
+  "analyses": [
+    "op",
+    "let dc_vptat = v(ptat)",
+    "let dc_vctat = v(ctat)",
+    "let dc_vpg = v(xdut.pg)",
+    "let dc_vpgfb = v(pg_fb)",
+    "ac dec 30 1 10g",
+    "let loopgain_db = vdb(xdut.pg) - vdb(pg_fb)",
+    "let loopphase_deg = (vp(xdut.pg) - vp(pg_fb)) * 180 / 3.14159265358979",
+    "meas ac fc0db find frequency when loopgain_db=0 cross=1",
+    "meas ac phase_at_fc0db find loopphase_deg when loopgain_db=0 cross=1",
+    "meas ac fpx0 find frequency when loopphase_deg=0 cross=1",
+    "meas ac gain_at_fpx0 find loopgain_db when loopphase_deg=0 cross=1"
+  ],
+  "measure": {
+    "vptat_dc_v": "op1.dc_vptat",
+    "vctat_dc_v": "op1.dc_vctat",
+    "vpg_dc_v": "op1.dc_vpg",
+    "vpgfb_dc_v": "op1.dc_vpgfb",
+    "dc_bias_delta_mv": "(op1.dc_vpg - op1.dc_vpgfb)*1e3",
+    "dc_loopgain_db": "loopgain_db[0]",
+    "fc0db_mhz": "fc0db/1e6",
+    "phase_margin_deg": "phase_at_fc0db",
+    "fpx0_mhz": "fpx0/1e6",
+    "gain_margin_db": "-1*gain_at_fpx0"
+  },
+  "checks": {
+    "dc_bias_delta_mv": {
+      "min": -0.001,
+      "max": 0.001,
+      "description": "the loop-break injection source (DC value 0) must reproduce the true closed-loop DC operating point exactly -- v(xdut.pg) and v(pg_fb) are the same physical node in design/netlist/temp_core.spice, so a 0 V DC source between them is indistinguishable from the wire it replaces. A nonzero delta here means the break technique is loading the circuit (see testbench/tb.json's description and sim/temp-core-designer-check's own vptat/vctat DC records for the closed-loop cross-check this substitutes for)."
+    },
+    "phase_margin_deg": {
+      "min": -180.0,
+      "max": 180.0,
+      "description": "sanity bound only, not a spec target -- see design/temp_core.md's 'Loop stability' note and issue #274's 'What to do': no phase-margin bound is ratified in spec/target-spec.md yet. This just catches a computation error (e.g. a missed unit conversion) producing a value outside what a phase in degrees can ever be."
+    }
+  }
+}
