@@ -37,17 +37,17 @@
   "environment": {
     "engine": "klayout",
     "engine_version": "0.30.10",
-    "layout_sha256": "45b4b14914c4e651e4488b9732988faee047047fb95887b71a126ae331815168",
+    "layout_sha256": "c60a2ef35e34d6d4e0e70ba0a9937467b37676cc94a041b325e2117d5da44412",
     "reference_sha256": "bee586ec94d52cbc98ec0f48dfb0a3187f7e0df6e3b1d881c281639ded85c305",
     "extracted_netlist": null
   },
   "provenance": {
-    "klt_version": "0.1.0",
+    "klt_version": "0.2.0",
     "klayout_version": "0.30.10",
     "pdk": null,
     "deck": {
       "name": "gf180mcu",
-      "content_hash": "sha256:be1a89e0f899a68c60baeeedffe1b4d76b965bd763e1b16beed1c85937872b1d"
+      "content_hash": "sha256:1256c45b3e472635b03a1888d0730822c1872b4a912a2c90fc1e4e7cd14a3913"
     },
     "input": null
   },
@@ -63,7 +63,8 @@
         "reference": null,
         "class": "nfet"
       },
-      "property": null
+      "property": null,
+      "details": null
     },
     {
       "category": "device.body_unverified",
@@ -76,7 +77,8 @@
         "reference": null,
         "class": "pfet"
       },
-      "property": null
+      "property": null,
+      "details": null
     },
     {
       "category": "topology",
@@ -85,7 +87,8 @@
       "side": "layout",
       "net": null,
       "device": null,
-      "property": null
+      "property": null,
+      "details": null
     }
   ],
   "net_correspondence": [

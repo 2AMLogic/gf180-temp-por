@@ -4,7 +4,7 @@
 * FROM THE LAYOUT: every device and its dimensions, the whole
 *   topology, and first-order interconnect R/C on 47/54 nets
 *   (sigma 1920.0 fF). klt 0.2.0, deck gf180mcu,
-*   GDS sha256 6d6236d05ae0cd82...
+*   GDS sha256 215b742bbc05cfd0...
 * Net names are the schematic's, restored through klt lvs's own net
 *   correspondence -- match, 54/54 nets, every one paired.
 *
@@ -181,6 +181,6 @@ RVDD VDD VDD__par 371.4414
 CVDD VDD__par VSS 1.29011679e-13
 RVREF VREF VREF__par 7695.5815
 CVREF VREF__par VSS 7.3513489e-14
-RVSS VSS VSS__par 145.0301
-CVSS VSS__par VSS 2.53093198e-13
+RVSS VSS VSS__par 145.0127
+CVSS VSS__par VSS 2.53079568e-13
 .ends bias_core

@@ -709,9 +709,9 @@ R_27 \$27 \$27__par 1330.8009
 * device instance _27 r0 *1 0,0 
 C_27 \$27__par vsubs 1.7531363e-14
 * device instance _28 r0 *1 0,0 
-R_28 \$28 \$28__par 4872.473
+R_28 \$28 \$28__par 4872.4842
 * device instance _28 r0 *1 0,0 
-C_28 \$28__par vsubs 5.6524204e-14
+C_28 \$28__par vsubs 5.6528747e-14
 * device instance _29 r0 *1 0,0 
 R_29 \$29 \$29__par 4462.4943
 * device instance _29 r0 *1 0,0 
@@ -721,17 +721,17 @@ R_30 \$30 \$30__par 3937.0807
 * device instance _30 r0 *1 0,0 
 C_30 \$30__par vsubs 3.4262384e-14
 * device instance _31 r0 *1 0,0 
-R_31 \$31 \$31__par 4189.4122
+R_31 \$31 \$31__par 4189.4235
 * device instance _31 r0 *1 0,0 
-C_31 \$31__par vsubs 4.2342204e-14
+C_31 \$31__par vsubs 4.2346747e-14
 * device instance _32 r0 *1 0,0 
-R_32 \$32 \$32__par 4066.8624
+R_32 \$32 \$32__par 4066.8737
 * device instance _32 r0 *1 0,0 
-C_32 \$32__par vsubs 3.8940744e-14
+C_32 \$32__par vsubs 3.8945287e-14
 * device instance _33 r0 *1 0,0 
-R_33 \$33 \$33__par 4009.3404
+R_33 \$33 \$33__par 4009.3517
 * device instance _33 r0 *1 0,0 
-C_33 \$33__par vsubs 3.953615e-14
+C_33 \$33__par vsubs 3.9540693e-14
 * device instance _34 r0 *1 0,0 
 R_34 \$34 \$34__par 3939.9598
 * device instance _34 r0 *1 0,0 
@@ -741,13 +741,13 @@ R_35 \$35 \$35__par 3936.7209
 * device instance _35 r0 *1 0,0 
 C_35 \$35__par vsubs 3.4117005e-14
 * device instance _36 r0 *1 0,0 
-R_36 \$36 \$36__par 3938.5202
+R_36 \$36 \$36__par 3938.5314
 * device instance _36 r0 *1 0,0 
-C_36 \$36__par vsubs 3.4843901e-14
+C_36 \$36__par vsubs 3.4848444e-14
 * device instance _37 r0 *1 0,0 
-R_37 \$37 \$37__par 4076.1659
+R_37 \$37 \$37__par 4076.1772
 * device instance _37 r0 *1 0,0 
-C_37 \$37__par vsubs 4.4250826e-14
+C_37 \$37__par vsubs 4.4255369e-14
 * device instance _39 r0 *1 0,0 
 R_39 \$39 \$39__par 4876.8874
 * device instance _39 r0 *1 0,0 
@@ -789,9 +789,9 @@ R_48 \$48 \$48__par 4003.4777
 * device instance _48 r0 *1 0,0 
 C_48 \$48__par vsubs 3.7210339e-14
 * device instance _49 r0 *1 0,0 
-R_49 \$49 \$49__par 4060.1793
+R_49 \$49 \$49__par 4060.1906
 * device instance _49 r0 *1 0,0 
-C_49 \$49__par vsubs 3.9476253e-14
+C_49 \$49__par vsubs 3.9480796e-14
 * device instance _54 r0 *1 0,0 
 R_54 \$54 \$54__par 18.25
 * device instance _54 r0 *1 0,0 
@@ -1017,15 +1017,15 @@ RT5 T5 T5__par 607.3914
 * device instance T5 r0 *1 0,0 
 CT5 T5__par vsubs 4.5515196e-14
 * device instance VDD r0 *1 0,0 
-RVDD VDD VDD__par 12215.7599
+RVDD VDD VDD__par 12215.7985
 * device instance VDD r0 *1 0,0 
-CVDD VDD__par vsubs 3.73907065e-13
+CVDD VDD__par vsubs 3.73925237e-13
 * device instance VREF r0 *1 0,0 
 RVREF VREF VREF__par 9024.0306
 * device instance VREF r0 *1 0,0 
 CVREF VREF__par vsubs 8.5089816e-14
 * device instance VSS r0 *1 0,0 
-RVSS VSS VSS__par 3387.026
+RVSS VSS VSS__par 3386.9482
 * device instance VSS r0 *1 0,0 
-CVSS VSS__par vsubs 1.829253353e-12
+CVSS VSS__par vsubs 1.829144318e-12
 .ENDS temp_por_top

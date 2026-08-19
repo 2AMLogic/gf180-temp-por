@@ -29,8 +29,8 @@
     },
     {
       "measure": "sns_v",
-      "postlayout": 1.6122818567,
-      "schematic": 1.6122818567,
+      "postlayout": 1.6122818568,
+      "schematic": 1.6122818568,
       "delta_frac": 0.0,
       "window": [
         1.0,
@@ -41,9 +41,9 @@
     },
     {
       "measure": "snsb_v",
-      "postlayout": 0.16566085857,
-      "schematic": 0.16566085872,
-      "delta_frac": -9.05464246741652e-10,
+      "postlayout": 0.16566085858,
+      "schematic": 0.1656608587,
+      "delta_frac": -7.243715315164217e-10,
       "window": [
         0.05,
         0.6

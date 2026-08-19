@@ -21,9 +21,9 @@
   "measurements": [
     {
       "measure": "t_release_ms",
-      "postlayout": 10.27027,
+      "postlayout": 10.27028,
       "schematic": 10.06806,
-      "delta_frac": 0.02008430621192175,
+      "delta_frac": 0.020085299451930216,
       "window": [
         1.0,
         29.0

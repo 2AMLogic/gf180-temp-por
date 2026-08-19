@@ -41,8 +41,21 @@ LAYOUT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(dirname "$LAYOUT_DIR")"
 cd "$REPO_ROOT"
 
-DECK="gf180mcu"
 REPORTS="layout/reports"
+
+# --- the pinned toolchain ----------------------------------------------------
+#
+# Declared once, in layout/toolchain.json, and read here rather than retyped:
+# which `klt` build (and therefore which `gf180mcu` deck revision) every report
+# under layout/reports/ is evidence for. `load_pin` is called once the
+# arguments are known (a usage error should not depend on the pin being
+# readable); the gate that enforces it is `toolchain_gate` below.
+DECK=""
+
+load_pin() {
+  eval "$(python3 layout/lvs_reference.py --pinned-toolchain)"
+  DECK="$PIN_DECK"
+}
 
 red() { printf '\033[0;31m%s\033[0m\n' "$*"; }
 green() { printf '\033[0;32m%s\033[0m\n' "$*"; }
@@ -101,6 +114,96 @@ fi
 
 KLT_VERSION="$(klt --version 2>&1)"
 
+# --- live-toolchain gate (#258) ----------------------------------------------
+#
+# `klt --version` is not an identity. A source build of klayout-tools made
+# *after* a tag still carries that tag's package version, so a post-tag build
+# and the release it was built after both self-report the same `klt <version>`
+# string while shipping different decks. That is how this repo's whole
+# committed evidence base came to name a `gf180mcu` deck content hash no
+# release ships (#258): every report agreed with every other report, and
+# nothing compared any of them against a *released* deck.
+#
+# So the identity that matters is the deck content hash, and it is checked two
+# ways here, before any report is written:
+#
+#   1. the `klt` on PATH must actually produce the pinned deck hash. That is a
+#      live probe (a throwaway `klt drc` on a committed cell, read back out of
+#      the report's own `provenance.deck.content_hash`) rather than a
+#      version-string comparison, because a version string cannot tell the two
+#      builds apart. This is the half with teeth, and it always runs;
+#   2. where the `klt` on PATH has a `deck resolve` subcommand, the pinned hash
+#      is also resolved back to a klayout-tools release, which is the strongest
+#      available statement that the pin names something installable. That
+#      subcommand postdates the pinned release itself (`klt 0.2.0` does not
+#      have it), so its absence is reported, not failed: `layout/toolchain.json`
+#      records the release the pin resolves to, checked out of band against a
+#      build that does have the resolver.
+#
+# The probe reads the smallest committed GDS and writes into a temp file, so it
+# never touches layout/reports/.
+
+PROBE_DECK_HASH=""
+
+toolchain_gate() {
+  info "==> checking the klt on PATH is the pinned one ($PIN_RELEASE)"
+
+  local probe_gds probe_report
+  probe_gds="$(ls -S layout/cells/*.gds 2>/dev/null | tail -1)"
+  if [ -z "$probe_gds" ]; then
+    red "    no layout/cells/*.gds to probe the deck with"
+    return 1
+  fi
+  probe_report="$(mktemp)"
+  klt drc "$probe_gds" --deck "$DECK" --format json >"$probe_report" 2>/dev/null || true
+  PROBE_DECK_HASH="$(
+    python3 - "$probe_report" <<'PY'
+import json
+import sys
+
+try:
+    data = json.load(open(sys.argv[1]))
+except Exception:
+    print("")
+else:
+    print(data.get("provenance", {}).get("deck", {}).get("content_hash") or "")
+PY
+  )"
+  rm -f "$probe_report"
+
+  if [ -z "$PROBE_DECK_HASH" ]; then
+    red "    could not read a deck content hash out of \`klt drc\` on $probe_gds"
+    red "    (klt: $KLT_VERSION at $(command -v klt))"
+    return 1
+  fi
+
+  if [ "$PROBE_DECK_HASH" != "$PIN_DECK_HASH" ]; then
+    red "    the klt on PATH does not ship the pinned $DECK deck."
+    red "      on PATH: $KLT_VERSION at $(command -v klt)"
+    red "               ships $PROBE_DECK_HASH"
+    red "      pinned:  $PIN_KLT_VERSION -- $PIN_RELEASE"
+    red "               ships $PIN_DECK_HASH"
+    red "    Both builds may report the same \`klt --version\` string; the deck"
+    red "    hash is what tells them apart. Install the pinned release:"
+    red "      $PIN_INSTALL"
+    return 1
+  fi
+
+  green "    klt on PATH ships the pinned deck ($PIN_DECK_HASH)"
+
+  # The second, weaker half: resolve the pin back to a release where the tool
+  # can. Never fails the run -- see this section's header.
+  if klt deck resolve --deck "$DECK" --content-hash "$PIN_DECK_HASH" \
+    >/dev/null 2>&1; then
+    green "    and \`klt deck resolve\` names a released version for it"
+  else
+    info "    (this klt has no \`deck resolve\` -- the subcommand postdates the"
+    info "     pinned release; layout/toolchain.json records which release the"
+    info "     pinned hash belongs to: $PIN_RELEASE)"
+  fi
+  return 0
+}
+
 # --- argument handling -------------------------------------------------------
 #
 # `--regen-all` is the deck-hash gate's *bootstrap* mode, not a bypass: see the
@@ -122,12 +225,25 @@ if [ "$REGEN_ALL" -eq 1 ] && [ "$#" -gt 0 ]; then
   exit 2
 fi
 
+load_pin
+
 if [ "${1:-}" = "--check-env" ]; then
   echo "klt:        $KLT_VERSION ($(command -v klt))"
   echo "deck:       $DECK"
+  echo "pinned:     $PIN_KLT_VERSION -- $PIN_RELEASE"
+  echo "pinned deck hash: $PIN_DECK_HASH"
   echo "klayout py: ${KLAYOUT_PY:-<not available -- cannot rebuild GDS>}"
+  echo
+  toolchain_gate || true
+  echo
   klt pdk find || true
   exit 0
+fi
+
+if ! toolchain_gate; then
+  red "refusing to produce evidence against an unpinned toolchain -- see"
+  red "layout/toolchain.json and layout/README.md -> \"The pinned toolchain\""
+  exit 1
 fi
 
 # --- cell selection ----------------------------------------------------------
@@ -212,6 +328,9 @@ cat >"$REPORTS/environment.json" <<EOF
 {
   "klt_version": "$KLT_VERSION",
   "deck": "$DECK",
+  "deck_content_hash": "$PROBE_DECK_HASH",
+  "klt_release": "$PIN_RELEASE",
+  "pinned_by": "layout/toolchain.json",
   "note": "regenerate with: bash layout/run_checks.sh"
 }
 EOF
@@ -297,9 +416,25 @@ fi
 # report's recorded digest still matches the already-committed GDS it claims
 # to describe -- so a stale/false-clean report (#102) is caught before this
 # run's fresh reports replace the evidence of it.
+#
+# `--regen-all` defers it to after the per-cell loop, exactly as it defers the
+# deck-hash gate above and for exactly the same reason (#108, restated for this
+# gate by #258): a whole-repo regeneration is the documented repair for a
+# committed report that no longer matches its own GDS -- which is the state
+# every cell is in the moment a deliberate geometry fix lands -- and gating
+# before the loop aborted the run that was supposed to perform it. The same
+# three reasons deferral is not weakening apply unchanged: it is opt-in, it
+# cannot be pointed at a subset, and the assertion at the end of this script
+# still has to pass.
 
-info "==> checking layout/reports/ agree with layout/cells/ (gds_sha256 / layout_sha256)"
-python3 layout/lvs_reference.py --check-gds-hash
+if [ "$REGEN_ALL" -eq 0 ]; then
+  info "==> checking layout/reports/ agree with layout/cells/ (gds_sha256 / layout_sha256)"
+  python3 layout/lvs_reference.py --check-gds-hash
+else
+  info "==> --regen-all: GDS-hash gate deferred until after regeneration"
+  info "    (this run rewrites every non-frozen cell's reports from the"
+  info "     committed GDS, so the gate is asserted on the result)"
+fi
 
 # --- per-cell checks ---------------------------------------------------------
 
@@ -513,20 +648,31 @@ PY
   fi
 done
 
-# --- deferred deck-hash assertion (--regen-all only) --------------------------
+# --- deferred deck-hash assertion, and the GDS-hash one beside it -------------
+#     (--regen-all only)
 #
-# The other half of the deferral above. `--regen-all` moved the gate; this is
-# where it lands. If regenerating every non-frozen cell did not leave them on
-# one deck, that is a real finding (klt handing out different decks inside a
-# single run, or a cell whose report was skipped) and it fails the run.
+# The other half of both deferrals above. `--regen-all` moved the two gates;
+# this is where they land. If regenerating every non-frozen cell did not leave
+# them on one deck -- the pinned one -- or left a report disagreeing with the
+# GDS it was just generated from, that is a real finding (klt handing out
+# different decks inside a single run, or a cell whose report was skipped) and
+# it fails the run.
 
 if [ "$REGEN_ALL" -eq 1 ]; then
   echo
   info "==> asserting layout/reports/ now agree on one deck (deferred gate)"
   if python3 layout/lvs_reference.py --check-deck-hash; then
-    green "    deck hash consistent across every non-frozen cell"
+    green "    deck hash consistent across every non-frozen cell, and pinned"
   else
     red "    deck-hash gate still fails after regenerating every non-frozen cell"
+    red "    (--regen-all defers this gate; it does not waive it)"
+    status=1
+  fi
+  info "==> asserting layout/reports/ agree with layout/cells/ (deferred gate)"
+  if python3 layout/lvs_reference.py --check-gds-hash; then
+    green "    every report's recorded digest matches its own committed GDS"
+  else
+    red "    GDS-hash gate still fails after regenerating every non-frozen cell"
     red "    (--regen-all defers this gate; it does not waive it)"
     status=1
   fi

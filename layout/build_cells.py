@@ -136,6 +136,21 @@ VIA_SIDE_UM = 0.26
 #: edge of the contact, so the shortest Poly2 stub that can host a contact
 #: centred at ``x`` reaches ``x + CONTACT_SIDE_UM / 2 + POLY2_CONT_ENC_UM``.
 POLY2_CONT_ENC_UM = 0.07
+#: gf180mcu DRM "CO.6": minimum Metal1 overlap of a contact, all round --
+#: 0.005 um, which is what ``klt``'s ``metal1.enclosing.contact.1`` checks.
+#: Drawn at 0.04 um here (8x the rule) for the same reason
+#: :data:`MIM_ENCLOSURE_UM` is drawn over its DRM value: a landing that only
+#: just clears a rule is one grid-rounding away from not clearing it.
+METAL1_CONT_ENC_UM = 0.04
+#: The historical bottom of a device's source/drain Metal1 riser, in um. Kept
+#: as a *ceiling* rather than a fixed value: :func:`_draw_tiles` takes the
+#: lower of this and the enclosure line below the riser's own lowest contact,
+#: so a narrow device -- whose single contact row sits at ``w / 2``, lower than
+#: the inset a wide device's first row gets -- is still enclosed. Drawing this
+#: as a flat 0.15 um left every ``w = 0.5 um`` device's contact protruding
+#: 0.01 um below its riser: a real ``CO.6`` defect, invisible until a deck
+#: carried the rule (#258, the same shape as #102/#103).
+RISER_BASE_Y_UM = 0.15
 
 
 class CellBuilder:
@@ -788,12 +803,22 @@ def _draw_tiles(b: CellBuilder, tiles: list[dict], riser) -> None:
         # in these cells routes.
         b.box(POLY2, gate_x0, -0.3, gate_x0 + length, width + 1.1)
         b.contact(gate_cx, width + 0.75)
-        for y in _contact_rows(width):
+        rows = _contact_rows(width)
+        for y in rows:
             b.contact(x_source, y)
             b.contact(x_drain, y)
 
-        riser(x_source, tile["s"], 0.15, max(0.6, width - 0.2))
-        riser(x_drain, tile["d"], 0.15, max(0.6, width - 0.2))
+        # The riser has to enclose every contact in its own column by DRM
+        # CO.6, at both ends. The top has always been derived from the last
+        # contact row (`rows[-1] + half a contact + the enclosure` *is*
+        # `width - 0.2` for a wide device); the bottom used to be a flat
+        # 0.15 um, which is below a wide device's first row but *above* a
+        # narrow one's single row at `w / 2` -- see RISER_BASE_Y_UM.
+        enc = CONTACT_SIDE_UM / 2.0 + METAL1_CONT_ENC_UM
+        y_low = min(RISER_BASE_Y_UM, rows[0] - enc)
+        y_high = max(0.6, rows[-1] + enc)
+        riser(x_source, tile["s"], y_low, y_high)
+        riser(x_drain, tile["d"], y_low, y_high)
         riser(gate_cx, tile["g"], width + 0.55, width + 0.95)
 
 
@@ -842,7 +867,7 @@ def _bias_core_passives(
       the deck revision they were drawn against, ``klt`` registered a
       recognised capacitor's plates outside its own metal/via stack, so no
       drawn routing could put a plate on a net (klayout-tools#314, **since
-      closed and fixed upstream**; routing them is DR-028's job, not this
+      closed and fixed upstream**; routing them is #264's job, not this
       function's);
     * the **resistor banks**, each a fold from :func:`_poly_resistor` whose leg
       count and length come from ``lvs_reference.resistor_segments`` -- the same
@@ -1299,7 +1324,7 @@ def por_output_chain(b: CellBuilder) -> None:
     ``lvs_reference.py`` names the plate nets after the schematic nodes they are
     *meant* to be on (``XCDG.NDG``) so the gap is legible in the reference
     netlist. Filed generically as klayout-tools#314 -- **since closed and fixed
-    upstream**, so routing them would now be checked; that is DR-028's job, not
+    upstream**, so routing them would now be checked; that is #264's job, not
     this cell's as drawn. (And #315 for the deck
     modelling only the 5-metal MiM variant, still open in effect.)
     ``layout/README.md`` records both.
@@ -2334,7 +2359,7 @@ def temp_core(b: CellBuilder) -> None:
 
     One device stays out for now: the MiM cap ``XCC``. Decided to be drawn
     (``spec/decision-records/DR-028-temp-core-xcc-draw-it.md``), sequenced
-    behind a toolchain migration. See :func:`_temp_core_passives`.
+    behind #264. See :func:`_temp_core_passives`.
     """
     _temp_core_body(b)
 
@@ -2479,11 +2504,13 @@ def _temp_core_passives(b: CellBuilder, channel: _Channel) -> None:
       reach the connectivity graph and can be compared against real schematic
       nets.
 
-    DR-028 sequences the drawing behind a migration of this repo's layout
-    evidence onto a published ``klt`` release -- see ``layout/README.md`` ->
-    "Known deck limits" for the measurement behind that. Until then this cell
-    draws no ``XCC`` and ``postlayout.py`` keeps splicing it in ideal, which is
-    disclosed everywhere it matters.
+    The drawing is sequenced behind #264, which routes the four MiM cards
+    this block already draws to their schematic nets through that same
+    ``Via4``/``Metal5`` stack: ``XCC`` is the fifth instance of a pattern, and
+    establishing the pattern on cards whose plates are already proven for area
+    is the cheaper order. Until then this cell draws no ``XCC`` and
+    ``postlayout.py`` keeps splicing it in ideal, which is disclosed
+    everywhere it matters.
     """
     right = _temp_core_resistor_bank(b, channel, _FIELD_X0, _FIELD_Y0)
     _temp_core_pnp_array(b, channel, right + _Q_GAP, _FIELD_Y0)

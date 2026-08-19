@@ -1243,7 +1243,35 @@ class DeckHashConsistencyTest(unittest.TestCase):
     def setUp(self):
         self._tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self._tmp.cleanup)
-        self.reports_dir = Path(self._tmp.name)
+        self.reports_dir = Path(self._tmp.name) / "reports"
+        self.reports_dir.mkdir()
+        # The gate also compares the one agreed hash against the pinned one
+        # (#258), so every case here needs a pin to agree with. `_pin` writes
+        # a throwaway toolchain.json; cases that care about the pin itself
+        # call it with their own hash.
+        self.toolchain_path = Path(self._tmp.name) / "toolchain.json"
+        self._pin("sha256:aaa")
+
+    def _pin(self, content_hash: str):
+        self.toolchain_path.write_text(
+            json.dumps(
+                {
+                    "klt": {
+                        "version": "klt 0.0.0",
+                        "install": "<stub>",
+                        "release": {
+                            "package_version": "0.0.0",
+                            "git_tag": "v0.0.0",
+                            "git_commit": "0" * 40,
+                        },
+                    },
+                    "deck": {"name": "gf180mcu", "content_hash": content_hash},
+                }
+            )
+        )
+
+    def _check(self):
+        return lr.check_deck_hash_consistency(self.reports_dir, self.toolchain_path)
 
     def _write(self, cell: str, content_hash: str | None, malformed: bool = False):
         cell_dir = self.reports_dir / cell
@@ -1263,13 +1291,16 @@ class DeckHashConsistencyTest(unittest.TestCase):
         self._write("por_comparator", "sha256:aaa")
         self._write("temp_core", "sha256:aaa")
         self._write("por_output_chain", "sha256:aaa")
-        self.assertEqual(lr.check_deck_hash_consistency(self.reports_dir), [])
+        self.assertEqual(self._check(), [])
 
     def test_two_hashes_across_non_frozen_cells_is_a_failure(self):
+        self._pin("sha256:new")
         self._write("bias_core", "sha256:new")
         self._write("por_comparator", "sha256:old")
         self._write("temp_core", "sha256:old")
-        failures = lr.check_deck_hash_consistency(self.reports_dir)
+        # `sha256:old` also fails the pin check below, so scope this case to
+        # the disagreement finding it is about.
+        failures = [line for line in self._check() if "disagree on" in line]
         self.assertEqual(len(failures), 1)
         self.assertIn("sha256:new", failures[0])
         self.assertIn("sha256:old", failures[0])
@@ -1283,10 +1314,11 @@ class DeckHashConsistencyTest(unittest.TestCase):
                 "holds has nothing to exercise (see #111)"
             )
         # temp_por_top may lag behind #97; every other cell must still agree.
+        self._pin("sha256:current")
         self._write("por_comparator", "sha256:current")
         self._write("temp_core", "sha256:current")
         self._write("temp_por_top", "sha256:stale-behind-97")
-        self.assertEqual(lr.check_deck_hash_consistency(self.reports_dir), [])
+        self.assertEqual(self._check(), [])
 
     def test_frozen_cell_disagreement_does_not_mask_a_real_non_frozen_split(self):
         if "temp_por_top" not in lr.FROZEN_DECK_CELLS:
@@ -1297,10 +1329,11 @@ class DeckHashConsistencyTest(unittest.TestCase):
         # The frozen exception must not become a blanket bypass: a real split
         # among the *non*-frozen cells still has to fail even with a frozen
         # cell present in the same directory.
+        self._pin("sha256:current")
         self._write("por_comparator", "sha256:current")
         self._write("temp_core", "sha256:different")
         self._write("temp_por_top", "sha256:stale-behind-97")
-        failures = lr.check_deck_hash_consistency(self.reports_dir)
+        failures = [line for line in self._check() if "disagree on" in line]
         self.assertEqual(len(failures), 1)
         # temp_por_top is only named in the "excluded as frozen" aside, never
         # as one of the disagreeing cells -- its own (different-again) hash
@@ -1310,29 +1343,67 @@ class DeckHashConsistencyTest(unittest.TestCase):
         self.assertIn("temp_core", failures[0])
 
     def test_missing_provenance_is_a_failure_even_when_frozen(self):
+        self._pin("sha256:current")
         self._write("por_comparator", "sha256:current")
         self._write("temp_por_top", None)
-        failures = lr.check_deck_hash_consistency(self.reports_dir)
+        failures = self._check()
         self.assertEqual(len(failures), 1)
         self.assertIn("temp_por_top", failures[0])
         self.assertIn("no provenance.deck.content_hash", failures[0])
 
     def test_unreadable_report_is_a_failure(self):
+        self._pin("sha256:current")
         self._write("por_comparator", "sha256:current")
         self._write("temp_core", None, malformed=True)
-        failures = lr.check_deck_hash_consistency(self.reports_dir)
+        failures = self._check()
         self.assertEqual(len(failures), 1)
         self.assertIn("temp_core", failures[0])
 
     def test_a_single_cell_is_trivially_consistent(self):
+        self._pin("sha256:only-one")
         self._write("por_comparator", "sha256:only-one")
-        self.assertEqual(lr.check_deck_hash_consistency(self.reports_dir), [])
+        self.assertEqual(self._check(), [])
 
     def test_no_reports_at_all_is_not_a_failure(self):
         # An empty reports/ directory is a "nothing to check" state, not a
         # drift finding -- the per-cell checks in run_checks.sh are what
         # require reports to exist at all.
-        self.assertEqual(lr.check_deck_hash_consistency(self.reports_dir), [])
+        self.assertEqual(self._check(), [])
+
+    # --- the pin (#258) -----------------------------------------------------
+
+    def test_perfect_agreement_on_an_unpinned_deck_is_still_a_failure(self):
+        # The #258 regression. Agreement alone says only that every report was
+        # produced by the *same* build; it cannot say that build was one
+        # anybody can install. This repo's whole evidence base once agreed
+        # perfectly on a deck hash no klayout-tools release ships, produced by
+        # an unreleased source build whose `klt --version` was indistinguishable
+        # from the release it was built after.
+        self._pin("sha256:released")
+        self._write("bias_core", "sha256:unreleased-build")
+        self._write("por_comparator", "sha256:unreleased-build")
+        failures = self._check()
+        self.assertEqual(len(failures), 1)
+        self.assertIn("sha256:unreleased-build", failures[0])
+        self.assertIn("sha256:released", failures[0])
+        self.assertIn("bias_core", failures[0])
+        self.assertIn("por_comparator", failures[0])
+
+    def test_the_committed_reports_name_the_pinned_deck(self):
+        # The same assertion against the real committed evidence, so the pin
+        # and layout/reports/ cannot part company without a red test.
+        self.assertEqual(lr.check_deck_hash_consistency(), [])
+
+    def test_the_pin_names_a_release_not_just_a_version_string(self):
+        # A version string is not an identity (that is the whole of #258), so
+        # the pin has to carry the release coordinates that are one.
+        pin = lr.toolchain()
+        release = pin["klt"]["release"]
+        self.assertTrue(pin["deck"]["content_hash"].startswith("sha256:"))
+        self.assertRegex(release["git_tag"], r"^v\d+\.\d+\.\d+$")
+        self.assertRegex(release["git_commit"], r"^[0-9a-f]{40}$")
+        self.assertTrue(release["package_version"])
+        self.assertIn(release["package_version"], pin["klt"]["install"])
 
 
 class GdsHashConsistencyTest(unittest.TestCase):
@@ -1547,12 +1618,22 @@ class DeckHashGateBootstrapTest(unittest.TestCase):
     # --- behaviour, against a sandboxed copy of the script ------------------
 
     def _sandbox(self, tmp: Path) -> Path:
-        """A throwaway repo root holding just ``layout/run_checks.sh`` and a
-        stub ``klt``, so the argument-handling paths can be exercised for real
-        without ``klt`` and without touching the committed reports."""
+        """A throwaway repo root holding ``layout/run_checks.sh``, the two
+        files it reads the toolchain pin out of, and a stub ``klt``, so the
+        argument-handling paths can be exercised for real without ``klt`` and
+        without touching the committed reports.
+
+        The sandbox deliberately has no ``layout/cells/``: the live-toolchain
+        gate (#258) has nothing to probe the deck with there, which is what
+        keeps these cases exercising argument handling rather than the gate.
+        """
         (tmp / "layout").mkdir(parents=True, exist_ok=True)
         script = tmp / "layout" / "run_checks.sh"
         script.write_text(self.script)
+        for name in ("lvs_reference.py", "toolchain.json"):
+            (tmp / "layout" / name).write_text(
+                (self.SCRIPT_PATH.parent / name).read_text()
+            )
         bindir = tmp / "bin"
         bindir.mkdir(exist_ok=True)
         stub = bindir / "klt"

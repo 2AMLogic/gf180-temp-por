@@ -1,5 +1,8 @@
 {
-  "klt_version": "klt 0.1.0",
+  "klt_version": "klt 0.2.0",
   "deck": "gf180mcu",
+  "deck_content_hash": "sha256:1256c45b3e472635b03a1888d0730822c1872b4a912a2c90fc1e4e7cd14a3913",
+  "klt_release": "klayout-tools 0.2.0 (v0.2.0, c8e4f8cd77a563cc6f612877f48c1148a556b25c)",
+  "pinned_by": "layout/toolchain.json",
   "note": "regenerate with: bash layout/run_checks.sh"
 }
