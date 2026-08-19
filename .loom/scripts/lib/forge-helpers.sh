@@ -348,12 +348,12 @@ forge_merge_pr() {
     fi
   else
     if [[ -n "$expected_head_sha" ]]; then
-      forge_gh_perm_safe api "repos/$nwo/pulls/$pr_number/merge" \
+      gh api "repos/$nwo/pulls/$pr_number/merge" \
         -X PUT \
         -f merge_method=squash \
         -f sha="$expected_head_sha" 2>&1
     else
-      forge_gh_perm_safe api "repos/$nwo/pulls/$pr_number/merge" \
+      gh api "repos/$nwo/pulls/$pr_number/merge" \
         -X PUT \
         -f merge_method=squash 2>&1
     fi
@@ -372,7 +372,7 @@ forge_update_branch() {
     forge_split_nwo "$nwo"
     gitea_api POST "repos/$FORGE_OWNER/$FORGE_REPO/pulls/$pr_number/update"
   else
-    forge_gh_perm_safe api "repos/$nwo/pulls/$pr_number/update-branch" -X PUT 2>&1
+    gh api "repos/$nwo/pulls/$pr_number/update-branch" -X PUT 2>&1
   fi
 }
 
@@ -521,7 +521,7 @@ forge_delete_branch() {
     forge_split_nwo "$nwo"
     gitea_api DELETE "repos/$FORGE_OWNER/$FORGE_REPO/branches/$branch" 2>/dev/null
   else
-    forge_gh_perm_safe api "repos/$nwo/git/refs/heads/$branch" -X DELETE 2>/dev/null
+    gh api "repos/$nwo/git/refs/heads/$branch" -X DELETE 2>/dev/null
   fi
 }
 
@@ -569,7 +569,7 @@ forge_auto_merge() {
     if [[ -n "$expected_head_sha" ]]; then
       local mutation_with_oid='mutation($pullRequestId: ID!, $mergeMethod: PullRequestMergeMethod!, $expectedHeadOid: GitObjectID) { enablePullRequestAutoMerge(input: {pullRequestId: $pullRequestId, mergeMethod: $mergeMethod, expectedHeadOid: $expectedHeadOid}) { pullRequest { number autoMergeRequest { enabledAt } } } }'
 
-      forge_gh_perm_safe api graphql \
+      gh api graphql \
         -f "query=$mutation_with_oid" \
         -F "pullRequestId=$node_id" \
         -F "mergeMethod=SQUASH" \
@@ -577,7 +577,7 @@ forge_auto_merge() {
     else
       local mutation='mutation($pullRequestId: ID!, $mergeMethod: PullRequestMergeMethod!) { enablePullRequestAutoMerge(input: {pullRequestId: $pullRequestId, mergeMethod: $mergeMethod}) { pullRequest { number autoMergeRequest { enabledAt } } } }'
 
-      forge_gh_perm_safe api graphql \
+      gh api graphql \
         -f "query=$mutation" \
         -F "pullRequestId=$node_id" \
         -F "mergeMethod=SQUASH" 2>/dev/null
