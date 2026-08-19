@@ -407,12 +407,7 @@ assert_eq "2" "$rc" "create-pr.sh: --body and --body-file together exit 2"
 echo ""
 echo "Testing Builder role-prompt wiring (#6074)..."
 
-PROMPT_DIR_CANDIDATE="$HELPERS_DIR/../../.claude/commands/loom"
-[[ -d "$PROMPT_DIR_CANDIDATE" ]] || {
-    echo "FATAL: expected Builder role-prompt dir at '$PROMPT_DIR_CANDIDATE' (repo-root .claude/commands/loom) but it does not exist" >&2
-    exit 1
-}
-PROMPT_DIR="$(cd "$PROMPT_DIR_CANDIDATE" && pwd)"
+PROMPT_DIR="$(cd "$HELPERS_DIR/../.claude/commands/loom" && pwd)"
 
 for prompt in builder.md builder-pr.md builder-worktree.md; do
     if grep -q 'create-pr\.sh' "$PROMPT_DIR/$prompt"; then

@@ -465,12 +465,7 @@ fi
 echo ""
 echo "Testing role-prompt wiring (#5047)..."
 
-PROMPT_DIR_CANDIDATE="$HELPERS_DIR/../../.claude/commands/loom"
-[[ -d "$PROMPT_DIR_CANDIDATE" ]] || {
-    echo "FATAL: expected Builder role-prompt dir at '$PROMPT_DIR_CANDIDATE' (repo-root .claude/commands/loom) but it does not exist" >&2
-    exit 1
-}
-PROMPT_DIR="$(cd "$PROMPT_DIR_CANDIDATE" && pwd)"
+PROMPT_DIR="$(cd "$HELPERS_DIR/../.claude/commands/loom" && pwd)"
 
 TESTS_RUN=$((TESTS_RUN + 1))
 # Matches both a line-start invocation (`gh issue create ...`) and the
@@ -528,25 +523,14 @@ fi
 
 # `loom-daemon forge issue` must not silently look like an escape hatch: the
 # passthrough either gains the fallback or says out loud that it has none.
-# This check inspects the Loom framework's own Rust source
-# (loom-daemon/src/forge_cmd.rs), which only exists in the Loom tool repo
-# itself -- a downstream consumer repo like this one (installed via .loom/)
-# never vendors loom-daemon/src. Skip (pass-through) when that directory
-# isn't present locally rather than failing unconditionally (#266).
 TESTS_RUN=$((TESTS_RUN + 1))
-LOOM_DAEMON_SRC_DIR="$(cd "$HELPERS_DIR/../../loom-daemon/src" 2>/dev/null && pwd || true)"
-if [[ -z "$LOOM_DAEMON_SRC_DIR" ]]; then
+FORGE_CMD_SRC="$(cd "$HELPERS_DIR/../../loom-daemon/src" 2>/dev/null && pwd || true)/forge_cmd.rs"
+if [[ -f "$FORGE_CMD_SRC" ]] && grep -q 'create-issue.sh' "$FORGE_CMD_SRC"; then
     TESTS_PASSED=$((TESTS_PASSED + 1))
-    echo -e "  ${GREEN}PASS${NC}: loom-daemon/src not vendored in this repo -- skipping forge_cmd.rs check (#266)"
+    echo -e "  ${GREEN}PASS${NC}: loom-daemon forge issue create documents its lack of a REST fallback"
 else
-    FORGE_CMD_SRC="$LOOM_DAEMON_SRC_DIR/forge_cmd.rs"
-    if [[ -f "$FORGE_CMD_SRC" ]] && grep -q 'create-issue.sh' "$FORGE_CMD_SRC"; then
-        TESTS_PASSED=$((TESTS_PASSED + 1))
-        echo -e "  ${GREEN}PASS${NC}: loom-daemon forge issue create documents its lack of a REST fallback"
-    else
-        TESTS_FAILED=$((TESTS_FAILED + 1))
-        echo -e "  ${RED}FAIL${NC}: forge_cmd.rs must state that 'forge issue create' has no REST fallback (#5047)"
-    fi
+    TESTS_FAILED=$((TESTS_FAILED + 1))
+    echo -e "  ${RED}FAIL${NC}: forge_cmd.rs must state that 'forge issue create' has no REST fallback (#5047)"
 fi
 
 # --- Summary ---
