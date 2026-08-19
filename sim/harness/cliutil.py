@@ -193,6 +193,30 @@ def finish_run(
     return exit_code_for_status(record["status"])
 
 
+def write_derived_record(text: str, records_dir: Path, filename: str) -> Path:
+    """Write a derived-record write-up, refusing to overwrite an existing one.
+
+    The derived-record counterpart to ``report.write_record``'s append-only
+    guard for primary records: ``sim/por-iq/analyze_por_iq.py``,
+    ``sim/postlayout_delta.py``, ``sim/temp-accuracy-mc/analyze_breakdown.py``
+    and ``sim/temp-accuracy-vt/analyze_derived.py`` each derive a write-up
+    from an already-recorded primary record and share this same
+    exists-check/write footer (issue #276). Raises ``report.RecordExists``
+    (the same exception the primary-record path already raises) instead of
+    each call site hand-rolling its own check.
+    """
+    # Local import: sim/harness/report.py imports this module (for `fmt()`),
+    # so importing it at module scope here would be circular.
+    from . import report as report_mod
+
+    records_dir.mkdir(parents=True, exist_ok=True)
+    path = records_dir / filename
+    if path.exists():
+        raise report_mod.RecordExists(f"{path} already exists; records are append-only")
+    path.write_text(text)
+    return path
+
+
 def run_and_report(
     run_fn: Callable[[argparse.Namespace], int], args: argparse.Namespace
 ) -> int:

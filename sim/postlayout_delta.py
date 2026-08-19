@@ -74,7 +74,7 @@ sys.path.insert(0, str(SIM_DIR))
 
 from build_tb import POSTLAYOUT_DIR, POSTLAYOUT_FRAGMENTS  # noqa: E402
 from harness import report  # noqa: E402
-from harness.cliutil import add_author_arg, fmt, now_iso  # noqa: E402
+from harness.cliutil import add_author_arg, fmt, now_iso, write_derived_record  # noqa: E402
 from harness.corners import CORNERS, PvtPoint, parse_corner_id  # noqa: E402
 from harness.runner import PointResult, load_points  # noqa: E402
 from harness.testbench import TESTBENCH_DIRNAME  # noqa: E402
@@ -550,11 +550,15 @@ def main(argv: list[str] | None = None) -> int:
     print(text)
 
     if args.write:
-        out = experiment_dir / report.RECORDS_DIR / f"{args.record_id}-postlayout-delta.md"
-        if out.exists():
-            print(f"{out} already exists; records are append-only", file=sys.stderr)
+        try:
+            out = write_derived_record(
+                text,
+                experiment_dir / report.RECORDS_DIR,
+                f"{args.record_id}-postlayout-delta.md",
+            )
+        except report.RecordExists as exc:
+            print(f"error: {exc}", file=sys.stderr)
             return 2
-        out.write_text(text)
         print(f"\nwrote {out.relative_to(REPO_ROOT)}", file=sys.stderr)
 
     regressions = [r for r in delta["rows"] if r["transition"] == "ok -> MISS"]

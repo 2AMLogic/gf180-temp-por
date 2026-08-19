@@ -84,8 +84,8 @@ sys.path.insert(0, str(REPO_ROOT / "sim"))
 # prints, so the raw logs do not carry it. Re-apply the *same* hook the source
 # record used rather than reimplementing the trim model here -- two copies of
 # that formula is exactly how the two records would drift apart.
-from harness.cliutil import add_author_arg, now_iso  # noqa: E402
-from harness.report import source_provenance  # noqa: E402
+from harness.cliutil import add_author_arg, now_iso, write_derived_record  # noqa: E402
+from harness.report import RecordExists, source_provenance  # noqa: E402
 from harness.montecarlo import _TRIM_LSB_FRAC as TRIM_LSB_FRAC  # noqa: E402
 from harness.montecarlo import _TRIM_REFERENCE_K as TRIM_REFERENCE_K  # noqa: E402
 from harness.montecarlo import derive_temp_trim  # noqa: E402
@@ -496,12 +496,13 @@ def main(argv: list[str] | None = None) -> int:
     text = render(args.record_id, points, when, args.author)
 
     if args.write:
-        RECORDS_DIR.mkdir(parents=True, exist_ok=True)
-        path = RECORDS_DIR / f"{args.record_id}-breakdown.md"
-        if path.exists():
-            print(f"{path} already exists; records are append-only", file=sys.stderr)
+        try:
+            path = write_derived_record(
+                text, RECORDS_DIR, f"{args.record_id}-breakdown.md"
+            )
+        except RecordExists as exc:
+            print(f"error: {exc}", file=sys.stderr)
             return 2
-        path.write_text(text)
         print(f"wrote {path}")
     else:
         print(text)
