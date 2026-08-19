@@ -721,58 +721,64 @@ restated or corrected: this section is the separate question #18 asks, *does
 the drawn layout still do it?*
 
 **What the extracted netlist is, and is not.** `temp_core` comes out as
-**114 drawn devices at their drawn dimensions** (27 `nfet_03v3`, 28
-`pfet_03v3`, 9 `pnp_10p00x10p00`, 50 `ppolyf_u`) with first-order
-interconnect R/C on 69 of 73 nets (**ΣC = 1552.3 fF**), net names restored
-through `klt lvs`'s 73/73 verified correspondence; `temp_por_top` the same for
-all four cells (238 devices, ΣC = 5880.2 fF). Per
-[`layout/postlayout/AUDIT.md`](../layout/postlayout/AUDIT.md), two things are
+**115 drawn devices at their drawn dimensions** (27 `nfet_03v3`, 28
+`pfet_03v3`, 9 `pnp_10p00x10p00`, 50 `ppolyf_u`, 1 `cap_mim_2f0_m3m4_noshield`)
+with first-order interconnect R/C on 69 of 73 nets (**ΣC = 1552.3 fF**), net
+names restored through `klt lvs`'s 73/73 verified correspondence; `temp_por_top`
+the same for all four cells (239 devices, ΣC = 5900.6 fF). Per
+[`layout/postlayout/AUDIT.md`](../layout/postlayout/AUDIT.md), one thing is
 *not* the layout's:
 
 - Four body/well/plate nets (`NW1`→`VDD`, `NW2`→`NT`, `NWQ`→`VSS`,
-  `vsubs`→`VSS`; 23 in the assembly) are tied where the **schematic** puts
+  `vsubs`→`VSS`; 9 in the assembly) are tied where the **schematic** puts
   them, because the extraction deck's connectivity stack does not reach an
-  Nwell, a substrate ring, a bipolar base well or a MiM plate — they extract
-  isolated and would otherwise float.
-- **`XCC` was not drawn when these records were taken.** The 12 × 12 µm MiM
-  compensation cap on `PG`/`NZ` was reserved floor area in this cell's layout,
-  and the netlist spliced it back in at its schematic value so the deck was
-  simulatable at all. So **anything in the records below that turns on the
-  amplifier's compensation — the loop's stability margin, and therefore the
-  shape of its settling transient — is a schematic claim**, not a post-layout
-  one.
+  Nwell, a substrate ring or a bipolar base well — they extract isolated and
+  would otherwise float.
 
-  > **Update, 2026-08-19 (#259).** `XCC` is now drawn and routed onto
-  > `PG`/`NZ`
-  > ([DR-028](../spec/decision-records/DR-028-temp-core-xcc-draw-it.md)), so
-  > netlists regenerated after #259 splice nothing: `temp_core` extracts
-  > 115/115 devices and `AUDIT.md` reports no ideal device anywhere. The
-  > records below were **not** re-run — this repo's `sim/` set is append-only
-  > and re-running them is [#270](https://github.com/2AMLogic/gf180-temp-por/issues/270)
-  > — so the caveat above still describes them exactly. Its plate parasitics
-  > and the routing to `PG`/`NZ` land on top of what is measured below.
+That is a shorter list than #83's original re-run worked with: `XCC`, the
+12 × 12 µm MiM compensation cap on `PG`/`NZ`, was reserved floor area in
+`temp_core`'s layout at that point and the netlist spliced it back in at its
+schematic value so the deck was simulatable at all — so anything in that
+original re-run that turned on the amplifier's compensation was a schematic
+claim, not a post-layout one.
+
+> **Update, 2026-08-19 (#259, #270).** `XCC` is now drawn and routed onto
+> `PG`/`NZ` ([DR-028](../spec/decision-records/DR-028-temp-core-xcc-draw-it.md)):
+> `temp_core` extracts 115/115 devices and `AUDIT.md` reports no ideal device
+> anywhere. All four records below have been **re-run** against that netlist
+> (#270) — the table now cites the re-run records, taken against a clean
+> working tree so they carry no dirty-tree citation caveat either. The
+> pre-#259 records they supersede stay on disk, still correctly stamped with
+> the ideal-splice caveat that was accurate when they were taken:
+> [`sim/temp-core-designer-check/…/20260811-075055-b06af8e.md`](../sim/temp-core-designer-check/records/20260811-075055-b06af8e.md),
+> [`sim/temp-core-startup/…/20260811-074657-7c1c116.md`](../sim/temp-core-startup/records/20260811-074657-7c1c116.md),
+> [`sim/temp-accuracy-vt/…/20260811-084152-68c0017.md`](../sim/temp-accuracy-vt/records/20260811-084152-68c0017.md),
+> [`sim/temp-accuracy-mc/…/20260811-090721-3ec259f.md`](../sim/temp-accuracy-mc/records/20260811-090721-3ec259f.md).
 
 Everything else — MOS, vertical PNP and poly resistor bodies alike — is a real
 extraction of drawn geometry. `temp_core` needs none of the device-model
 substitutions AUDIT.md records for the cells that use `ppolyf_u_1k` or MiM
-caps; the assembly inherits 27 resistor and 7 MiM name-only substitutions from
+caps; the assembly inherits 27 resistor and 8 MiM name-only substitutions from
 its other three cells, on drawn geometry that is the schematic's either way.
 
 ### The four records
 
 | Evidence (`Netlist provenance: extracted`) | Result | vs. schematic baseline |
 | --- | --- | --- |
-| [`sim/temp-core-designer-check/…/20260811-075055-b06af8e.md`](../sim/temp-core-designer-check/records/20260811-075055-b06af8e.md) | **PASS**, 216/216 points | unchanged — no check regressed |
-| [`sim/temp-core-startup/…/20260811-074657-7c1c116.md`](../sim/temp-core-startup/records/20260811-074657-7c1c116.md) | **PASS**, 81/81 points | unchanged — no check regressed |
-| [`sim/temp-accuracy-vt/…/20260811-084152-68c0017.md`](../sim/temp-accuracy-vt/records/20260811-084152-68c0017.md) (+ `-derived`) | FAIL on [`por-iq`](../spec/target-spec.md#por-iq) only, 108/108 points | unchanged — that row already failed at schematic level ([Iq apportionment is `design/bias_core.md`'s](../design/bias_core.md), #14's row, carried here only as the `temp-iq` subtrahend) |
-| [`sim/temp-accuracy-mc/…/20260811-090721-3ec259f.md`](../sim/temp-accuracy-mc/records/20260811-090721-3ec259f.md) (+ `-breakdown`) | FAIL | unchanged — the same [DR-011](../spec/decision-records/DR-011-temp-accuracy-mismatch-not-met.md) mismatch miss, on the same eight (binding point, measurement) pairs |
+| [`sim/temp-core-designer-check/…/20260819-172959-fd167d8.md`](../sim/temp-core-designer-check/records/20260819-172959-fd167d8.md) | **PASS**, 216/216 points | unchanged — no check regressed |
+| [`sim/temp-core-startup/…/20260819-170120-47d2f2a.md`](../sim/temp-core-startup/records/20260819-170120-47d2f2a.md) | **PASS**, 81/81 points | unchanged — no check regressed |
+| [`sim/temp-accuracy-vt/…/20260819-173345-2a37d6c.md`](../sim/temp-accuracy-vt/records/20260819-173345-2a37d6c.md) (+ `-derived`) | FAIL on [`por-iq`](../spec/target-spec.md#por-iq) only, 108/108 points | unchanged — that row already failed at schematic level ([Iq apportionment is `design/bias_core.md`'s](../design/bias_core.md), #14's row, carried here only as the `temp-iq` subtrahend) |
+| [`sim/temp-accuracy-mc/…/20260819-171829-b403a17.md`](../sim/temp-accuracy-mc/records/20260819-171829-b403a17.md) (+ `-breakdown`) | FAIL | unchanged — the same [DR-011](../spec/decision-records/DR-011-temp-accuracy-mismatch-not-met.md) mismatch miss, on the same eight (binding point, measurement) pairs |
 
-Each supersedes its schematic-level predecessor, which stays on disk. The
-three corner-sweep records are each paired with a
-`<record-id>-postlayout-delta` derived record — `sim/postlayout_delta.py`
-joins the two grids on corner-id and re-evaluates the experiment's own
-`tb.json` checks against both, so the comparison below is generated from the
-records' own raw logs rather than transcribed.
+Each of these four records is #270's re-run of the corresponding row in
+#83's original table (above), against the netlist with `XCC` drawn, and
+supersedes both that pre-#259 extracted record and (transitively) the
+schematic-level record underneath it. The three corner-sweep records are each
+paired with a `<record-id>-postlayout-delta` derived record — re-derived by
+#270 against the *same* schematic baseline #83 used, so the comparison is a
+direct extracted-vs-schematic delta rather than an extracted-vs-extracted one
+— `sim/postlayout_delta.py` joins the two grids on corner-id and re-evaluates
+the experiment's own `tb.json` checks against both.
 
 ### **Zero regressions.**
 
@@ -849,12 +855,26 @@ Two rows are worth reading twice:
 
 ### What this does **not** establish
 
-- **Loop stability.** `XCC` was spliced in ideal in the netlists these records
-  name (above), so the compensation pole they exercise is the schematic's, not
-  the layout's. `XCC` is drawn as of #259, which removes the obstacle but not
-  the gap: a post-layout stability claim needs a re-run against the new
-  netlist, tracked in
-  [#270](https://github.com/2AMLogic/gf180-temp-por/issues/270).
+- **Loop stability.** As of #270's re-run (table above), all four records are
+  taken against a netlist where `XCC` is drawn and routed onto `PG`/`NZ`
+  rather than spliced in ideal (#259, DR-028) — `layout/postlayout/AUDIT.md`
+  reports no ideal device in `temp_core`. That establishes the **closed-loop
+  transient behaviour** these testbenches actually exercise — cold-start
+  settling (`start_us`), freedom from a degenerate non-converging state, and
+  the settled DC operating point — through the real drawn compensation cap
+  rather than a schematic-value splice, and every one of those measurements
+  is unchanged from both the schematic baseline and the pre-#259 extracted
+  predecessor to within their per-corner delta tables (the paired
+  `<record-id>-postlayout-delta` records above show **zero regressions**
+  across all four experiments). **What it still does not establish**: no
+  testbench in this repo's `sim/` set — schematic or extracted, before or
+  after #259 — runs a small-signal AC/loop-gain analysis, so a *quantified*
+  stability margin (phase margin, gain margin) has never been measured for
+  this loop at all; that is a coverage gap in the testbench suite, not
+  something `XCC` being drawn could have closed by itself. The clean,
+  ringing-free transient settling recorded above is evidence against gross
+  instability, not a substitute for that measurement — tracked as a
+  follow-up: [#274](https://github.com/2AMLogic/gf180-temp-por/issues/274).
 - **Mismatch as a layout property.** The post-layout Monte Carlo record
   re-measures the local-mismatch distribution and finds it unchanged —
   σ(`V_os`) 0.922–0.996 mV against 0.930–1.025 mV schematic, untrimmed 3σ
