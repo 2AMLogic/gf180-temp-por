@@ -39,7 +39,13 @@ and a delta reads as circuit behaviour rather than as a testbench difference.
 | [`por-brownout-slew`](../sim/por-brownout-slew/) (rung `n-slew-3.46mvus`) | [`20260811-063855-6d69544`](../sim/por-brownout-slew/records/20260811-063855-6d69544.md) | `20260802-134958-dd0cd60` | 80/81 PASS → **75/81 PASS** |
 | [`por-brownout-spurious`](../sim/por-brownout-spurious/) | [`20260811-071019-9aaf2b8`](../sim/por-brownout-spurious/records/20260811-071019-9aaf2b8.md) | `20260802-122414-3c3e728` | 0/81 PASS → 10/81 PASS (76 FAIL + 5 ERROR → 15 FAIL + 56 ERROR) |
 | [`por-glitch`](../sim/por-glitch/) | [`20260811-065152-1d1dd69`](../sim/por-glitch/records/20260811-065152-1d1dd69.md) | `20260802-205904-bdc077d` | 0/81 PASS → 0/81 PASS (identical failure set) |
-| [`temp-por-top-release`](../sim/temp-por-top-release/) | [`20260811-064427-564950b`](../sim/temp-por-top-release/records/20260811-064427-564950b.md) | `20260802-205904-bdc077d` | 27/81 PASS → 27/81 PASS (identical failure set) |
+| [`temp-por-top-release`](../sim/temp-por-top-release/) | [`20260819-173152-e58ed1a`](../sim/temp-por-top-release/records/20260819-173152-e58ed1a.md)<sup>†</sup> | `20260802-205904-bdc077d` | 27/81 PASS → 27/81 PASS (identical failure set) |
+
+† Re-run again by #270 against the netlist with `temp_core`'s `XCC` drawn
+(#259, DR-028) — superseding the row's original #87 extracted record,
+[`20260811-064427-564950b`](../sim/temp-por-top-release/records/20260811-064427-564950b.md),
+which stays on disk. Same 27/81 PASS, same failure set (all `iq_por_ua`); see
+"§4" of the closing roll-up below for what that re-run establishes.
 
 Reading that column needs care, because most of these experiments were already
 failing before the re-run and for reasons this re-run does not touch:
@@ -69,31 +75,41 @@ siblings), not from this comparison.
 
 ### What "extracted" means for this assembly
 
-> **Update, 2026-08-19 (#259).** The one ideal device described below is now
-> **drawn**: `temp_core`'s `XCC` was laid out and routed onto `PG`/`NZ` per
-> [DR-028](../spec/decision-records/DR-028-temp-core-xcc-draw-it.md), taking
-> `temp_por_top` to **239 drawn devices, 0 ideal** (and, since #264 routed the
-> MiM plates, 145 nets rather than 159). The figures in this section describe
-> the netlists the records cited here were actually taken against, and are
-> left as recorded — this repo's `sim/` set is append-only. A claim resting on
-> the amplifier's compensation pole is still a schematic-level claim *in those
-> records*; making it a post-layout one needs a re-run, which #259 did not do
-> and [#270](https://github.com/2AMLogic/gf180-temp-por/issues/270) tracks.
+> **Update, 2026-08-19 (#259, #270).** The one ideal device described below
+> is now **drawn**: `temp_core`'s `XCC` was laid out and routed onto `PG`/`NZ`
+> per [DR-028](../spec/decision-records/DR-028-temp-core-xcc-draw-it.md),
+> taking `temp_por_top` to **239 drawn devices, 0 ideal** (and, since #264
+> routed the MiM plates, 145 nets rather than 159). Of the six experiments in
+> the table above, only `temp-por-top-release` has actually been **re-run**
+> against that current netlist (#270,
+> [`20260819-173152-e58ed1a`](../sim/temp-por-top-release/records/20260819-173152-e58ed1a.md)) —
+> #270's scope is the compensation-pole-dependent claims specifically, and the
+> other five (`por-ramp-rate`, `por-brownout`, `por-brownout-slew`,
+> `por-brownout-spurious`, `por-glitch`) measure POR ramp/brownout/glitch
+> dynamics that do not turn on `temp_core`'s amplifier compensation, so they
+> were left un-re-run rather than re-run for no reason. The paragraph below
+> therefore still describes the **238-device, 1-ideal** netlist those five
+> records were actually taken against — this repo's `sim/` set is
+> append-only, so their own provenance fields are unedited and still
+> accurate for the netlist state at the time they ran.
 
 Per [`layout/postlayout/AUDIT.md`](../layout/postlayout/AUDIT.md)'s
-`temp_por_top` row: **238 drawn devices, 1 ideal.** The single ideal device is
-`temp_core`'s `XCC` MiM cap (here instance `xtemp`'s, on `xtemp__PG` /
-`xtemp__NZ`), which that cell's layout does not draw yet — reserved floor
-area, tracked as #177. Every other device in the assembly, including all 19
-bipolars, all 77 resistors and the other 7 MiM caps, is drawn and extracted.
-136 of 159 nets carry first-order interconnect R/C across 272 parasitic cards
-(ΣR 280 923 Ω, ΣC 5880.2 fF); the 23 without are isolated well/plate nets and
-the substrate global, and those are tied where the *schematic* puts them
-because the extraction deck's connectivity stack does not reach them. Two deck
-substitutions are undone on the way out (27 `ppolyf_u_1k` → `ppolyf_u_3k`,
-klayout-tools#323; 7 `cap_mim_2f0_m4m5_noshield` →
-`cap_mim_2f0_m3m4_noshield`, klayout-tools#315) — the drawn geometry is the
-schematic's in both cases, only the deck's name for it differs.
+`temp_por_top` row **as it read at the time of #87's original re-run**: 238
+drawn devices, 1 ideal. The single ideal device was `temp_core`'s `XCC` MiM
+cap (here instance `xtemp`'s, on `xtemp__PG` / `xtemp__NZ`), which that
+cell's layout did not draw yet at that point — reserved floor area, tracked
+as #177 and drawn since #259. Every other device in the assembly, including
+all 19 bipolars, all 77 resistors and the other 7 MiM caps, was drawn and
+extracted already. 136 of 159 nets carried first-order interconnect R/C
+across 272 parasitic cards (ΣR 280 923 Ω, ΣC 5880.2 fF); the 23 without were
+isolated well/plate nets and the substrate global, tied where the
+*schematic* puts them because the extraction deck's connectivity stack does
+not reach them. Two deck substitutions were undone on the way out (27
+`ppolyf_u_1k` → `ppolyf_u_3k`, klayout-tools#323; 7
+`cap_mim_2f0_m4m5_noshield` → `cap_mim_2f0_m3m4_noshield`, klayout-tools#315)
+— the drawn geometry is the schematic's in both cases, only the deck's name
+for it differs. (For `temp-por-top-release`'s current, post-#259 figures —
+239 drawn devices, 0 ideal, 145 nets — see §4 of the closing roll-up below.)
 
 ### The IR / cross-domain-coupling question, and why this netlist cannot answer it
 
@@ -437,30 +453,54 @@ per-decade slowdown from point 2 acting on a fixed measurement window — **the
 shrinkage is not evidence of a fix**, and nothing about this re-run refutes
 DR-013.
 
-### 4. Exactly one device remains schematic-ideal across all five cells: `temp_core`'s undrawn `XCC`
+### 4. `temp_core`'s `XCC` is drawn (#259) — #270 re-ran every record whose claim depended on it
 
-> **Update, 2026-08-19 (#259).** No longer true of the layout: `XCC` is drawn
-> and routed, and `AUDIT.md` now reports **no** ideal device in any of the five
-> cells. It remains true of the records this roll-up indexes, which were taken
-> against netlists that spliced it in ideal — those are not re-run here (that
-> is [#270](https://github.com/2AMLogic/gf180-temp-por/issues/270)), so the
-> compensation-path caveat below still applies to *them*.
+`layout/postlayout/AUDIT.md` reports **zero** ideal (undrawn) devices across
+all five cells (`bias_core`, `por_comparator`, `por_output_chain`,
+`temp_core`, `temp_por_top`). Until #259, `temp_core`'s `XCC` — the 12 × 12
+µm MiM compensation cap on `PG`/`NZ` (instance `xtemp`'s
+`xtemp__PG`/`xtemp__NZ` in the assembly) — was the one device this whole
+five-cell suite still spliced in ideal, reserved floor area tracked as #177.
+It is now drawn and routed
+([DR-028](../spec/decision-records/DR-028-temp-core-xcc-draw-it.md)). Every
+other device in the suite — all MOS, all 19 bipolars, all 77 resistors, and
+the 8 MiM caps — was already drawn, extracted, and LVS-matched before #259;
+no node in any of the five cells carries an ideal-device caveat today.
 
-Several of #82-#87's own acceptance-criteria bodies carry a broader-sounding
-"some devices may still be schematic-ideal" caveat, written before the
-extraction artifact these issues actually consumed was known. That caveat is
-now stale in this repo's favor: per
-[`layout/postlayout/AUDIT.md`](../layout/postlayout/AUDIT.md), across all
-five cells (`bias_core`, `por_comparator`, `por_output_chain`, `temp_core`,
-`temp_por_top`), **exactly one device is still schematic-ideal** —
-`temp_core`'s `XCC`, the 12 × 12 µm MiM compensation cap on `PG`/`NZ`
-(instance `xtemp`'s `xtemp__PG`/`xtemp__NZ` in the assembly), reserved floor
-area that cell's layout does not draw yet, tracked in #177. Every other
-device in the suite — all MOS, all 19 bipolars, all 77 resistors, and the
-other 7 MiM caps — is drawn, extracted, and LVS-matched. `XCC` sits in the
-amplifier's compensation path, so the loop's stability margin and settling
-transient shape remain a schematic-level claim until #177 resolves it; no
-other node in any of the five cells carries that caveat.
+`XCC` sits in the amplifier's compensation path, so every record whose claim
+turns on the loop's stability margin or the shape of its settling transient
+carried a "schematic claim, not a post-layout one" caveat on that specific
+point, independent of whatever else it established. Ten experiments in this
+suite instantiate `temp_core` (directly, or as `xtemp` inside the assembly)
+and therefore inherited that caveat:
+
+| Experiment | Touches `temp_core`'s compensation pole? | Re-run by #270 against the drawn `XCC`? |
+| --- | --- | --- |
+| [`temp-core-designer-check`](../sim/temp-core-designer-check/) | Yes — the cell's own DC/transient operating point | **Yes** — [`20260819-172959-fd167d8`](../sim/temp-core-designer-check/records/20260819-172959-fd167d8.md) |
+| [`temp-core-startup`](../sim/temp-core-startup/) | Yes — cold-start settling (`start_us`) | **Yes** — [`20260819-170120-47d2f2a`](../sim/temp-core-startup/records/20260819-170120-47d2f2a.md) |
+| [`temp-accuracy-vt`](../sim/temp-accuracy-vt/) | Yes — assembled V(T) transfer | **Yes** — [`20260819-173345-2a37d6c`](../sim/temp-accuracy-vt/records/20260819-173345-2a37d6c.md) |
+| [`temp-accuracy-mc`](../sim/temp-accuracy-mc/) | Yes — Monte Carlo mismatch on the settled point | **Yes** — [`20260819-171829-b403a17`](../sim/temp-accuracy-mc/records/20260819-171829-b403a17.md) |
+| [`temp-por-top-release`](../sim/temp-por-top-release/) | Yes — full-assembly startup ordering, which includes `temp_core` settling | **Yes** — [`20260819-173152-e58ed1a`](../sim/temp-por-top-release/records/20260819-173152-e58ed1a.md) |
+| `por-ramp-rate`, `por-brownout`, `por-brownout-slew`, `por-brownout-spurious`, `por-glitch` | No — POR ramp/brownout/glitch dynamics, not the sensing amplifier's loop | Not re-run — out of #270's scope; each experiment's existing record (table above) remains accurate for the netlist it was actually taken against |
+
+All five re-run records supersede their pre-#259 extracted predecessors, are
+taken against a clean working tree (no dirty-tree citation caveat), and each
+is paired with a `<record-id>-postlayout-delta` derived record (or, for
+`temp-accuracy-mc`, its `-breakdown` companion) re-evaluated against the same
+schematic baseline #83/#87 used: **zero regressions** across all five. See
+[`temp_core.md`](temp_core.md) → "Post-layout re-run (issue #83)" → "Loop
+stability" for the full account of what that establishes and does not. In
+short: the closed-loop *transient* behaviour these five testbenches
+measure — settling time, freedom from a non-converging state, the settled
+operating point, and (for `temp-por-top-release`) the assembled-block
+ordering that depends on `temp_core` settling — is now measured through the
+real drawn compensation cap, and it is unchanged from both the schematic and
+the pre-#259 extracted result. A *quantified* small-signal stability margin
+(phase margin, gain margin) has never been measured by any testbench in this
+suite, extracted or schematic — that is a testbench-coverage gap, not
+something #270 could close by re-running existing decks, and it is tracked by
+[#274](https://github.com/2AMLogic/gf180-temp-por/issues/274) rather than
+closed here.
 
 ### Regressions and follow-ups, routed rather than absorbed
 
