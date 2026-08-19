@@ -2545,10 +2545,9 @@ _TEMP_CORE_NETS = [
     "T1",
     "T0",
     # #93: the two nets the folded-in passives add. NC joins XR1's far end to
-    # the eight XQ8 emitters; NZ is XRZ's free end (its other schematic
-    # connection is the MiM cap XCC, which stays undrawn -- see temp_core's
-    # docstring). Appended rather than inserted so every track above keeps the
-    # y it already had.
+    # the eight XQ8 emitters; NZ joins XRZ's free end to the MiM cap XCC's top
+    # plate, drawn and routed here since #259. Appended rather than inserted so
+    # every track above keeps the y it already had.
     "NC",
     "NZ",
 ]
@@ -2590,6 +2589,21 @@ class _Channel:
         _m1_to_m2(self.b, x_center, y)
         self._reach[net] = max(self._reach[net], x_center + _VIA_PAD_HALF)
         return y
+
+    def anchor(self, net: str, x_center: float) -> tuple[float, float]:
+        """Reserve a point on ``net``'s track for a MiM plate route to land on.
+
+        This cell's channel tracks are Metal1, so a plate route's last hop
+        (:func:`_cap_descend`'s Via1, which draws its own pad on both levels)
+        can land straight on one -- there is no Poly2 track to stub down to,
+        which is what ``bias_core``'s :func:`_cap_track_anchor` exists for. All
+        that is needed here is that the track's own Metal1 actually reaches the
+        landing point, so this widens ``net``'s reach to cover it and hands
+        back the ``(x, y)`` the route takes as its anchor. Draws nothing
+        itself: the route owns every shape it lands.
+        """
+        self._reach[net] = max(self._reach[net], x_center + CAP_ROUTE_W_UM / 2.0)
+        return (x_center, self.track_y[net])
 
     def draw(self) -> None:
         for net in self.nets:
@@ -2766,9 +2780,13 @@ def temp_core(b: CellBuilder) -> None:
     or compared, so keeping the split would have kept 59 real devices
     permanently outside the only check that could answer for their wiring.
 
-    One device stays out for now: the MiM cap ``XCC``. Decided to be drawn
-    (``spec/decision-records/DR-028-temp-core-xcc-draw-it.md``), sequenced
-    behind #264. See :func:`_temp_core_passives`.
+    Nothing stays out any more. The MiM cap ``XCC`` -- the last golden device
+    this block did not draw -- is drawn and routed onto ``PG``/``NZ`` as of
+    #259, executing
+    ``spec/decision-records/DR-028-temp-core-xcc-draw-it.md``, so every device
+    in ``design/netlist/temp_core.spice`` is in the compare and no post-layout
+    netlist of this cell splices anything in ideal. See
+    :func:`_temp_core_passives` and :func:`_temp_core_mim_cap`.
     """
     _temp_core_body(b)
 
@@ -2848,6 +2866,32 @@ _Q_PITCH = 14.0
 _Q_GRID = 5
 _Q_GAP = 25.0  # x between the resistor bank and the PNP array
 
+#: The MiM cap ``XCC`` (#259, executing DR-028): the lower-left corner of its
+#: bottom plate. It sits in the band above the PMOS row's Nwell (which tops out
+#: at y = 54.5) and left of the passive field's own x0, which is empty in this
+#: cell and carries nothing from ``temp_por_top`` either -- that assembly's
+#: Metal2 trunks are all below the domain seam and its Metal3 columns are all
+#: in the left margin, so nothing this block draws above Metal1 crosses here
+#: (the collision #264 hit at ``temp_por_top`` and not at the cell).
+#:
+#: Both plate routes drop straight down onto their own net's Metal1 track
+#: (``PG`` at y = 16, ``NZ`` at y = 31) rather than reaching across the cell,
+#: which is what fixes x: the block sits over an x both tracks already run to,
+#: so drawing it lengthens neither.
+_MIM_X0 = 200.0
+_MIM_Y0 = _FIELD_Y0
+#: How this cell's one MiM cap is drawn: name -> (columns, rows), the same
+#: field ``por_output_chain``'s :data:`POC_MIM_ARRAYS` carries. ``XCC`` is
+#: ``m=1``, so one plate; :func:`_mim_block` asserts that against the golden
+#: netlist's own ``m=`` rather than trusting this table.
+TEMP_CORE_MIM_ARRAYS = {"XCC": (1, 1)}
+#: Centre of the ``Metal4`` escape island the top plate's second ``Via4`` lands
+#: on (:func:`_cap_top_route`), below the plate rather than beside it: this
+#: cell draws one plate, so the free band under it is the nearest place that is
+#: :data:`MIM_SPACE_UM` clear of the bottom plate, and putting the island there
+#: gives the two routes' Metal3 legs their own x's on the way down.
+_MIM_ISLAND_XY = (210.0, 59.5)
+
 
 def _m2_h(b: CellBuilder, x0: float, x1: float, y: float) -> None:
     b.box(METAL2, min(x0, x1), y - _M2_HALF, max(x0, x1), y + _M2_HALF)
@@ -2886,25 +2930,26 @@ def _r_segment(b: CellBuilder, x: float, y: float, width: float, length: float) 
 
 
 def _temp_core_passives(b: CellBuilder, channel: _Channel) -> None:
-    """The R2 gain ladder and the PNP array, drawn *into* ``temp_core`` (#93).
+    """The R2 gain ladder, the PNP array and the MiM cap ``XCC``, drawn *into*
+    ``temp_core`` (#93 for the first two, #259 for the cap).
 
-    Both used to be sibling top cells, DRC-checked but never extracted. They
-    are here now because the curated deck grew the two device classes they
-    need (klayout-tools#222/#223) and this repo owns the marker geometry that
-    turns drawn poly and drawn diffusion into those devices.
+    The ladder and the array used to be sibling top cells, DRC-checked but
+    never extracted. They are here now because the curated deck grew the two
+    device classes they need (klayout-tools#222/#223) and this repo owns the
+    marker geometry that turns drawn poly and drawn diffusion into those
+    devices.
 
-    **The MiM cap ``XCC`` is still not drawn -- but that is now a sequencing
-    state, not a deck limit.** The two blockers this docstring used to state as
-    settled fact have both expired, and
-    ``spec/decision-records/DR-028-temp-core-xcc-draw-it.md`` decides to draw
-    it:
+    **``XCC`` is drawn here too, as of #259** -- executing
+    ``spec/decision-records/DR-028-temp-core-xcc-draw-it.md``, which found both
+    reasons recorded for leaving it out expired. One survives in weakened form
+    and one is simply gone:
 
     * the deck still models exactly one MiM device,
       ``cap_mim_2f0_m4m5_noshield`` (bottom plate ``Metal4``, top plate
       ``FuseTop``), while this block's cap is the ``m3m4`` flavour the
       schematic names (klayout-tools#315). That substitution is real, but it is
-      not a reason to single ``XCC`` out: ``lvs_reference.CAP_CLASS`` already
-      makes it for all four golden MiM cards this block does draw;
+      not a reason to single ``XCC`` out: ``lvs_reference.CAP_CLASS`` makes it
+      for all four other golden MiM cards this block draws;
     * the claim that a recognised MiM's plate regions are **not** wired into
       the deck's contact/via/metal connectivity stack is **no longer true**.
       klayout-tools#314 is closed and the ``gf180mcu`` deck's
@@ -2913,16 +2958,52 @@ def _temp_core_passives(b: CellBuilder, channel: _Channel) -> None:
       reach the connectivity graph and can be compared against real schematic
       nets.
 
-    The drawing is sequenced behind #264, which routes the four MiM cards
-    this block already draws to their schematic nets through that same
-    ``Via4``/``Metal5`` stack: ``XCC`` is the fifth instance of a pattern, and
-    establishing the pattern on cards whose plates are already proven for area
-    is the cheaper order. Until then this cell draws no ``XCC`` and
-    ``postlayout.py`` keeps splicing it in ideal, which is disclosed
-    everywhere it matters.
+    So the plate is drawn *and routed*, not drawn floating: bottom plate onto
+    ``PG`` and top plate onto ``NZ``, the two nodes
+    ``design/netlist/temp_core.spice``'s own ``XCC`` card names, through the
+    ``Via4``/``Metal5`` escape #264 established on this block's other four
+    cards (:func:`_cap_bottom_route` / :func:`_cap_top_route`). ``XCC`` is the
+    fifth instance of that pattern, and with it drawn nothing in this block's
+    post-layout netlists is spliced in ideal any more.
     """
     right = _temp_core_resistor_bank(b, channel, _FIELD_X0, _FIELD_Y0)
     _temp_core_pnp_array(b, channel, right + _Q_GAP, _FIELD_Y0)
+    _temp_core_mim_cap(b, channel)
+
+
+def _temp_core_mim_cap(b: CellBuilder, channel: _Channel) -> None:
+    """``XCC``, drawn from its golden card and routed onto ``PG``/``NZ``.
+
+    Plate size comes out of ``design/netlist/temp_core.spice`` through
+    :func:`_mim_block` (nothing is retyped, so a schematic edit that resizes
+    the cap moves this geometry with it), and the two plate nets come out of
+    the same card: ``klt`` registers a capacitor's ``P1``/bottom plate as its
+    ``nodes[0]`` and its ``P2``/top plate as ``nodes[1]``, so ``XCC PG NZ`` is
+    bottom = ``PG``, top = ``NZ``.
+
+    Both routes land on this cell's own Metal1 channel tracks
+    (:meth:`_Channel.anchor`) rather than on a Poly2 track, and each one's
+    Metal3 leg drops at the x its anchor sits at, so the Metal2 hop
+    :func:`_cap_descend` ends with is a single via pad rather than a run
+    across the channel -- the passive field's own Metal2 risers are the only
+    other Metal2 in the cell and they are 90 um to the right.
+    """
+    caps = _golden_caps("temp_core.spice", "temp_core")
+    plates, _x1, _y1 = _mim_block(caps, TEMP_CORE_MIM_ARRAYS, _MIM_X0, _MIM_Y0)
+    for _name, x, y, width, height in plates:
+        _mim_cap(b, x, y, width, height)
+
+    (_name, x, y, width, height), = plates
+    cx, cy = x + width / 2.0, y + height / 2.0
+    off = CAP_ROUTE_VIA_OFFSET_UM / 2.0
+    bottom_net, top_net = caps["XCC"]["nodes"]
+    _cap_bottom_route(b, (cx - off, cy), channel.anchor(bottom_net, cx - off))
+    _cap_top_route(
+        b,
+        (cx + off, cy),
+        channel.anchor(top_net, _MIM_ISLAND_XY[0]),
+        _MIM_ISLAND_XY,
+    )
 
 
 def _temp_core_resistor_bank(
@@ -3151,8 +3232,20 @@ def _temp_core_pnp_array(b: CellBuilder, channel: _Channel, x0: float, y0: float
 # installed build, and the DRC deck carries metal2/metal3 width+space rules
 # (they showed as `rules_skipped` before only because no stream drew those
 # layers). The single-metal constraint is therefore lifted, and this assembly
-# uses it: every sub-circuit below stays Metal1-only and byte-identical, and
-# *only* this cell routes on Metal2/Metal3.
+# uses it: every sub-circuit below keeps its *signal* routing on Metal1, and
+# only this cell routes a net between instances above it.
+#
+# Sub-cells do now draw above Metal1 for their own devices -- #93's Metal2
+# risers in temp_core, and the Metal2-Metal5 MiM plate escapes of #264/#259 --
+# so "this cell owns Metal2/Metal3" is a statement about *inter*-instance
+# routing, not about which layers appear inside an instance. That distinction
+# is load-bearing: `_TopRoutes.check()` below sees only this cell's own
+# shapes, so a sub-cell's Metal2/Metal3 crossing one of this cell's trunks or
+# risers is invisible to it *and* to per-cell DRC (an overlap between two
+# unconnected nets breaks no width or spacing rule), and surfaces only as an
+# LVS mismatch here. #264 hit exactly that; each sub-cell's own routing is
+# therefore placed clear of this cell's trunks (all below TOP_SEAM_Y) and
+# margin columns (all at negative x) by construction.
 #
 # That is not a convenience. Four independently laid-out cells plus rails have
 # nets that must cross, and in a one-metal regime every crossing is either a
@@ -3630,15 +3723,15 @@ def temp_por_top(b: CellBuilder) -> None:
 
     Device coverage: this cell inherits every one of the four sub-circuits'
     drawn devices unchanged, extraction being flat -- ``temp_core``'s PNP
-    array and R2 gain ladder (#93), ``por_output_chain``'s two MiM caps and
-    its ``XMRLK`` release latch (#92, issue #56), ``por_comparator``'s sense
-    divider (#91) and ``bias_core``'s PNPs/resistors/MiM caps (#90), reunited
-    with the rest of this assembly by #97's floorplan re-derivation. What
-    still is not drawn anywhere in the four sub-circuits -- only
-    ``temp_core``'s own MiM cap -- is still outside this compare too (see
-    ``layout/lvs_reference.py``'s ``temp_por_top`` manifest, and
-    ``layout/README.md`` -> "Known deck limits" for what that leaves
-    unproven).
+    array and R2 gain ladder (#93) and its MiM cap ``XCC`` (#259),
+    ``por_output_chain``'s two MiM caps and its ``XMRLK`` release latch (#92,
+    issue #56), ``por_comparator``'s sense divider (#91) and ``bias_core``'s
+    PNPs/resistors/MiM caps (#90), reunited with the rest of this assembly by
+    #97's floorplan re-derivation. Since #259 there is nothing left over: all
+    239 golden devices of the four sub-circuits are drawn and in this compare
+    (see ``layout/lvs_reference.py``'s ``temp_por_top`` manifest, and
+    ``layout/README.md`` -> "Known deck limits" for what a clean compare here
+    still does *not* prove).
     """
     routes = _TopRoutes(b)
 

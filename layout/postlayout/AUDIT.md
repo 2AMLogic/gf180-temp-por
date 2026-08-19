@@ -15,8 +15,8 @@ for where this sits in the flow.
 | `bias_core` | 70 | 0 | 94 | 47/50 (94.0 %) | 130842 Ω | 1940.1 fF |
 | `por_comparator` | 21 | 0 | 30 | 15/18 (83.3 %) | 18117 Ω | 472.9 fF |
 | `por_output_chain` | 33 | 0 | 36 | 18/20 (90.0 %) | 66323 Ω | 828.9 fF |
-| `temp_core` | 114 | 1 | 138 | 69/73 (94.5 %) | 65734 Ω | 1552.3 fF |
-| `temp_por_top` | 238 | 1 | 272 | 136/145 (93.8 %) | 280929 Ω | 5900.5 fF |
+| `temp_core` | 115 | 0 | 138 | 69/73 (94.5 %) | 65734 Ω | 1552.3 fF |
+| `temp_por_top` | 239 | 0 | 272 | 136/145 (93.8 %) | 280929 Ω | 5900.6 fF |
 
 `nets with parasitics` is the klayout-tools#283 sanity check: a run
 that silently loaded nothing reads 0 here, and `--extract` refuses to
@@ -31,20 +31,22 @@ substrate global.
 | `bias_core` | 10 | 2 | 18 | 16 | 0 | 24 |
 | `por_comparator` | 0 | 0 | 12 | 6 | 0 | 3 |
 | `por_output_chain` | 0 | 5 | 14 | 14 | 0 | 0 |
-| `temp_core` | 9 | 0 | 27 | 28 | 50 | 0 |
-| `temp_por_top` | 19 | 7 | 71 | 64 | 50 | 27 |
+| `temp_core` | 9 | 1 | 27 | 28 | 50 | 0 |
+| `temp_por_top` | 19 | 8 | 71 | 64 | 50 | 27 |
 
 ## What is not the layout's
 
 ### Body, well and plate ties
 
 The extraction deck's connectivity stack does not join an Nwell, a
-substrate ring, a bipolar base well or a MiM plate to the routing
-that reaches it — every `lvs.json` records that as
-`device.body_unverified`, and klayout-tools#314 is the MiM half of
-it. Those nets are extracted **isolated**, which is honest for a
+substrate ring or a bipolar base well to the routing that reaches
+it — every `lvs.json` records that as `device.body_unverified`.
+Those nets are extracted **isolated**, which is honest for a
 compare and unsimulatable. Each is tied to the net the schematic puts
-it on, derived from `lvs_reference`'s manifest:
+it on, derived from `lvs_reference`'s manifest. MiM plates used to
+need the same treatment (klayout-tools#314, **closed and fixed**
+upstream); every drawn plate in this block is now routed onto its
+own schematic node (#264, #259), so none is tied here:
 
 * **`bias_core`** — 3 ties:
   * `NW1` → `VDD`
@@ -81,8 +83,9 @@ it on, derived from `lvs_reference`'s manifest:
 | `bias_core` | 2 | `cap_mim_2f0_m4m5_noshield` | `cap_mim_2f0_m3m4_noshield` | klayout-tools#315 -- the deck models one stack variant; both are the same 2.0 fF/um^2 device |
 | `por_comparator` | 3 | `ppolyf_u_1k` | `ppolyf_u_3k` | klayout-tools#323 -- the deck wires the PDK's default POLY_RES option only; the drawn geometry is the schematic's either way |
 | `por_output_chain` | 5 | `cap_mim_2f0_m4m5_noshield` | `cap_mim_2f0_m3m4_noshield` | klayout-tools#315 -- the deck models one stack variant; both are the same 2.0 fF/um^2 device |
+| `temp_core` | 1 | `cap_mim_2f0_m4m5_noshield` | `cap_mim_2f0_m3m4_noshield` | klayout-tools#315 -- the deck models one stack variant; both are the same 2.0 fF/um^2 device |
 | `temp_por_top` | 27 | `ppolyf_u_1k` | `ppolyf_u_3k` | klayout-tools#323 -- the deck wires the PDK's default POLY_RES option only; the drawn geometry is the schematic's either way |
-| `temp_por_top` | 7 | `cap_mim_2f0_m4m5_noshield` | `cap_mim_2f0_m3m4_noshield` | klayout-tools#315 -- the deck models one stack variant; both are the same 2.0 fF/um^2 device |
+| `temp_por_top` | 8 | `cap_mim_2f0_m4m5_noshield` | `cap_mim_2f0_m3m4_noshield` | klayout-tools#315 -- the deck models one stack variant; both are the same 2.0 fF/um^2 device |
 
 The drawn geometry is the schematic's in both cases; only the deck's
 *name* for it differs. Emitting the deck's name would simulate this
@@ -91,5 +94,4 @@ high-sheet-rho resistor.
 
 ### Devices that are not drawn at all
 
-* **`temp_core` — `XCC`** (`cap_mim_2f0_m3m4_noshield`) on `PG` / `NZ`: not drawn in this cell's layout -- reserved floor area. Spliced in ideal, so any claim taken on this netlist that depends on it is a schematic claim, not a post-layout one.
-* **`temp_por_top` instance `xtemp` — `XCC`** (`cap_mim_2f0_m3m4_noshield`) on `xtemp__PG` / `xtemp__NZ`: not drawn in this cell's layout -- reserved floor area. Spliced in ideal, so any claim taken on this netlist that depends on it is a schematic claim, not a post-layout one.
+* none — every golden device is drawn in every cell.

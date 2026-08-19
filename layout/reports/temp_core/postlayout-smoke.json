@@ -17,9 +17,9 @@
   "measurements": [
     {
       "measure": "ptat_v",
-      "postlayout": 1.293988373,
+      "postlayout": 1.2939883729,
       "schematic": 1.2933413408,
-      "delta_frac": 0.0005002795314650796,
+      "delta_frac": 0.0005002794541459643,
       "window": [
         0.5,
         2.5

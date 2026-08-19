@@ -52,12 +52,13 @@ records it:
   ``SNS``. That is what makes the result readable by a testbench written
   against the schematic -- and it is read out of the tool, not solved here.
 * **body nets get tied.** The extraction deck's connectivity stack does not
-  join an Nwell, a substrate ring, a bipolar base well or a MiM plate to the
-  routing that reaches it (every ``lvs.json`` records this as
-  ``device.body_unverified``; klayout-tools#314 for the plates). Those nets
-  come out of the extractor **isolated**, which is honest for a compare and
-  fatal for a simulation -- a floating well and a floating deglitch cap do not
-  converge to anything meaningful. Each one is tied to the net the *schematic*
+  join an Nwell, a substrate ring or a bipolar base well to the routing that
+  reaches it (every ``lvs.json`` records this as ``device.body_unverified``).
+  Those nets come out of the extractor **isolated**, which is honest for a
+  compare and fatal for a simulation -- a floating well does not converge to
+  anything meaningful. A MiM plate used to come out isolated too
+  (klayout-tools#314, closed and fixed upstream); since #264 and #259 every
+  drawn plate here is routed onto its own schematic node, so none needs a tie. Each one is tied to the net the *schematic*
   puts it on, derived from ``lvs_reference``'s own manifest rather than typed
   in here, and every tie is listed in ``layout/postlayout/AUDIT.md``.
 * **two deck substitutions are undone.** ``klt``'s curated deck models one
@@ -76,9 +77,13 @@ What is real and what is not
 Real, from the layout: every device and its dimensions, the whole topology,
 and the first-order interconnect R/C on every net that has drawn routing.
 Not real: the body ties above (schematic), and any device the schematic has
-that the layout does not draw yet -- today exactly one, ``temp_core``'s
-``XCC`` MiM cap, which is spliced in ideal and flagged in the audit and in the
-netlist header. Nothing else is spliced.
+that the layout does not draw yet -- **today, none**. ``temp_core``'s ``XCC``
+MiM cap was the last one and #259 drew it (DR-028), so every cell's audit row
+and netlist header now reads "No ideal device: every golden device is drawn".
+The splice machinery stays because it is manifest-derived, not because
+anything uses it: the day a schematic gains a device the layout has not drawn
+yet, it is spliced in ideal and flagged in the audit and in the netlist header
+rather than silently missing.
 """
 
 from __future__ import annotations
@@ -341,9 +346,11 @@ def undrawn_capacitors(cell: str) -> list[dict]:
 
     ``lvs_reference``'s manifest lists the drawn ones; anything the golden
     netlist has and the manifest does not is reserved floor area, and is the
-    only thing this module ever splices in ideal. Resistors and bipolars are
-    handled the same way for the day a cell reintroduces one -- today every
-    cell draws all of both.
+    only thing this module ever splices in ideal. **Empty for every cell since
+    #259** (DR-028) drew ``temp_core``'s ``XCC``, the last undrawn golden
+    device in this block -- kept, like the resistor and bipolar equivalents,
+    so that a schematic that gains a device the layout has not caught up with
+    is disclosed rather than dropped.
     """
     spec = ref.CELLS[cell]
     out: list[dict] = []
@@ -961,12 +968,14 @@ def audit_markdown(audits: list[dict]) -> str:
         "### Body, well and plate ties",
         "",
         "The extraction deck's connectivity stack does not join an Nwell, a",
-        "substrate ring, a bipolar base well or a MiM plate to the routing",
-        "that reaches it — every `lvs.json` records that as",
-        "`device.body_unverified`, and klayout-tools#314 is the MiM half of",
-        "it. Those nets are extracted **isolated**, which is honest for a",
+        "substrate ring or a bipolar base well to the routing that reaches",
+        "it — every `lvs.json` records that as `device.body_unverified`.",
+        "Those nets are extracted **isolated**, which is honest for a",
         "compare and unsimulatable. Each is tied to the net the schematic puts",
-        "it on, derived from `lvs_reference`'s manifest:",
+        "it on, derived from `lvs_reference`'s manifest. MiM plates used to",
+        "need the same treatment (klayout-tools#314, **closed and fixed**",
+        "upstream); every drawn plate in this block is now routed onto its",
+        "own schematic node (#264, #259), so none is tied here:",
         "",
     ]
     for audit in audits:

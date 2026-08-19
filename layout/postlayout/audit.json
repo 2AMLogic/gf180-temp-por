@@ -165,16 +165,17 @@
         "nfet": 27,
         "pfet": 28,
         "bjt": 9,
+        "cap_mim_2f0_m4m5_noshield": 1,
         "ppolyf_u": 50
       },
-      "device_total": 114,
+      "device_total": 115,
       "parasitic_cards": 138,
       "coverage": {
         "nets_total": 73,
         "nets_with_parasitics": 69,
         "fraction": 0.9452,
-        "total_resistance_ohm": 65734.4195,
-        "total_capacitance_ff": 1552.273763
+        "total_resistance_ohm": 65734.4637,
+        "total_capacitance_ff": 1552.307553
       },
       "ties": {
         "vsubs": "VSS",
@@ -182,20 +183,16 @@
         "NW2": "NT",
         "NWQ": "VSS"
       },
-      "ideal_devices": [
+      "ideal_devices": [],
+      "substitutions": [
         {
-          "name": "XCC",
-          "instance": null,
-          "model": "cap_mim_2f0_m3m4_noshield",
-          "nodes": [
-            "PG",
-            "NZ"
-          ],
-          "units": 1,
-          "why": "not drawn in this cell's layout -- reserved floor area"
+          "kind": "MiM metal-stack variant",
+          "extracted_as": "cap_mim_2f0_m4m5_noshield",
+          "emitted_as": "cap_mim_2f0_m3m4_noshield",
+          "count": 1,
+          "why": "klayout-tools#315 -- the deck models one stack variant; both are the same 2.0 fF/um^2 device"
         }
       ],
-      "substitutions": [],
       "ports": [
         "VDD",
         "VSS",
@@ -211,7 +208,7 @@
           "name": "gf180mcu",
           "content_hash": "sha256:1256c45b3e472635b03a1888d0730822c1872b4a912a2c90fc1e4e7cd14a3913"
         },
-        "gds_sha256": "852d534c2004326c2405bc689b1c12bd9e16f022ed17fcbe69fcbd8eb1866f10"
+        "gds_sha256": "360bbbea3f0659324430beb69c19ecee30d818111f6f00cfa62845932d7862a7"
       },
       "lvs_status": "match"
     },
@@ -221,18 +218,18 @@
         "nfet": 71,
         "pfet": 64,
         "bjt": 19,
-        "cap_mim_2f0_m4m5_noshield": 7,
+        "cap_mim_2f0_m4m5_noshield": 8,
         "ppolyf_u": 50,
         "ppolyf_u_1k": 27
       },
-      "device_total": 238,
+      "device_total": 239,
       "parasitic_cards": 272,
       "coverage": {
         "nets_total": 145,
         "nets_with_parasitics": 136,
         "fraction": 0.9379,
-        "total_resistance_ohm": 280929.308,
-        "total_capacitance_ff": 5900.535586
+        "total_resistance_ohm": 280929.3522,
+        "total_capacitance_ff": 5900.569376
       },
       "ties": {
         "vsubs": "VSS",
@@ -245,19 +242,7 @@
         "xtemp__NW2": "xtemp__NT",
         "xtemp__NWQ": "VSS"
       },
-      "ideal_devices": [
-        {
-          "name": "XCC",
-          "instance": "xtemp",
-          "model": "cap_mim_2f0_m3m4_noshield",
-          "nodes": [
-            "xtemp__PG",
-            "xtemp__NZ"
-          ],
-          "units": 1,
-          "why": "not drawn in this cell's layout -- reserved floor area"
-        }
-      ],
+      "ideal_devices": [],
       "substitutions": [
         {
           "kind": "resistor sheet-rho flavour",
@@ -271,7 +256,7 @@
           "kind": "MiM metal-stack variant",
           "extracted_as": "cap_mim_2f0_m4m5_noshield",
           "emitted_as": "cap_mim_2f0_m3m4_noshield",
-          "count": 7,
+          "count": 8,
           "why": "klayout-tools#315 -- the deck models one stack variant; both are the same 2.0 fF/um^2 device"
         }
       ],
@@ -289,7 +274,7 @@
           "name": "gf180mcu",
           "content_hash": "sha256:1256c45b3e472635b03a1888d0730822c1872b4a912a2c90fc1e4e7cd14a3913"
         },
-        "gds_sha256": "33843b0e8f9f28a9d9ae054cb6d81dade47898653a09c80975d87bc8b7f701ee"
+        "gds_sha256": "a119a12b1fa2daff64772a4a804a0ea14f17c68dc9357fe167dfd287df0628fd"
       },
       "lvs_status": "match"
     }

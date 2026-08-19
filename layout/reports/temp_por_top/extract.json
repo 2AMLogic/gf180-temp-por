@@ -5,14 +5,14 @@
   "top": "temp_por_top",
   "dbu_um": 0.001,
   "netlist_path": "layout/reports/temp_por_top/extracted.spice",
-  "netlist_sha256": "d1578beb6a223fec6aebadfd51244edbf375162f30601263754be753f6718c16",
+  "netlist_sha256": "4bdc6e807722903bc4d3b1b28282767a3425659b0fcf06817b1921d9263a1953",
   "status": "extracted",
-  "device_count": 238,
+  "device_count": 239,
   "net_count": 145,
   "pin_count": 6,
   "device_counts": {
     "bjt": 19,
-    "cap_mim_2f0_m4m5_noshield": 7,
+    "cap_mim_2f0_m4m5_noshield": 8,
     "nfet": 71,
     "pfet": 64,
     "ppolyf_u": 50,
@@ -920,6 +920,18 @@
     },
     {
       "name": "$162",
+      "class": "cap_mim_2f0_m4m5_noshield",
+      "nets": {
+        "a": "PG",
+        "b": "NZ"
+      },
+      "params": {
+        "c_f": 2.88e-13,
+        "area_um2": 144.0
+      }
+    },
+    {
+      "name": "$163",
       "class": "ppolyf_u",
       "nets": {
         "a": "NB",
@@ -934,7 +946,7 @@
       }
     },
     {
-      "name": "$163",
+      "name": "$164",
       "class": "ppolyf_u",
       "nets": {
         "a": "NC",
@@ -949,7 +961,7 @@
       }
     },
     {
-      "name": "$164",
+      "name": "$165",
       "class": "ppolyf_u",
       "nets": {
         "a": "NA",
@@ -964,7 +976,7 @@
       }
     },
     {
-      "name": "$165",
+      "name": "$166",
       "class": "ppolyf_u",
       "nets": {
         "a": "CTAT",
@@ -979,25 +991,10 @@
       }
     },
     {
-      "name": "$166",
-      "class": "ppolyf_u",
-      "nets": {
-        "a": "NZ",
-        "b": "$143",
-        "w": "vsubs"
-      },
-      "params": {
-        "r_ohm": 17500.0,
-        "l_um": 100.0,
-        "w_um": 2.0,
-        "area_um2": 200.0
-      }
-    },
-    {
       "name": "$167",
       "class": "ppolyf_u",
       "nets": {
-        "a": "$102",
+        "a": "NZ",
         "b": "$143",
         "w": "vsubs"
       },
@@ -1013,7 +1010,7 @@
       "class": "ppolyf_u",
       "nets": {
         "a": "$102",
-        "b": "$144",
+        "b": "$143",
         "w": "vsubs"
       },
       "params": {
@@ -1027,7 +1024,7 @@
       "name": "$169",
       "class": "ppolyf_u",
       "nets": {
-        "a": "$103",
+        "a": "$102",
         "b": "$144",
         "w": "vsubs"
       },
@@ -1057,7 +1054,7 @@
       "class": "ppolyf_u",
       "nets": {
         "a": "$103",
-        "b": "$145",
+        "b": "$144",
         "w": "vsubs"
       },
       "params": {
@@ -1071,7 +1068,7 @@
       "name": "$171",
       "class": "ppolyf_u",
       "nets": {
-        "a": "$104",
+        "a": "$103",
         "b": "$145",
         "w": "vsubs"
       },
@@ -1087,7 +1084,7 @@
       "class": "ppolyf_u",
       "nets": {
         "a": "$104",
-        "b": "$146",
+        "b": "$145",
         "w": "vsubs"
       },
       "params": {
@@ -1101,7 +1098,7 @@
       "name": "$173",
       "class": "ppolyf_u",
       "nets": {
-        "a": "$105",
+        "a": "$104",
         "b": "$146",
         "w": "vsubs"
       },
@@ -1117,7 +1114,7 @@
       "class": "ppolyf_u",
       "nets": {
         "a": "$105",
-        "b": "$147",
+        "b": "$146",
         "w": "vsubs"
       },
       "params": {
@@ -1131,7 +1128,7 @@
       "name": "$175",
       "class": "ppolyf_u",
       "nets": {
-        "a": "N2",
+        "a": "$105",
         "b": "$147",
         "w": "vsubs"
       },
@@ -1146,22 +1143,22 @@
       "name": "$176",
       "class": "ppolyf_u",
       "nets": {
-        "a": "PTAT",
-        "b": "$148",
+        "a": "N2",
+        "b": "$147",
         "w": "vsubs"
       },
       "params": {
-        "r_ohm": 19341.875,
-        "l_um": 110.525,
+        "r_ohm": 17500.0,
+        "l_um": 100.0,
         "w_um": 2.0,
-        "area_um2": 221.05
+        "area_um2": 200.0
       }
     },
     {
       "name": "$177",
       "class": "ppolyf_u",
       "nets": {
-        "a": "$106",
+        "a": "PTAT",
         "b": "$148",
         "w": "vsubs"
       },
@@ -1177,7 +1174,7 @@
       "class": "ppolyf_u",
       "nets": {
         "a": "$106",
-        "b": "$149",
+        "b": "$148",
         "w": "vsubs"
       },
       "params": {
@@ -1191,7 +1188,7 @@
       "name": "$179",
       "class": "ppolyf_u",
       "nets": {
-        "a": "$107",
+        "a": "$106",
         "b": "$149",
         "w": "vsubs"
       },
@@ -1221,7 +1218,7 @@
       "class": "ppolyf_u",
       "nets": {
         "a": "$107",
-        "b": "$150",
+        "b": "$149",
         "w": "vsubs"
       },
       "params": {
@@ -1235,7 +1232,7 @@
       "name": "$181",
       "class": "ppolyf_u",
       "nets": {
-        "a": "$108",
+        "a": "$107",
         "b": "$150",
         "w": "vsubs"
       },
@@ -1251,7 +1248,7 @@
       "class": "ppolyf_u",
       "nets": {
         "a": "$108",
-        "b": "$151",
+        "b": "$150",
         "w": "vsubs"
       },
       "params": {
@@ -1265,7 +1262,7 @@
       "name": "$183",
       "class": "ppolyf_u",
       "nets": {
-        "a": "$109",
+        "a": "$108",
         "b": "$151",
         "w": "vsubs"
       },
@@ -1281,7 +1278,7 @@
       "class": "ppolyf_u",
       "nets": {
         "a": "$109",
-        "b": "$152",
+        "b": "$151",
         "w": "vsubs"
       },
       "params": {
@@ -1295,7 +1292,7 @@
       "name": "$185",
       "class": "ppolyf_u",
       "nets": {
-        "a": "$110",
+        "a": "$109",
         "b": "$152",
         "w": "vsubs"
       },
@@ -1311,7 +1308,7 @@
       "class": "ppolyf_u",
       "nets": {
         "a": "$110",
-        "b": "$153",
+        "b": "$152",
         "w": "vsubs"
       },
       "params": {
@@ -1325,7 +1322,7 @@
       "name": "$187",
       "class": "ppolyf_u",
       "nets": {
-        "a": "$111",
+        "a": "$110",
         "b": "$153",
         "w": "vsubs"
       },
@@ -1341,7 +1338,7 @@
       "class": "ppolyf_u",
       "nets": {
         "a": "$111",
-        "b": "$154",
+        "b": "$153",
         "w": "vsubs"
       },
       "params": {
@@ -1355,7 +1352,7 @@
       "name": "$189",
       "class": "ppolyf_u",
       "nets": {
-        "a": "$112",
+        "a": "$111",
         "b": "$154",
         "w": "vsubs"
       },
@@ -1385,7 +1382,7 @@
       "class": "ppolyf_u",
       "nets": {
         "a": "$112",
-        "b": "$155",
+        "b": "$154",
         "w": "vsubs"
       },
       "params": {
@@ -1399,7 +1396,7 @@
       "name": "$191",
       "class": "ppolyf_u",
       "nets": {
-        "a": "$113",
+        "a": "$112",
         "b": "$155",
         "w": "vsubs"
       },
@@ -1415,7 +1412,7 @@
       "class": "ppolyf_u",
       "nets": {
         "a": "$113",
-        "b": "$156",
+        "b": "$155",
         "w": "vsubs"
       },
       "params": {
@@ -1429,7 +1426,7 @@
       "name": "$193",
       "class": "ppolyf_u",
       "nets": {
-        "a": "$114",
+        "a": "$113",
         "b": "$156",
         "w": "vsubs"
       },
@@ -1445,7 +1442,7 @@
       "class": "ppolyf_u",
       "nets": {
         "a": "$114",
-        "b": "$157",
+        "b": "$156",
         "w": "vsubs"
       },
       "params": {
@@ -1459,7 +1456,7 @@
       "name": "$195",
       "class": "ppolyf_u",
       "nets": {
-        "a": "$115",
+        "a": "$114",
         "b": "$157",
         "w": "vsubs"
       },
@@ -1475,7 +1472,7 @@
       "class": "ppolyf_u",
       "nets": {
         "a": "$115",
-        "b": "$158",
+        "b": "$157",
         "w": "vsubs"
       },
       "params": {
@@ -1489,7 +1486,7 @@
       "name": "$197",
       "class": "ppolyf_u",
       "nets": {
-        "a": "$116",
+        "a": "$115",
         "b": "$158",
         "w": "vsubs"
       },
@@ -1505,7 +1502,7 @@
       "class": "ppolyf_u",
       "nets": {
         "a": "$116",
-        "b": "$159",
+        "b": "$158",
         "w": "vsubs"
       },
       "params": {
@@ -1519,7 +1516,7 @@
       "name": "$199",
       "class": "ppolyf_u",
       "nets": {
-        "a": "T5",
+        "a": "$116",
         "b": "$159",
         "w": "vsubs"
       },
@@ -1563,21 +1560,21 @@
       "class": "ppolyf_u",
       "nets": {
         "a": "T5",
-        "b": "$160",
+        "b": "$159",
         "w": "vsubs"
       },
       "params": {
-        "r_ohm": 20099.625,
-        "l_um": 114.855,
+        "r_ohm": 19341.875,
+        "l_um": 110.525,
         "w_um": 2.0,
-        "area_um2": 229.71
+        "area_um2": 221.05
       }
     },
     {
       "name": "$201",
       "class": "ppolyf_u",
       "nets": {
-        "a": "T4",
+        "a": "T5",
         "b": "$160",
         "w": "vsubs"
       },
@@ -1593,21 +1590,21 @@
       "class": "ppolyf_u",
       "nets": {
         "a": "T4",
-        "b": "$141",
+        "b": "$160",
         "w": "vsubs"
       },
       "params": {
-        "r_ohm": 10035.375,
-        "l_um": 57.345,
+        "r_ohm": 20099.625,
+        "l_um": 114.855,
         "w_um": 2.0,
-        "area_um2": 114.69
+        "area_um2": 229.71
       }
     },
     {
       "name": "$203",
       "class": "ppolyf_u",
       "nets": {
-        "a": "T3",
+        "a": "T4",
         "b": "$141",
         "w": "vsubs"
       },
@@ -1623,21 +1620,21 @@
       "class": "ppolyf_u",
       "nets": {
         "a": "T3",
-        "b": "$132",
+        "b": "$141",
         "w": "vsubs"
       },
       "params": {
-        "r_ohm": 5003.25,
-        "l_um": 28.59,
+        "r_ohm": 10035.375,
+        "l_um": 57.345,
         "w_um": 2.0,
-        "area_um2": 57.18
+        "area_um2": 114.69
       }
     },
     {
       "name": "$205",
       "class": "ppolyf_u",
       "nets": {
-        "a": "T2",
+        "a": "T3",
         "b": "$132",
         "w": "vsubs"
       },
@@ -1653,21 +1650,21 @@
       "class": "ppolyf_u",
       "nets": {
         "a": "T2",
-        "b": "$128",
+        "b": "$132",
         "w": "vsubs"
       },
       "params": {
-        "r_ohm": 2486.75,
-        "l_um": 14.21,
+        "r_ohm": 5003.25,
+        "l_um": 28.59,
         "w_um": 2.0,
-        "area_um2": 28.42
+        "area_um2": 57.18
       }
     },
     {
       "name": "$207",
       "class": "ppolyf_u",
       "nets": {
-        "a": "T1",
+        "a": "T2",
         "b": "$128",
         "w": "vsubs"
       },
@@ -1683,21 +1680,21 @@
       "class": "ppolyf_u",
       "nets": {
         "a": "T1",
-        "b": "$123",
+        "b": "$128",
         "w": "vsubs"
       },
       "params": {
-        "r_ohm": 1227.625,
-        "l_um": 7.015,
+        "r_ohm": 2486.75,
+        "l_um": 14.21,
         "w_um": 2.0,
-        "area_um2": 14.03
+        "area_um2": 28.42
       }
     },
     {
       "name": "$209",
       "class": "ppolyf_u",
       "nets": {
-        "a": "T0",
+        "a": "T1",
         "b": "$123",
         "w": "vsubs"
       },
@@ -1727,6 +1724,21 @@
       "class": "ppolyf_u",
       "nets": {
         "a": "T0",
+        "b": "$123",
+        "w": "vsubs"
+      },
+      "params": {
+        "r_ohm": 1227.625,
+        "l_um": 7.015,
+        "w_um": 2.0,
+        "area_um2": 14.03
+      }
+    },
+    {
+      "name": "$211",
+      "class": "ppolyf_u",
+      "nets": {
+        "a": "T0",
         "b": "$122",
         "w": "vsubs"
       },
@@ -1738,7 +1750,7 @@
       }
     },
     {
-      "name": "$211",
+      "name": "$212",
       "class": "ppolyf_u",
       "nets": {
         "a": "VSS",
@@ -1753,7 +1765,7 @@
       }
     },
     {
-      "name": "$212",
+      "name": "$213",
       "class": "ppolyf_u_1k",
       "nets": {
         "a": "$25",
@@ -1768,7 +1780,7 @@
       }
     },
     {
-      "name": "$213",
+      "name": "$214",
       "class": "ppolyf_u_1k",
       "nets": {
         "a": "$27",
@@ -1783,7 +1795,7 @@
       }
     },
     {
-      "name": "$214",
+      "name": "$215",
       "class": "ppolyf_u_1k",
       "nets": {
         "a": "VSS",
@@ -1798,25 +1810,10 @@
       }
     },
     {
-      "name": "$215",
-      "class": "ppolyf_u_1k",
-      "nets": {
-        "a": "VREF",
-        "b": "$71",
-        "w": "vsubs"
-      },
-      "params": {
-        "r_ohm": 128250.0,
-        "l_um": 256.5,
-        "w_um": 2.0,
-        "area_um2": 513.0
-      }
-    },
-    {
       "name": "$216",
       "class": "ppolyf_u_1k",
       "nets": {
-        "a": "$54",
+        "a": "VREF",
         "b": "$71",
         "w": "vsubs"
       },
@@ -1832,7 +1829,7 @@
       "class": "ppolyf_u_1k",
       "nets": {
         "a": "$54",
-        "b": "$72",
+        "b": "$71",
         "w": "vsubs"
       },
       "params": {
@@ -1846,7 +1843,7 @@
       "name": "$218",
       "class": "ppolyf_u_1k",
       "nets": {
-        "a": "$55",
+        "a": "$54",
         "b": "$72",
         "w": "vsubs"
       },
@@ -1862,7 +1859,7 @@
       "class": "ppolyf_u_1k",
       "nets": {
         "a": "$55",
-        "b": "$73",
+        "b": "$72",
         "w": "vsubs"
       },
       "params": {
@@ -1890,7 +1887,7 @@
       "name": "$220",
       "class": "ppolyf_u_1k",
       "nets": {
-        "a": "$56",
+        "a": "$55",
         "b": "$73",
         "w": "vsubs"
       },
@@ -1906,7 +1903,7 @@
       "class": "ppolyf_u_1k",
       "nets": {
         "a": "$56",
-        "b": "$74",
+        "b": "$73",
         "w": "vsubs"
       },
       "params": {
@@ -1920,7 +1917,7 @@
       "name": "$222",
       "class": "ppolyf_u_1k",
       "nets": {
-        "a": "$57",
+        "a": "$56",
         "b": "$74",
         "w": "vsubs"
       },
@@ -1936,7 +1933,7 @@
       "class": "ppolyf_u_1k",
       "nets": {
         "a": "$57",
-        "b": "$75",
+        "b": "$74",
         "w": "vsubs"
       },
       "params": {
@@ -1950,7 +1947,7 @@
       "name": "$224",
       "class": "ppolyf_u_1k",
       "nets": {
-        "a": "$58",
+        "a": "$57",
         "b": "$75",
         "w": "vsubs"
       },
@@ -1966,7 +1963,7 @@
       "class": "ppolyf_u_1k",
       "nets": {
         "a": "$58",
-        "b": "$70",
+        "b": "$75",
         "w": "vsubs"
       },
       "params": {
@@ -1980,7 +1977,7 @@
       "name": "$226",
       "class": "ppolyf_u_1k",
       "nets": {
-        "a": "$59",
+        "a": "$58",
         "b": "$70",
         "w": "vsubs"
       },
@@ -1996,7 +1993,7 @@
       "class": "ppolyf_u_1k",
       "nets": {
         "a": "$59",
-        "b": "$69",
+        "b": "$70",
         "w": "vsubs"
       },
       "params": {
@@ -2010,7 +2007,7 @@
       "name": "$228",
       "class": "ppolyf_u_1k",
       "nets": {
-        "a": "$60",
+        "a": "$59",
         "b": "$69",
         "w": "vsubs"
       },
@@ -2026,7 +2023,7 @@
       "class": "ppolyf_u_1k",
       "nets": {
         "a": "$60",
-        "b": "$76",
+        "b": "$69",
         "w": "vsubs"
       },
       "params": {
@@ -2054,7 +2051,7 @@
       "name": "$230",
       "class": "ppolyf_u_1k",
       "nets": {
-        "a": "$64",
+        "a": "$60",
         "b": "$76",
         "w": "vsubs"
       },
@@ -2069,22 +2066,22 @@
       "name": "$231",
       "class": "ppolyf_u_1k",
       "nets": {
-        "a": "$45",
-        "b": "$66",
+        "a": "$64",
+        "b": "$76",
         "w": "vsubs"
       },
       "params": {
-        "r_ohm": 127000.0,
-        "l_um": 254.0,
+        "r_ohm": 128250.0,
+        "l_um": 256.5,
         "w_um": 2.0,
-        "area_um2": 508.0
+        "area_um2": 513.0
       }
     },
     {
       "name": "$232",
       "class": "ppolyf_u_1k",
       "nets": {
-        "a": "$61",
+        "a": "$45",
         "b": "$66",
         "w": "vsubs"
       },
@@ -2100,7 +2097,7 @@
       "class": "ppolyf_u_1k",
       "nets": {
         "a": "$61",
-        "b": "$67",
+        "b": "$66",
         "w": "vsubs"
       },
       "params": {
@@ -2114,7 +2111,7 @@
       "name": "$234",
       "class": "ppolyf_u_1k",
       "nets": {
-        "a": "$13",
+        "a": "$61",
         "b": "$67",
         "w": "vsubs"
       },
@@ -2129,22 +2126,22 @@
       "name": "$235",
       "class": "ppolyf_u_1k",
       "nets": {
-        "a": "$18",
-        "b": "$68",
+        "a": "$13",
+        "b": "$67",
         "w": "vsubs"
       },
       "params": {
-        "r_ohm": 87500.0,
-        "l_um": 175.0,
+        "r_ohm": 127000.0,
+        "l_um": 254.0,
         "w_um": 2.0,
-        "area_um2": 350.0
+        "area_um2": 508.0
       }
     },
     {
       "name": "$236",
       "class": "ppolyf_u_1k",
       "nets": {
-        "a": "$46",
+        "a": "$18",
         "b": "$68",
         "w": "vsubs"
       },
@@ -2159,6 +2156,21 @@
       "name": "$237",
       "class": "ppolyf_u_1k",
       "nets": {
+        "a": "$46",
+        "b": "$68",
+        "w": "vsubs"
+      },
+      "params": {
+        "r_ohm": 87500.0,
+        "l_um": 175.0,
+        "w_um": 2.0,
+        "area_um2": 350.0
+      }
+    },
+    {
+      "name": "$238",
+      "class": "ppolyf_u_1k",
+      "nets": {
         "a": "$7",
         "b": "$62",
         "w": "vsubs"
@@ -2171,7 +2183,7 @@
       }
     },
     {
-      "name": "$238",
+      "name": "$239",
       "class": "ppolyf_u_1k",
       "nets": {
         "a": "$18",
@@ -3997,7 +4009,7 @@
     {
       "name": "NZ",
       "pin": false,
-      "device_count": 1
+      "device_count": 2
     },
     {
       "name": "PB",
@@ -4012,7 +4024,7 @@
     {
       "name": "PG",
       "pin": false,
-      "device_count": 11
+      "device_count": 12
     },
     {
       "name": "POR_RAW",
@@ -5605,9 +5617,9 @@
       "content_hash": "sha256:1256c45b3e472635b03a1888d0730822c1872b4a912a2c90fc1e4e7cd14a3913"
     },
     "input": {
-      "content_hash": "sha256:33843b0e8f9f28a9d9ae054cb6d81dade47898653a09c80975d87bc8b7f701ee"
+      "content_hash": "sha256:a119a12b1fa2daff64772a4a804a0ea14f17c68dc9357fe167dfd287df0628fd"
     },
-    "gds_sha256": "33843b0e8f9f28a9d9ae054cb6d81dade47898653a09c80975d87bc8b7f701ee"
+    "gds_sha256": "a119a12b1fa2daff64772a4a804a0ea14f17c68dc9357fe167dfd287df0628fd"
   },
   "parasitics": null
 }

@@ -240,4 +240,5 @@ Q235 vsubs xtemp.NWQ xtemp.NC bjt AE=100P
 Q236 vsubs xtemp.NWQ xtemp.NC bjt AE=100P
 Q237 vsubs xtemp.NWQ xtemp.NC bjt AE=100P
 Q238 vsubs xtemp.NWQ xtemp.NC bjt AE=100P
+C239 xtemp.PG xtemp.NZ 2.88e-13 cap_mim_2f0_m4m5_noshield
 .ENDS temp_por_top

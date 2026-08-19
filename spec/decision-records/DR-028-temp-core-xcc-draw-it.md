@@ -1,8 +1,12 @@
 # DR-028: Draw `temp_core`'s MiM cap `XCC` — both recorded reasons for leaving it out have expired, but the drawing is sequenced behind a klt deck migration
 
-- **Status**: **proposed**. Ratification act is the operator's approval of the
-  pull request that lands this record, per the 2026-08-19 standing policy for
-  this repo's spec/DR ratification-via-PR.
+- **Status**: **in effect** — ratified by the operator's approval of the pull
+  request that landed this record (per the 2026-08-19 standing policy for this
+  repo's spec/DR ratification-via-PR), and **executed** on 2026-08-19: the
+  sequencing precondition landed as #258 (published `klt 0.2.0` pin) and #264
+  (the four already-drawn MiM cards routed onto their schematic nets), and
+  [#259](https://github.com/2AMLogic/gf180-temp-por/issues/259) drew `XCC`
+  itself. See "Execution" below.
 - **Date**: 2026-08-19
 - **Decided by**: Loom Builder, on the measurements in "Context" below, dispatched
   onto [#177](https://github.com/2AMLogic/gf180-temp-por/issues/177) — whose own
@@ -132,6 +136,42 @@ have to be redrawn immediately afterwards.
 geometry lands in the follow-up issues filed alongside it.** No claim is made
 here that `XCC` is drawn — `layout/postlayout/AUDIT.md` and the netlist headers
 continue to disclose it as ideal until it is, and remain correct.
+
+## Execution
+
+*Added 2026-08-19, when the decision above was carried out. Everything before
+this section is the record as ratified and is left unedited.*
+
+The binding sequencing held: #258 migrated the evidence base onto the published
+`klt 0.2.0` release and pinned it in `layout/toolchain.json`; #264 routed the
+four already-drawn golden MiM cards' plates onto their schematic nets through
+the Via4/Metal5 stack (decision item 3, applied to them first); #259 then drew
+`temp_core`'s `XCC` as the fifth card through that same pattern — decision
+items 1, 2 and 4, plus item 3 for this cap: a 12 × 12 µm plate from
+`_mim_block()`/`_mim_cap()`, bottom plate routed onto `PG` and top plate onto
+`NZ`, not floating.
+
+Measured on the result (`klt 0.2.0`, deck
+`sha256:1256c45b…d14a3913`):
+
+| claim | measured |
+| --- | --- |
+| `temp_core` DRC | clean, 0 violations |
+| `temp_core` LVS | match — 115/115 devices, 73/73 nets, 30/30 pins; all three negative controls detected |
+| `temp_por_top` DRC | clean, 0 violations |
+| `temp_por_top` LVS | match — **239**/239 devices (was 238), 145/145 nets, 6/6 pins; all three negative controls detected |
+| ideal devices | **none, in any cell** — `layout/postlayout/AUDIT.md`'s "ideal (not drawn)" column is 0 across the board and every netlist header reads "No ideal device: every golden device is drawn" |
+| drawn area (`klt stats`) | `temp_core` 77 689.5 → 78 352.9 µm², `temp_por_top` 372 409.9 → 373 073.3 µm² — **+663.4 µm²**, not the ≈144 µm² this record predicted, because `klt stats`' total sums every drawn layer: the 12 × 12 µm plate is counted once each on `FuseTop`, `CAP_MK` and `MIM_L_MK` (3 × 144), the `Metal4` bottom plate adds 13.4² = 179.6, and the Via3/Via4/Metal2–Metal5 escape adds the rest |
+| footprint | **unchanged** — `temp_por_top`'s bounding box is still 1334 × 794 µm (1.059 mm²) and `temp_core`'s still 569.25 × 211.355 µm; the plate sits inside both. `spec/target-spec.md#area` re-stamped from `klt stats` accordingly (its parenthetical drawn-polygon figure moves 0.372 → 0.373 mm²) |
+
+What this record predicted and did **not** get is worth stating too: the
+`m3m4` → `m4m5` substitution stays (klayout-tools#315 is closed without the
+`m3m4` variant being modelled), and re-running the campaigns whose provenance
+lines say a compensation-pole claim "is a schematic claim, not a post-layout
+one" is deliberately **not** part of #259 — those records stay valid for the
+netlists they name, per this repo's append-only convention, and re-recording
+them is separate work, filed as
+[#270](https://github.com/2AMLogic/gf180-temp-por/issues/270).
 
 ## Alternatives considered
 

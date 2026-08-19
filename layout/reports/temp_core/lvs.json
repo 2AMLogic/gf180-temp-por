@@ -16,9 +16,9 @@
       "matched": 73
     },
     "devices": {
-      "layout": 114,
-      "reference": 114,
-      "matched": 114
+      "layout": 115,
+      "reference": 115,
+      "matched": 115
     },
     "pins": {
       "layout": 30,
@@ -36,8 +36,8 @@
   "environment": {
     "engine": "klayout",
     "engine_version": "0.30.10",
-    "layout_sha256": "852d534c2004326c2405bc689b1c12bd9e16f022ed17fcbe69fcbd8eb1866f10",
-    "reference_sha256": "cdcf15730f9a9f39063dbd9ab4742dd701803f482e291608e762bfbc15794a0d",
+    "layout_sha256": "360bbbea3f0659324430beb69c19ecee30d818111f6f00cfa62845932d7862a7",
+    "reference_sha256": "f259095f35160f25bb8eb8e9fe764f11b630c0145151793df4e7ec0297f473d8",
     "extracted_netlist": null
   },
   "provenance": {
