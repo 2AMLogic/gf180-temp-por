@@ -465,7 +465,12 @@ fi
 echo ""
 echo "Testing role-prompt wiring (#5047)..."
 
-PROMPT_DIR="$(cd "$HELPERS_DIR/../.claude/commands/loom" && pwd)"
+PROMPT_DIR_CANDIDATE="$HELPERS_DIR/../../.claude/commands/loom"
+[[ -d "$PROMPT_DIR_CANDIDATE" ]] || {
+    echo "FATAL: expected Builder role-prompt dir at '$PROMPT_DIR_CANDIDATE' (repo-root .claude/commands/loom) but it does not exist" >&2
+    exit 1
+}
+PROMPT_DIR="$(cd "$PROMPT_DIR_CANDIDATE" && pwd)"
 
 TESTS_RUN=$((TESTS_RUN + 1))
 # Matches both a line-start invocation (`gh issue create ...`) and the
