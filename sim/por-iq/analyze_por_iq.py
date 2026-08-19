@@ -63,9 +63,9 @@ RECORDS_DIR = EXPERIMENT_DIR / "records"
 
 sys.path.insert(0, str(EXPERIMENT_DIR.parent))
 
-from harness.cliutil import add_author_arg, now_iso  # noqa: E402
+from harness.cliutil import add_author_arg, now_iso, write_derived_record  # noqa: E402
 from harness.corners import parse_corner_id  # noqa: E402
-from harness.report import source_provenance  # noqa: E402
+from harness.report import RecordExists, source_provenance  # noqa: E402
 from harness.runner import load_points  # noqa: E402
 
 SOURCE_EXPERIMENT_DIR = SOURCE_CORNERS_DIR.parent
@@ -323,16 +323,13 @@ def main(argv: list[str] | None = None) -> int:
     text = render(args.record_id, rows, when, args.author, prior_records)
 
     if args.write:
-        RECORDS_DIR.mkdir(parents=True, exist_ok=True)
-        out_path = RECORDS_DIR / f"{args.record_id}-por-iq-derived.md"
-        if out_path.exists():
-            print(
-                f"error: {out_path} already exists -- derived write-ups are "
-                "append-only too; derive from a new record-id instead",
-                file=sys.stderr,
+        try:
+            out_path = write_derived_record(
+                text, RECORDS_DIR, f"{args.record_id}-por-iq-derived.md"
             )
-            return 1
-        out_path.write_text(text)
+        except RecordExists as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 2
         print(f"wrote {out_path}")
     else:
         print(text)
