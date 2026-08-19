@@ -366,20 +366,9 @@ def run(args: argparse.Namespace) -> int:
             shutil.rmtree(log_dir)
         return EXIT_ENVIRONMENT
 
-    if not args.no_write:
-        snapshot = report.write_netlist_snapshot(tb, experiment_dir, record_id)
-        record_path = report.write_record(record, experiment_dir)
-        print()
-        print(f"record    : {record_path}")
-        print(f"snapshot  : {snapshot}")
-        print(f"raw logs  : {log_dir}")
-    else:
-        print()
-        print("evidence  : not recorded (--no-write)")
-    print(f"work dir  : {workdir}")
-    print(f"status    : {record['status'].upper()}")
-
-    return cliutil.exit_code_for_status(record["status"])
+    return cliutil.finish_run(
+        tb, record, experiment_dir, record_id, workdir, log_dir, args.no_write, report.write_record,
+    )
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -395,8 +384,4 @@ def main(argv: list[str] | None = None) -> int:
     if not args.testbench:
         parser.print_help()
         return EXIT_ENVIRONMENT
-    try:
-        return run(args)
-    except (FileNotFoundError, ValueError, KeyError, report.RecordExists) as exc:
-        print(f"error: {exc}", file=sys.stderr)
-        return EXIT_ENVIRONMENT
+    return cliutil.run_and_report(run, args)

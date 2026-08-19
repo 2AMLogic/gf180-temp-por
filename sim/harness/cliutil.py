@@ -15,8 +15,10 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Callable
 
 from .testbench import MANIFEST_NAME, TESTBENCH_DIRNAME, discover
 
@@ -149,3 +151,62 @@ def exit_code_for_status(status: str) -> int:
     if status == "fail":
         return EXIT_CHECK_FAILED
     return EXIT_OK
+
+
+def finish_run(
+    tb,
+    record: dict,
+    experiment_dir: Path,
+    record_id: str,
+    workdir: Path,
+    log_dir: Path | None,
+    no_write: bool,
+    write_record: Callable[[dict, Path], Path],
+) -> int:
+    """Write evidence to disk (or note that it wasn't written) and print the
+    footer shared by ``sim/run_corners.py`` (via ``sim/harness/cli.py``) and
+    ``sim/run_mc.py``'s ``run()`` implementations, then return the exit code
+    for ``record["status"]``.
+
+    ``write_record`` is the record-writer the caller wants invoked as
+    ``write_record(record, experiment_dir)`` -- ``report.write_record`` for
+    the PVT-grid harness, ``mc_report.write_mc_record`` for Monte Carlo runs
+    -- the one line the two callers' footers otherwise differ on.
+    """
+    # Local import: sim/harness/report.py imports this module (for `fmt()`),
+    # so importing it at module scope here would be circular.
+    from . import report as report_mod
+
+    if not no_write:
+        snapshot = report_mod.write_netlist_snapshot(tb, experiment_dir, record_id)
+        record_path = write_record(record, experiment_dir)
+        print()
+        print(f"record    : {record_path}")
+        print(f"snapshot  : {snapshot}")
+        print(f"raw logs  : {log_dir}")
+    else:
+        print()
+        print("evidence  : not recorded (--no-write)")
+    print(f"work dir  : {workdir}")
+    print(f"status    : {record['status'].upper()}")
+
+    return exit_code_for_status(record["status"])
+
+
+def run_and_report(
+    run_fn: Callable[[argparse.Namespace], int], args: argparse.Namespace
+) -> int:
+    """Shared error-handling tail for the record-derivation CLIs' ``main()``:
+    call ``run_fn(args)`` and translate the exceptions it lets escape into
+    ``EXIT_ENVIRONMENT``, as both ``sim/harness/cli.py`` and ``sim/run_mc.py``
+    do around their own ``run(args)`` call.
+    """
+    # Local import: sim/harness/report.py imports this module (for `fmt()`),
+    # so importing it at module scope here would be circular.
+    from . import report as report_mod
+
+    try:
+        return run_fn(args)
+    except (FileNotFoundError, ValueError, KeyError, report_mod.RecordExists) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_ENVIRONMENT
