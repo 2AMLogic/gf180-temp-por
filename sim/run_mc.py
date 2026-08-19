@@ -40,8 +40,6 @@ from harness.pdk import PdkNotFound, find_pdk  # noqa: E402
 from harness.runner import NgspiceMissing, ngspice_version  # noqa: E402
 
 EXIT_OK = cliutil.EXIT_OK
-EXIT_CHECK_FAILED = cliutil.EXIT_CHECK_FAILED
-EXIT_SIM_ERROR = cliutil.EXIT_SIM_ERROR
 EXIT_ENVIRONMENT = cliutil.EXIT_ENVIRONMENT
 
 _fmt = cliutil.fmt
