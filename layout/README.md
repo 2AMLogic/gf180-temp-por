@@ -480,7 +480,10 @@ manifest, and all of them are enumerated per cell in
    well or a MiM plate to the routing that reaches it — which is why every
    `lvs.json` here carries `device.body_unverified`, and why
    [klayout-tools#314](https://github.com/2AMLogic/klayout-tools/issues/314)
-   exists for the MiM half. Honest for a compare; unsimulatable. Each is tied
+   was filed for the MiM half (**now closed and fixed upstream**; this block's
+   caps are still drawn floating, so the tie is still needed here —
+   [DR-028](../spec/decision-records/DR-028-temp-core-xcc-draw-it.md) routes
+   them). Honest for a compare; unsimulatable. Each is tied
    to the net the *schematic* puts it on, taken from `lvs_reference.py`'s
    manifest (so a schematic change moves the tie with it) and listed per cell
    in `AUDIT.md` — 3 ties in `por_comparator`, 23 in `temp_por_top`.
@@ -500,7 +503,7 @@ every high-sheet-rho resistor, including the POR sense divider.
 | --- | --- |
 | From the layout | every device and its dimensions; the whole topology; first-order R/C on every net with drawn routing (60–95 % of nets per cell — see `AUDIT.md`) |
 | From the schematic | the body/well/plate ties above, and net *names* |
-| Not present | `temp_core`'s `XCC` MiM cap — the one golden device this block still does not draw (see its cell section below); spliced in **ideal** and flagged in the netlist header |
+| Not present | `temp_core`'s `XCC` MiM cap — the one golden device this block still does not draw (see its cell section below; [DR-028](../spec/decision-records/DR-028-temp-core-xcc-draw-it.md) decides to draw it, sequenced behind a toolchain migration); spliced in **ideal** and flagged in the netlist header |
 
 So a claim taken on one of these netlists is a post-layout claim about
 interconnect loading and device geometry, and a schematic claim about anything
@@ -601,10 +604,13 @@ Consequences to carry forward, stated so nobody has to re-derive them:
   reference. The drawn Nwell tap ring that ties the base to `VSS` is a
   design-review claim, like every other tie in this repo
   ([klayout-tools#303](https://github.com/2AMLogic/klayout-tools/issues/303)).
-- **MiM plates own no net.** Unchanged from `por_output_chain`: `klt` registers
-  a recognised capacitor's plates outside its own metal/via stack, so no drawn
-  routing can put a plate on a schematic net
-  ([klayout-tools#314](https://github.com/2AMLogic/klayout-tools/issues/314)),
+- **MiM plates own no net** *as drawn*. Unchanged from `por_output_chain`: at
+  the deck this repo's evidence was produced against, `klt` registered a
+  recognised capacitor's plates outside its own metal/via stack, so no drawn
+  routing could put a plate on a schematic net
+  ([klayout-tools#314](https://github.com/2AMLogic/klayout-tools/issues/314) —
+  **closed, fixed upstream**, and reversed for this block by
+  [DR-028](../spec/decision-records/DR-028-temp-core-xcc-draw-it.md)),
   and the drawn device class is the deck's `m4m5` stack where the schematic
   says `m3m4`
   ([#315](https://github.com/2AMLogic/klayout-tools/issues/315)). `NZ`
@@ -878,17 +884,23 @@ class. What each half of the compare now answers for:
 | 28 MOS | Comp/Poly2/Contact/Metal1 | count, sizing, signal-net topology | body ties (see below) |
 | 5 MiM units | `FuseTop` + `CAP_MK` + `MIM_L_MK` over `Metal4` | count, **plate area → capacitance** (242 fF and 4 × 1.568 pF, from the golden `c_width`/`c_length`) | what either plate is connected to |
 
-The connectivity gap is the deck's, not the drawing's: `klt` registers a
-recognised capacitor's two plates as their own self-connected nodes *outside*
-its metal/via stack, and the top plate's layer (`FuseTop`) is not in that stack
-at all, so **no drawn routing can put a MiM plate on a schematic net** — every
-cap extracts as an isolated pair of nets whatever is drawn around it. Drawing
-plate-to-rail routing anyway would add real geometry no check in this flow can
-read, so it is not drawn. `lvs_reference.py` names the plate nets after the
+The connectivity gap was the deck's, not the drawing's: at the `klt` revision
+these plates were drawn against, `klt` registered a recognised capacitor's two
+plates as their own self-connected nodes *outside* its metal/via stack, with the
+top plate's layer (`FuseTop`) not in that stack at all, so **no drawn routing
+could put a MiM plate on a schematic net** — every cap extracts as an isolated
+pair of nets whatever is drawn around it. Drawing plate-to-rail routing anyway
+would have added real geometry no check in this flow could read, so it was not
+drawn. `lvs_reference.py` names the plate nets after the
 schematic nodes they are *meant* to be on (`XCDG.NDG`, `XCTIM.3.VSS`) so the
 loss is legible in the reference netlist instead of hiding behind an anonymous
 node. Filed generically:
-[klayout-tools#314](https://github.com/2AMLogic/klayout-tools/issues/314).
+[klayout-tools#314](https://github.com/2AMLogic/klayout-tools/issues/314) —
+**since closed and fixed upstream**: the deck's `CapacitorDevice` now declares
+`top_plate_via` (`Via4`) / `top_plate_via_metal` (`Metal5`), so routing these
+plates for real would now be checked. The plates here are still drawn floating
+because they predate that fix; re-routing them is
+[DR-028](../spec/decision-records/DR-028-temp-core-xcc-draw-it.md).
 
 A second, smaller substitution: the schematics instantiate the PDK's
 **4-metal-level** MiM (`cap_mim_2f0_m3m4_noshield`); the curated deck models
@@ -1085,26 +1097,42 @@ marker over the shared n+ base ring would extract a 26th device the golden
 netlist never asked for, and marking the sixteen dummies would add sixteen
 more.
 
-**One device stays out: the MiM cap `XCC`.** Two independent blockers, either
-sufficient: the deck models exactly one MiM device
-(`cap_mim_2f0_m4m5_noshield`, the DRM's 5-metal-level Option B) while this
-cell's cap is the `m3m4` flavour the schematic names (same substitution
-`por_output_chain`'s MiM caps make, klayout-tools#315); and a recognised MiM's
-two plate regions are registered *outside* the deck's metal/via connectivity
-stack (klayout-tools#314), so a drawn `XCC` would compare as a capacitor
-floating between two anonymous nets — which says less than leaving it out and
-recording why.
+**One device stays out for now: the MiM cap `XCC` — decided to be drawn, not
+yet drawn.** It is still the one device the post-layout netlist splices in
+**ideal** (`layout/postlayout/temp_core.spice` and `temp_por_top.spice`,
+flagged in each netlist's own header and in `postlayout/AUDIT.md`), so nothing
+in this flow overstates what the layout proves. But the two blockers this
+section used to cite as settled fact have both expired, and
+[DR-028](../spec/decision-records/DR-028-temp-core-xcc-draw-it.md) records the
+decision to draw it:
 
-It is therefore the one device the post-layout netlist splices in **ideal**
-(`layout/postlayout/temp_core.spice` and `temp_por_top.spice`, flagged in each
-netlist's own header and in `postlayout/AUDIT.md`). Note that the second
-blocker cuts both ways: the four MiM caps this block *does* draw are also
-extracted onto isolated plate nets and reattached to their schematic nodes by
-the same mechanism, so what separates `XCC` from them is not connectivity —
-it is that `XCC`'s plate geometry is not drawn at all, so nothing about its
-size, placement or routing is under check. Drawing it is
-[#177](https://github.com/2AMLogic/gf180-temp-por/issues/177)'s call, not
-this flow's.
+* **the metal-flavour substitution is real but is not a differentiator.** The
+  deck models exactly one MiM device (`cap_mim_2f0_m4m5_noshield`, the DRM's
+  5-metal-level Option B) while this cell's cap is the `m3m4` flavour the
+  schematic names (klayout-tools#315, closed without the `m3m4` variant being
+  modelled). `lvs_reference.CAP_CLASS` already makes exactly that substitution
+  for all four golden MiM cards this block *does* draw, so applying it to
+  `XCC` accepts a fidelity loss this block has already accepted twice.
+* **the plate-net isolation is fixed at the tool.** klayout-tools#314 is
+  closed: the `gf180mcu` deck now carries `top_plate_via` (`Via4`) /
+  `top_plate_via_metal` (`Metal5`) on its `CapacitorDevice`, so a *routed* MiM
+  cap's plates reach the connectivity graph and can be LVS'd against their
+  real schematic nets. "A drawn `XCC` would compare as a capacitor floating
+  between two anonymous nets" no longer describes the tool — and it never
+  distinguished `XCC` anyway, since the four drawn cards extract onto isolated
+  plate nets too and are reattached to their schematic nodes by
+  `lvs_reference.cap_plate_nets`.
+
+What actually separates `XCC` from them today is only that its plate geometry
+is not drawn at all, so nothing about its size, placement or routing is under
+check. DR-028 sequences the drawing behind a migration of this repo's layout
+evidence onto a *published* `klt` release: the committed reports here were
+produced against a deck content hash that `klt deck resolve` reports never
+shipped in any release, and under the only obtainable `klt` today
+(0.2.0) `run_checks.sh` fails on **unmodified** committed geometry — see
+[Known deck limits](#known-deck-limits--what-a-clean-lvs-here-does-not-prove).
+Until that migration lands there is no consistent `layout/reports/` state a
+changed `temp_core` could be committed against.
 
 Two deck-imposed rewrites apply to the folded-in passives, mirroring the ones
 `lvs_reference.py`'s module docstring already states for the MOS bodies: a
@@ -1221,8 +1249,10 @@ units (#92) and its `XMRLK` release latch (issue #56); `temp_core`'s PNP array
 and `R2` gain ladder (#93). The **238** devices below are every device in all
 four schematics **except `temp_core`'s own MiM cap `XCC`**, which stays outside
 the compare everywhere — no sub-cell draws it (see `temp_core`'s own section
-above for why), and extraction being flat cannot make `temp_por_top` see a
-device none of its instances draws.
+above, and [DR-028](../spec/decision-records/DR-028-temp-core-xcc-draw-it.md),
+which decides to draw it), and extraction being flat cannot make `temp_por_top`
+see a device none of its instances draws. When it is drawn, this count becomes
+**239** and the block's ideal-device count becomes zero.
 
 **The floorplan re-derivation itself.** #91's divider and #90's passives each
 grew their cell's footprint well past the #72-era placeholder-sized gap
@@ -1371,11 +1401,18 @@ filed upstream per this repo's friction protocol.
   `cap_mim_2f0_m4m5_noshield` devices with the right capacitance instead of as
   reserved floor area. Two residual tool gaps surfaced doing it, both filed
   generically:
-  [klayout-tools#314](https://github.com/2AMLogic/klayout-tools/issues/314) — a
-  recognised capacitor's plate regions are registered *outside* the deck's
-  metal/via connectivity stack (and its top-plate layer is not in that stack at
-  all), so **no drawn routing can put a MiM plate on a schematic net**; the
-  compare answers for plate area, never for plate connectivity. And
+  **~~[klayout-tools#314](https://github.com/2AMLogic/klayout-tools/issues/314)
+  — a recognised capacitor's plates sat off the deck's metal/via connectivity
+  stack, so no drawn routing could put a MiM plate on a schematic net; the
+  compare answered for plate area, never for plate connectivity.~~ Closed and
+  fixed upstream** — the deck's `CapacitorDevice` now declares
+  `top_plate_via` (`Via4`) and `top_plate_via_metal` (`Metal5`), so a routed
+  plate reaches the connectivity graph and a MiM cap can be compared on its
+  nets as well as its area. **The caps in this block are still drawn floating**,
+  because they were drawn for the older behaviour, so today's compare here
+  still answers only for plate area — a property of this drawing, not of the
+  tool. Re-routing them (and drawing `temp_core`'s `XCC` at last) is
+  [DR-028](../spec/decision-records/DR-028-temp-core-xcc-draw-it.md). And
   [klayout-tools#315](https://github.com/2AMLogic/klayout-tools/issues/315) —
   the deck models exactly one of the PDK's MiM stack variants, so a schematic
   instantiating the other (`..._m3m4_...`) has to be drawn as the modelled one.
@@ -1389,9 +1426,16 @@ filed upstream per this repo's friction protocol.
   `bias_core`'s 4 poly resistors, 10 vertical PNPs and 2 MiM caps extract as
   24 `ppolyf_u_1k` + 10 `bjt` + 2 MiM, which makes that cell whole. (See each
   cell's own section above for its marker geometry and drawing decision.)
-  `temp_core`'s own MiM cap `XCC` is the one device left out anywhere, for the
-  same two reasons `por_output_chain`'s substitution above states (wrong MiM
-  stack variant, unconnectable plate nets).
+  `temp_core`'s own MiM cap `XCC` is the one device left out anywhere. Of the
+  two reasons `por_output_chain`'s substitution above states, only the first
+  still holds: **klayout-tools#314 is closed** — the deck's `CapacitorDevice`
+  now carries `top_plate_via` (`Via4`) / `top_plate_via_metal` (`Metal5`), so a
+  routed MiM plate *does* reach the connectivity graph. Drawing `XCC` is
+  therefore decided
+  ([DR-028](../spec/decision-records/DR-028-temp-core-xcc-draw-it.md)) and
+  sequenced behind the toolchain-reproducibility bullet below; the four drawn
+  MiM cards, still drawn floating for the superseded reason, are re-routed by
+  the same follow-up.
   Two deck-*option* limits surfaced doing this, neither a missing capability:
   - **The high-rho poly resistor's sheet resistance is a deck option, not
     drawn geometry.** `ppolyf_u_1k`/`_2k`/`_3k` are geometrically identical —
@@ -1572,7 +1616,9 @@ filed upstream per this repo's friction protocol.
     let #92 draw `por_output_chain`'s and #90 `bias_core`'s. `temp_core`'s is
     still the missing marker geometry in *that* cell, not the deck — unchanged
     by #93, which drew its resistor and bipolar markers but deliberately left
-    `XCC` out (see `temp_core`'s own section above).
+    `XCC` out. That deferral is now reversed by decision:
+    [DR-028](../spec/decision-records/DR-028-temp-core-xcc-draw-it.md) (see
+    `temp_core`'s own section above).
   `layout/floorplan.md`'s "Routing / metal-level note" carries the same
   re-check.
 - **DRC is a curated subset.** Width/space/enclosure across Poly2/Comp/Contact/
@@ -1625,6 +1671,34 @@ filed upstream per this repo's friction protocol.
   `run_checks.sh`, also unscoped, but — unlike the deck-hash guard — **not**
   tolerant of frozen cells: a frozen cell's own reports still have to match
   its own committed GDS).
+- **The committed evidence is not reproducible from a published `klt`, and the
+  only obtainable one fails on unmodified geometry.** Measured 2026-08-19 while
+  verifying [DR-028](../spec/decision-records/DR-028-temp-core-xcc-draw-it.md);
+  it is a *state* of this repo, not a tool defect, and it gates every further
+  layout change:
+  - Every report here names `klt 0.1.0` and deck content hash
+    `sha256:be1a89e0…872b1d`. `klt deck resolve` — the tool's own
+    hash → release lookup — reports that **no released deck ships that hash**
+    ("may predate the table's start, be from an unreleased build, or never have
+    shipped"; the table covers v0.1.0..v0.2.0). PyPI's published
+    `klayout-tools==0.1.0` is not a substitute: it self-reports `klt 0.0.1` and
+    has no `extract` or `lvs` subcommand at all.
+  - Under `klt 0.2.0` — the only obtainable release with `extract`/`lvs` — a
+    whole-repo `bash layout/run_checks.sh` on **unchanged committed GDS** gives
+    `bias_core` **LVS mismatch** (its MiM caps are drawn floating, and with
+    klayout-tools#314 fixed their plates are on the connectivity graph, so they
+    no longer pair with the reference's synthesized isolated plate nets), and
+    `por_output_chain` + `temp_por_top` **11 × `metal1.enclosing.contact.1`**
+    each (a rule 0.2.0 adds at 0.005 µm, re-derived from the PDK's own
+    `contact.drc` CO.6; the violations are 0.22 × 0.01 µm slivers on existing
+    contact landings). 0.2.0 also extends the MiM capacitance model with a
+    perimeter/fringe term (`perim_cap_f_um`) that
+    `lvs_reference.MIM_AREA_CAP_F_UM2`'s area-only model does not carry.
+  - The deck-hash gate correctly refuses a per-cell regeneration, so there is
+    **no partial migration**: the repair is a whole-repo one, and it has to fix
+    the three failures above rather than merely re-stamp them. Until it lands,
+    the committed reports stand as the evidence of record for the toolchain
+    they name, and no layout geometry here can change.
 
 `layout/reports/environment.json` records the `klt` version each report was
 produced with, because several of the limits above are version-dependent.

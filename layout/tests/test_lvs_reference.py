@@ -831,11 +831,13 @@ class TempCoreTest(ManifestReferenceTests, ControlCoverageTests, unittest.TestCa
 
     def test_the_mim_cap_is_the_only_device_left_out(self):
         # #93 folded the PNPs and the poly resistors into the compare. XCC is
-        # the one device still outside it, and it is outside for two reasons
-        # the layout cannot fix (the deck models only the m4m5 MiM stack, and
-        # a recognised MiM's plate nets are not joined to the routing
-        # connectivity graph) -- so this asserts the *whole* gap, not a list
-        # someone has to remember to shrink.
+        # the one device still outside it -- so this asserts the *whole* gap,
+        # not a list someone has to remember to shrink.
+        #
+        # It is outside by *sequencing*, not by deck limit: DR-028 decides to
+        # draw it (see UndrawnCapDecisionTest below), and this assertion is
+        # what will fail the moment the manifest gains "caps": ["XCC"], forcing
+        # the record and the prose to be brought along with the geometry.
         golden = (REPO_ROOT / "design" / "netlist" / "temp_core.spice").read_text()
         body = lr.subckt_body(golden, "temp_core")
         spec = lr.CELLS[self.CELL]
@@ -2062,6 +2064,98 @@ class Poly2ContactEnclosureTest(unittest.TestCase):
         # 70 dbu; this module is stdlib-only (no klt import), so the value is
         # transcribed and asserted against the DRM number it came from.
         self.assertAlmostEqual(bc.POLY2_CONT_ENC_UM, 0.07)
+
+
+#: Every file that explains *why* ``temp_core``'s ``XCC`` is not drawn. The
+#: explanation is a decision, not a fact about the tool, so each of these has to
+#: point at the record that carries it -- otherwise the next reader inherits the
+#: retracted justification instead of the decision that replaced it.
+XCC_EXPLAINERS = (
+    Path("README.md"),
+    Path("layout/README.md"),
+    Path("layout/build_cells.py"),
+    Path("layout/lvs_reference.py"),
+)
+
+#: Every reference to the tool gap DR-028 retracts. klayout-tools#314 is closed
+#: and the ``gf180mcu`` deck's ``CapacitorDevice`` now carries
+#: ``top_plate_via`` / ``top_plate_via_metal``, so a *routed* MiM plate does
+#: reach the connectivity graph. Citing it without saying so leaves the reader
+#: with the retracted justification.
+PLATE_GAP_REFERENCE = re.compile(r"klayout-tools#314|klayout-tools/issues/314")
+
+#: Words that mark a citation of it as historical rather than current.
+PLATE_GAP_CLOSED = re.compile(r"closed|fixed|no longer", re.IGNORECASE)
+
+#: How much normalized text around a citation counts as "the same breath".
+PLATE_GAP_WINDOW = 400
+
+
+class UndrawnCapDecisionTest(unittest.TestCase):
+    """DR-028 is the record of *why* ``temp_core``'s ``XCC`` is still undrawn.
+
+    The layout state it describes is asserted by
+    ``TempCoreTest.test_the_mim_cap_is_the_only_device_left_out`` and by
+    ``test_postlayout.py``'s undrawn-capacitor tests. What is asserted *here* is
+    the thing that actually rotted last time: the recorded justification. It sat
+    in four files as settled fact for weeks after the tool fixed it
+    (klayout-tools#314), which is how a scope deferral came to read like a
+    permanent deck limit. Pinning "every explainer cites the record" makes the
+    next such reversal a test failure rather than an archaeology exercise.
+    """
+
+    RECORD = Path("spec/decision-records/DR-028-temp-core-xcc-draw-it.md")
+
+    def record_text(self):
+        return (REPO_ROOT / self.RECORD).read_text()
+
+    def test_the_record_exists_and_names_what_it_decides(self):
+        text = self.record_text()
+        for token in ("XCC", "temp_core", "klayout-tools#314", "## Decision"):
+            self.assertIn(token, text, f"DR-028 does not mention {token!r}")
+
+    def test_the_record_follows_the_decision_record_template(self):
+        text = self.record_text()
+        for heading in (
+            "- **Status**:",
+            "- **Date**:",
+            "- **Decided by**:",
+            "## Context",
+            "## Decision",
+            "## Alternatives considered",
+            "## Consequences",
+        ):
+            self.assertIn(heading, text, f"DR-028 is missing {heading!r}")
+
+    def test_every_explainer_cites_the_record(self):
+        for path in XCC_EXPLAINERS:
+            with self.subTest(path=str(path)):
+                text = (REPO_ROOT / path).read_text()
+                self.assertIn("XCC", text, "expected this file to discuss XCC")
+                self.assertIn(
+                    "DR-028",
+                    text,
+                    f"{path} explains the undrawn XCC without citing DR-028",
+                )
+
+    def test_every_citation_of_the_plate_gap_says_it_is_closed(self):
+        # Not a spell-check. klayout-tools#314 -- "a MiM plate can never be put
+        # on a schematic net" -- is the sentence that made this omission look
+        # permanent, and it is now false at the tool. A citation that does not
+        # carry its closure in the same breath restores exactly the misreading
+        # DR-028 was written to end, which is how it survived here for weeks.
+        for path in (*XCC_EXPLAINERS, self.RECORD):
+            text = re.sub(r"\s+", " ", (REPO_ROOT / path).read_text())
+            for match in PLATE_GAP_REFERENCE.finditer(text):
+                start = max(0, match.start() - PLATE_GAP_WINDOW)
+                window = text[start:match.end() + PLATE_GAP_WINDOW]
+                with self.subTest(path=str(path), at=match.start()):
+                    self.assertRegex(
+                        window,
+                        PLATE_GAP_CLOSED,
+                        f"{path}: klayout-tools#314 cited without noting it is "
+                        f"closed/fixed: {window!r}",
+                    )
 
 
 if __name__ == "__main__":
