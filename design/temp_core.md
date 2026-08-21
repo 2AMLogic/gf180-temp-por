@@ -64,7 +64,7 @@ budget below is written so #15 knew exactly how much room it had left.
 > [`…-breakdown.md`](../sim/temp-accuracy-mc/records/20260802-082345-989ce7a-breakdown.md);
 > the spec consequence — targets kept, rows recorded as measured misses, fix
 > routed to a design revision — is
-> [DR-011](../spec/decision-records/DR-011-temp-accuracy-mismatch-not-met.md).
+> [DR-029](../spec/decision-records/DR-029-temp-accuracy-mismatch-not-met.md).
 > **Everything below is still correct as a systematic bound; it is simply no
 > longer the whole story.** The "Against the targets" section carries the
 > mismatch-inclusive numbers.
@@ -534,7 +534,7 @@ Second, and more consequentially, **`V_os` is not the only term over budget**:
 the gain term alone is 216–244 % of the untrimmed window, so remedy (a)/(c)
 below closes the dominant term without closing the row. `spec/target-spec.md`
 records both rows as measured misses with their targets intact, under
-[DR-011](../spec/decision-records/DR-011-temp-accuracy-mismatch-not-met.md).
+[DR-029](../spec/decision-records/DR-029-temp-accuracy-mismatch-not-met.md).
 
 **#13's assembled-path numbers (`sim/temp-accuracy-vt/`, `bias_core`-driven
 `IBIAS`) land in the same neighbourhood**: untrimmed **−0.335…+0.099 °C**
@@ -562,7 +562,7 @@ This cell is deliberately built so that (b) is a resistor-length change and
 
 **It did, so here is what those remedies now cost against measured numbers**
 (the full argument, and the reasons none of them is *chosen* here, are in
-[DR-011](../spec/decision-records/DR-011-temp-accuracy-mismatch-not-met.md)):
+[DR-029](../spec/decision-records/DR-029-temp-accuracy-mismatch-not-met.md)):
 
 - **(a) grow the pair/mirror.** σ(`V_os`) falls as 1/√(WL); 3.07 mV → 0.46 mV
   is a 6.7× σ reduction, i.e. **≈45× the area** of `XMI1`/`XMI2`/`XML1`/`XML2`.
@@ -768,7 +768,7 @@ its other three cells, on drawn geometry that is the schematic's either way.
 | [`sim/temp-core-designer-check/…/20260819-172959-fd167d8.md`](../sim/temp-core-designer-check/records/20260819-172959-fd167d8.md) | **PASS**, 216/216 points | unchanged — no check regressed |
 | [`sim/temp-core-startup/…/20260819-170120-47d2f2a.md`](../sim/temp-core-startup/records/20260819-170120-47d2f2a.md) | **PASS**, 81/81 points | unchanged — no check regressed |
 | [`sim/temp-accuracy-vt/…/20260819-173345-2a37d6c.md`](../sim/temp-accuracy-vt/records/20260819-173345-2a37d6c.md) (+ `-derived`) | FAIL on [`por-iq`](../spec/target-spec.md#por-iq) only, 108/108 points | unchanged — that row already failed at schematic level ([Iq apportionment is `design/bias_core.md`'s](../design/bias_core.md), #14's row, carried here only as the `temp-iq` subtrahend) |
-| [`sim/temp-accuracy-mc/…/20260819-171829-b403a17.md`](../sim/temp-accuracy-mc/records/20260819-171829-b403a17.md) (+ `-breakdown`) | FAIL | unchanged — the same [DR-011](../spec/decision-records/DR-011-temp-accuracy-mismatch-not-met.md) mismatch miss, on the same eight (binding point, measurement) pairs |
+| [`sim/temp-accuracy-mc/…/20260819-171829-b403a17.md`](../sim/temp-accuracy-mc/records/20260819-171829-b403a17.md) (+ `-breakdown`) | FAIL | unchanged — the same [DR-029](../spec/decision-records/DR-029-temp-accuracy-mismatch-not-met.md) mismatch miss, on the same eight (binding point, measurement) pairs |
 
 Each of these four records is #270's re-run of the corresponding row in
 #83's original table (above), against the netlist with `XCC` drawn, and
@@ -843,7 +843,7 @@ Two rows are worth reading twice:
   therefore in the class the ratified one-point 25 °C trim removes, which is
   why the *trimmed* row moves the other way (56 % → 53 % of budget) even as
   the untrimmed one grows. It is nowhere near binding either way: the mismatch
-  share DR-011 records dominates the untrimmed row by ~35× (±20 °C at 3σ
+  share DR-029 records dominates the untrimmed row by ~35× (±20 °C at 3σ
   against 0.55 °C systematic) and the trimmed row by ~9× (±7.4 °C against
   0.80 °C).
 - **The +1.99 % reset release time is the one place the drawn interconnect
@@ -915,7 +915,7 @@ Two rows are worth reading twice:
   (local mismatch is a property of the PDK's statistical device models, which
   apply to the same drawn devices either way, and interconnect loading is not
   a mismatch term) and it is worth having recorded rather than assumed:
-  **DR-011's conclusion survives extraction intact.** What it does *not* cover
+  **DR-029's conclusion survives extraction intact.** What it does *not* cover
   is layout-*dependent* matching — common-centroid placement of the 8:1 PNP
   array and the `R2`/`R1` ladder, gradient, stress and orientation effects.
   Those are #17's, and no netlist-level extraction can see them.
