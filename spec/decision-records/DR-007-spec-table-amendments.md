@@ -93,9 +93,10 @@ from the deleted README table was loosened.
 ## Alternatives considered
 
 - **Restore the numeric table to `README.md`** — rejected. The publication
-  audit removed those numbers on purpose; putting them back would undo a
-  deliberate confidentiality decision to solve a filing problem. A link costs
-  nothing and keeps both properties.
+  audit removed those numbers on purpose, and a link costs nothing and keeps
+  both properties. (*2026-08-21 note: the operator has since ruled the numeric
+  spec values public-safe; the link-not-table choice stands on its own merits
+  — one source of truth in `spec/`, no duplicated table to drift.*)
 - **Reconstruct the table only, and leave A2–A8 to later issues** — rejected.
   A table that still names neither threshold edge, still has no ramp or
   brownout row, and still states no statistical basis would be ratifiable in
