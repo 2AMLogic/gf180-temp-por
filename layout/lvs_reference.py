@@ -1217,9 +1217,7 @@ def mos_card(prefix: str, klass: str, nodes: list[str], length_um: float, width_
     )
 
 
-def build_cards(
-    cell: str, corrupt: str | None = None, rename=None
-) -> list[Card]:
+def build_cards(cell: str, rename=None) -> list[Card]:
     """Every device card one manifest entry contributes, before numbering.
 
     ``rename`` (used only by :func:`build_assembly`) maps this cell's own net
