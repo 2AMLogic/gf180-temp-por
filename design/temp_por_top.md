@@ -496,11 +496,25 @@ operating point, and (for `temp-por-top-release`) the assembled-block
 ordering that depends on `temp_core` settling — is now measured through the
 real drawn compensation cap, and it is unchanged from both the schematic and
 the pre-#259 extracted result. A *quantified* small-signal stability margin
-(phase margin, gain margin) has never been measured by any testbench in this
-suite, extracted or schematic — that is a testbench-coverage gap, not
-something #270 could close by re-running existing decks, and it is tracked by
-[#274](https://github.com/2AMLogic/gf180-temp-por/issues/274) rather than
-closed here.
+(phase margin, gain margin) was a testbench-coverage gap #270 could not close
+by re-running existing decks — the gap was that no testbench in this suite,
+extracted or schematic, had ever measured one at all. [#274](https://github.com/2AMLogic/gf180-temp-por/issues/274)
+has since closed that gap:
+[`sim/temp-core-loop-stability/`](../sim/temp-core-loop-stability/), record
+[`20260819-182610-a4eebe7`](../sim/temp-core-loop-stability/records/20260819-182610-a4eebe7.md),
+is this repo's first small-signal `.ac` loop-gain testbench, and across the
+full 81-point PVT grid it measured phase margin from 34.2°
+(`ff_-40c_2.97v`) to 47.1° (`ss_27c_3.63v`) and gain margin from 4.43 dB
+(`res_ss_-40c_3.63v`) to 7.50 dB (`res_ff_125c_2.97v`). This is a
+**schematic-level** record only (against `design/netlist/temp_core.spice`,
+which already carries #259/DR-028's real drawn `XCC`) — a post-layout
+re-run of this specific `.ac` testbench against the extracted netlist has
+not been done, so that remains a disclosed, open gap. No
+`spec/target-spec.md` bound was added: since no transient or AC record shows
+evidence of an actual instability problem, promoting a specific phase/gain
+margin requirement is left as a separate, deliberate decision for whenever
+one is actually needed. See [`temp_core.md`](temp_core.md) → "Loop
+stability" for the full account.
 
 ### Regressions and follow-ups, routed rather than absorbed
 
