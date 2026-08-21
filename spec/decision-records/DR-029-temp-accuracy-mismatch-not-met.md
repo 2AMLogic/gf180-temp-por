@@ -1,4 +1,4 @@
-# DR-011: Record both temperature-accuracy rows as measured-not-met rather than relaxing them
+# DR-029: Record both temperature-accuracy rows as measured-not-met rather than relaxing them
 
 - **Status**: proposed
 - **Date**: 2026-08-02

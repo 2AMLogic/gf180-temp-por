@@ -307,7 +307,7 @@ overdrive-referenced measurement.
   do not -- the sensing amplifier's input-referred offset alone measures
   3.07 mV at 3 sigma against the ~0.46 mV its budget allowed, and the
   untrimmed row misses +/-3 C by 6.5x
-  (`spec/decision-records/DR-011-temp-accuracy-mismatch-not-met.md`).
+  (`spec/decision-records/DR-029-temp-accuracy-mismatch-not-met.md`).
   "Should not be assumed small" turned out to be the understatement.
 
   This summary is **not** re-run or amended for that: `sim/` is append-only,

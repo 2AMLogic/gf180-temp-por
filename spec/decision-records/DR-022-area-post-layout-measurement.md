@@ -150,7 +150,7 @@ the DRC/extraction/LVS reports it sits alongside.
 
 **`area` moves from an unmeasured provisional budget to a measured,
 ratified-pending value recorded as missed by 21.2×.** This is the same shape
-as [DR-011](DR-011-temp-accuracy-mismatch-not-met.md)'s temperature-accuracy
+as [DR-029](DR-029-temp-accuracy-mismatch-not-met.md)'s temperature-accuracy
 rows: target not relaxed, miss recorded honestly, decision routed through
 this record rather than silently absorbed.
 
