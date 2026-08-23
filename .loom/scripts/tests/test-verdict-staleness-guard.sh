@@ -84,7 +84,7 @@ STUB_DIR="$(mktemp -d)"
 trap 'rm -rf "$STUB_DIR" 2>/dev/null || true' EXIT
 
 # --- Stub gh on PATH ---------------------------------------------------
-#   gh pr view <N> --json headRefOid,labels,state,merged
+#   gh pr view <N> --json headRefOid,labels,state,mergedAt
 #                                           -> cat $STUB_DIR/pr-<N>.json
 #                                              (fails if pr-view-fail-<N> exists)
 #   gh api repos/{owner}/{repo}/issues/<N>/comments --paginate
@@ -113,7 +113,7 @@ case "$1" in
           echo "gh: A new release of gh is available: 2.0.0 -> 2.1.0" >&2
         fi
         canned="$STUB_DIR_FROM_ENV/pr-$pr_num.json"
-        if [[ -f "$canned" ]]; then cat "$canned"; else echo '{"headRefOid":"0000000000000000000000000000000000000000","state":"OPEN","merged":false,"labels":[]}'; fi
+        if [[ -f "$canned" ]]; then cat "$canned"; else echo '{"headRefOid":"0000000000000000000000000000000000000000","state":"OPEN","mergedAt":null,"labels":[]}'; fi
         exit 0
         ;;
       comment)
@@ -184,9 +184,15 @@ labels_json() {
 
 pr_json_state() {
     # pr_json_state <pr-number> <head-sha> <state> <merged:true|false> [label ...]
+    # The <merged> arg stays a plain true|false for callers' convenience; it is
+    # translated to the `mergedAt` shape `gh pr view --json` actually returns
+    # (a non-null ISO-8601 timestamp when merged, null otherwise) — there is no
+    # boolean `merged` field in that schema (#286).
     local num="$1" sha="$2" state="$3" merged="$4"; shift 4
-    printf '{"headRefOid":"%s","state":"%s","merged":%s,"labels":[%s]}' \
-        "$sha" "$state" "$merged" "$(labels_json "$@")" > "$STUB_DIR/pr-$num.json"
+    local merged_at="null"
+    if [[ "$merged" == "true" ]]; then merged_at='"2026-01-01T00:00:00Z"'; fi
+    printf '{"headRefOid":"%s","state":"%s","mergedAt":%s,"labels":[%s]}' \
+        "$sha" "$state" "$merged_at" "$(labels_json "$@")" > "$STUB_DIR/pr-$num.json"
 }
 
 pr_json() {
@@ -198,7 +204,7 @@ pr_json() {
 
 pr_json_no_state() {
     # pr_json_no_state <pr-number> <head-sha> [label ...] — the pre-#6781 shape
-    # a forge shim that does not report `state`/`merged` would return.
+    # a forge shim that does not report `state`/`mergedAt` would return.
     local num="$1" sha="$2"; shift 2
     printf '{"headRefOid":"%s","labels":[%s]}' "$sha" "$(labels_json "$@")" > "$STUB_DIR/pr-$num.json"
 }
@@ -684,7 +690,7 @@ assert_eq "14" "$RC" "(p5) Short-circuits before the comments fetch"
 assert_eq "" "$WRITES" "(p5) No label writes"
 
 # (p6) REST-shaped state (a forge shim returning lowercase `closed` alongside
-#      `merged: true`, the shape quoted in #6781) is recognized too.
+#      a non-null `mergedAt`, the shape quoted in #6781) is recognized too.
 reset_state
 pr_json_state 232 "$SHA_B" "closed" "true" "loom:pr"
 { echo "["; verdict_comment "2026-08-23T06:00:00Z" "$SHA_A" "approved"; echo "]"; } > "$STUB_DIR/comments-232.json"
@@ -712,7 +718,7 @@ assert_eq "1" "$(get_field "$OUT" CLEARED)" "(p8) Still cleared on an open PR"
 assert_contains "$WRITES" "--add-label loom:review-requested" "(p8) Still re-queued on an open PR"
 
 # (p9) Fail-open on a MISSING state field: a forge shim that reports neither
-#      `state` nor `merged` keeps the pre-#6781 behavior. Failing closed here
+#      `state` nor `mergedAt` keeps the pre-#6781 behavior. Failing closed here
 #      would silently disable stale-verdict clearing on such a forge, which
 #      reinstates the #5686 hazard (a stale approval standing on a LIVE PR) —
 #      strictly worse than mislabeling PRs that are already finished.

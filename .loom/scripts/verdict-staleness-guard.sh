@@ -226,11 +226,18 @@ GH_STDERR="$(mktemp)"
 trap 'rm -f "$GH_STDERR" 2>/dev/null || true' EXIT
 
 # --- Step 1: current head SHA + current labels + open/closed state ----------
-# `state` and `merged` are fetched in the SAME call as the head SHA, not a
+# `state` and `mergedAt` are fetched in the SAME call as the head SHA, not a
 # second round trip: the whole point is that the PR may finish between any two
 # reads, so the state must come from the same snapshot the SHA came from.
-PR_JSON="$(gh pr view "$PR" --json headRefOid,labels,state,merged 2>"$GH_STDERR")" || {
-  echo "ERROR: 'gh pr view $PR --json headRefOid,labels,state,merged' failed: $(cat "$GH_STDERR" 2>/dev/null)" >&2
+#
+# `mergedAt`, not `merged`: `gh pr view --json` has no boolean `merged` field
+# (that shape is GitHub's REST API, not `gh`'s GraphQL-derived schema) — only
+# `mergedAt`/`mergedBy`/`mergeCommit`. Requesting `merged` fails with
+# "Unknown JSON field" on every invocation (#286). `mergedAt` is a non-null
+# timestamp exactly when the PR is merged, so its presence/absence gives the
+# same boolean the old (never-valid) `merged` field was meant to provide.
+PR_JSON="$(gh pr view "$PR" --json headRefOid,labels,state,mergedAt 2>"$GH_STDERR")" || {
+  echo "ERROR: 'gh pr view $PR --json headRefOid,labels,state,mergedAt' failed: $(cat "$GH_STDERR" 2>/dev/null)" >&2
   exit 1
 }
 
@@ -285,9 +292,10 @@ current_verdict_label() {
 # against mislabeling PRs that are already finished. The former is far worse.
 PR_STATE="$(jq -r '.state // empty' <<<"$PR_JSON" 2>/dev/null || true)"
 PR_STATE_UC="$(printf '%s' "$PR_STATE" | tr '[:lower:]' '[:upper:]')"
-# `.merged // false` (not `// empty`): jq's `//` also swallows a literal
-# `false`, so the alternative supplies the default for BOTH null and false.
-PR_MERGED="$(jq -r 'if (.merged // false) then "true" else "false" end' <<<"$PR_JSON" 2>/dev/null || true)"
+# `gh pr view --json` has no boolean `merged` field; `mergedAt` is a non-null
+# ISO-8601 timestamp when merged, and null/absent otherwise, so a non-empty
+# `mergedAt` is the merged boolean.
+PR_MERGED="$(jq -r 'if ((.mergedAt // "") | length > 0) then "true" else "false" end' <<<"$PR_JSON" 2>/dev/null || true)"
 
 if [[ "$PR_MERGED" == "true" || ( -n "$PR_STATE_UC" && "$PR_STATE_UC" != "OPEN" ) ]]; then
   NOT_OPEN_WHAT="merged"
