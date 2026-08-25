@@ -112,6 +112,16 @@ open-tooling analog design flow can actually deliver.
   needs, that friction gets filed as a public issue there — this project
   is one of the reasons that tool exists.
 
+## Chipalooza
+
+This block is the Phase-1 entry for its class in
+[Open Circuit Design's Chipalooza Challenge #3](https://opencircuitdesign.com/chipalooza/challenge-3.html)
+(GF180MCU / Wafer.Space). The proposal document —
+[`docs/chipalooza/challenge-3-proposal.md`](docs/chipalooza/challenge-3-proposal.md) —
+re-derives every numeric claim from this repository's own `sim/` evidence at
+the challenge's rails, and explicitly marks the rows and the rail (5.0 V)
+that are not yet characterized.
+
 ## Layout of this repo
 
 ```
