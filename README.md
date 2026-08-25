@@ -260,7 +260,58 @@ full campaign runs them.
 
 ### Fresh-clone dry run
 
-<!-- FRESH_CLONE_DRY_RUN -->
+Performed against a real `git clone --no-local` of this work into `/tmp`
+(forces an actual file copy, not a hardlinked shortcut back to the
+development checkout), with the environment stripped to `HOME`, `PATH`, and
+`GF180_PDK_PATH` only (`env -i`) — nothing else carried over from the
+development shell:
+
+```
+$ git clone --no-local <this-repo> /tmp/gf180-dry-run/repo    # 7.5s, 22,997 files
+$ cd /tmp/gf180-dry-run/repo
+$ env -i HOME="$HOME" PATH="$PATH" GF180_PDK_PATH=~/.volare/gf180mcuD make check    # 4.4s, exit 0
+$ env -i HOME="$HOME" PATH="$PATH" GF180_PDK_PATH=~/.volare/gf180mcuD make smoke    # 4.6s, exit 0
+$ env -i HOME="$HOME" PATH="$PATH" GF180_PDK_PATH=~/.volare/gf180mcuD make characterize
+```
+
+`make check` and `make smoke` both passed (exit 0) from a directory tree
+that had never seen this repository's development checkout — no absolute
+path, cached result, or machine-local script from that checkout was needed.
+
+`make characterize` correctly drove `sim/characterize.py` against the fresh
+clone: it discovered all 22 experiments, resolved the same PDK via
+`GF180_PDK_PATH`, and began minting real per-corner ngspice logs for the
+first experiment. **A clean single-number wall-clock total for the full
+22-experiment campaign is not available from this dry run**: the host this
+was performed on was, at the time, running roughly two dozen other
+unrelated ngspice processes from other agents' concurrent work in sibling
+worktrees (visible in `ps aux`) — on an 8-core machine, that is what
+actually turned one PVT point's cost from the ~1.5 s measured in relative
+isolation (below) into 10-20 s, not anything about this fresh clone or
+`sim/characterize.py` itself. The run was stopped after 6m28s, 30/81 points
+into the first of 22 experiments, rather than let it continue for an
+unbounded time under that contention. A more honest wall-clock reference is
+the two full-campaign-representative runs measured earlier in this same
+session, in relative isolation, against the same PDK:
+
+| Experiment | Grid | Measured wall-clock (`-j 4` default, 8-core host, uncontended) |
+|---|---|---|
+| `por-vth` (full-assembly, transient, 81-point PVT grid) | PVT | 127.4 s |
+| `por-threshold-mc` (5 binding points × N=500 samples) | Monte Carlo | 181.4 s |
+| `smoke-bias` (harness self-test, 81-point PVT grid) | PVT | 1.8 s |
+
+Extrapolating those across the 20 discovered PVT-grid experiments (transient
+lengths vary; `por-vth` is a heavier-than-typical full-assembly case, not
+the average) plus the 2 Monte Carlo experiments puts a full
+`make characterize` campaign at **on the order of 30-60 minutes on an
+uncontended host** — this is an estimate from partial, isolated
+measurements, not a single measured total, for the reason above. What *is*
+directly verified, from this same dry-run clone and from the development
+checkout alike: `sim/characterize.py --list` correctly enumerates all 22
+experiments (`sim/tests/test_characterize.py`), `--only <slug>` correctly
+restricts a run to one experiment, and a representative subset run
+(`smoke-bias`, `por-threshold-mc`) completes and exits 0 end to end,
+including minting real evidence records.
 
 ## License
 

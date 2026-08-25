@@ -27,7 +27,7 @@ help:
 	@echo ""
 	@echo "  make check         unit tests + environment/PDK check (headless, seconds)"
 	@echo "  make smoke         fast end-to-end proof the toolchain works (seconds)"
-	@echo "  make characterize  full PVT/Monte-Carlo campaign -> sim/*/records/ (~1 hour)"
+	@echo "  make characterize  full PVT/Monte-Carlo campaign -> sim/*/records/ (dozens of minutes, host-dependent)"
 	@echo ""
 	@echo "See README.md's 'Independent verification (Chipalooza)' section for"
 	@echo "prerequisites and what each target actually runs."
