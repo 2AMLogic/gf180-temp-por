@@ -164,6 +164,18 @@ All numbers below are the schematic/post-layout `sim/` evidence at 2.97 V,
 3.30 V and 3.63 V, over the full 81-point PVT grid (9 process corners × 3
 temperatures × 3 supplies) unless noted otherwise.
 
+**Every row's Evidence column is independently reproducible with a single
+command.** Each cited `sim/<slug>/records/<record-id>.md` path names the
+experiment slug (the path component right after `sim/`) that
+`make characterize` (repository root) regenerates from scratch — the exact
+record-id will differ on a fresh run (`sim/`'s append-only convention mints
+a new one every time), but the slug and the claim it substantiates do not.
+See the repository [`README.md`](../../README.md)'s "Independent
+verification (Chipalooza)" section for prerequisites, the three `make`
+targets (`check`/`smoke`/`characterize`), measured wall-clock, and the exact
+slug-to-row mapping — written for a reviewer who has never seen this
+repository before.
+
 ### 4.1 Temperature sensor
 
 | Parameter | Min | Typ | Max | Absolute limit | Status @ 3.3 V rail | Status @ 5.0 V rail | Evidence |
@@ -310,6 +322,13 @@ license. No separate licensing action is needed for this submission.
   (`klt`), a headless, scriptable KLayout-based flow — no GUI and no PDK
   install required for the DRC/LVS checks themselves
   (`layout/run_checks.sh`).
+- **One-command full characterization**: `make characterize` at the
+  repository root reproduces the entire §4 spec table from a clean clone
+  (plus `make check`/`make smoke` for a fast environment/toolchain check and
+  a quick end-to-end proof the flow runs) — see the repository
+  [`README.md`](../../README.md)'s "Independent verification (Chipalooza)"
+  section for prerequisites, wall-clock, and the spec-row-to-output-file
+  mapping, per the review's own stated bar (2AMLogic/2am#542).
 - No proprietary EDA tool is used anywhere in this design's flow.
 
 ---
