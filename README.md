@@ -169,6 +169,166 @@ Reports land under `layout/reports/` and are committed as evidence. What the
 flow proves — and the curated-deck limits that bound it — is documented in
 [`layout/README.md`](layout/README.md).
 
+## Independent verification (Chipalooza)
+
+Written for someone who has never touched this repository. This is what the
+Chipalooza schematic-design review's stated bar
+([2AMLogic/2am#542](https://github.com/2AMLogic/2am/issues/542), quoted in
+full in [issue #292](https://github.com/2AMLogic/gf180-temp-por/issues/292))
+needs: clone this repository, install the prerequisites below, and reproduce
+the full simulation campaign behind
+[`docs/chipalooza/challenge-3-proposal.md`](docs/chipalooza/challenge-3-proposal.md)'s
+§4 spec table from three single command-line invocations, with no step that
+only works from this repository's already-checked-out state — plus two short
+named derivation commands for five rows that need a manual second step (see
+"[Mapping the proposal's spec table to output
+files](#mapping-the-proposals-spec-table-to-output-files)" below).
+
+### Prerequisites
+
+| Tool | Version | Why | Install |
+|---|---|---|---|
+| `ngspice` | any recent release (`ngspice-46` is what this repo's own evidence and CI use) | circuit simulation | `apt-get install ngspice` / `brew install ngspice` |
+| gf180mcu PDK | `open_pdks` commit `c6d73a35f524070e85faff4a6a9eef49553ebc2b` — the revision this repo's committed `sim/` evidence and `.github/workflows/ci.yml` are taken against | device models | `pip install volare && volare enable --pdk gf180mcu c6d73a35f524070e85faff4a6a9eef49553ebc2b`, or an equivalent [`ciel`](https://github.com/efabless/ciel)/[IIC-OSIC-TOOLS](https://github.com/iic-jku/iic-osic-tools)-provisioned install |
+| `xschem` | ≥ 3.4.7 | schematic capture / netlist export — **not** needed to run `make check`/`make smoke`/`make characterize` below, which simulate the netlists already committed under `design/netlist/`; only needed to regenerate them | build from source per [`design/README.md`](design/README.md)'s Requirements note (Ubuntu's apt package below 3.4.7 has a netlisting regression) |
+| python3 | ≥ 3.9 | the simulation harness itself | stdlib only — no pip packages needed for `make check`/`make smoke`/`make characterize` |
+| `klayout-tools` (`klt`) 0.2.0, KLayout, Magic, Netgen | pinned in [`layout/toolchain.json`](layout/toolchain.json) | layout DRC/LVS/extraction | `uv tool install --force klayout-tools==0.2.0`; KLayout/Magic/Netgen themselves come bundled with a `ciel`/IIC-OSIC-TOOLS PDK install, or install separately per `klayout-tools`' own docs |
+
+The last row is listed for completeness of the open-source flow this project
+uses end to end ([`layout/README.md`](layout/README.md)); it is **not**
+exercised by the three `make` targets below, which are simulation-only —
+layout DRC/LVS is `bash layout/run_checks.sh` (previous section), a separate
+entry point with its own toolchain pin. No tool anywhere in this flow is
+proprietary.
+
+**PDK environment.** The harness never hardcodes a PDK path. Set **one** of
+`GF180_PDK_PATH=/path/to/gf180mcuD` (the variant directory itself) or
+`PDK_ROOT=/path/to/pdk/root` (+ optionally `PDK=gf180mcuD`, the
+open_pdks/OpenLane convention) before running any target below —
+`python3 sim/run_corners.py --check-env` reports exactly what got resolved,
+and `sim/harness/README.md`'s "Prerequisites" section documents the full
+resolution order (`sim/harness/pdk.py`) if neither is set.
+
+### The three make targets
+
+Run these from the repository root.
+
+| Target | What it does | Measured wall-clock (8-core host, this repo's own dry run below) | Exit code |
+|---|---|---|---|
+| `make check` | `sim/build_tb.py --check` (testbench fragments match `design/netlist/` exports) + `sim/tests`/`layout/tests` unit tests (headless, no PDK needed) + an explicit environment/PDK report (`sim/run_corners.py --check-env`) | ~2 s | non-zero on any failure, including a missing PDK or ngspice |
+| `make smoke` | `sim/selftest.sh`: harness unit tests plus a full-PVT-grid (81-point) run of the harness's own acceptance testbench, `sim/smoke-bias/` (an ideal divider, a PDK poly-resistor/nfet bias, and the same vertical-PNP diode the sensing core's CTAT leg is built from) — proves ngspice, the PDK, and the corner-sweep mechanics all actually work, fast | ~3-4 s | non-zero on any failure |
+| `make characterize` | The full campaign behind the proposal's §4 spec table: every **schematic-level** experiment discovered under `sim/*/testbench/` — the full 81-point PVT grid for a deterministic experiment (`sim/run_corners.py`), or the full N≥500-per-binding-point Monte Carlo sweep for one that carries an `"mc"` block (`sim/run_mc.py`) — each minting a new append-only evidence record | see "Fresh-clone dry run" below | non-zero if any experiment fails |
+
+`make characterize` is `python3 sim/characterize.py`, a thin driver over the
+two entry points above (`sim/characterize.py`'s module docstring has the
+full rationale, including why `testbench-postlayout/` re-runs are
+deliberately out of scope — they are triggered by a layout change, not by
+routine characterization, and this project's post-layout re-run already
+exists as separately-recorded evidence). List what a run would do without
+running it (`python3 sim/characterize.py --list`), or run just one
+experiment (`python3 sim/characterize.py --only <slug>`) — both useful for
+checking one spec row without paying for the whole campaign.
+
+### Where results land
+
+Every `make characterize` run mints one new `<record-id>` per experiment and
+writes, under `sim/<experiment-slug>/`:
+
+- `records/<record-id>.md` — the append-only summary record (the field set
+  [`sim/README.md`](sim/README.md) defines)
+- `netlist-snapshots/<record-id>.spice` — the frozen netlist fragment that
+  record was taken against
+- `corners/<record-id>/<corner-id>.log` — raw ngspice output, one file per
+  PVT point (or per Monte Carlo sample)
+
+Records are **never overwritten**; re-running `make characterize` mints new
+record-ids alongside whatever is already committed, per `sim/README.md`'s
+append-only rule.
+
+### Mapping the proposal's spec table to output files
+
+[`docs/chipalooza/challenge-3-proposal.md`](docs/chipalooza/challenge-3-proposal.md)
+§4's Evidence column already names, for every row, the exact
+`sim/<slug>/records/<record-id>.md` file that row's number was measured
+from. Because every `make characterize` run mints a **new** record-id by
+design (the append-only rule above), the literal filename in that column is
+not what your own run will reproduce — the stable mapping is the
+**experiment slug**, the path component right after `sim/`. Read the slug
+out of an Evidence citation (e.g. `sim/por-vth/records/...` → `por-vth`) and
+look in `sim/<that-slug>/records/` for the record your run just wrote.
+`python3 sim/run_corners.py --list` / `python3 sim/run_mc.py --list` print
+every slug next to the spec claim it substantiates, and
+`python3 sim/characterize.py --list` prints the same slugs in the order a
+full campaign runs them.
+
+**Two exceptions**, both disclosed at their row in the proposal's §4 table:
+`sim/temp-accuracy-mc/`'s `-breakdown.md` attribution file (§4.1) and every
+`sim/por-iq/*-derived.md` file (§4.3) are not written directly by
+`make characterize` — each is a second, manual derivation step run against a
+record `make characterize` did mint (`python3
+sim/temp-accuracy-mc/analyze_breakdown.py <record-id> --write` and `python3
+sim/por-iq/analyze_por_iq.py <temp-accuracy-vt-record-id> --write`,
+respectively). `por-iq` itself has no `testbench/tb.json` and is not one of
+the 22 slugs `sim/characterize.py --list` enumerates — do not look for it
+there. (§4.4's footprint row is a third exception, but a categorically
+different one: it is layout evidence, regenerated by
+`bash layout/run_checks.sh`, not simulation evidence at all.)
+
+### Fresh-clone dry run
+
+Performed against a real `git clone --no-local` of this work into `/tmp`
+(forces an actual file copy, not a hardlinked shortcut back to the
+development checkout), with the environment stripped to `HOME`, `PATH`, and
+`GF180_PDK_PATH` only (`env -i`) — nothing else carried over from the
+development shell:
+
+```
+$ git clone --no-local <this-repo> /tmp/gf180-dry-run/repo    # 7.5s, 22,997 files
+$ cd /tmp/gf180-dry-run/repo
+$ env -i HOME="$HOME" PATH="$PATH" GF180_PDK_PATH=~/.volare/gf180mcuD make check    # 4.4s, exit 0
+$ env -i HOME="$HOME" PATH="$PATH" GF180_PDK_PATH=~/.volare/gf180mcuD make smoke    # 4.6s, exit 0
+$ env -i HOME="$HOME" PATH="$PATH" GF180_PDK_PATH=~/.volare/gf180mcuD make characterize
+```
+
+`make check` and `make smoke` both passed (exit 0) from a directory tree
+that had never seen this repository's development checkout — no absolute
+path, cached result, or machine-local script from that checkout was needed.
+
+`make characterize` correctly drove `sim/characterize.py` against the fresh
+clone: it discovered all 22 experiments, resolved the same PDK via
+`GF180_PDK_PATH`, and began minting real per-corner ngspice logs for the
+first experiment. **A clean single-number wall-clock total for the full
+22-experiment campaign is not available from this dry run**: the host this
+was performed on was, at the time, running roughly two dozen other
+unrelated ngspice processes from other agents' concurrent work in sibling
+worktrees (visible in `ps aux`) — on an 8-core machine, that is what
+actually turned one PVT point's cost from the ~1.5 s measured in relative
+isolation (below) into 10-20 s, not anything about this fresh clone or
+`sim/characterize.py` itself. The run was stopped after 6m28s, 30/81 points
+into the first of 22 experiments, rather than let it continue for an
+unbounded time under that contention. A more honest wall-clock reference is
+the two full-campaign-representative runs measured earlier in this same
+session, in relative isolation, against the same PDK:
+
+| Experiment | Grid | Measured wall-clock (`-j 4` default, 8-core host, uncontended) |
+|---|---|---|
+| `por-vth` (full-assembly, transient, 81-point PVT grid) | PVT | 127.4 s |
+| `por-threshold-mc` (5 binding points × N=500 samples) | Monte Carlo | 181.4 s |
+| `smoke-bias` (harness self-test, 81-point PVT grid) | PVT | 1.8 s |
+
+Extrapolating those across the 20 discovered PVT-grid experiments (transient
+lengths vary; `por-vth` is a heavier-than-typical full-assembly case, not
+the average) plus the 2 Monte Carlo experiments puts a full
+`make characterize` campaign at **on the order of 30-60 minutes on an
+uncontended host** — this is an estimate from partial, isolated
+measurements, not a single measured total, for the reason above. What *is*
+directly verified, from this same dry-run clone and from the development
+checkout alike: `sim/characterize.py --list` correctly enumerates all 22
+experiments (`sim/tests/test_characterize.py`), `--only <slug>` correctly
+restricts a run to one experiment, and a representative subset run
+(`smoke-bias`, `por-threshold-mc`) completes and exits 0 end to end,
+including minting real evidence records.
+
 ## License
 
 Apache License 2.0 — see [LICENSE](LICENSE).
