@@ -179,7 +179,10 @@ needs: clone this repository, install the prerequisites below, and reproduce
 the full simulation campaign behind
 [`docs/chipalooza/challenge-3-proposal.md`](docs/chipalooza/challenge-3-proposal.md)'s
 §4 spec table from three single command-line invocations, with no step that
-only works from this repository's already-checked-out state.
+only works from this repository's already-checked-out state — plus two short
+named derivation commands for five rows that need a manual second step (see
+"[Mapping the proposal's spec table to output
+files](#mapping-the-proposals-spec-table-to-output-files)" below).
 
 ### Prerequisites
 
