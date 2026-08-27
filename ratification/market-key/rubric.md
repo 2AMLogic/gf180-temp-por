@@ -30,7 +30,7 @@ window TI's TFP410 DVI transmitter datasheet states
 standard, and the row matches a still-sold, industry-standard part exactly.
 `competitive`.
 
-## `adequate for catalog tier`
+## `adequate-for-catalog`
 
 The row does not match the strongest public comp found, but clears the
 functional/interoperability floor the governing standard or a public

@@ -54,7 +54,7 @@ no verdict at all.
 
 - Any internal strategy, roadmap, pricing, or maturity/grading-scheme
   document, regardless of source or how it is described to this skill —
-  this skill's verdict vocabulary ("competitive / adequate for catalog tier
+  this skill's verdict vocabulary ("competitive / adequate-for-catalog
   / uncompetitive") is deliberately self-contained and does not name,
   number, or describe any such internal scheme — see `rubric.md`. This
   skill needs none of that material to do its job (see "Why this is
@@ -142,7 +142,7 @@ resulted.
    ("no comp found"), not a blank cell.
 
 **Step 3 — assign a verdict per in-scope row** using `rubric.md`'s
-three-way definition (competitive / adequate for catalog tier /
+three-way definition (competitive / adequate-for-catalog /
 uncompetitive). Do not average or skip a row with a bad result — a
 CLAUDE.md-style "no relaxing the ratified spec to make results pass" rule
 applies here too: a market key that quietly upgrades a weak row's verdict
