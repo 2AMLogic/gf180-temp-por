@@ -482,6 +482,7 @@ and therefore inherited that caveat:
 | [`temp-accuracy-mc`](../sim/temp-accuracy-mc/) | Yes — Monte Carlo mismatch on the settled point | **Yes** — [`20260819-171829-b403a17`](../sim/temp-accuracy-mc/records/20260819-171829-b403a17.md) |
 | [`temp-por-top-release`](../sim/temp-por-top-release/) | Yes — full-assembly startup ordering, which includes `temp_core` settling | **Yes** — [`20260819-173152-e58ed1a`](../sim/temp-por-top-release/records/20260819-173152-e58ed1a.md) |
 | `por-ramp-rate`, `por-brownout`, `por-brownout-slew`, `por-brownout-spurious`, `por-glitch` | No — POR ramp/brownout/glitch dynamics, not the sensing amplifier's loop | Not re-run — out of #270's scope; each experiment's existing record (table above) remains accurate for the netlist it was actually taken against |
+| [`temp-core-loop-stability`](../sim/temp-core-loop-stability/) | Yes — directly measures the compensation pole's small-signal margin | Did not exist at #270's time (filed by #274 after #270 closed); the schematic-level record already ran against the drawn `XCC` by construction, and #298 later re-ran it against the extracted netlist — [`20260910-020408-c0e4d87`](../sim/temp-core-loop-stability/records/20260910-020408-c0e4d87.md) |
 
 All five re-run records supersede their pre-#259 extracted predecessors, are
 taken against a clean working tree (no dirty-tree citation caveat), and each
@@ -505,16 +506,33 @@ has since closed that gap:
 is this repo's first small-signal `.ac` loop-gain testbench, and across the
 full 81-point PVT grid it measured phase margin from 34.2°
 (`ff_-40c_2.97v`) to 47.1° (`ss_27c_3.63v`) and gain margin from 4.43 dB
-(`res_ss_-40c_3.63v`) to 7.50 dB (`res_ff_125c_2.97v`). This is a
+(`res_ss_-40c_3.63v`) to 7.50 dB (`res_ff_125c_2.97v`). That was a
 **schematic-level** record only (against `design/netlist/temp_core.spice`,
-which already carries #259/DR-028's real drawn `XCC`) — a post-layout
-re-run of this specific `.ac` testbench against the extracted netlist has
-not been done, so that remains a disclosed, open gap. No
-`spec/target-spec.md` bound was added: since no transient or AC record shows
-evidence of an actual instability problem, promoting a specific phase/gain
-margin requirement is left as a separate, deliberate decision for whenever
-one is actually needed. See [`temp_core.md`](temp_core.md) → "Loop
-stability" for the full account.
+which already carries #259/DR-028's real drawn `XCC`).
+
+[#298](https://github.com/2AMLogic/gf180-temp-por/issues/298) has since
+re-run the identical testbench against the extracted netlist
+([`layout/postlayout/temp_core.spice`](../layout/postlayout/temp_core.spice)),
+via a hand-forked `testbench-postlayout/` sibling (the loop-break edits move
+inside the subcircuit body, which `sim/build_tb.py`'s verbatim-copy mechanism
+cannot produce, exactly like the schematic fragment itself). Record
+[`20260910-020408-c0e4d87`](../sim/temp-core-loop-stability/records/20260910-020408-c0e4d87.md)
+(`Supersedes: 20260819-182610-a4eebe7`) is 81/81 PASS, with `dc_bias_delta_mv`
+= 0 at every point, and measures phase margin from **26.2°**
+(`ff_-40c_3.30v`) to **37.9°** (`ss_27c_3.63v`) and gain margin from
+**4.73 dB** (`ff_-40c_3.63v`) to **7.30 dB** (`res_ff_125c_2.97v`). The
+paired
+[`20260910-020408-c0e4d87-postlayout-delta`](../sim/temp-core-loop-stability/records/20260910-020408-c0e4d87-postlayout-delta.md)
+record shows **zero regressions** on both checked measurements — the
+extracted parasitics do cost real margin (worst-case phase margin −9.3° at
+`ss_-40c_3.63v`, from the `RPG`/`CPG` interconnect now loading the
+compensation node `PG`) but nothing here crosses a ratified bound, because
+none exists yet. No `spec/target-spec.md` bound was added: since no
+transient or AC record — schematic or extracted — shows evidence of an
+actual instability problem, promoting a specific phase/gain margin
+requirement is left as a separate, deliberate decision for whenever one is
+actually needed. See [`temp_core.md`](temp_core.md) → "Loop stability" for
+the full account.
 
 ### Regressions and follow-ups, routed rather than absorbed
 
