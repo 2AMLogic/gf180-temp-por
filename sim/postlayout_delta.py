@@ -27,14 +27,20 @@ WHAT IT COMPUTES
    of the extracted netlist(s) ``sim/build_tb.py``'s ``POSTLAYOUT_FRAGMENTS``
    entry for this experiment names -- the same single source of truth that
    assembled the fragment, so the table cannot describe a different netlist
-   than the one that ran. ``layout/postlayout.py`` models each net's
-   interconnect as one lumped series R to a ``<net>__par`` stub node with a
-   lumped C from that stub to ``VSS``, so per-net ΣC and ΣR are directly
-   recoverable, and the loading a named high-impedance node actually sees is
-   its own row of that table. ``--high-z`` names the nodes to call out (they
-   are a property of the *design* -- e.g. ``design/temp_core.md``'s ``PTAT``
-   at R_src ≈ 516 kΩ -- not of the extraction, so the tool is told rather
-   than guessing).
+   than the one that ran. For an experiment with no ``POSTLAYOUT_FRAGMENTS``
+   entry (a hand-maintained fragment that edits ports *inside* a subcircuit
+   body, e.g. #274/#298's loop-break testbenches -- ``build_tb.py``'s
+   verbatim-copy mechanism cannot produce those, so registering one there
+   would make ``build_tb.py --check`` overwrite the hand edits), the source
+   list is instead recovered from the fragment's own "Forked from
+   ``layout/postlayout/<cell>.spice``" header line. ``layout/postlayout.py``
+   models each net's interconnect as one lumped series R to a ``<net>__par``
+   stub node with a lumped C from that stub to ``VSS``, so per-net ΣC and ΣR
+   are directly recoverable, and the loading a named high-impedance node
+   actually sees is its own row of that table. ``--high-z`` names the nodes
+   to call out (they are a property of the *design* -- e.g.
+   ``design/temp_core.md``'s ``PTAT`` at R_src ≈ 516 kΩ -- not of the
+   extraction, so the tool is told rather than guessing).
 
 2. **Per-measurement delta.** Both records' grids, joined on corner-id: the
    schematic and extracted min/max/mean of every shared measurement, and the
@@ -517,10 +523,34 @@ def main(argv: list[str] | None = None) -> int:
     # The netlist(s) under the extracted record come from the one place that
     # assembled its fragment, so the parasitic table below cannot end up
     # describing a netlist other than the one that ran.
-    _, cells = POSTLAYOUT_FRAGMENTS[args.experiment]
-    sources = [
-        str((POSTLAYOUT_DIR / f"{cell}.spice").relative_to(REPO_ROOT)) for cell in cells
-    ]
+    if args.experiment in POSTLAYOUT_FRAGMENTS:
+        _, cells = POSTLAYOUT_FRAGMENTS[args.experiment]
+        sources = [
+            str((POSTLAYOUT_DIR / f"{cell}.spice").relative_to(REPO_ROOT)) for cell in cells
+        ]
+    else:
+        # Hand-maintained fragment outside sim/build_tb.py's mechanism (#274/
+        # #298: a loop-break testbench edits ports *inside* the subcircuit
+        # body, which build_tb.py's verbatim-copy can't do, so it is
+        # deliberately not a POSTLAYOUT_FRAGMENTS entry -- registering it
+        # there would make `build_tb.py --check` overwrite the hand edits).
+        # Its own header names the extracted netlist(s) it was forked from
+        # ("Forked from layout/postlayout/<cell>.spice"), the same
+        # provenance convention every hand-maintained fragment carries, so
+        # recover the source list from there instead.
+        header = tb.netlist.read_text()
+        found = sorted(set(re.findall(r"layout/postlayout/(\S+?\.spice)", header)))
+        if not found:
+            print(
+                f"{tb.netlist}: {args.experiment!r} is not in POSTLAYOUT_FRAGMENTS "
+                "and its header does not cite a 'layout/postlayout/<cell>.spice' "
+                "source to fall back to -- add a 'Forked from "
+                "layout/postlayout/<cell>.spice' provenance line to the fragment's "
+                "header",
+                file=sys.stderr,
+            )
+            return 2
+        sources = [f"layout/postlayout/{name}" for name in found]
 
     parasitics: dict[str, dict[str, float]] = {}
     for source in sources:
