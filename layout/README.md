@@ -435,6 +435,7 @@ layout/
     <cell>.gds                   the layout stream
     <cell>.reference.spice       generated -- do not edit
     <cell>.lvs.json              the klt lvs request document
+    temp_por_top.erc-supply-spec.json  T1 item 11's klt erc supply spec (#300)
   postlayout/
     <cell>.spice                 the simulatable post-layout netlist
     audit.json / AUDIT.md        what is the layout's and what is not
@@ -452,6 +453,7 @@ layout/
     <cell>/negative-controls.json both controls' verdicts
     <cell>/extracted-parasitics.*  the --parasitics extraction (postlayout.py)
     <cell>/postlayout-smoke.json   that cell's smoke result
+    temp_por_top/erc_supply.json   T1 item 11's klt erc supply report (#300)
 ```
 
 `postlayout.py` writes only the `extracted-parasitics.*` pair; the DRC/LVS
@@ -1811,6 +1813,157 @@ what repairs it (the plain command aborts at the gate before it can regenerate
 anything — #108, extended to the GDS-hash gate by #258 so a deliberate
 geometry change can bootstrap too); see "Repairing a split" above for why
 deferring the gates that way does not weaken them.
+
+## Item 11 — power delivery (structural): the `klt erc` supply read (#300)
+
+T1 checklist item 11, "Power delivery (structural)"
+([klayout-tools#2025](https://github.com/2AMLogic/klayout-tools/issues/2025)),
+grades whether a declared supply reaches what it powers as one electrical
+island, using a `klt erc` **supply spec** run
+([`docs/cli/erc.md`](https://github.com/2AMLogic/klayout-tools/blob/main/docs/cli/erc.md)).
+This repo had neither the spec nor the report until #300; both now exist —
+
+- [`layout/cells/temp_por_top.erc-supply-spec.json`](cells/temp_por_top.erc-supply-spec.json)
+  — the spec, with an inline `_comment` block justifying every `stackup`
+  entry and `label_layer` (cross-checked against this block's own merged
+  GDS with `klt layers --flattened --include-text`, and against the
+  installed PDK's own `libs.tech/klayout/tech/gf180mcu.lyp`, not assumed
+  from another block's spec).
+- [`layout/reports/temp_por_top/erc_supply.json`](reports/temp_por_top/erc_supply.json)
+  — the committed run, `provenance.input.content_hash ==
+  sha256:a119a12b1fa2daff64772a4a804a0ea14f17c68dc9357fe167dfd287df0628fd`,
+  matching the committed `layout/cells/temp_por_top.gds` (`shasum -a 256`).
+
+**The run reports one finding, `erc.supply_short` naming `VDD` and `VSS` —
+and it is a tool limitation, not a power-delivery defect in this layout.**
+Read on for why, and for what *does* stand as evidence that the supply is
+correctly delivered.
+
+### Toolchain note: why this report was not produced with the pinned `klt 0.5.0`
+
+`signoff/toolchain.json` pins `klt 0.5.0` as this repo's grader. That
+release's `klt erc` does not emit `status` or `provenance` at all (both
+shipped later, `klayout-tools#1984`/`#2049`) — its JSON output is just
+`{schema_version, file, spec, pdk, gate_role, gate_count, gates,
+erc_findings, erc_finding_count}`, with no way to pin the report to the GDS
+bytes it was run against. Since item 11's own acceptance bar requires a
+content-hash-pinned report, `layout/reports/temp_por_top/erc_supply.json`
+was instead produced with `klayout-tools` built at commit `f2f1d14e`
+(`v0.5.0-173-gf2f1d14e` — 173 commits past the `v0.5.0` tag, itself not a
+tagged release; `klayout_version: "0.30.10"`, i.e. functionally `klt 0.5.0`
+plus the additive `status`/`provenance` fields and nothing else load-bearing
+changed underneath it — verified by diffing the two runs' `gates[]`/
+`erc_findings` content, which agree). Re-run:
+
+```bash
+pip install "git+https://github.com/2AMLogic/klayout-tools.git@f2f1d14e"
+klt erc layout/cells/temp_por_top.gds \
+  layout/cells/temp_por_top.erc-supply-spec.json --format json
+```
+
+This mirrors the same class of gap `layout/toolchain.json` vs.
+`signoff/toolchain.json` already documents for `klt lvs`'s own missing
+`provenance.input` (worked around there by `lvs_reference.py
+--check-gds-hash`) — a producer needing a newer, unreleased build than the
+grader it will eventually be read by.
+
+### Why `erc.supply_short` is a false positive here
+
+`klt erc`'s connectivity model is documented as tracing wire/via
+connectivity only, with **no device recognition** — unlike `klt extract`'s
+deck-based LVS extraction, which *does* recognise this PDK's poly-resistor
+devices (`docs/cli/erc.md`, "Connectivity model"; this repo's own
+"Known deck limits" section above documents the LVS side of that same
+distinction, and the pre-#219 era where the LVS deck had the identical gap).
+This block draws real `ppolyf_u`/`ppolyf_u_3k` poly-resistor devices whose
+two terminals are declared nets — `temp_core`'s R2 gain ladder
+(`design/netlist/temp_por_top.spice`: `XR2F PTAT T5 VSS ppolyf_u ...`,
+`XR2T5 T5 T4 VSS ppolyf_u ...`, ... down to `XR2T0 T0 VSS VSS ppolyf_u
+...`) and `bias_core`'s own bias resistors. With no device model, `klt erc`
+reads each resistor's poly body as a plain wire joining its two terminal
+nets — which, chained across enough resistors in an analog bias/reference
+network, joins `VDD` and `VSS` into the reported single island. Filed
+upstream, generically, as
+[klayout-tools#2183](https://github.com/2AMLogic/klayout-tools/issues/2183)
+(reopened by this work with an independent second reproduction — see that
+issue's comments): *"klt erc reads a drawn resistor body as a wire, so any
+rail-to-rail device string reports a false erc.supply_short."*
+
+Two independent checks confirm it is the resistor bodies, not a real short:
+
+- **`klt lvs`** (`layout/reports/temp_por_top/lvs.json`) reports `status:
+  match` over 145/145 nets with device recognition switched on — `VDD` and
+  `VSS` both appear in `net_correspondence` as distinct, correctly matched
+  nets, paired against the SPICE reference's own `VDD`/`VSS` (which is also
+  what item 11's analog column asks for: a supply appearing in an LVS
+  reference's `net_correspondence`, which a SPICE reference satisfies by
+  construction).
+- **Incremental stackup growth localizes the mechanism.** A Poly2+Metal1-only
+  spec (Contact via only) resolves `VDD`/`VSS` into several disconnected
+  islands each — no short. Adding Metal2+Via1 is what produces the single
+  `erc.supply_short` — i.e. the merge traces to the resistor ladder's own
+  contacts and metal taps, not to the top-level VDD/VSS rails' geometry.
+  `klt components` (an independent code path, same connectivity contract)
+  corroborates this directly: building the identical conductor/via graph by
+  hand and asking which component carries both the `VDD` and `VSS` labels
+  finds exactly one, and its own bounding box is a small, localized region —
+  not the full-width supply rails.
+- **DRC is clean** (`layout/reports/temp_por_top/drc.json`) — no shorted-rail
+  spacing violation on Metal1/Metal2, which a real physical short of two
+  full-width rails would be expected to produce.
+
+The four `erc.floating_gate` findings the run also reports at `klt 0.5.0`
+(none at the newer `f2f1d14e` build, whose `active_layer` handling excludes
+them from `gates[]` entirely — see the two runs' differing `gate_count`) are
+`temp_core`'s own intentional, uncontacted edge-dummy poly legs
+(`layout/build_cells.py`'s `_R_DUMMY_LEGS`, "unmarked, uncontacted edge legs
+at each end of the bank") — matching devices, not electrical nets, so having
+no connected geometry above the gate layer is by design. Item 11's own text
+excludes a floating-gate finding from its scope regardless
+(`docs/design-evidence-tiers.md` item 11: *"An antenna verdict or a
+floating-gate finding in the same report is a real defect but is not this
+item's subject and does not block it"*).
+
+### `erc.missing_tie`: not computed, and what stands in for it
+
+The spec deliberately declares no `ties[]` — per
+[klayout-tools#2169](https://github.com/2AMLogic/klayout-tools/issues/2169),
+declaring one collapses a real design into one electrical island and reports
+a *different* false `erc.supply_short`. Because `ties[]` is omitted,
+`erc.missing_tie` is **not computed** by this run (`docs/cli/erc.md`:
+"Omitted entirely -> `erc.missing_tie` is never computed") — its absence
+from `erc_supply.json`'s `erc_findings` is an absence of evidence, not a
+zero-findings verdict on well ties.
+
+What stands in, in its absence:
+
+- `layout/floorplan.md`'s guard-ring/moat treatment: a continuous COMP +
+  Metal1 perimeter guard ring, VSS-tied, contacted at 1 µm pitch, plus a
+  domain-seam moat tied by three risers to the same rail — "VSS is
+  therefore the guard-ring tie net by construction"
+  (`layout/build_cells.py`, `_top_cell`'s own routing comment).
+- `layout/build_cells.py`'s own `_top_assert_connected` build-time check: every
+  via this cell draws is asserted to land inside metal on both of the levels
+  it bridges, so a tie riser drawn a hair off its landing pad is caught at
+  build time as an open (which LVS then independently confirms, rather than
+  silently producing a floating guard-ring segment).
+- The gf180mcu curated deck draws no distinct substrate/well-tap marker layer
+  at all (this repo's own "Known deck limits" section, item 4's disclosure in
+  `signoff/README.md`: NMOS body terminals compare against a
+  deck-synthesized `vsubs` net, PMOS against an anonymous deck-synthesized
+  well net) — so, unlike `gf180-drone-fc`'s digital flow (whose fill-tie
+  cell's own `VNW`/`VPW` well-pin labels are cited as standing-in evidence),
+  this block has no labelled well/tap geometry to cite directly. The guard
+  ring's own drawn continuity and contact pitch (above) is what is offered
+  instead.
+
+### Reproducing
+
+```bash
+pip install "git+https://github.com/2AMLogic/klayout-tools.git@f2f1d14e"
+klt erc layout/cells/temp_por_top.gds \
+  layout/cells/temp_por_top.erc-supply-spec.json --format json
+```
 
 ## Adding a cell (for #17 / #18)
 
