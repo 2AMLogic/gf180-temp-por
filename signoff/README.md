@@ -49,7 +49,7 @@ artifact, and there is no partition boundary to declare.
 | 8 | Characterization report | **`met`** | `evidence/characterization-report.json`, a generic envelope wrapping `spec/target-spec.md`, pinned to `sha256:d78561ee…`. **Disclosed exceptions below.** |
 | 9 | Testbenches shipped | `unmet` / `no_evidence` | **Uncited on purpose.** Every `sim/` experiment carries a committed `testbench/`; `sim/README.md` documents cold-start invocation; the PDK is pinned in `ci.yml`. Same reason as item 1. |
 | 10 | Repo hygiene | `unmet` / `no_evidence` | **Uncited on purpose.** README, Apache-2.0 LICENSE, and CI are all present. Same reason as item 1. |
-| 11 | Power delivery (structural) | *no row yet* | Not in `klt 0.5.0`'s bundled checklist — see below. Tracked as [#300](https://github.com/2AMLogic/gf180-temp-por/issues/300). |
+| 11 | Power delivery (structural) | *no row yet* / would grade `unmet` | Not in `klt 0.5.0`'s bundled checklist, so `klt signoff` cannot cite it yet either way — see below. The spec and report now exist (`layout/cells/temp_por_top.erc-supply-spec.json`, `layout/reports/temp_por_top/erc_supply.json`, [#300](https://github.com/2AMLogic/gf180-temp-por/issues/300)); the run reports one `erc.supply_short` finding, root-caused to an upstream `klt erc` connectivity-model gap ([klayout-tools#2183](https://github.com/2AMLogic/klayout-tools/issues/2183)) rather than a real short — see `layout/README.md`'s "Item 11" section for the full account — so a manual read of this item today would still be `unmet`, for a reason unrelated to this block's actual power delivery. |
 
 **3 of 10 is a lower number than #145's 10/10, and both are honest reads of
 different questions.** #145 asked "does this repo contain the artifact the
@@ -156,7 +156,7 @@ four. The items that actually block T1 here are 5, 6, 7 and 11. Filed
 upstream as
 [klayout-tools#2178](https://github.com/2AMLogic/klayout-tools/issues/2178).
 
-## Item 11 — no row yet, and no manifest change needed to get one
+## Item 11 — the evidence now exists; the grader still can't see it, and reads it `unmet` for a tool reason if it could
 
 [klayout-tools#2025/#2057](https://github.com/2AMLogic/klayout-tools/issues/2025)
 added T1 item 11, "Power delivery (structural)", on 2026-09-19. That commit is
@@ -183,9 +183,32 @@ repo should have to look at it.
 
 For an analog block, item 11 wants a `klt erc` supply-spec run (every declared
 supply resolving to exactly one electrical island, zero `erc.missing_tie`)
-plus an LVS report whose reference carried the supply nets. This repo has
-neither the spec nor the report. Tracked as
-[#300](https://github.com/2AMLogic/gf180-temp-por/issues/300).
+plus an LVS report whose reference carried the supply nets.
+
+**#300 produced both**, and the second half is clean:
+`layout/reports/temp_por_top/lvs.json` is a SPICE-reference compare
+(`status: match`) with `VDD`/`VSS` both present in `net_correspondence`,
+which is what item 11's analog column asks for by construction. The first
+half is not clean: `layout/reports/temp_por_top/erc_supply.json` reports one
+`erc.supply_short` naming `VDD`/`VSS`. `layout/README.md`'s "Item 11" section
+has the full investigation; in short, it is root-caused to `klt erc`'s
+connectivity model having no device recognition (unlike `klt extract`'s LVS
+deck), so this block's real poly-resistor bias/reference network reads as a
+plain wire bridging the two rails — filed upstream, generically, as
+[klayout-tools#2183](https://github.com/2AMLogic/klayout-tools/issues/2183).
+Two independent LVS-based and connectivity-based cross-checks in that section
+corroborate that this is a tool limitation, not an actual short.
+
+**So, honestly: a manual read of item 11 today is still `unmet`**, and stays
+that way until either `klt erc` gains a way to represent a device body as
+something other than a wire, or item 11's own text is revised to disclaim this
+failure mode the way it already disclaims floating-gate/antenna findings.
+This is not a case of "tune the spec until it passes" — every spec-side
+workaround (dropping the `Contact` via, downgrading the nets to `kind:
+"signal"`, omitting `Poly2` from the stackup) is strictly worse than the
+finding itself, and #300's own investigation tried and rejected each of them
+before concluding this is upstream's to fix. Tracked as
+[#300](https://github.com/2AMLogic/gf180-temp-por/issues/300), left open.
 
 ## Running it
 
