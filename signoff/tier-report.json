@@ -1,0 +1,177 @@
+{
+  "schema_version": 1,
+  "block": "gf180-temp-por",
+  "kind": "analog",
+  "tier": null,
+  "t1_item_count": 10,
+  "t1_met_count": 3,
+  "source_doc": "docs/design-evidence-tiers.md",
+  "items": [
+    {
+      "tier": "T1",
+      "id": 1,
+      "title": "Design sources",
+      "partition": null,
+      "text": "committed schematic sources (or generator) plus the netlist derived from them, regenerated on design change.",
+      "notes": [],
+      "status": "unmet",
+      "reason": "no_evidence",
+      "citation": null
+    },
+    {
+      "tier": "T1",
+      "id": 2,
+      "title": "Layout",
+      "partition": null,
+      "text": "committed GDS/OASIS, reproducibly generated or with documented provenance.",
+      "notes": [],
+      "status": "unmet",
+      "reason": "no_evidence",
+      "citation": null
+    },
+    {
+      "tier": "T1",
+      "id": 3,
+      "title": "DRC clean",
+      "partition": null,
+      "text": "latest `klt drc` JSON report: `status: clean`, fresh, with the deck identified (content hash). Known deck coverage gaps (rule-free layers, skipped rules) must be enumerated in the claim, not hidden behind \"clean\" \u2014 a clean verdict from a deck with undisclosed holes is a false claim.",
+      "notes": [],
+      "status": "met",
+      "reason": null,
+      "citation": {
+        "file": "layout/reports/temp_por_top/drc.json",
+        "command": null,
+        "kind": "drc",
+        "check_status": "clean",
+        "content_hash": "sha256:a119a12b1fa2daff64772a4a804a0ea14f17c68dc9357fe167dfd287df0628fd",
+        "exit_status": 0
+      }
+    },
+    {
+      "tier": "T1",
+      "id": 4,
+      "title": "LVS clean",
+      "partition": null,
+      "text": "latest LVS report `status: match`, fresh, engine named, checked against the netlist from item 1 (schematic netlist for analog, synthesized/routed gate-level netlist for digital). Warnings-only mismatches must be listed with the claim. A second, independent engine's concurring verdict (#343) strengthens this from \"one toolchain agrees with itself\" to a cross-checked result.",
+      "notes": [],
+      "status": "met",
+      "reason": null,
+      "citation": {
+        "file": "layout/reports/temp_por_top/lvs.json",
+        "command": null,
+        "kind": "lvs",
+        "check_status": "match",
+        "content_hash": null,
+        "exit_status": 0
+      }
+    },
+    {
+      "tier": "T1",
+      "id": 5,
+      "title": "Full corner verification vs a ratified spec",
+      "partition": null,
+      "text": "PVT corner-matrix simulation results covering every spec row at its bound corners, with per-row pass/fail and the binding corner recorded.",
+      "notes": [
+        "Both require the spec table itself to be ratified \u2014 verdicts against a draft spec are provisional by construction."
+      ],
+      "status": "unmet",
+      "reason": "no_evidence",
+      "citation": null
+    },
+    {
+      "tier": "T1",
+      "id": 6,
+      "title": "Statistical claims carry Monte Carlo evidence",
+      "partition": null,
+      "text": "any accuracy, offset, or matching spec row is statistical; a corner matrix (or STA corner sweep) cannot validate it. This applies to whichever spec rows are actually statistical, regardless of block kind \u2014 most digital spec rows (functional correctness, Fmax, timing closure) are not, and a block whose spec has no statistical row must say so explicitly rather than omit the item. Where it does apply, MC runs need a recorded seed, sample count, a deterministic negative control, and results combined with (not instead of) process corners (#344). A `klt yield` JSON report \u2014 a yield estimate with its confidence interval, sample-size verdict, and Cpk/sigma-to-spec against the row's own limits \u2014 is the machine-checkable evidence for this item (`klt signoff`'s tier-verdict mode grades it the same way it grades the deterministic items above).",
+      "notes": [],
+      "status": "unmet",
+      "reason": "no_evidence",
+      "citation": null
+    },
+    {
+      "tier": "T1",
+      "id": 7,
+      "title": "Post-layout verification",
+      "partition": null,
+      "text": "the spec suite re-run against the netlist extracted from the layout, not only the drawn schematic (#252). Parasitic extraction has landed (#217, `klt extract --parasitics`); a `klt pex` report's `extraction.model` field is the machine-checkable statement of what the extracted netlist's lumped-RC model does and does not account for (quasi-static, vertical-overlap coupling only, issue #760 \u2014 see `docs/cli/pex.md` \u2192 \"Top-level fields\"). A `klt pex` JSON report \u2014 the per-corner, per-spec-row schematic-vs-extracted delta \u2014 is the machine-checkable evidence for this item, and the *only* evidence `klt signoff`'s tier-verdict mode accepts for it: unlike every other item, item 7 rejects a passing citation of any other kind, since a clean DRC or a pre-layout schematic sim proves nothing about post-layout behaviour (#871). `klt pex` (Epic #709, issue #801) is implemented \u2014 see `docs/cli/pex.md` for its full contract and `docs/cli/signoff.md`'s \"Item 7 is kind-restricted\" section for how `klt signoff` binds to it. Epic #709 Phase 1c (#803) is the first end-to-end proof of this item on a real analog canary (`blocks/sky130-ota-5t` / `examples/design-pipeline/`, see that directory's README \"S10 pex delta proof\" section) \u2014 every `delta[]` row is explainable directly from the extracted netlist's own added R/C, not merely reported, including the (measured, not assumed) no-degradation rows that canary's current topology produces.",
+      "notes": [],
+      "status": "unmet",
+      "reason": "no_evidence",
+      "citation": null
+    },
+    {
+      "tier": "T1",
+      "id": 8,
+      "title": "Characterization report",
+      "partition": null,
+      "text": "one aggregated, current artifact summarizing per-spec-row performance across conditions, with the evidence record each verdict rests on (#309 tracks the aggregation tool). For a digital or mixed-signal digital partition this includes Fmax, area, and power across the corner set, not just functional pass/fail. Unlike every other T1 item, this one names no specific `klt` verb \u2014 there is no dedicated aggregation command, and its evidence may be a hand-assembled record (e.g. a committed Markdown characterization report) rather than one `klt` verb's own JSON output. `klt signoff --manifest` grades it via an opt-in **generic evidence envelope** (`\"kind\": \"generic\"`, issue #1152) \u2014 a minimal, hand-rolled JSON wrapper asserting `status: \"pass\"|\"fail\"` for whatever record backs it \u2014 and, unlike every other item, item 8 is the *only* T1 item this generic kind may satisfy: see `docs/cli/signoff.md`'s \"Generic evidence (opt-in, non-`klt`-native)\" section for the envelope shape and why items 3\u20137 keep rejecting it.",
+      "notes": [],
+      "status": "met",
+      "reason": null,
+      "citation": {
+        "file": "signoff/evidence/characterization-report.json",
+        "command": null,
+        "kind": "generic",
+        "check_status": "pass",
+        "content_hash": "sha256:d78561eeb7c7710fa87699e5499434884afe47821c71d2249be4760d6a2e84ed",
+        "exit_status": 0
+      }
+    },
+    {
+      "tier": "T1",
+      "id": 9,
+      "title": "Testbenches shipped",
+      "partition": null,
+      "text": "every claimed measurement's testbench committed, with a documented cold-start invocation a third party can run; pinned PDK revision.",
+      "notes": [],
+      "status": "unmet",
+      "reason": "no_evidence",
+      "citation": null
+    },
+    {
+      "tier": "T1",
+      "id": 10,
+      "title": "Repo hygiene",
+      "partition": null,
+      "text": "a README stating what the block is, its spec table, and how to reproduce every result; a license; CI that at minimum keeps the harness and evidence formats valid.",
+      "notes": [],
+      "status": "unmet",
+      "reason": "no_evidence",
+      "citation": null
+    },
+    {
+      "tier": "T2",
+      "id": null,
+      "title": "T2 \u2014 signoff-validated",
+      "partition": null,
+      "text": "Validated on commercial signoff tools (T1, plus DRC/LVS signoff and simulation on commercial tools with the foundry's own decks)",
+      "notes": [],
+      "status": "unmet",
+      "reason": "tier_not_supported",
+      "citation": null
+    },
+    {
+      "tier": "T3",
+      "id": null,
+      "title": "T3 \u2014 silicon-validated",
+      "partition": null,
+      "text": "Fabricated and measured (T2, plus a tapeout on that PDK with measured parts and a published sim-to-measurement correlation)",
+      "notes": [],
+      "status": "unmet",
+      "reason": "tier_not_supported",
+      "citation": null
+    },
+    {
+      "tier": "T4",
+      "id": null,
+      "title": "T4 \u2014 production-validated",
+      "partition": null,
+      "text": "Proven in an external user's silicon (An external project containing the block reached working silicon \u2014 only a user of the block can demonstrate this)",
+      "notes": [],
+      "status": "unmet",
+      "reason": "tier_not_supported",
+      "citation": null
+    }
+  ]
+}

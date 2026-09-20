@@ -30,6 +30,19 @@ name: CI
 #                                               hand but CI does not invoke
 #                                               npm, so it is also run here
 #                                               directly.
+#   - signoff/check.py                       -> checks (issue #301). Re-grades
+#                                               signoff/block-manifest.json with
+#                                               `klt signoff --manifest` and
+#                                               fails on any drift from the
+#                                               committed signoff/tier-report.json.
+#                                               Needs `klt` on PATH but NO PDK:
+#                                               --manifest only reads committed
+#                                               JSON envelopes, it never runs a
+#                                               layout tool. The klt it needs is
+#                                               the GRADER pin in
+#                                               signoff/toolchain.json, which is
+#                                               deliberately NOT layout/toolchain.json's
+#                                               evidence-producer pin.
 #   - design/netlist.py --check              -> pdk-checks (needs xschem + PDK)
 #   - "any pytest under sim/"                -> none exists; sim/tests/ is
 #                                               unittest-based, exercised by
@@ -76,6 +89,16 @@ jobs:
 
       - name: layout/tests (lvs_reference.py transform unit tests, no PDK/klt)
         run: python3 -m unittest discover -s layout/tests -t layout/tests
+
+      - name: Install the pinned signoff grader (klt -- no PDK needed)
+        # signoff/toolchain.json pins the klt build that GRADES this block.
+        # It is a different pin from layout/toolchain.json's, which pins the
+        # build that PRODUCED layout/reports/ -- see signoff/toolchain.json
+        # for why the two cannot be the same version.
+        run: pip install "klayout-tools==0.5.0"
+
+      - name: signoff/check.py (re-grade the T1 manifest; fail on evidence rot)
+        run: python3 signoff/check.py
 
   pdk-checks:
     name: pdk-checks (netlist export + full PVT smoke)
