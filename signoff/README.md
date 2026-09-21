@@ -49,7 +49,7 @@ artifact, and there is no partition boundary to declare.
 | 8 | Characterization report | **`met`** | `evidence/characterization-report.json`, a generic envelope wrapping `spec/target-spec.md`, pinned to `sha256:d78561ee…`. **Disclosed exceptions below.** |
 | 9 | Testbenches shipped | `unmet` / `no_evidence` | **Uncited on purpose.** Every `sim/` experiment carries a committed `testbench/`; `sim/README.md` documents cold-start invocation; the PDK is pinned in `ci.yml`. Same reason as item 1. |
 | 10 | Repo hygiene | `unmet` / `no_evidence` | **Uncited on purpose.** README, Apache-2.0 LICENSE, and CI are all present. Same reason as item 1. |
-| 11 | Power delivery (structural) | *no row yet* / would grade `unmet` | Not in `klt 0.5.0`'s bundled checklist, so `klt signoff` cannot cite it yet either way — see below. The spec and report now exist (`layout/cells/temp_por_top.erc-supply-spec.json`, `layout/reports/temp_por_top/erc_supply.json`, [#300](https://github.com/2AMLogic/gf180-temp-por/issues/300)); the run reports one `erc.supply_short` finding, root-caused to an upstream `klt erc` connectivity-model gap ([klayout-tools#2183](https://github.com/2AMLogic/klayout-tools/issues/2183)) rather than a real short — see `layout/README.md`'s "Item 11" section for the full account — so a manual read of this item today would still be `unmet`, for a reason unrelated to this block's actual power delivery. |
+| 11 | Power delivery (structural) | *no row yet* / a manual read now says **`met`** | Not in `klt 0.5.0`'s bundled checklist, so `klt signoff` cannot cite it yet either way — see below. Both halves the analog column asks for now hold ([#300](https://github.com/2AMLogic/gf180-temp-por/issues/300)): `layout/reports/temp_por_top/erc_supply.json` reports `erc_finding_count: 0` — zero `erc.supply_short` and zero `erc.unconnected_net`, i.e. `VDD` and `VSS` each resolve to exactly one electrical island — pinned to `sha256:a119a12b…` (the committed GDS) and `sha256:8fd22666…` (the committed spec); and `layout/reports/temp_por_top/lvs.json` carries both supplies in `net_correspondence`. **Two caveats, both disclosed below**: `erc.missing_tie` is *not computed* (no `ties[]`, per [klayout-tools#2169](https://github.com/2AMLogic/klayout-tools/issues/2169)), and the report was produced with an unreleased `klt` build. See `layout/README.md`'s "Item 11" section for the full account. |
 
 **3 of 10 is a lower number than #145's 10/10, and both are honest reads of
 different questions.** #145 asked "does this repo contain the artifact the
@@ -152,11 +152,12 @@ also `klt signoff`'s own documented default, and what its shipped
 Consequence worth naming: because item 1 is the first unmet row, the fleet
 roll-up ([2AMLogic/2am#956](https://github.com/2AMLogic/2am/issues/956))
 reports this block's `blocking_item` as item 1 — the least informative of the
-four. The items that actually block T1 here are 5, 6, 7 and 11. Filed
-upstream as
+four. The items that actually block T1 here are 5, 6 and 7. (Item 11 was a
+fourth until #300's second pass; a manual read of it is now `met`, but the
+grader still cannot see the row at all — see below.) Filed upstream as
 [klayout-tools#2178](https://github.com/2AMLogic/klayout-tools/issues/2178).
 
-## Item 11 — the evidence now exists; the grader still can't see it, and reads it `unmet` for a tool reason if it could
+## Item 11 — the evidence now exists and is clean; the grader still can't see it
 
 [klayout-tools#2025/#2057](https://github.com/2AMLogic/klayout-tools/issues/2025)
 added T1 item 11, "Power delivery (structural)", on 2026-09-19. That commit is
@@ -185,30 +186,65 @@ For an analog block, item 11 wants a `klt erc` supply-spec run (every declared
 supply resolving to exactly one electrical island, zero `erc.missing_tie`)
 plus an LVS report whose reference carried the supply nets.
 
-**#300 produced both**, and the second half is clean:
-`layout/reports/temp_por_top/lvs.json` is a SPICE-reference compare
-(`status: match`) with `VDD`/`VSS` both present in `net_correspondence`,
-which is what item 11's analog column asks for by construction. The first
-half is not clean: `layout/reports/temp_por_top/erc_supply.json` reports one
-`erc.supply_short` naming `VDD`/`VSS`. `layout/README.md`'s "Item 11" section
-has the full investigation; in short, it is root-caused to `klt erc`'s
-connectivity model having no device recognition (unlike `klt extract`'s LVS
-deck), so this block's real poly-resistor bias/reference network reads as a
-plain wire bridging the two rails — filed upstream, generically, as
-[klayout-tools#2183](https://github.com/2AMLogic/klayout-tools/issues/2183).
-Two independent LVS-based and connectivity-based cross-checks in that section
-corroborate that this is a tool limitation, not an actual short.
+**#300 produced both, and both are now clean.**
 
-**So, honestly: a manual read of item 11 today is still `unmet`**, and stays
-that way until either `klt erc` gains a way to represent a device body as
-something other than a wire, or item 11's own text is revised to disclaim this
-failure mode the way it already disclaims floating-gate/antenna findings.
-This is not a case of "tune the spec until it passes" — every spec-side
-workaround (dropping the `Contact` via, downgrading the nets to `kind:
-"signal"`, omitting `Poly2` from the stackup) is strictly worse than the
-finding itself, and #300's own investigation tried and rejected each of them
-before concluding this is upstream's to fix. Tracked as
-[#300](https://github.com/2AMLogic/gf180-temp-por/issues/300), left open.
+- `layout/reports/temp_por_top/lvs.json` is a SPICE-reference compare
+  (`status: match`) with `VDD`/`VSS` both present in `net_correspondence`,
+  which is what item 11's analog column asks for by construction.
+- `layout/reports/temp_por_top/erc_supply.json` reports
+  `erc_finding_count: 0` — zero `erc.supply_short` and zero
+  `erc.unconnected_net`, so each declared supply resolves to exactly one
+  electrical island — with `provenance.input.content_hash` matching the
+  committed GDS and `provenance.spec.content_hash` matching the committed
+  spec.
+
+It took two passes to get there, and the first one is the more useful
+record. #300's first pass (PR #303) reported one `erc.supply_short` naming
+`VDD`/`VSS`, root-caused to `klt erc`'s connectivity model registering no
+device extraction, so this block's real poly-resistor bias/reference network
+and its supply-sensing sense divider read as plain wires bridging the two
+rails. Rather than tune the spec until it passed — every spec-side
+workaround tried (dropping the `Contact` via, downgrading the nets to `kind:
+"signal"`, omitting `Poly2` from the stackup) was strictly worse than the
+finding itself — it was filed upstream, generically, as
+[klayout-tools#2183](https://github.com/2AMLogic/klayout-tools/issues/2183)
+and the honest `unmet` was committed. Upstream then fixed it
+([klayout-tools#2205](https://github.com/2AMLogic/klayout-tools/pull/2205),
+commit `ddf47e78`) by adding a `devices[]` spec array that subtracts a
+declared device-body marker layer from a conductor role before connectivity
+is registered. The spec now declares one such entry (`RES_MK` `110/5` on
+the `poly2` role) and the finding is gone. `layout/README.md`'s "Item 11"
+section has the full account, including why `RES_MK` and not the `Resistor`
+`62/0` ID layer, and the measured over-coverage cross-check showing the
+carve-out removes no gate region.
+
+**Two caveats keep this from being a no-questions `met`**, and both are
+recorded in the spec and in `layout/README.md` rather than papered over:
+
+1. **`erc.missing_tie` is not computed.** The spec declares no `ties[]`,
+   because declaring one collapses a real design into a single island and
+   reports a *different* false `erc.supply_short`
+   ([klayout-tools#2169](https://github.com/2AMLogic/klayout-tools/issues/2169)).
+   Per `klt erc`'s own contract, omitting `ties[]` means the rule is never
+   computed — its absence from `erc_findings` is an absence of evidence, not
+   a zero-findings verdict on well ties. `layout/README.md` names the
+   guard-ring continuity and build-time via-landing assertions that stand in
+   for it.
+2. **The report was produced with an unreleased `klt`.** `devices[]` and
+   `provenance` both postdate `klt 0.5.0`, so the run used a `main` build at
+   commit `99a5716c` (`klt 0.5.0+g99a5716ccccb`). No other report under
+   `layout/reports/` was regenerated against it, and this one names no deck
+   (`provenance.deck: null`), so the deck-hash pins that protect the DRC/LVS
+   evidence are untouched.
+
+A third, smaller tool gap surfaced while verifying the carve-out and was
+filed generically as
+[klayout-tools#2226](https://github.com/2AMLogic/klayout-tools/issues/2226):
+`provenance.devices[].body_area_um2` reports the marker layer's own area
+rather than the area actually subtracted from the declared role, so the
+report cannot by itself distinguish a carve-out that bit from one declared
+on the wrong role. It does not affect this verdict — the areas were measured
+independently — but it is why they had to be.
 
 ## Running it
 
