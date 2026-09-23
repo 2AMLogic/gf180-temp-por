@@ -3,6 +3,8 @@
 A temperature sensor + power-on-reset (POR) pair, targeting the
 [gf180mcu](https://gf180mcu-pdk.readthedocs.io/) open PDK.
 
+![fleet burndown](https://raw.githubusercontent.com/2AMLogic/2am/main/fleet-metrics/charts/gf180-temp-por.svg)
+
 ## What this is
 
 This is one of 2AM Logic's canary blocks: a small, self-contained analog
