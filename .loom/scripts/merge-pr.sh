@@ -968,8 +968,125 @@ _check_loom_pr_label
 # said no" (a present, contradicting signal). Those are different acts, and
 # only the first has a documented override. The fix for a real block here is
 # a fresh Judge verdict, not a flag.
-_check_verdict_label_contradiction() { local msg rc=0; msg="$(printf '%s\n' "$PR_LABELS" | "${LOOM_DAEMON_BIN:-loom-daemon}" merge-pr verdict-contradiction --pr "$PR_NUMBER" --head-sha "$PR_HEAD_SHA" 2>/dev/null)" || rc=$?; [[ $rc -eq 0 && "$msg" == "LOOM-VERDICT-CLEAN" ]] && return 0; [[ $rc -eq 1 && "$msg" == "Merge blocked:"* ]] || msg="Merge blocked: PR #$PR_NUMBER's verdict-label contradiction guard (#8112) could not run — '${LOOM_DAEMON_BIN:-loom-daemon} merge-pr verdict-contradiction' exited $rc without the LOOM-VERDICT-CLEAN signal. A guard that cannot run refuses the merge rather than passing it: a caller cannot tell 'found nothing' from 'never ran', so only a positive clean signal is accepted. Build or install loom-daemon (cargo build --release -p loom-daemon, or re-run the Loom installer), then re-run this merge."; if [[ "$DRY_RUN" == "true" ]]; then warning "[dry-run] Would BLOCK merge of PR #$PR_NUMBER: $msg"; return 0; fi; error "$msg"; }
+#
+# ---------------------------------------------------------------------------
+# DAEMON VERSION FLOOR (#8285)
+# ---------------------------------------------------------------------------
+# This script hard-requires two loom-daemon subcommands and fails CLOSED when
+# the resolved binary predates either. Failing closed is right — an empty
+# answer from the closing-reference analysis is indistinguishable from "no
+# closing refs", which would silently close an unfinished issue — but the
+# version floor has to be SAYABLE, or the refusal cannot tell an operator what
+# to roll to. These two markers are that declaration. They are the single
+# source of truth: `_mp_daemon_roll_hint` below reads them back out of
+# ${BASH_SOURCE[0]} at refusal time, and
+# scripts/check-daemon-subcommand-versions.sh enforces that no NEW daemon
+# dependency lands here (or in any other shell script) without one.
+#
+# On 2026-09-18 a host running 0.19.161 against a `main` that carried 0.19.170+
+# stopped every merge outright — `.loom/scripts` is a symlink into
+# `defaults/scripts` in the primary checkout, so the floor moved the instant
+# `main` was pulled, while the auto-update loop deferred ~4.5h behind the
+# build-stampede guard (#8252). The refusal named neither the version nor the
+# roll command. That is what these markers and the hint below fix.
+#
+# requires-daemon: merge-pr >= 0.19.172   verdict-contradiction guard (#8112, landed in #8124)
+# requires-daemon: merge-pr-refs >= 0.19.170   closing-reference analysis (#8191, landed in #8199)
+#
+# _mp_daemon_roll_hint <subcommand> [resolved-bin] -- the concrete, host-local
+# remediation for "your loom-daemon is too old for <subcommand>": the declared
+# floor, what the resolved binary actually reports, the artifact-first roll
+# command for THIS host, and the two fallbacks when no artifact carries the
+# floor yet. Written as a one-liner because merge-pr.sh is frozen by the
+# file-size ratchet (scripts/check-file-size-budget.sh) and may not grow.
+#
+# Both reads carry `|| true` deliberately. merge-pr.sh runs under `set -euo
+# pipefail`, and a bare `x="$(cmd)"` assignment adopts cmd's status — so an
+# unreadable ${BASH_SOURCE[0]} or a `--version` that exits non-zero would abort
+# THIS function partway, and the caller (an `error "… $(…)"` argument) would
+# print a refusal with the remediation silently truncated off the end. A
+# best-effort diagnostic must never be able to degrade the message it is
+# decorating. (The `if` over a `[[ … ]] && { … }` is for the same reason stated
+# defensively; bash exempts AND-lists from `set -e`, so that one is style.)
+_mp_daemon_roll_hint() { local sub="${1:-}" bin="${2:-}" min="" have=""; min="$(sed -n "/^# requires-daemon: ${sub} >= /{s|^# requires-daemon: ${sub} >= \\([0-9][0-9.]*\\).*|\\1|p;q;}" "${BASH_SOURCE[0]}" 2>/dev/null || true)"; if [[ -n "$bin" && -x "$bin" ]]; then have="$("$bin" --version 2>/dev/null || true)"; have="${have%%$'\n'*}"; fi; printf "REMEDIATION: this script requires loom-daemon >= %s for '%s'%s. Roll THIS host, artifact-first: %s/cli/loom-daemon-update.sh --fetch — it resolves the newest published release >= the installed version, verifies its checksum (and signature when present), provisions it and restarts the daemon under its supervisor; then re-run this merge. If no release artifact carries %s yet (releases are cut at fleet-rollable boundaries, not on every VERSION bump — see .loom/docs/release-cadence.md), either build it yourself — cargo build --release -p loom-daemon — and export LOOM_DAEMON_BIN=<repo>/target/release/loom-daemon, or pin LOOM_DAEMON_BIN to an existing build that already has '%s'. Confirm before re-running: %s --version && %s %s --help" "${min:-<undeclared>}" "$sub" "${have:+ (the resolved binary reports: $have)}" "${SCRIPT_DIR:-.loom/scripts}" "${min:-that version}" "$sub" "${bin:-loom-daemon}" "${bin:-loom-daemon}" "$sub"; }
+_check_verdict_label_contradiction() { local msg rc=0; msg="$(printf '%s\n' "$PR_LABELS" | "${LOOM_DAEMON_BIN:-loom-daemon}" merge-pr verdict-contradiction --pr "$PR_NUMBER" --head-sha "$PR_HEAD_SHA" 2>/dev/null)" || rc=$?; [[ $rc -eq 0 && "$msg" == "LOOM-VERDICT-CLEAN" ]] && return 0; [[ $rc -eq 1 && "$msg" == "Merge blocked:"* ]] || msg="Merge blocked: PR #$PR_NUMBER's verdict-label contradiction guard (#8112) could not run — '${LOOM_DAEMON_BIN:-loom-daemon} merge-pr verdict-contradiction' exited $rc without the LOOM-VERDICT-CLEAN signal. A guard that cannot run refuses the merge rather than passing it: a caller cannot tell 'found nothing' from 'never ran', so only a positive clean signal is accepted. $(_mp_daemon_roll_hint merge-pr "$(command -v "${LOOM_DAEMON_BIN:-loom-daemon}" 2>/dev/null || true)")"; if [[ "$DRY_RUN" == "true" ]]; then warning "[dry-run] Would BLOCK merge of PR #$PR_NUMBER: $msg"; return 0; fi; error "$msg"; }
 _check_verdict_label_contradiction
+
+# ---------------------------------------------------------------------------
+# Pre-merge required-check freshness guard (#8248).
+#
+# THE INCIDENT: main went red on 2026-09-18 while every gate worked. #8078's
+# File Size Ratchet ran green at 2026-09-17T22:54Z; #8204 tightened that
+# baseline entry 1845->1815 at 11:45Z the next day; #8078 hand-merged at 20:31Z
+# with its 22h-old green result never re-run, landing 1816 onto a 1815
+# baseline. A check result is evidence about ONE tree; a ratchet baseline is
+# repo-global mutable state. When the base branch moves (especially when a
+# ratchet tightens), an in-flight PR's green results become statements about a
+# world that no longer exists — and the forge keeps displaying them green,
+# because branch protection only asks "did this check pass on this head SHA?".
+#
+# THE RULE: a green run of a REQUIRED check whose start predates the commit
+# time of the base branch's current tip is not evidence about the tree this PR
+# will merge onto. The decision (recorded, #8248): options (1) this guard and
+# (2) narrowing check-file-size-budget.sh --update both ship; option (3)
+# (branch ruleset requiring up-to-date branches) is rejected — it forces a
+# rebase per merge at a cadence this fleet (125-commits-behind PRs are
+# ordinary) would pay constantly.
+#
+# Scope choices, so review does not have to infer them: only GREEN runs (a
+# stale failure already blocks via branch protection); only REQUIRED contexts
+# (informational checks are not merge evidence); a required context with no
+# run at all is left to the forge's own BLOCKED state (one mechanism per
+# behaviour, ci-principles rule 4); pending runs are left to the wait paths
+# (no verdict yet, so no stale evidence). FAILS CLOSED when the guard cannot
+# run or cannot determine either timestamp — an unknown freshness must refuse,
+# never pass (ci-principles rule 6). GitHub-only: Gitea's status API (which
+# forge_get_check_runs maps from) carries no run timestamps.
+#
+# The decision itself is `loom-daemon merge-pr stale-checks` (Rust,
+# loom-daemon/src/merge_pr/stale_checks.rs — slice 3 of the merge-pr port,
+# #8191), which resolves the base tip, the required contexts (rulesets +
+# classic protection, #8103) and the head's check runs itself, and prints a
+# refusal naming the check and BOTH timestamps. 0 + the LOOM-STALE-CHECKS-
+# CLEAN sentinel = fresh; 1 = stale (refusal on stdout); anything else —
+# including a missing/old binary that does not know the subcommand — is
+# rewritten to a fail-closed refusal below, mirroring the verdict-label guard
+# above (#8112). --dry-run reports the would-be block without exiting 1, same
+# dry-run contract as every guard here. No bypass flag: overriding "this
+# evidence is stale" is not an operator assertion like --allow-unapproved
+# (missing review); the remedy is re-dating the check (re-run the job or push
+# any no-op commit), which is cheap and always correct.
+#
+# --redate-stale-checks (#8508) makes this script PERFORM that remedy instead
+# of only naming it. It is not a bypass: nothing about the refusal changes,
+# the merge still does not happen, and the next attempt still needs a check
+# that genuinely started at/after the base tip. The gap it closes is that
+# nothing in the fleet produced the fresh evidence — a Champion tick's token
+# has no actions:write, so neither an internal re-run nor `gh run rerun` can
+# re-date the check, and a PR whose branch has no new commits can never escape
+# on its own (PR #8493 failed three identical ticks that way on 2026-09-21).
+# `loom-daemon merge-pr redate-checks` pushes a TREE-IDENTICAL no-op commit,
+# which re-triggers CI; exit 0 there means "re-dated, do not merge this pass"
+# and becomes THIS script's exit 4. It is bounded to one push per head — a
+# second block on an already-re-dated head means CI cannot out-race the base
+# branch, and the PR is escalated to a durable loom:operator hold (exit 4 from
+# the subcommand) with the original refusal still returned here. Deliberately
+# NOT given a requires-daemon floor of its own: an older binary that does not
+# know `redate-checks` exits non-zero like any other remedy failure, which
+# leaves the #8248 refusal standing — the feature degrades to exactly today's
+# behaviour instead of failing a merge open, so it is optional by
+# construction. Full rationale, bound and release conditions:
+# defaults/docs/merge-pr-exit-code-exceptions.md. Known residual: on
+# --auto's queued path the server may complete the merge minutes after checks
+# pass, outside this guard's single pre-merge evaluation — that seconds-scale
+# window is the same one every non-ratchet change already runs in, and is not
+# the 22-hour exposure this guard exists to close.
+#
+# This file is at its file-size-ratchet ceiling (file-size-policy.md), so the
+# function is one dense line and the two MAX_MERGE_RETRIES/MERGE_RETRY_DELAY
+# pairs below are joined (verbatim, behavior-preserving) to offset it.
+_check_required_check_freshness() { [[ "$FORGE_TYPE" == "github" ]] || return 0; local msg rc=0 base_ref; base_ref="$(echo "$PR_JSON" | jq -r '.base.ref // empty')"; [[ -n "$base_ref" ]] || base_ref="${DEFAULT_BRANCH_NAME:-main}"; msg="$("${LOOM_DAEMON_BIN:-loom-daemon}" merge-pr stale-checks --pr "$PR_NUMBER" --repo "$REPO_NWO" --head-sha "$PR_HEAD_SHA" --base-ref "$base_ref" 2>/dev/null)" || rc=$?; [[ $rc -eq 0 && "$msg" == "LOOM-STALE-CHECKS-CLEAN" ]] && return 0; [[ $rc -eq 1 ]] || msg="Merge blocked: PR #$PR_NUMBER's required-check freshness guard (#8248) could not run — 'loom-daemon merge-pr stale-checks' exited $rc without the LOOM-STALE-CHECKS-CLEAN signal. A guard that cannot run refuses the merge rather than passing it: a caller cannot tell 'every required check is fresh' from 'never checked', so only a positive clean signal is accepted. Build or install loom-daemon (cargo build --release -p loom-daemon, or re-run the Loom installer), then re-run this merge."; if [[ "$DRY_RUN" == "true" ]]; then warning "[dry-run] Would BLOCK merge of PR #$PR_NUMBER: $msg"; return 0; fi; if [[ "${REDATE_STALE_CHECKS:-false}" == "true" && $rc -eq 1 ]]; then local rd=0 out; out="$("${LOOM_DAEMON_BIN:-loom-daemon}" merge-pr redate-checks --pr "$PR_NUMBER" --repo "$REPO_NWO" --branch "$PR_BRANCH" --expected-head-sha "$PR_HEAD_SHA" 2>&1)" || rd=$?; if [[ $rd -eq 0 ]]; then warning "$out"; warning "Exiting 4: the stale required checks were re-dated, not merged. CI is re-running on the new head; the merge is expected to be re-attempted (after a fresh Judge review, #5686) on a later pass."; exit 4; fi; msg="$msg"$'\n\n'"#8508 automated remedy did not produce fresh evidence: $out"; fi; error "$msg"; }
+_check_required_check_freshness
 
 # ---------------------------------------------------------------------------
 # Partial-increment closing-keyword conflict detection (#4569, extended by
@@ -1066,13 +1183,13 @@ _mp_refs() {
     [[ -x "$bin" ]] || error "merge-pr.sh: LOOM_DAEMON_SELF_BIN/LOOM_DAEMON_BIN is set to '$bin', which is not executable. Refusing rather than silently falling back to a different loom-daemon."
   else
     bin="$(command -v loom-daemon 2>/dev/null || printf '%s' "$HOME/.local/bin/loom-daemon")"
-    [[ -x "$bin" ]] || error "merge-pr.sh needs loom-daemon for its closing-reference analysis (#8191) and could not resolve one. Refusing rather than proceeding with no answer: an empty result is indistinguishable from 'no references', which would close an unfinished issue or reopen a correctly closed one."
+    [[ -x "$bin" ]] || error "merge-pr.sh needs loom-daemon for its closing-reference analysis (#8191) and could not resolve one. Refusing rather than proceeding with no answer: an empty result is indistinguishable from 'no references', which would close an unfinished issue or reopen a correctly closed one. $(_mp_daemon_roll_hint merge-pr-refs)"
   fi
   # `|| rc=$?`, not `; rc=$?`: under `set -e` a failing command substitution in
   # a bare assignment aborts the script AT THAT LINE, so the check below never
   # ran and the refusal was silent — fail-closed, but with nothing said.
   out="$("$bin" merge-pr-refs "$@" 2>/dev/null)" || rc=$?
-  [[ "$rc" -eq 0 ]] || error "merge-pr.sh's closing-reference analysis failed: '$bin merge-pr-refs $*' exited $rc. A loom-daemon predating #8191 has no such subcommand -- update it, or pin LOOM_DAEMON_BIN to a build that has it. Refusing rather than treating an empty result as 'no references'."
+  [[ "$rc" -eq 0 ]] || error "merge-pr.sh's closing-reference analysis failed: '$bin merge-pr-refs $*' exited $rc. A loom-daemon predating #8191 has no such subcommand. Refusing rather than treating an empty result as 'no references'. $(_mp_daemon_roll_hint merge-pr-refs "$bin")"
   printf '%s' "$out"
 }
 

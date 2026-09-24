@@ -1448,11 +1448,9 @@ fi
 git fetch origin main
 git rebase origin/main
 
-# Version-bearing-file sync gate (#7168, #7341; moot after #7743) -- see the
-# DIRTY path's gate comment above. If it fires, this branch carries its own
-# version-bearing edit: never hand-patch VERSION/etc. and never run
-# `version.sh bump` (the printed Fix: predates #7743) -- abort the push and
-# request changes naming the file(s) to revert to origin/main's values.
+# Version-bearing-file sync gate (#7168/#7341, moot after #7743) -- see
+# DIRTY path's gate above. On failure, abort and request changes naming
+# the file(s) to revert to origin/main's values.
 if [ -x ./.loom/scripts/version-check-gate.sh ] && ! ./.loom/scripts/version-check-gate.sh --fix-hint "then push."; then
   echo "Version-bearing files out of sync after rebase (see BLOCKER:/Fix: above) - aborting push"
   exit 1
