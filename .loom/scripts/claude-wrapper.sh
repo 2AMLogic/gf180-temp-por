@@ -1827,7 +1827,7 @@ reselect_account_no_mark() {
     # disagree a mismatch costs at most one extra rotation -- never a wrong
     # mark, since marking is gated separately by `retry-classify model-class`.
     # shellcheck disable=SC2046
-    sel_output="$("${daemon_bin}" tokens select --workspace "${ws}" --export $(declare -F loom_daemon_model_select_flag >/dev/null 2>&1 && loom_daemon_model_select_flag "${daemon_bin}" "${LOOM_MODEL:-}" || true) 2>/dev/null)"
+    sel_output="$(env -u LOOM_ROLE "${daemon_bin}" tokens select --workspace "${ws}" --export $(declare -F loom_daemon_model_select_flag >/dev/null 2>&1 && loom_daemon_model_select_flag "${daemon_bin}" "${LOOM_MODEL:-}" || true) 2>/dev/null)"
     _sel_rc=$?
     set -e
     if [[ ${_sel_rc} -ne 0 || -z "${sel_output}" ]]; then
@@ -1968,7 +1968,7 @@ rotate_exhausted_account() {
     # disagree a mismatch costs at most one extra rotation -- never a wrong
     # mark, since marking is gated separately by `retry-classify model-class`.
     # shellcheck disable=SC2046
-    sel_output="$("${daemon_bin}" tokens select --workspace "${ws}" --export $(declare -F loom_daemon_model_select_flag >/dev/null 2>&1 && loom_daemon_model_select_flag "${daemon_bin}" "${LOOM_MODEL:-}" || true) 2>/dev/null)"
+    sel_output="$(env -u LOOM_ROLE "${daemon_bin}" tokens select --workspace "${ws}" --export $(declare -F loom_daemon_model_select_flag >/dev/null 2>&1 && loom_daemon_model_select_flag "${daemon_bin}" "${LOOM_MODEL:-}" || true) 2>/dev/null)"
     _sel_rc=$?
     set -e
     if [[ ${_sel_rc} -ne 0 || -z "${sel_output}" ]]; then
@@ -2036,7 +2036,7 @@ rotate_auth_dead_account() {
     # disagree a mismatch costs at most one extra rotation -- never a wrong
     # mark, since marking is gated separately by `retry-classify model-class`.
     # shellcheck disable=SC2046
-    sel_output="$("${daemon_bin}" tokens select --workspace "${ws}" --export $(declare -F loom_daemon_model_select_flag >/dev/null 2>&1 && loom_daemon_model_select_flag "${daemon_bin}" "${LOOM_MODEL:-}" || true) 2>/dev/null)"
+    sel_output="$(env -u LOOM_ROLE "${daemon_bin}" tokens select --workspace "${ws}" --export $(declare -F loom_daemon_model_select_flag >/dev/null 2>&1 && loom_daemon_model_select_flag "${daemon_bin}" "${LOOM_MODEL:-}" || true) 2>/dev/null)"
     _sel_rc=$?
     set -e
     if [[ ${_sel_rc} -ne 0 || -z "${sel_output}" ]]; then

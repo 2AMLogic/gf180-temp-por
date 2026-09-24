@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "kind": "generic",
+  "status": "pass",
+  "summary": "Aggregated per-spec-row characterization record for gf180-temp-por: spec/target-spec.md carries 29 anchored spec rows, each with its measured value, binding PVT corner, per-row status tag, and a link to the sim/ evidence record the verdict rests on. Disclosed exceptions that travel with this claim, not omitted from it: (a) the temp-accuracy-untrimmed and temp-accuracy-trimmed rows are recorded measured-and-NOT-MET under DR-029 (Monte Carlo mean +/- 3 sigma -19.23..+19.63 C against a +/-3 C target, ~6.5x over budget) and the target was deliberately not relaxed; (b) rows tagged 'pending #1' are measured and recorded but await the operator's ratification sweep. This envelope asserts that the aggregated characterization artifact required by T1 item 8 exists and is current for the pinned revision of spec/target-spec.md -- it does NOT assert that every spec row passes.",
+  "source": "spec/target-spec.md",
+  "provenance": {
+    "klt_version": null,
+    "klayout_version": null,
+    "pdk": null,
+    "deck": null,
+    "input": {
+      "content_hash": "sha256:d78561eeb7c7710fa87699e5499434884afe47821c71d2249be4760d6a2e84ed"
+    }
+  }
+}
