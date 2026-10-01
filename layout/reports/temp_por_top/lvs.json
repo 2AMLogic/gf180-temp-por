@@ -4,16 +4,65 @@
   "layout": "temp_por_top.gds",
   "reference": "temp_por_top.reference.spice",
   "top": "temp_por_top",
-  "status": "match",
-  "mismatch_count": 2,
-  "category_counts": {
-    "device.body_unverified": 2
+  "reference_top": "TEMP_POR_TOP",
+  "parameter_tolerance": null,
+  "options": {
+    "combine_devices": false,
+    "combine_devices_per_circuit": null,
+    "flatten_layout": false,
+    "flatten_reference": false,
+    "netgen_setup": null,
+    "parameter_tolerance": null,
+    "compare_parameters": null,
+    "power_connectivity": null,
+    "supply_nets": [
+      "GND",
+      "VCC",
+      "VDD",
+      "VGND",
+      "VPWR",
+      "VSS"
+    ]
   },
+  "hints_applied": null,
+  "status": "match",
+  "power_connectivity": {
+    "status": "unchecked",
+    "reason": "reference.form is 'plain-element', whose reference netlist carries its own power/ground pins and nets -- they take part in the ordinary compare, so this check (which exists to cover the signal-only 'gate-level-verilog' form) does not apply",
+    "power_pins": [],
+    "power_pins_derivation": null,
+    "instance_count": 0,
+    "expected_nets": null,
+    "unchecked_expected_pins": [],
+    "findings": [],
+    "finding_count": 0
+  },
+  "body_verification": {
+    "status": "unverified",
+    "reason": null,
+    "device_classes": [
+      "pfet"
+    ],
+    "device_count": 64,
+    "findings": [
+      {
+        "class": "pfet",
+        "device_count": 64
+      }
+    ],
+    "finding_count": 1
+  },
+  "mismatch_count": 1,
+  "error_count": 0,
+  "category_counts": {
+    "device.body_unverified": 1
+  },
+  "category_error_counts": {},
   "counts": {
     "nets": {
-      "layout": 145,
-      "reference": 145,
-      "matched": 145
+      "layout": 143,
+      "reference": 143,
+      "matched": 143
     },
     "devices": {
       "layout": 239,
@@ -21,9 +70,9 @@
       "matched": 239
     },
     "pins": {
-      "layout": 6,
-      "reference": 6,
-      "matched": 6
+      "layout": 5,
+      "reference": 5,
+      "matched": 5
     }
   },
   "device_classes": [
@@ -31,44 +80,37 @@
     "pfet",
     "bjt",
     "cap_mim_2f0_m4m5_noshield",
-    "resistor"
+    "resistor",
+    "diode_nd2ps_06v0",
+    "diode_pd2nw_06v0"
   ],
   "environment": {
     "engine": "klayout",
-    "engine_version": "0.30.10",
+    "engine_version": "0.30.12",
     "layout_sha256": "a119a12b1fa2daff64772a4a804a0ea14f17c68dc9357fe167dfd287df0628fd",
-    "reference_sha256": "fa2f371ce84b8827b740f80923395e842c1183bbb93993210d26c14c0f82cfce",
+    "reference_sha256": "d6a6a0575a06f69b1917627420193971aa335da92840a3a16ec50f5254bcade4",
     "extracted_netlist": null
   },
   "provenance": {
-    "klt_version": "0.2.0",
-    "klayout_version": "0.30.10",
+    "klt_version": "0.6.0",
+    "klayout_version": "0.30.12",
     "pdk": null,
     "deck": {
       "name": "gf180mcu",
-      "content_hash": "sha256:1256c45b3e472635b03a1888d0730822c1872b4a912a2c90fc1e4e7cd14a3913"
+      "content_hash": "sha256:95c2eb9148b29ded02182aeca4222287ff57f813691d5e2f9f8d7a675f6cb637",
+      "released": false
     },
-    "input": null
+    "input": {
+      "content_hash": "sha256:a119a12b1fa2daff64772a4a804a0ea14f17c68dc9357fe167dfd287df0628fd",
+      "role": "layout"
+    },
+    "klayout_version_mismatch": true
   },
   "mismatches": [
     {
       "category": "device.body_unverified",
       "severity": "warning",
-      "description": "71 NMOS device body terminal(s) were compared against the 'vsubs' deck-synthesized substrate net, not a real schematic net -- this deck draws no distinct NMOS substrate/tap layer (see docs/cli/extract.md, \"Coverage\")",
-      "side": "layout",
-      "net": null,
-      "device": {
-        "layout": null,
-        "reference": null,
-        "class": "nfet"
-      },
-      "property": null,
-      "details": null
-    },
-    {
-      "category": "device.body_unverified",
-      "severity": "warning",
-      "description": "64 PMOS device body terminal(s) were compared against an anonymous, deck-synthesized well net, not a real schematic net -- this deck has no distinct well-tap layer (see docs/cli/extract.md, \"Coverage\")",
+      "description": "64 PMOS device body terminal(s) were compared against an anonymous, KLayout-synthesized well net, not a real schematic net -- no drawn or derived well-tap geometry resolved these device(s)' body terminal to a real net (see docs/cli/extract.md, \"Coverage\")",
       "side": "layout",
       "net": null,
       "device": {
@@ -77,7 +119,10 @@
         "class": "pfet"
       },
       "property": null,
-      "details": null
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
     }
   ],
   "net_correspondence": [
@@ -107,7 +152,7 @@
       "pin": true
     },
     {
-      "layout": "EN,RESETn",
+      "layout": "EN|RESETn",
       "reference": "RESETN",
       "pin": true
     },
@@ -127,683 +172,673 @@
       "pin": true
     },
     {
-      "layout": "vsubs",
-      "reference": "VSUBS",
-      "pin": true
-    },
-    {
-      "layout": "$46",
-      "reference": "XBIAS.EC",
+      "layout": "\\$46",
+      "reference": "XBIAS_EC",
       "pin": false
     },
     {
-      "layout": "$64",
-      "reference": "XBIAS.ER",
+      "layout": "\\$64",
+      "reference": "XBIAS_ER",
       "pin": false
     },
     {
-      "layout": "$41",
-      "reference": "XBIAS.KS1",
+      "layout": "\\$41",
+      "reference": "XBIAS_KS1",
       "pin": false
     },
     {
-      "layout": "$42",
-      "reference": "XBIAS.KS2",
+      "layout": "\\$42",
+      "reference": "XBIAS_KS2",
       "pin": false
     },
     {
-      "layout": "$43",
-      "reference": "XBIAS.KS3",
+      "layout": "\\$43",
+      "reference": "XBIAS_KS3",
       "pin": false
     },
     {
-      "layout": "$44",
-      "reference": "XBIAS.KS4",
+      "layout": "\\$44",
+      "reference": "XBIAS_KS4",
       "pin": false
     },
     {
-      "layout": "$12",
-      "reference": "XBIAS.N1",
+      "layout": "\\$12",
+      "reference": "XBIAS_N1",
       "pin": false
     },
     {
-      "layout": "$13",
-      "reference": "XBIAS.N2",
+      "layout": "\\$13",
+      "reference": "XBIAS_N2",
       "pin": false
     },
     {
-      "layout": "$63",
-      "reference": "XBIAS.NA",
+      "layout": "\\$63",
+      "reference": "XBIAS_NA",
       "pin": false
     },
     {
-      "layout": "$18",
-      "reference": "XBIAS.NB",
+      "layout": "\\$18",
+      "reference": "XBIAS_NB",
       "pin": false
     },
     {
-      "layout": "$8",
-      "reference": "XBIAS.NBG",
+      "layout": "\\$8",
+      "reference": "XBIAS_NBG",
       "pin": false
     },
     {
-      "layout": "$7",
-      "reference": "XBIAS.NBTOP",
+      "layout": "\\$7",
+      "reference": "XBIAS_NBTOP",
       "pin": false
     },
     {
-      "layout": "$17",
-      "reference": "XBIAS.NKG",
+      "layout": "\\$17",
+      "reference": "XBIAS_NKG",
       "pin": false
     },
     {
-      "layout": "$39",
-      "reference": "XBIAS.NKM",
+      "layout": "\\$39",
+      "reference": "XBIAS_NKM",
       "pin": false
     },
     {
-      "layout": "$16",
-      "reference": "XBIAS.NOKL",
+      "layout": "\\$16",
+      "reference": "XBIAS_NOKL",
       "pin": false
     },
     {
-      "layout": "$15",
-      "reference": "XBIAS.NOKO",
+      "layout": "\\$15",
+      "reference": "XBIAS_NOKO",
       "pin": false
     },
     {
-      "layout": "$40",
-      "reference": "XBIAS.NOKX",
+      "layout": "\\$40",
+      "reference": "XBIAS_NOKX",
       "pin": false
     },
     {
-      "layout": "$11",
-      "reference": "XBIAS.NT",
+      "layout": "\\$11",
+      "reference": "XBIAS_NT",
       "pin": false
     },
     {
-      "layout": "$65",
-      "reference": "XBIAS.NW1",
+      "layout": "\\$65",
+      "reference": "XBIAS_NW1",
       "pin": false
     },
     {
-      "layout": "$52",
-      "reference": "XBIAS.NWQ",
+      "layout": "\\$52",
+      "reference": "XBIAS_NWQ",
       "pin": false
     },
     {
-      "layout": "$45",
-      "reference": "XBIAS.NZ",
+      "layout": "\\$45",
+      "reference": "XBIAS_NZ",
       "pin": false
     },
     {
-      "layout": "$9",
-      "reference": "XBIAS.PB",
+      "layout": "\\$9",
+      "reference": "XBIAS_PB",
       "pin": false
     },
     {
-      "layout": "$6",
-      "reference": "XBIAS.PG",
+      "layout": "\\$6",
+      "reference": "XBIAS_PG",
       "pin": false
     },
     {
-      "layout": "$14",
-      "reference": "XBIAS.TOK",
+      "layout": "\\$14",
+      "reference": "XBIAS_TOK",
       "pin": false
     },
     {
-      "layout": "$68",
-      "reference": "XBIAS.XR1.1",
+      "layout": "\\$68",
+      "reference": "XBIAS_XR1_1",
       "pin": false
     },
     {
-      "layout": "$71",
-      "reference": "XBIAS.XR2.1",
+      "layout": "\\$71",
+      "reference": "XBIAS_XR2_1",
       "pin": false
     },
     {
-      "layout": "$58",
-      "reference": "XBIAS.XR2.10",
+      "layout": "\\$58",
+      "reference": "XBIAS_XR2_10",
       "pin": false
     },
     {
-      "layout": "$70",
-      "reference": "XBIAS.XR2.11",
+      "layout": "\\$70",
+      "reference": "XBIAS_XR2_11",
       "pin": false
     },
     {
-      "layout": "$59",
-      "reference": "XBIAS.XR2.12",
+      "layout": "\\$59",
+      "reference": "XBIAS_XR2_12",
       "pin": false
     },
     {
-      "layout": "$69",
-      "reference": "XBIAS.XR2.13",
+      "layout": "\\$69",
+      "reference": "XBIAS_XR2_13",
       "pin": false
     },
     {
-      "layout": "$60",
-      "reference": "XBIAS.XR2.14",
+      "layout": "\\$60",
+      "reference": "XBIAS_XR2_14",
       "pin": false
     },
     {
-      "layout": "$76",
-      "reference": "XBIAS.XR2.15",
+      "layout": "\\$76",
+      "reference": "XBIAS_XR2_15",
       "pin": false
     },
     {
-      "layout": "$54",
-      "reference": "XBIAS.XR2.2",
+      "layout": "\\$54",
+      "reference": "XBIAS_XR2_2",
       "pin": false
     },
     {
-      "layout": "$72",
-      "reference": "XBIAS.XR2.3",
+      "layout": "\\$72",
+      "reference": "XBIAS_XR2_3",
       "pin": false
     },
     {
-      "layout": "$55",
-      "reference": "XBIAS.XR2.4",
+      "layout": "\\$55",
+      "reference": "XBIAS_XR2_4",
       "pin": false
     },
     {
-      "layout": "$73",
-      "reference": "XBIAS.XR2.5",
+      "layout": "\\$73",
+      "reference": "XBIAS_XR2_5",
       "pin": false
     },
     {
-      "layout": "$56",
-      "reference": "XBIAS.XR2.6",
+      "layout": "\\$56",
+      "reference": "XBIAS_XR2_6",
       "pin": false
     },
     {
-      "layout": "$74",
-      "reference": "XBIAS.XR2.7",
+      "layout": "\\$74",
+      "reference": "XBIAS_XR2_7",
       "pin": false
     },
     {
-      "layout": "$57",
-      "reference": "XBIAS.XR2.8",
+      "layout": "\\$57",
+      "reference": "XBIAS_XR2_8",
       "pin": false
     },
     {
-      "layout": "$75",
-      "reference": "XBIAS.XR2.9",
+      "layout": "\\$75",
+      "reference": "XBIAS_XR2_9",
       "pin": false
     },
     {
-      "layout": "$62",
-      "reference": "XBIAS.XRT.1",
+      "layout": "\\$62",
+      "reference": "XBIAS_XRT_1",
       "pin": false
     },
     {
-      "layout": "$66",
-      "reference": "XBIAS.XRZ.1",
+      "layout": "\\$66",
+      "reference": "XBIAS_XRZ_1",
       "pin": false
     },
     {
-      "layout": "$61",
-      "reference": "XBIAS.XRZ.2",
+      "layout": "\\$61",
+      "reference": "XBIAS_XRZ_2",
       "pin": false
     },
     {
-      "layout": "$67",
-      "reference": "XBIAS.XRZ.3",
+      "layout": "\\$67",
+      "reference": "XBIAS_XRZ_3",
       "pin": false
     },
     {
       "layout": "BIAS_OKB",
-      "reference": "XCMP.BIAS_OKB",
+      "reference": "XCMP_BIAS_OKB",
       "pin": false
     },
     {
-      "layout": "$21",
-      "reference": "XCMP.CMPO",
+      "layout": "\\$21",
+      "reference": "XCMP_CMPO",
       "pin": false
     },
     {
-      "layout": "$23",
-      "reference": "XCMP.N1",
+      "layout": "\\$23",
+      "reference": "XCMP_N1",
       "pin": false
     },
     {
-      "layout": "$20",
-      "reference": "XCMP.NA",
+      "layout": "\\$20",
+      "reference": "XCMP_NA",
       "pin": false
     },
     {
-      "layout": "$26",
-      "reference": "XCMP.NBG",
+      "layout": "\\$26",
+      "reference": "XCMP_NBG",
       "pin": false
     },
     {
-      "layout": "$51",
-      "reference": "XCMP.NW1",
+      "layout": "\\$51",
+      "reference": "XCMP_NW1",
       "pin": false
     },
     {
-      "layout": "$50",
-      "reference": "XCMP.NW2",
+      "layout": "\\$50",
+      "reference": "XCMP_NW2",
       "pin": false
     },
     {
-      "layout": "$25",
-      "reference": "XCMP.SNS",
+      "layout": "\\$25",
+      "reference": "XCMP_SNS",
       "pin": false
     },
     {
-      "layout": "$27",
-      "reference": "XCMP.SNSB",
+      "layout": "\\$27",
+      "reference": "XCMP_SNSB",
       "pin": false
     },
     {
-      "layout": "$24",
-      "reference": "XCMP.TN",
+      "layout": "\\$24",
+      "reference": "XCMP_TN",
       "pin": false
     },
     {
-      "layout": "$19",
-      "reference": "XCMP.VDDA",
+      "layout": "\\$19",
+      "reference": "XCMP_VDDA",
       "pin": false
     },
     {
-      "layout": "$33",
-      "reference": "XPOR.ND1",
+      "layout": "\\$33",
+      "reference": "XPOR_ND1",
       "pin": false
     },
     {
-      "layout": "$47",
-      "reference": "XPOR.NDG",
+      "layout": "\\$47",
+      "reference": "XPOR_NDG",
       "pin": false
     },
     {
-      "layout": "$30",
-      "reference": "XPOR.NDGN",
+      "layout": "\\$30",
+      "reference": "XPOR_NDGN",
       "pin": false
     },
     {
-      "layout": "$35",
-      "reference": "XPOR.NDGP",
+      "layout": "\\$35",
+      "reference": "XPOR_NDGP",
       "pin": false
     },
     {
-      "layout": "$29",
-      "reference": "XPOR.NDL",
+      "layout": "\\$29",
+      "reference": "XPOR_NDL",
       "pin": false
     },
     {
-      "layout": "$34",
-      "reference": "XPOR.NNAND",
+      "layout": "\\$34",
+      "reference": "XPOR_NNAND",
       "pin": false
     },
     {
-      "layout": "$36",
-      "reference": "XPOR.NTS",
+      "layout": "\\$36",
+      "reference": "XPOR_NTS",
       "pin": false
     },
     {
-      "layout": "$53",
-      "reference": "XPOR.NW1",
+      "layout": "\\$53",
+      "reference": "XPOR_NW1",
       "pin": false
     },
     {
-      "layout": "$28",
-      "reference": "XPOR.PDN",
+      "layout": "\\$28",
+      "reference": "XPOR_PDN",
       "pin": false
     },
     {
-      "layout": "$31",
-      "reference": "XPOR.PGDG",
+      "layout": "\\$31",
+      "reference": "XPOR_PGDG",
       "pin": false
     },
     {
-      "layout": "$32",
-      "reference": "XPOR.PGDGB",
+      "layout": "\\$32",
+      "reference": "XPOR_PGDGB",
       "pin": false
     },
     {
-      "layout": "$37",
-      "reference": "XPOR.RSTB",
+      "layout": "\\$37",
+      "reference": "XPOR_RSTB",
       "pin": false
     },
     {
-      "layout": "$48",
-      "reference": "XPOR.TIM",
+      "layout": "\\$48",
+      "reference": "XPOR_TIM",
       "pin": false
     },
     {
-      "layout": "$49",
-      "reference": "XPOR.TRIP",
+      "layout": "\\$49",
+      "reference": "XPOR_TRIP",
       "pin": false
     },
     {
       "layout": "ENB",
-      "reference": "XTEMP.ENB",
+      "reference": "XTEMP_ENB",
       "pin": false
     },
     {
       "layout": "M1D",
-      "reference": "XTEMP.M1D",
+      "reference": "XTEMP_M1D",
       "pin": false
     },
     {
       "layout": "M2D",
-      "reference": "XTEMP.M2D",
+      "reference": "XTEMP_M2D",
       "pin": false
     },
     {
       "layout": "M3D",
-      "reference": "XTEMP.M3D",
+      "reference": "XTEMP_M3D",
       "pin": false
     },
     {
       "layout": "N1",
-      "reference": "XTEMP.N1",
+      "reference": "XTEMP_N1",
       "pin": false
     },
     {
       "layout": "N2",
-      "reference": "XTEMP.N2",
+      "reference": "XTEMP_N2",
       "pin": false
     },
     {
       "layout": "NA",
-      "reference": "XTEMP.NA",
+      "reference": "XTEMP_NA",
       "pin": false
     },
     {
       "layout": "NB",
-      "reference": "XTEMP.NB",
+      "reference": "XTEMP_NB",
       "pin": false
     },
     {
       "layout": "NBG",
-      "reference": "XTEMP.NBG",
+      "reference": "XTEMP_NBG",
       "pin": false
     },
     {
       "layout": "NC",
-      "reference": "XTEMP.NC",
+      "reference": "XTEMP_NC",
       "pin": false
     },
     {
       "layout": "ND",
-      "reference": "XTEMP.ND",
+      "reference": "XTEMP_ND",
       "pin": false
     },
     {
       "layout": "NR",
-      "reference": "XTEMP.NR",
+      "reference": "XTEMP_NR",
       "pin": false
     },
     {
       "layout": "NT",
-      "reference": "XTEMP.NT",
+      "reference": "XTEMP_NT",
       "pin": false
     },
     {
-      "layout": "$101",
-      "reference": "XTEMP.NW1",
+      "layout": "\\$101",
+      "reference": "XTEMP_NW1",
       "pin": false
     },
     {
-      "layout": "$100",
-      "reference": "XTEMP.NW2",
-      "pin": false
-    },
-    {
-      "layout": "$125",
-      "reference": "XTEMP.NWQ",
+      "layout": "\\$100",
+      "reference": "XTEMP_NW2",
       "pin": false
     },
     {
       "layout": "NZ",
-      "reference": "XTEMP.NZ",
+      "reference": "XTEMP_NZ",
       "pin": false
     },
     {
       "layout": "PB",
-      "reference": "XTEMP.PB",
+      "reference": "XTEMP_PB",
       "pin": false
     },
     {
       "layout": "PCAS",
-      "reference": "XTEMP.PCAS",
+      "reference": "XTEMP_PCAS",
       "pin": false
     },
     {
       "layout": "PG",
-      "reference": "XTEMP.PG",
+      "reference": "XTEMP_PG",
       "pin": false
     },
     {
       "layout": "T0",
-      "reference": "XTEMP.T0",
+      "reference": "XTEMP_T0",
       "pin": false
     },
     {
       "layout": "T1",
-      "reference": "XTEMP.T1",
+      "reference": "XTEMP_T1",
       "pin": false
     },
     {
       "layout": "T2",
-      "reference": "XTEMP.T2",
+      "reference": "XTEMP_T2",
       "pin": false
     },
     {
       "layout": "T3",
-      "reference": "XTEMP.T3",
+      "reference": "XTEMP_T3",
       "pin": false
     },
     {
       "layout": "T4",
-      "reference": "XTEMP.T4",
+      "reference": "XTEMP_T4",
       "pin": false
     },
     {
       "layout": "T5",
-      "reference": "XTEMP.T5",
+      "reference": "XTEMP_T5",
       "pin": false
     },
     {
-      "layout": "$142",
-      "reference": "XTEMP.XR1.1",
+      "layout": "\\$141",
+      "reference": "XTEMP_XR1_1",
       "pin": false
     },
     {
-      "layout": "$148",
-      "reference": "XTEMP.XR2F.1",
+      "layout": "\\$147",
+      "reference": "XTEMP_XR2F_1",
       "pin": false
     },
     {
-      "layout": "$110",
-      "reference": "XTEMP.XR2F.10",
+      "layout": "\\$110",
+      "reference": "XTEMP_XR2F_10",
       "pin": false
     },
     {
-      "layout": "$153",
-      "reference": "XTEMP.XR2F.11",
+      "layout": "\\$152",
+      "reference": "XTEMP_XR2F_11",
       "pin": false
     },
     {
-      "layout": "$111",
-      "reference": "XTEMP.XR2F.12",
+      "layout": "\\$111",
+      "reference": "XTEMP_XR2F_12",
       "pin": false
     },
     {
-      "layout": "$154",
-      "reference": "XTEMP.XR2F.13",
+      "layout": "\\$153",
+      "reference": "XTEMP_XR2F_13",
       "pin": false
     },
     {
-      "layout": "$112",
-      "reference": "XTEMP.XR2F.14",
+      "layout": "\\$112",
+      "reference": "XTEMP_XR2F_14",
       "pin": false
     },
     {
-      "layout": "$155",
-      "reference": "XTEMP.XR2F.15",
+      "layout": "\\$154",
+      "reference": "XTEMP_XR2F_15",
       "pin": false
     },
     {
-      "layout": "$113",
-      "reference": "XTEMP.XR2F.16",
+      "layout": "\\$113",
+      "reference": "XTEMP_XR2F_16",
       "pin": false
     },
     {
-      "layout": "$156",
-      "reference": "XTEMP.XR2F.17",
+      "layout": "\\$155",
+      "reference": "XTEMP_XR2F_17",
       "pin": false
     },
     {
-      "layout": "$114",
-      "reference": "XTEMP.XR2F.18",
+      "layout": "\\$114",
+      "reference": "XTEMP_XR2F_18",
       "pin": false
     },
     {
-      "layout": "$157",
-      "reference": "XTEMP.XR2F.19",
+      "layout": "\\$156",
+      "reference": "XTEMP_XR2F_19",
       "pin": false
     },
     {
-      "layout": "$106",
-      "reference": "XTEMP.XR2F.2",
+      "layout": "\\$106",
+      "reference": "XTEMP_XR2F_2",
       "pin": false
     },
     {
-      "layout": "$115",
-      "reference": "XTEMP.XR2F.20",
+      "layout": "\\$115",
+      "reference": "XTEMP_XR2F_20",
       "pin": false
     },
     {
-      "layout": "$158",
-      "reference": "XTEMP.XR2F.21",
+      "layout": "\\$157",
+      "reference": "XTEMP_XR2F_21",
       "pin": false
     },
     {
-      "layout": "$116",
-      "reference": "XTEMP.XR2F.22",
+      "layout": "\\$116",
+      "reference": "XTEMP_XR2F_22",
       "pin": false
     },
     {
-      "layout": "$159",
-      "reference": "XTEMP.XR2F.23",
+      "layout": "\\$158",
+      "reference": "XTEMP_XR2F_23",
       "pin": false
     },
     {
-      "layout": "$149",
-      "reference": "XTEMP.XR2F.3",
+      "layout": "\\$148",
+      "reference": "XTEMP_XR2F_3",
       "pin": false
     },
     {
-      "layout": "$107",
-      "reference": "XTEMP.XR2F.4",
+      "layout": "\\$107",
+      "reference": "XTEMP_XR2F_4",
       "pin": false
     },
     {
-      "layout": "$150",
-      "reference": "XTEMP.XR2F.5",
+      "layout": "\\$149",
+      "reference": "XTEMP_XR2F_5",
       "pin": false
     },
     {
-      "layout": "$108",
-      "reference": "XTEMP.XR2F.6",
+      "layout": "\\$108",
+      "reference": "XTEMP_XR2F_6",
       "pin": false
     },
     {
-      "layout": "$151",
-      "reference": "XTEMP.XR2F.7",
+      "layout": "\\$150",
+      "reference": "XTEMP_XR2F_7",
       "pin": false
     },
     {
-      "layout": "$109",
-      "reference": "XTEMP.XR2F.8",
+      "layout": "\\$109",
+      "reference": "XTEMP_XR2F_8",
       "pin": false
     },
     {
-      "layout": "$152",
-      "reference": "XTEMP.XR2F.9",
+      "layout": "\\$151",
+      "reference": "XTEMP_XR2F_9",
       "pin": false
     },
     {
-      "layout": "$122",
-      "reference": "XTEMP.XR2T0.1",
+      "layout": "\\$122",
+      "reference": "XTEMP_XR2T0_1",
       "pin": false
     },
     {
-      "layout": "$123",
-      "reference": "XTEMP.XR2T1.1",
+      "layout": "\\$123",
+      "reference": "XTEMP_XR2T1_1",
       "pin": false
     },
     {
-      "layout": "$128",
-      "reference": "XTEMP.XR2T2.1",
+      "layout": "\\$127",
+      "reference": "XTEMP_XR2T2_1",
       "pin": false
     },
     {
-      "layout": "$132",
-      "reference": "XTEMP.XR2T3.1",
+      "layout": "\\$131",
+      "reference": "XTEMP_XR2T3_1",
       "pin": false
     },
     {
-      "layout": "$141",
-      "reference": "XTEMP.XR2T4.1",
+      "layout": "\\$140",
+      "reference": "XTEMP_XR2T4_1",
       "pin": false
     },
     {
-      "layout": "$160",
-      "reference": "XTEMP.XR2T5.1",
+      "layout": "\\$159",
+      "reference": "XTEMP_XR2T5_1",
       "pin": false
     },
     {
-      "layout": "$140",
-      "reference": "XTEMP.XRISO.1",
+      "layout": "\\$139",
+      "reference": "XTEMP_XRISO_1",
       "pin": false
     },
     {
-      "layout": "$143",
-      "reference": "XTEMP.XRZ.1",
+      "layout": "\\$142",
+      "reference": "XTEMP_XRZ_1",
       "pin": false
     },
     {
-      "layout": "$102",
-      "reference": "XTEMP.XRZ.2",
+      "layout": "\\$102",
+      "reference": "XTEMP_XRZ_2",
       "pin": false
     },
     {
-      "layout": "$144",
-      "reference": "XTEMP.XRZ.3",
+      "layout": "\\$143",
+      "reference": "XTEMP_XRZ_3",
       "pin": false
     },
     {
-      "layout": "$103",
-      "reference": "XTEMP.XRZ.4",
+      "layout": "\\$103",
+      "reference": "XTEMP_XRZ_4",
       "pin": false
     },
     {
-      "layout": "$145",
-      "reference": "XTEMP.XRZ.5",
+      "layout": "\\$144",
+      "reference": "XTEMP_XRZ_5",
       "pin": false
     },
     {
-      "layout": "$104",
-      "reference": "XTEMP.XRZ.6",
+      "layout": "\\$104",
+      "reference": "XTEMP_XRZ_6",
       "pin": false
     },
     {
-      "layout": "$146",
-      "reference": "XTEMP.XRZ.7",
+      "layout": "\\$145",
+      "reference": "XTEMP_XRZ_7",
       "pin": false
     },
     {
-      "layout": "$105",
-      "reference": "XTEMP.XRZ.8",
+      "layout": "\\$105",
+      "reference": "XTEMP_XRZ_8",
       "pin": false
     },
     {
-      "layout": "$147",
-      "reference": "XTEMP.XRZ.9",
+      "layout": "\\$146",
+      "reference": "XTEMP_XRZ_9",
       "pin": false
     }
   ]

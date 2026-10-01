@@ -23,6 +23,7 @@
       "status": "mismatch",
       "category_counts": {
         "device.body_unverified": 2,
+        "device.property": 5,
         "device.unmatched": 2,
         "net.unmatched": 4,
         "topology": 1

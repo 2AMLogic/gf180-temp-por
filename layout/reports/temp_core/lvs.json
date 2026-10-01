@@ -4,16 +4,65 @@
   "layout": "temp_core.gds",
   "reference": "temp_core.reference.spice",
   "top": "temp_core",
-  "status": "match",
-  "mismatch_count": 2,
-  "category_counts": {
-    "device.body_unverified": 2
+  "reference_top": "TEMP_CORE",
+  "parameter_tolerance": null,
+  "options": {
+    "combine_devices": false,
+    "combine_devices_per_circuit": null,
+    "flatten_layout": false,
+    "flatten_reference": false,
+    "netgen_setup": null,
+    "parameter_tolerance": null,
+    "compare_parameters": null,
+    "power_connectivity": null,
+    "supply_nets": [
+      "GND",
+      "VCC",
+      "VDD",
+      "VGND",
+      "VPWR",
+      "VSS"
+    ]
   },
+  "hints_applied": null,
+  "status": "match",
+  "power_connectivity": {
+    "status": "unchecked",
+    "reason": "reference.form is 'plain-element', whose reference netlist carries its own power/ground pins and nets -- they take part in the ordinary compare, so this check (which exists to cover the signal-only 'gate-level-verilog' form) does not apply",
+    "power_pins": [],
+    "power_pins_derivation": null,
+    "instance_count": 0,
+    "expected_nets": null,
+    "unchecked_expected_pins": [],
+    "findings": [],
+    "finding_count": 0
+  },
+  "body_verification": {
+    "status": "unverified",
+    "reason": null,
+    "device_classes": [
+      "pfet"
+    ],
+    "device_count": 28,
+    "findings": [
+      {
+        "class": "pfet",
+        "device_count": 28
+      }
+    ],
+    "finding_count": 1
+  },
+  "mismatch_count": 1,
+  "error_count": 0,
+  "category_counts": {
+    "device.body_unverified": 1
+  },
+  "category_error_counts": {},
   "counts": {
     "nets": {
-      "layout": 73,
-      "reference": 73,
-      "matched": 73
+      "layout": 71,
+      "reference": 71,
+      "matched": 71
     },
     "devices": {
       "layout": 115,
@@ -21,9 +70,9 @@
       "matched": 115
     },
     "pins": {
-      "layout": 30,
-      "reference": 30,
-      "matched": 30
+      "layout": 29,
+      "reference": 29,
+      "matched": 29
     }
   },
   "device_classes": [
@@ -31,44 +80,37 @@
     "pfet",
     "bjt",
     "cap_mim_2f0_m4m5_noshield",
-    "resistor"
+    "resistor",
+    "diode_nd2ps_06v0",
+    "diode_pd2nw_06v0"
   ],
   "environment": {
     "engine": "klayout",
-    "engine_version": "0.30.10",
+    "engine_version": "0.30.12",
     "layout_sha256": "360bbbea3f0659324430beb69c19ecee30d818111f6f00cfa62845932d7862a7",
-    "reference_sha256": "f259095f35160f25bb8eb8e9fe764f11b630c0145151793df4e7ec0297f473d8",
+    "reference_sha256": "cd6d91bdccbb972cb940e576e054e9101278dfe8c11896bb5517eff14aa23308",
     "extracted_netlist": null
   },
   "provenance": {
-    "klt_version": "0.2.0",
-    "klayout_version": "0.30.10",
+    "klt_version": "0.6.0",
+    "klayout_version": "0.30.12",
     "pdk": null,
     "deck": {
       "name": "gf180mcu",
-      "content_hash": "sha256:1256c45b3e472635b03a1888d0730822c1872b4a912a2c90fc1e4e7cd14a3913"
+      "content_hash": "sha256:95c2eb9148b29ded02182aeca4222287ff57f813691d5e2f9f8d7a675f6cb637",
+      "released": false
     },
-    "input": null
+    "input": {
+      "content_hash": "sha256:360bbbea3f0659324430beb69c19ecee30d818111f6f00cfa62845932d7862a7",
+      "role": "layout"
+    },
+    "klayout_version_mismatch": true
   },
   "mismatches": [
     {
       "category": "device.body_unverified",
       "severity": "warning",
-      "description": "27 NMOS device body terminal(s) were compared against the 'vsubs' deck-synthesized substrate net, not a real schematic net -- this deck draws no distinct NMOS substrate/tap layer (see docs/cli/extract.md, \"Coverage\")",
-      "side": "layout",
-      "net": null,
-      "device": {
-        "layout": null,
-        "reference": null,
-        "class": "nfet"
-      },
-      "property": null,
-      "details": null
-    },
-    {
-      "category": "device.body_unverified",
-      "severity": "warning",
-      "description": "28 PMOS device body terminal(s) were compared against an anonymous, deck-synthesized well net, not a real schematic net -- this deck has no distinct well-tap layer (see docs/cli/extract.md, \"Coverage\")",
+      "description": "28 PMOS device body terminal(s) were compared against an anonymous, KLayout-synthesized well net, not a real schematic net -- no drawn or derived well-tap geometry resolved these device(s)' body terminal to a real net (see docs/cli/extract.md, \"Coverage\")",
       "side": "layout",
       "net": null,
       "device": {
@@ -77,7 +119,10 @@
         "class": "pfet"
       },
       "property": null,
-      "details": null
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
     }
   ],
   "net_correspondence": [
@@ -162,18 +207,13 @@
       "pin": true
     },
     {
-      "layout": "$29",
+      "layout": "\\$29",
       "reference": "NW1",
       "pin": false
     },
     {
-      "layout": "$28",
+      "layout": "\\$28",
       "reference": "NW2",
-      "pin": false
-    },
-    {
-      "layout": "$53",
-      "reference": "NWQ",
       "pin": false
     },
     {
@@ -242,208 +282,203 @@
       "pin": true
     },
     {
-      "layout": "vsubs",
-      "reference": "VSUBS",
-      "pin": true
-    },
-    {
-      "layout": "$70",
-      "reference": "XR1.1",
+      "layout": "\\$69",
+      "reference": "XR1_1",
       "pin": false
     },
     {
-      "layout": "$76",
-      "reference": "XR2F.1",
+      "layout": "\\$75",
+      "reference": "XR2F_1",
       "pin": false
     },
     {
-      "layout": "$38",
-      "reference": "XR2F.10",
+      "layout": "\\$38",
+      "reference": "XR2F_10",
       "pin": false
     },
     {
-      "layout": "$81",
-      "reference": "XR2F.11",
+      "layout": "\\$80",
+      "reference": "XR2F_11",
       "pin": false
     },
     {
-      "layout": "$39",
-      "reference": "XR2F.12",
+      "layout": "\\$39",
+      "reference": "XR2F_12",
       "pin": false
     },
     {
-      "layout": "$82",
-      "reference": "XR2F.13",
+      "layout": "\\$81",
+      "reference": "XR2F_13",
       "pin": false
     },
     {
-      "layout": "$40",
-      "reference": "XR2F.14",
+      "layout": "\\$40",
+      "reference": "XR2F_14",
       "pin": false
     },
     {
-      "layout": "$83",
-      "reference": "XR2F.15",
+      "layout": "\\$82",
+      "reference": "XR2F_15",
       "pin": false
     },
     {
-      "layout": "$41",
-      "reference": "XR2F.16",
+      "layout": "\\$41",
+      "reference": "XR2F_16",
       "pin": false
     },
     {
-      "layout": "$84",
-      "reference": "XR2F.17",
+      "layout": "\\$83",
+      "reference": "XR2F_17",
       "pin": false
     },
     {
-      "layout": "$42",
-      "reference": "XR2F.18",
+      "layout": "\\$42",
+      "reference": "XR2F_18",
       "pin": false
     },
     {
-      "layout": "$85",
-      "reference": "XR2F.19",
+      "layout": "\\$84",
+      "reference": "XR2F_19",
       "pin": false
     },
     {
-      "layout": "$34",
-      "reference": "XR2F.2",
+      "layout": "\\$34",
+      "reference": "XR2F_2",
       "pin": false
     },
     {
-      "layout": "$43",
-      "reference": "XR2F.20",
+      "layout": "\\$43",
+      "reference": "XR2F_20",
       "pin": false
     },
     {
-      "layout": "$86",
-      "reference": "XR2F.21",
+      "layout": "\\$85",
+      "reference": "XR2F_21",
       "pin": false
     },
     {
-      "layout": "$44",
-      "reference": "XR2F.22",
+      "layout": "\\$44",
+      "reference": "XR2F_22",
       "pin": false
     },
     {
-      "layout": "$87",
-      "reference": "XR2F.23",
+      "layout": "\\$86",
+      "reference": "XR2F_23",
       "pin": false
     },
     {
-      "layout": "$77",
-      "reference": "XR2F.3",
+      "layout": "\\$76",
+      "reference": "XR2F_3",
       "pin": false
     },
     {
-      "layout": "$35",
-      "reference": "XR2F.4",
+      "layout": "\\$35",
+      "reference": "XR2F_4",
       "pin": false
     },
     {
-      "layout": "$78",
-      "reference": "XR2F.5",
+      "layout": "\\$77",
+      "reference": "XR2F_5",
       "pin": false
     },
     {
-      "layout": "$36",
-      "reference": "XR2F.6",
+      "layout": "\\$36",
+      "reference": "XR2F_6",
       "pin": false
     },
     {
-      "layout": "$79",
-      "reference": "XR2F.7",
+      "layout": "\\$78",
+      "reference": "XR2F_7",
       "pin": false
     },
     {
-      "layout": "$37",
-      "reference": "XR2F.8",
+      "layout": "\\$37",
+      "reference": "XR2F_8",
       "pin": false
     },
     {
-      "layout": "$80",
-      "reference": "XR2F.9",
+      "layout": "\\$79",
+      "reference": "XR2F_9",
       "pin": false
     },
     {
-      "layout": "$50",
-      "reference": "XR2T0.1",
+      "layout": "\\$50",
+      "reference": "XR2T0_1",
       "pin": false
     },
     {
-      "layout": "$51",
-      "reference": "XR2T1.1",
+      "layout": "\\$51",
+      "reference": "XR2T1_1",
       "pin": false
     },
     {
-      "layout": "$56",
-      "reference": "XR2T2.1",
+      "layout": "\\$55",
+      "reference": "XR2T2_1",
       "pin": false
     },
     {
-      "layout": "$60",
-      "reference": "XR2T3.1",
+      "layout": "\\$59",
+      "reference": "XR2T3_1",
       "pin": false
     },
     {
-      "layout": "$69",
-      "reference": "XR2T4.1",
+      "layout": "\\$68",
+      "reference": "XR2T4_1",
       "pin": false
     },
     {
-      "layout": "$88",
-      "reference": "XR2T5.1",
+      "layout": "\\$87",
+      "reference": "XR2T5_1",
       "pin": false
     },
     {
-      "layout": "$68",
-      "reference": "XRISO.1",
+      "layout": "\\$62",
+      "reference": "XRISO_1",
       "pin": false
     },
     {
-      "layout": "$71",
-      "reference": "XRZ.1",
+      "layout": "\\$70",
+      "reference": "XRZ_1",
       "pin": false
     },
     {
-      "layout": "$30",
-      "reference": "XRZ.2",
+      "layout": "\\$30",
+      "reference": "XRZ_2",
       "pin": false
     },
     {
-      "layout": "$72",
-      "reference": "XRZ.3",
+      "layout": "\\$71",
+      "reference": "XRZ_3",
       "pin": false
     },
     {
-      "layout": "$31",
-      "reference": "XRZ.4",
+      "layout": "\\$31",
+      "reference": "XRZ_4",
       "pin": false
     },
     {
-      "layout": "$73",
-      "reference": "XRZ.5",
+      "layout": "\\$72",
+      "reference": "XRZ_5",
       "pin": false
     },
     {
-      "layout": "$32",
-      "reference": "XRZ.6",
+      "layout": "\\$32",
+      "reference": "XRZ_6",
       "pin": false
     },
     {
-      "layout": "$74",
-      "reference": "XRZ.7",
+      "layout": "\\$73",
+      "reference": "XRZ_7",
       "pin": false
     },
     {
-      "layout": "$33",
-      "reference": "XRZ.8",
+      "layout": "\\$33",
+      "reference": "XRZ_8",
       "pin": false
     },
     {
-      "layout": "$75",
-      "reference": "XRZ.9",
+      "layout": "\\$74",
+      "reference": "XRZ_9",
       "pin": false
     }
   ]

@@ -89,18 +89,21 @@ Every report under `layout/reports/` is evidence for **one** `klt` build, and
 which one is declared in [`layout/toolchain.json`](toolchain.json):
 
 ```json
-"klt":  { "version": "klt 0.2.0", "install": "uv tool install --force klayout-tools==0.2.0",
-          "release": { "package_version": "0.2.0", "git_tag": "v0.2.0", "git_commit": "c8e4f8cd…" } },
-"deck": { "name": "gf180mcu", "content_hash": "sha256:1256c45b…" }
+"klt":  { "version": "klt 0.6.0", "install": "uv tool install --force klayout-tools==0.6.0",
+          "release": { "package_version": "0.6.0", "git_tag": "v0.6.0", "git_commit": "c622e8ad…" } },
+"deck": { "name": "gf180mcu", "content_hash": "sha256:95c2eb91…" }
 ```
 
 The **deck content hash is the identity**, not the version string. A source
 build of `klayout-tools` made after a release tag still reports that tag's
 package version, so a post-tag build and the release it was built after both
-say `klt 0.2.0` while shipping different decks — which is how this repo's
+say `klt 0.6.0` while shipping different decks — which is how this repo's
 entire committed evidence base came to name a deck no release ships (#258; see
 [Known deck limits](#known-deck-limits--what-a-clean-lvs-here-does-not-prove)
-for the full account and the tool-side issue it was filed as).
+for the full account and the tool-side issue it was filed as). The pin moved
+from `klt 0.2.0` to `klt 0.6.0` in #311/#312 — see "Known deck limits" below
+for what changed in the deck between those two releases and what it meant for
+this block's reference netlists.
 
 Two gates enforce the pin, and they check different things:
 
@@ -1617,14 +1620,76 @@ filed upstream per this repo's friction protocol.
   [Adding a cell](#adding-a-cell-for-17--18)); `por_comparator` predates the fix
   and still declares `BIAS_OKB` as a port in its manifest, which remains
   correct for that cell as drawn.
-- **Body terminals are synthetic.** The deck draws no substrate tap, so NMOS
-  bodies land on a global `vsubs` net; gf180mcu has no distinct tap or
-  well-label layer, so an extracted Nwell is an anonymous net. `lvs_reference.py`
-  therefore rewrites the schematic's body nodes to match. **Consequence: a
-  mis-tied, untied, or physically broken guard ring compares clean.** Both were
-  built and confirmed during #72: a `temp_por_top` whose seam moat is drawn but
-  never tied to `VSS`, and one whose perimeter ring has a 10 µm gap in a
-  segment, are each `klt drc` clean and `klt lvs` **match**.
+- **Body terminals are synthetic — except where a cell's own drawn taps now
+  resolve them, as of #312, and that is a per-cell fact, not a global one.**
+  At `klt 0.2.0` the deck drew no substrate/pwell tap layer at all, so NMOS
+  bodies, BJT collectors and poly-resistor bulks always landed on a global
+  `vsubs` net and `lvs_reference.py` rewrote the schematic's own body nodes to
+  match, unconditionally, on every cell. `klt 0.6.0` resolves a *drawn* tap
+  where one exists, and whether one exists is a fact about each cell's own
+  layout, not about the device class — so #312 made the rewrite conditional,
+  declared explicitly per cell in `lvs_reference.BODY_TIES_RESOLVED_CELLS`
+  (the shared P+ substrate tie: NMOS body, BJT collector, resistor bulk) and
+  `lvs_reference.BJT_WELL_RESOLVED_CELLS` (the separate, local Nwell tie: BJT
+  base only). The two do not move together — see the per-cell table below —
+  and both are checked against the GDS actually committed, not assumed:
+
+  | cell | substrate tie (NMOS body / BJT collector / resistor bulk) | BJT base (local Nwell tie) |
+  | --- | --- | --- |
+  | `bias_core` (standalone) | not resolved — no local tap drawn | not resolved — no local Nwell tap drawn |
+  | `por_comparator`, `por_comparator_bias_okb_inv`, `por_output_chain` (standalone) | not resolved — no local tap drawn | n/a — no bipolars |
+  | `temp_core` (standalone or instanced) | **resolved** — draws its own taps (#93) | **resolved** — draws its own Nwell tap (#93) |
+  | `temp_por_top` (the assembly) | **resolved for every instanced sub-cell**, `bias_core`/`por_comparator`/`por_output_chain` included — the block's own continuous seam-ring tie reaches every substrate-tied terminal regardless of which sub-cell drew it | **resolved only for `temp_core`'s own instance** (`xtemp`) — `bias_core`'s instance (`xbias`) still has no local Nwell tap of its own, and the seam ring does not substitute for one (an Nwell tie is a separate, local connection, not a substrate-wide one) |
+
+  The `temp_por_top` row's split is the one genuinely surprising result, and
+  it is measured, not assumed: `bias_core`'s ten PNPs, instanced inside
+  `temp_por_top`, have their **collector** resolve to the real `VSS` (the
+  assembly's own seam ring reaches it, like every other substrate-tied
+  terminal in the block) while their shared **base** stays the anonymous,
+  deck-synthesized well net — confirmed directly in
+  `layout/reports/temp_por_top/extracted.spice`: `Q$136 VSS \$52 ...`
+  (collector real, base still `$52`), against `temp_core`'s own instanced
+  PNPs a few lines later, `Q$146 VSS VSS ...` (both real). A design that
+  collapsed `BODY_TIES_RESOLVED_CELLS` and `BJT_WELL_RESOLVED_CELLS` into one
+  flag reproduced this exact split as a false `device.unmatched` ×10 /
+  `net.split` pair against a live `klt lvs` run — caught only by that run,
+  not by the stdlib unit suite, which has no way to know a geometric fact
+  like this one (now covered by `test_lvs_reference.py`'s
+  `test_bjt_collector_and_base_resolve_independently`).
+
+  **What a clean LVS proves, stated plainly, for each cell today:**
+  - `bias_core`, `por_comparator`, `por_comparator_bias_okb_inv`,
+    `por_output_chain` (standalone): exactly what a clean LVS proved before
+    #312 — device count, sizing, MiM plate area/geometry (hence
+    capacitance) and the nets its plates land on, drawn resistor and bipolar
+    geometry, signal-net topology. **Not** NMOS body, BJT collector/base or
+    resistor-bulk ties, and **not** a PMOS well tie (never proven on any
+    cell in this block, resolved or not — see the next paragraph).
+  - `temp_core` (standalone): everything above, **plus** NMOS body, BJT
+    collector *and* base, and resistor-bulk ties, for real — this cell's own
+    drawn taps carry every one of those terminals to the schematic's own
+    `VSS`, and the compare now runs against that real connectivity instead of
+    a deck-synthesized stand-in.
+  - `temp_por_top` (the assembly): everything the four sub-cells each prove
+    on their own, **plus** NMOS body, BJT collector and resistor-bulk ties for
+    *every* instanced device regardless of which sub-cell drew it (the seam
+    ring's own doing), **plus** BJT base ties for `temp_core`'s own instance
+    specifically — **not** BJT base ties for `bias_core`'s instance, which
+    still answers only to the anonymous `bjt_well` net the way it does
+    standalone.
+
+  **PMOS wells are unaffected by any of this, on every cell in this block,
+  resolved or not.** gf180mcu's curated deck still has no well-label or tap
+  layer for an Nwell body tie at all, drawn or not, so an extracted Nwell is
+  always an anonymous net — confirmed by `device.body_unverified` still
+  naming every drawn `pfet` on `temp_core`/`temp_por_top` after #312, same as
+  before it, while the `nfet` entry that used to sit beside it is simply
+  gone. **Consequence, unchanged by #312: a mis-tied, untied, or physically
+  broken PMOS guard ring still compares clean everywhere**, and — outside
+  `temp_core`/`temp_por_top`'s own now-resolved terminals — so does an NMOS
+  one. Both were built and confirmed during #72: a `temp_por_top` whose seam
+  moat is drawn but never tied to `VSS`, and one whose perimeter ring has a
+  10 µm gap in a segment, are each `klt drc` clean and `klt lvs` **match**.
   Filed: [klayout-tools#303](https://github.com/2AMLogic/klayout-tools/issues/303)
   — that is the issue that tracks this gap, with those two defect builds as its
   evidence.
@@ -1632,13 +1697,15 @@ filed upstream per this repo's friction protocol.
   (synthetic body nets) is **closed**, resolved by #285, and its curated scope
   was narrowed to that one warning — so it does **not** track ring continuity or
   the tie, and should not be cited for them. #285 **is** live in this build:
-  every `lvs.json` now carries two `device.body_unverified` warnings naming how
-  many NMOS bodies went to `vsubs` and how many PMOS bodies went to an anonymous
-  well net. That is a real signal — it says the compare did not check bodies —
-  but it is not a *tie* check, and it says nothing at all about a guard ring. So
-  ring correctness stays outside the deck. `temp_por_top` answers it with
-  build-time geometric checks instead (see its section above); every other
-  cell's ring remains a design-review claim.
+  every `lvs.json` still carries a `device.body_unverified` warning naming
+  every PMOS body that went to an anonymous well net (and, on a cell not in
+  `BODY_TIES_RESOLVED_CELLS`, every NMOS body that went to `vsubs` alongside
+  it). That is a real signal — it says the compare did not check that
+  terminal — but it is not a *tie* check, and it says nothing at all about a
+  guard ring. So ring correctness stays outside the deck regardless of
+  resolution state. `temp_por_top` answers it with build-time geometric
+  checks instead (see its section above); every other cell's ring remains a
+  design-review claim.
 - **The reference netlist has to be converted, not just pointed at.** `klt lvs`
   needs plain-element SPICE (`M1 d g s b nfet L=0.5U W=1U`); `design/netlist.py`
   emits the ngspice simulation form (`XM1 d g s b nfet_03v3 L=0.5u ...`).
@@ -1799,6 +1866,14 @@ filed upstream per this repo's friction protocol.
   not have, which is why `lvs_reference` now writes the deck's law in full
   (`MIM_AREA_CAP_F_UM2` **and** `MIM_PERIM_CAP_F_UM`, the latter pinned at the
   pinned deck's own zero) rather than hard-coding the area-only special case.
+  **Update (#312):** the pin has since moved past that point — `klt 0.6.0`'s
+  deck carries exactly this perimeter/fringe term (`area_cap_f_um2=1.99e-15`,
+  `perim_cap_f_um=2.383e-16`, transcribed from gf180mcu's own
+  `sm141064.ngspice` model card), so the "pinned deck's own zero" above is
+  itself now historical. `lvs_reference.py`'s `MIM_AREA_CAP_F_UM2`/
+  `MIM_PERIM_CAP_F_UM` were re-transcribed to it, and `build_cap_cards` now
+  also declares each MiM card's own extracted `A`/`P` geometry parameters,
+  which the v0.2.0 deck never checked and the v0.6.0 deck does.
 
 `layout/reports/environment.json` records the `klt` version, the deck content
 hash and the release each report was produced with, because several of the
@@ -1855,11 +1930,14 @@ device body. The section after next explains what changed.
 
 ### Toolchain note: why this report was not produced with the pinned `klt 0.5.0`
 
-`signoff/toolchain.json` pins `klt 0.5.0` as this repo's grader, and
-`layout/toolchain.json` pins `klt 0.2.0` as the build the DRC/LVS evidence
-under `layout/reports/` answers to. This one report answers to neither, and
-deliberately so — it needs two `klt erc` capabilities that postdate both
-pins:
+`signoff/toolchain.json` pins `klt 0.5.0` as this repo's grader, and, **at the
+time this report was produced**, `layout/toolchain.json` pinned `klt 0.2.0` as
+the build the DRC/LVS evidence under `layout/reports/` answered to (#311/#312
+have since moved that pin to `klt 0.6.0` — see "The pinned toolchain" above —
+for reasons unrelated to `klt erc`; this report itself has not been
+re-examined against the new pin, and may or may not still need a build past
+it). This one report answered to neither pin in force at the time, and
+deliberately so — it needed two `klt erc` capabilities that postdated both:
 
 1. **`provenance`** (and `status`), added by `klayout-tools#1984`/`#2049`.
    `klt 0.5.0`'s `klt erc` emits neither; its JSON is just

@@ -6,150 +6,149 @@
 * pin PTAT
 * pin VDD
 * pin VSS
-* pin vsubs
-.SUBCKT temp_por_top CTAT EN|RESETn PTAT VDD VSS vsubs
+.SUBCKT temp_por_top CTAT EN|RESETn PTAT VDD VSS
 * device instance $1 r0 *1 112.4,-399 nfet
-M$1 \$8 \$8 VSS vsubs nfet L=4U W=2U AS=1.6P AD=1.6P PS=5.6U PD=5.6U
+M$1 \$8 \$8 VSS VSS nfet L=4U W=2U AS=1.6P AD=1.6P PS=5.6U PD=5.6U
 * device instance $2 r0 *1 119,-399 nfet
-M$2 \$9 \$8 VSS vsubs nfet L=4U W=2U AS=1.6P AD=1.6P PS=5.6U PD=5.6U
+M$2 \$9 \$8 VSS VSS nfet L=4U W=2U AS=1.6P AD=1.6P PS=5.6U PD=5.6U
 * device instance $3 r0 *1 127.6,-398 nfet
-M$3 \$12 \$12 VSS vsubs nfet L=8U W=4U AS=3.2P AD=3.2P PS=9.6U PD=9.6U
+M$3 \$12 \$12 VSS VSS nfet L=8U W=4U AS=3.2P AD=3.2P PS=9.6U PD=9.6U
 * device instance $4 r0 *1 138.2,-398 nfet
-M$4 \$13 \$12 VSS vsubs nfet L=8U W=4U AS=3.2P AD=3.2P PS=9.6U PD=9.6U
+M$4 \$13 \$12 VSS VSS nfet L=8U W=4U AS=3.2P AD=3.2P PS=9.6U PD=9.6U
 * device instance $5 r0 *1 148.8,-396 nfet
-M$5 \$6 \$13 VSS vsubs nfet L=8U W=8U AS=6.4P AD=6.4P PS=17.6U PD=17.6U
+M$5 \$6 \$13 VSS VSS nfet L=8U W=8U AS=6.4P AD=6.4P PS=17.6U PD=17.6U
 * device instance $6 r0 *1 159.4,-399.5 nfet
-M$6 VDD VDD \$41 vsubs nfet L=8U W=1U AS=0.8P AD=0.8P PS=3.6U PD=3.6U
+M$6 VDD VDD \$41 VSS nfet L=8U W=1U AS=0.8P AD=0.8P PS=3.6U PD=3.6U
 * device instance $7 r0 *1 170,-399.5 nfet
-M$7 \$41 \$41 \$42 vsubs nfet L=8U W=1U AS=0.8P AD=0.8P PS=3.6U PD=3.6U
+M$7 \$41 \$41 \$42 VSS nfet L=8U W=1U AS=0.8P AD=0.8P PS=3.6U PD=3.6U
 * device instance $8 r0 *1 180.6,-399.5 nfet
-M$8 \$42 \$42 \$43 vsubs nfet L=8U W=1U AS=0.8P AD=0.8P PS=3.6U PD=3.6U
+M$8 \$42 \$42 \$43 VSS nfet L=8U W=1U AS=0.8P AD=0.8P PS=3.6U PD=3.6U
 * device instance $9 r0 *1 191.2,-399.5 nfet
-M$9 \$43 \$43 \$44 vsubs nfet L=8U W=1U AS=0.8P AD=0.8P PS=3.6U PD=3.6U
+M$9 \$43 \$43 \$44 VSS nfet L=8U W=1U AS=0.8P AD=0.8P PS=3.6U PD=3.6U
 * device instance $10 r0 *1 201.8,-399.5 nfet
-M$10 \$44 \$44 \$17 vsubs nfet L=8U W=1U AS=0.8P AD=0.8P PS=3.6U PD=3.6U
+M$10 \$44 \$44 \$17 VSS nfet L=8U W=1U AS=0.8P AD=0.8P PS=3.6U PD=3.6U
 * device instance $11 r0 *1 210.4,-399 nfet
-M$11 \$39 \$39 VSS vsubs nfet L=4U W=2U AS=1.6P AD=1.6P PS=5.6U PD=5.6U
+M$11 \$39 \$39 VSS VSS nfet L=4U W=2U AS=1.6P AD=1.6P PS=5.6U PD=5.6U
 * device instance $12 r0 *1 217,-396 nfet
-M$12 \$17 \$39 VSS vsubs nfet L=4U W=8U AS=6.4P AD=6.4P PS=17.6U PD=17.6U
+M$12 \$17 \$39 VSS VSS nfet L=4U W=8U AS=6.4P AD=6.4P PS=17.6U PD=17.6U
 * device instance $13 r0 *1 223.6,-399.5 nfet
-M$13 \$6 \$17 VSS vsubs nfet L=4U W=1U AS=0.8P AD=0.8P PS=3.6U PD=3.6U
+M$13 \$6 \$17 VSS VSS nfet L=4U W=1U AS=0.8P AD=0.8P PS=3.6U PD=3.6U
 * device instance $14 r0 *1 230.2,-399 nfet
-M$14 \$16 \$16 VSS vsubs nfet L=4U W=2U AS=1.6P AD=1.6P PS=5.6U PD=5.6U
+M$14 \$16 \$16 VSS VSS nfet L=4U W=2U AS=1.6P AD=1.6P PS=5.6U PD=5.6U
 * device instance $15 r0 *1 236.8,-399 nfet
-M$15 \$15 \$16 VSS vsubs nfet L=4U W=2U AS=1.6P AD=1.6P PS=5.6U PD=5.6U
+M$15 \$15 \$16 VSS VSS nfet L=4U W=2U AS=1.6P AD=1.6P PS=5.6U PD=5.6U
 * device instance $16 r0 *1 241.9,-399 nfet
-M$16 \$15 \$17 VSS vsubs nfet L=1U W=2U AS=1.6P AD=1.6P PS=5.6U PD=5.6U
+M$16 \$15 \$17 VSS VSS nfet L=1U W=2U AS=1.6P AD=1.6P PS=5.6U PD=5.6U
 * device instance $17 r0 *1 247,-399 nfet
-M$17 \$40 \$15 VSS vsubs nfet L=4U W=2U AS=1.6P AD=1.6P PS=5.6U PD=5.6U
+M$17 \$40 \$15 VSS VSS nfet L=4U W=2U AS=1.6P AD=1.6P PS=5.6U PD=5.6U
 * device instance $18 r0 *1 251.85,-398 nfet
-M$18 BIAS_OK \$40 VSS vsubs nfet L=0.5U W=4U AS=3.2P AD=3.2P PS=9.6U PD=9.6U
+M$18 BIAS_OK \$40 VSS VSS nfet L=0.5U W=4U AS=3.2P AD=3.2P PS=9.6U PD=9.6U
 * device instance $19 r0 *1 471.8,-399 nfet
-M$19 \$20 \$25 \$24 vsubs nfet L=1U W=2U AS=1.6P AD=1.6P PS=5.6U PD=5.6U
+M$19 \$20 \$25 \$24 VSS nfet L=1U W=2U AS=1.6P AD=1.6P PS=5.6U PD=5.6U
 * device instance $20 r0 *1 475.4,-399 nfet
-M$20 \$21 VREF \$24 vsubs nfet L=1U W=2U AS=1.6P AD=1.6P PS=5.6U PD=5.6U
+M$20 \$21 VREF \$24 VSS nfet L=1U W=2U AS=1.6P AD=1.6P PS=5.6U PD=5.6U
 * device instance $21 r0 *1 483.5,-399.5 nfet
-M$21 \$24 \$26 VSS vsubs nfet L=10U W=1U AS=0.8P AD=0.8P PS=3.6U PD=3.6U
+M$21 \$24 \$26 VSS VSS nfet L=10U W=1U AS=0.8P AD=0.8P PS=3.6U PD=3.6U
 * device instance $22 r0 *1 492.1,-399 nfet
-M$22 IBIAS \$26 VSS vsubs nfet L=2U W=2U AS=1.6P AD=1.6P PS=5.6U PD=5.6U
+M$22 IBIAS \$26 VSS VSS nfet L=2U W=2U AS=1.6P AD=1.6P PS=5.6U PD=5.6U
 * device instance $23 r0 *1 495.95,-399 nfet
-M$23 IBIAS BIAS_OK \$26 vsubs nfet L=0.5U W=2U AS=1.6P AD=1.6P PS=5.6U PD=5.6U
+M$23 IBIAS BIAS_OK \$26 VSS nfet L=0.5U W=2U AS=1.6P AD=1.6P PS=5.6U PD=5.6U
 * device instance $24 r0 *1 499.05,-399 nfet
-M$24 \$26 BIAS_OKB VSS vsubs nfet L=0.5U W=2U AS=1.6P AD=1.6P PS=5.6U PD=5.6U
+M$24 \$26 BIAS_OKB VSS VSS nfet L=0.5U W=2U AS=1.6P AD=1.6P PS=5.6U PD=5.6U
 * device instance $25 r0 *1 502.4,-399.5 nfet
-M$25 IBIAS BIAS_OKB VSS vsubs nfet L=1U W=1U AS=0.8P AD=0.8P PS=3.6U PD=3.6U
+M$25 IBIAS BIAS_OKB VSS VSS nfet L=1U W=1U AS=0.8P AD=0.8P PS=3.6U PD=3.6U
 * device instance $26 r0 *1 505.75,-395 nfet
-M$26 \$27 \$23 VSS vsubs nfet L=0.5U W=10U AS=8P AD=8P PS=21.6U PD=21.6U
+M$26 \$27 \$23 VSS VSS nfet L=0.5U W=10U AS=8P AD=8P PS=21.6U PD=21.6U
 * device instance $27 r0 *1 509.1,-399 nfet
-M$27 \$21 BIAS_OKB VSS vsubs nfet L=1U W=2U AS=1.6P AD=1.6P PS=5.6U PD=5.6U
+M$27 \$21 BIAS_OKB VSS VSS nfet L=1U W=2U AS=1.6P AD=1.6P PS=5.6U PD=5.6U
 * device instance $28 r0 *1 512.45,-399.5 nfet
-M$28 \$23 \$21 VSS vsubs nfet L=0.5U W=1U AS=0.8P AD=0.8P PS=3.6U PD=3.6U
+M$28 \$23 \$21 VSS VSS nfet L=0.5U W=1U AS=0.8P AD=0.8P PS=3.6U PD=3.6U
 * device instance $29 r0 *1 515.55,-399.5 nfet
-M$29 POR_RAW \$23 VSS vsubs nfet L=0.5U W=1U AS=0.8P AD=0.8P PS=3.6U PD=3.6U
+M$29 POR_RAW \$23 VSS VSS nfet L=0.5U W=1U AS=0.8P AD=0.8P PS=3.6U PD=3.6U
 * device instance $30 r0 *1 523.35,-399.5 nfet
-M$30 BIAS_OKB BIAS_OK VSS vsubs nfet L=0.5U W=1U AS=0.5P AD=0.8P PS=3U PD=3.6U
+M$30 BIAS_OKB BIAS_OK VSS VSS nfet L=0.5U W=1U AS=0.5P AD=0.8P PS=3U PD=3.6U
 * device instance $31 r0 *1 922.8,-398 nfet
-M$31 IBIAS IBIAS VSS vsubs nfet L=4U W=4U AS=3.2P AD=3.2P PS=9.6U PD=9.6U
+M$31 IBIAS IBIAS VSS VSS nfet L=4U W=4U AS=3.2P AD=3.2P PS=9.6U PD=9.6U
 * device instance $32 r0 *1 939.9,-399.75 nfet
-M$32 \$28 IBIAS VSS vsubs nfet L=25U W=0.5U AS=0.4P AD=0.4P PS=2.6U PD=2.6U
+M$32 \$28 IBIAS VSS VSS nfet L=25U W=0.5U AS=0.4P AD=0.4P PS=2.6U PD=2.6U
 * device instance $33 r0 *1 960,-399 nfet
-M$33 \$29 \$29 VSS vsubs nfet L=10U W=2U AS=1.6P AD=1.6P PS=5.6U PD=5.6U
+M$33 \$29 \$29 VSS VSS nfet L=10U W=2U AS=1.6P AD=1.6P PS=5.6U PD=5.6U
 * device instance $34 r0 *1 972.6,-395 nfet
-M$34 \$30 \$29 VSS vsubs nfet L=10U W=10U AS=8P AD=8P PS=21.6U PD=21.6U
+M$34 \$30 \$29 VSS VSS nfet L=10U W=10U AS=8P AD=8P PS=21.6U PD=21.6U
 * device instance $35 r0 *1 980.45,-399.5 nfet
-M$35 \$47 POR_RAW \$30 vsubs nfet L=0.5U W=1U AS=0.8P AD=0.8P PS=3.6U PD=3.6U
+M$35 \$47 POR_RAW \$30 VSS nfet L=0.5U W=1U AS=0.8P AD=0.8P PS=3.6U PD=3.6U
 * device instance $36 r0 *1 983.55,-399 nfet
-M$36 \$31 \$47 VSS vsubs nfet L=0.5U W=2U AS=1.6P AD=1.6P PS=5.6U PD=5.6U
+M$36 \$31 \$47 VSS VSS nfet L=0.5U W=2U AS=1.6P AD=1.6P PS=5.6U PD=5.6U
 * device instance $37 r0 *1 987.4,-399.75 nfet
-M$37 \$32 \$31 VSS vsubs nfet L=2U W=0.5U AS=0.4P AD=0.4P PS=2.6U PD=2.6U
+M$37 \$32 \$31 VSS VSS nfet L=2U W=0.5U AS=0.4P AD=0.4P PS=2.6U PD=2.6U
 * device instance $38 r0 *1 991.5,-399.5 nfet
-M$38 \$48 \$32 VSS vsubs nfet L=1U W=1U AS=0.8P AD=0.8P PS=3.6U PD=3.6U
+M$38 \$48 \$32 VSS VSS nfet L=1U W=1U AS=0.8P AD=0.8P PS=3.6U PD=3.6U
 * device instance $39 r0 *1 999.6,-399.75 nfet
-M$39 \$33 \$29 VSS vsubs nfet L=10U W=0.5U AS=0.4P AD=0.4P PS=2.6U PD=2.6U
+M$39 \$33 \$29 VSS VSS nfet L=10U W=0.5U AS=0.4P AD=0.4P PS=2.6U PD=2.6U
 * device instance $40 r0 *1 1007.7,-399.5 nfet
-M$40 \$49 \$33 VSS vsubs nfet L=1U W=1U AS=0.8P AD=0.8P PS=3.6U PD=3.6U
+M$40 \$49 \$33 VSS VSS nfet L=1U W=1U AS=0.8P AD=0.8P PS=3.6U PD=3.6U
 * device instance $41 r0 *1 1011.3,-399.5 nfet
-M$41 \$33 EN|RESETn VSS vsubs nfet L=1U W=1U AS=0.8P AD=0.8P PS=3.6U PD=3.6U
+M$41 \$33 EN|RESETn VSS VSS nfet L=1U W=1U AS=0.8P AD=0.8P PS=3.6U PD=3.6U
 * device instance $42 r0 *1 1014.65,-399 nfet
-M$42 \$37 \$49 \$34 vsubs nfet L=0.5U W=2U AS=1.6P AD=1.6P PS=5.6U PD=5.6U
+M$42 \$37 \$49 \$34 VSS nfet L=0.5U W=2U AS=1.6P AD=1.6P PS=5.6U PD=5.6U
 * device instance $43 r0 *1 1017.75,-399 nfet
-M$43 \$34 \$31 VSS vsubs nfet L=0.5U W=2U AS=1.6P AD=1.6P PS=5.6U PD=5.6U
+M$43 \$34 \$31 VSS VSS nfet L=0.5U W=2U AS=1.6P AD=1.6P PS=5.6U PD=5.6U
 * device instance $44 r0 *1 1132.25,-395 nfet
-M$44 EN|RESETn \$37 VSS vsubs nfet L=0.5U W=10U AS=8P AD=8P PS=21.6U PD=21.6U
+M$44 EN|RESETn \$37 VSS VSS nfet L=0.5U W=10U AS=8P AD=8P PS=21.6U PD=21.6U
 * device instance $45 r0 *1 49.5,-2 nfet
-M$45 VSS VSS VSS vsubs nfet L=8U W=4U AS=3.2P AD=3.2P PS=9.6U PD=9.6U
+M$45 VSS VSS VSS VSS nfet L=8U W=4U AS=3.2P AD=3.2P PS=9.6U PD=9.6U
 * device instance $46 r0 *1 59.6,-2 nfet
-M$46 N1 N1 VSS vsubs nfet L=8U W=4U AS=3.2P AD=3.2P PS=9.6U PD=9.6U
+M$46 N1 N1 VSS VSS nfet L=8U W=4U AS=3.2P AD=3.2P PS=9.6U PD=9.6U
 * device instance $47 r0 *1 69.7,-2 nfet
-M$47 N2 N1 VSS vsubs nfet L=8U W=4U AS=3.2P AD=3.2P PS=9.6U PD=9.6U
+M$47 N2 N1 VSS VSS nfet L=8U W=4U AS=3.2P AD=3.2P PS=9.6U PD=9.6U
 * device instance $48 r0 *1 79.8,-2 nfet
-M$48 N2 N1 VSS vsubs nfet L=8U W=4U AS=3.2P AD=3.2P PS=9.6U PD=9.6U
+M$48 N2 N1 VSS VSS nfet L=8U W=4U AS=3.2P AD=3.2P PS=9.6U PD=9.6U
 * device instance $49 r0 *1 89.9,-2 nfet
-M$49 N1 N1 VSS vsubs nfet L=8U W=4U AS=3.2P AD=3.2P PS=9.6U PD=9.6U
+M$49 N1 N1 VSS VSS nfet L=8U W=4U AS=3.2P AD=3.2P PS=9.6U PD=9.6U
 * device instance $50 r0 *1 100,-2 nfet
-M$50 VSS VSS VSS vsubs nfet L=8U W=4U AS=3.2P AD=3.2P PS=9.6U PD=9.6U
+M$50 VSS VSS VSS VSS nfet L=8U W=4U AS=3.2P AD=3.2P PS=9.6U PD=9.6U
 * device instance $51 r0 *1 177.5,-4 nfet
-M$51 PG N2 VSS vsubs nfet L=8U W=8U AS=6.4P AD=6.4P PS=17.6U PD=17.6U
+M$51 PG N2 VSS VSS nfet L=8U W=8U AS=6.4P AD=6.4P PS=17.6U PD=17.6U
 * device instance $52 r0 *1 190.7,-2 nfet
-M$52 IBIAS NBG VSS vsubs nfet L=2U W=4U AS=3.2P AD=3.2P PS=9.6U PD=9.6U
+M$52 IBIAS NBG VSS VSS nfet L=2U W=4U AS=3.2P AD=3.2P PS=9.6U PD=9.6U
 * device instance $53 r0 *1 194.05,-1 nfet
-M$53 IBIAS EN|RESETn NBG vsubs nfet L=0.5U W=2U AS=1.6P AD=1.6P PS=5.6U PD=5.6U
+M$53 IBIAS EN|RESETn NBG VSS nfet L=0.5U W=2U AS=1.6P AD=1.6P PS=5.6U PD=5.6U
 * device instance $54 r0 *1 196.65,-1 nfet
-M$54 NBG ENB VSS vsubs nfet L=0.5U W=2U AS=1.6P AD=1.6P PS=5.6U PD=5.6U
+M$54 NBG ENB VSS VSS nfet L=0.5U W=2U AS=1.6P AD=1.6P PS=5.6U PD=5.6U
 * device instance $55 r0 *1 200,-2 nfet
-M$55 PB NBG VSS vsubs nfet L=2U W=4U AS=3.2P AD=3.2P PS=9.6U PD=9.6U
+M$55 PB NBG VSS VSS nfet L=2U W=4U AS=3.2P AD=3.2P PS=9.6U PD=9.6U
 * device instance $56 r0 *1 210.2,-2 nfet
-M$56 PCAS NBG VSS vsubs nfet L=2U W=4U AS=3.2P AD=3.2P PS=9.6U PD=9.6U
+M$56 PCAS NBG VSS VSS nfet L=2U W=4U AS=3.2P AD=3.2P PS=9.6U PD=9.6U
 * device instance $57 r0 *1 226.25,-0.5 nfet
-M$57 ENB EN|RESETn VSS vsubs nfet L=0.5U W=1U AS=0.8P AD=0.8P PS=3.6U PD=3.6U
+M$57 ENB EN|RESETn VSS VSS nfet L=0.5U W=1U AS=0.8P AD=0.8P PS=3.6U PD=3.6U
 * device instance $58 r0 *1 239.7,-1 nfet
-M$58 ND NR VSS vsubs nfet L=2U W=2U AS=1.6P AD=1.6P PS=5.6U PD=5.6U
+M$58 ND NR VSS VSS nfet L=2U W=2U AS=1.6P AD=1.6P PS=5.6U PD=5.6U
 * device instance $59 r0 *1 243.3,-2 nfet
-M$59 PG ND VSS vsubs nfet L=1U W=4U AS=3.2P AD=3.2P PS=9.6U PD=9.6U
+M$59 PG ND VSS VSS nfet L=1U W=4U AS=3.2P AD=3.2P PS=9.6U PD=9.6U
 * device instance $60 r0 *1 253,-1 nfet
-M$60 NR NR VSS vsubs nfet L=2U W=2U AS=1.6P AD=1.6P PS=5.6U PD=5.6U
+M$60 NR NR VSS VSS nfet L=2U W=2U AS=1.6P AD=1.6P PS=5.6U PD=5.6U
 * device instance $61 r0 *1 256.35,-1 nfet
-M$61 ND ENB VSS vsubs nfet L=0.5U W=2U AS=1.6P AD=1.6P PS=5.6U PD=5.6U
+M$61 ND ENB VSS VSS nfet L=0.5U W=2U AS=1.6P AD=1.6P PS=5.6U PD=5.6U
 * device instance $62 r0 *1 261.8,-0.5 nfet
-M$62 PTAT ENB VSS vsubs nfet L=1U W=1U AS=0.8P AD=0.8P PS=3.6U PD=3.6U
+M$62 PTAT ENB VSS VSS nfet L=1U W=1U AS=0.8P AD=0.8P PS=3.6U PD=3.6U
 * device instance $63 r0 *1 264.9,-0.5 nfet
-M$63 CTAT ENB VSS vsubs nfet L=1U W=1U AS=0.8P AD=0.8P PS=3.6U PD=3.6U
+M$63 CTAT ENB VSS VSS nfet L=1U W=1U AS=0.8P AD=0.8P PS=3.6U PD=3.6U
 * device instance $64 r0 *1 268,-1 nfet
-M$64 N2 ENB VSS vsubs nfet L=1U W=2U AS=1.6P AD=1.6P PS=5.6U PD=5.6U
+M$64 N2 ENB VSS VSS nfet L=1U W=2U AS=1.6P AD=1.6P PS=5.6U PD=5.6U
 * device instance $65 r0 *1 271.1,-1 nfet
-M$65 NT ENB VSS vsubs nfet L=1U W=2U AS=1.6P AD=1.6P PS=5.6U PD=5.6U
+M$65 NT ENB VSS VSS nfet L=1U W=2U AS=1.6P AD=1.6P PS=5.6U PD=5.6U
 * device instance $66 r0 *1 273.95,-16 nfet
-M$66 T5 VDD T4 vsubs nfet L=0.5U W=32U AS=25.6P AD=25.6P PS=65.6U PD=65.6U
+M$66 T5 VDD T4 VSS nfet L=0.5U W=32U AS=25.6P AD=25.6P PS=65.6U PD=65.6U
 * device instance $67 r0 *1 276.55,-16 nfet
-M$67 T3 VSS T2 vsubs nfet L=0.5U W=32U AS=25.6P AD=25.6P PS=65.6U PD=65.6U
+M$67 T3 VSS T2 VSS nfet L=0.5U W=32U AS=25.6P AD=25.6P PS=65.6U PD=65.6U
 * device instance $68 r0 *1 279.15,-16 nfet
-M$68 T1 VSS T0 vsubs nfet L=0.5U W=32U AS=25.6P AD=25.6P PS=65.6U PD=65.6U
+M$68 T1 VSS T0 VSS nfet L=0.5U W=32U AS=25.6P AD=25.6P PS=65.6U PD=65.6U
 * device instance $69 r0 *1 281.75,-16 nfet
-M$69 T0 VSS VSS vsubs nfet L=0.5U W=32U AS=25.6P AD=25.6P PS=65.6U PD=65.6U
+M$69 T0 VSS VSS VSS nfet L=0.5U W=32U AS=25.6P AD=25.6P PS=65.6U PD=65.6U
 * device instance $70 r0 *1 284.35,-16 nfet
-M$70 T2 VSS T1 vsubs nfet L=0.5U W=32U AS=25.6P AD=25.6P PS=65.6U PD=65.6U
+M$70 T2 VSS T1 VSS nfet L=0.5U W=32U AS=25.6P AD=25.6P PS=65.6U PD=65.6U
 * device instance $71 r0 *1 286.95,-16 nfet
-M$71 T4 VSS T3 vsubs nfet L=0.5U W=32U AS=25.6P AD=25.6P PS=65.6U PD=65.6U
+M$71 T4 VSS T3 VSS nfet L=0.5U W=32U AS=25.6P AD=25.6P PS=65.6U PD=65.6U
 * device instance $72 r0 *1 2.8,-396 pfet
 M$72 \$63 \$6 VDD \$65 pfet L=4U W=8U AS=6.4P AD=6.4P PS=17.6U PD=17.6U
 * device instance $73 r0 *1 9.4,-396 pfet
@@ -279,211 +278,211 @@ M$134 PG EN|RESETn VDD \$101 pfet L=0.5U W=4U AS=3.2P AD=3.2P PS=9.6U PD=9.6U
 * device instance $135 r0 *1 523.35,-396 pfet
 M$135 BIAS_OKB BIAS_OK VDD \$50 pfet L=0.5U W=2U AS=1P AD=1.6P PS=5U PD=5.6U
 * device instance $136 r0 *1 278.9,-382 bjt
-Q$136 vsubs \$52 \$46 bjt AE=100P PE=40U AB=169P PB=52U AC=169P PC=52U NE=1
+Q$136 VSS \$52 \$46 bjt AE=100P PE=40U AB=169P PB=52U AC=169P PC=52U NE=1
 * device instance $137 r0 *1 293.9,-382 bjt
-Q$137 vsubs \$52 \$46 bjt AE=100P PE=40U AB=169P PB=52U AC=169P PC=52U NE=1
+Q$137 VSS \$52 \$46 bjt AE=100P PE=40U AB=169P PB=52U AC=169P PC=52U NE=1
 * device instance $138 r0 *1 308.9,-382 bjt
-Q$138 vsubs \$52 \$46 bjt AE=100P PE=40U AB=169P PB=52U AC=169P PC=52U NE=1
+Q$138 VSS \$52 \$46 bjt AE=100P PE=40U AB=169P PB=52U AC=169P PC=52U NE=1
 * device instance $139 r0 *1 278.9,-367 bjt
-Q$139 vsubs \$52 \$46 bjt AE=100P PE=40U AB=169P PB=52U AC=169P PC=52U NE=1
+Q$139 VSS \$52 \$46 bjt AE=100P PE=40U AB=169P PB=52U AC=169P PC=52U NE=1
 * device instance $140 r0 *1 293.9,-367 bjt
-Q$140 vsubs \$52 \$63 bjt AE=100P PE=40U AB=169P PB=52U AC=169P PC=52U NE=1
+Q$140 VSS \$52 \$63 bjt AE=100P PE=40U AB=169P PB=52U AC=169P PC=52U NE=1
 * device instance $141 r0 *1 308.9,-367 bjt
-Q$141 vsubs \$52 \$46 bjt AE=100P PE=40U AB=169P PB=52U AC=169P PC=52U NE=1
+Q$141 VSS \$52 \$46 bjt AE=100P PE=40U AB=169P PB=52U AC=169P PC=52U NE=1
 * device instance $142 r0 *1 323.9,-367 bjt
-Q$142 vsubs \$52 \$64 bjt AE=100P PE=40U AB=169P PB=52U AC=169P PC=52U NE=1
+Q$142 VSS \$52 \$64 bjt AE=100P PE=40U AB=169P PB=52U AC=169P PC=52U NE=1
 * device instance $143 r0 *1 278.9,-352 bjt
-Q$143 vsubs \$52 \$46 bjt AE=100P PE=40U AB=169P PB=52U AC=169P PC=52U NE=1
+Q$143 VSS \$52 \$46 bjt AE=100P PE=40U AB=169P PB=52U AC=169P PC=52U NE=1
 * device instance $144 r0 *1 293.9,-352 bjt
-Q$144 vsubs \$52 \$46 bjt AE=100P PE=40U AB=169P PB=52U AC=169P PC=52U NE=1
+Q$144 VSS \$52 \$46 bjt AE=100P PE=40U AB=169P PB=52U AC=169P PC=52U NE=1
 * device instance $145 r0 *1 308.9,-352 bjt
-Q$145 vsubs \$52 \$46 bjt AE=100P PE=40U AB=169P PB=52U AC=169P PC=52U NE=1
+Q$145 VSS \$52 \$46 bjt AE=100P PE=40U AB=169P PB=52U AC=169P PC=52U NE=1
 * device instance $146 r0 *1 505,81 bjt
-Q$146 vsubs \$125 NC bjt AE=100P PE=40U AB=144P PB=48U AC=144P PC=48U NE=1
+Q$146 VSS VSS NC bjt AE=100P PE=40U AB=144P PB=48U AC=144P PC=48U NE=1
 * device instance $147 r0 *1 519,81 bjt
-Q$147 vsubs \$125 NC bjt AE=100P PE=40U AB=144P PB=48U AC=144P PC=48U NE=1
+Q$147 VSS VSS NC bjt AE=100P PE=40U AB=144P PB=48U AC=144P PC=48U NE=1
 * device instance $148 r0 *1 533,81 bjt
-Q$148 vsubs \$125 NC bjt AE=100P PE=40U AB=144P PB=48U AC=144P PC=48U NE=1
+Q$148 VSS VSS NC bjt AE=100P PE=40U AB=144P PB=48U AC=144P PC=48U NE=1
 * device instance $149 r0 *1 505,95 bjt
-Q$149 vsubs \$125 NC bjt AE=100P PE=40U AB=144P PB=48U AC=144P PC=48U NE=1
+Q$149 VSS VSS NC bjt AE=100P PE=40U AB=144P PB=48U AC=144P PC=48U NE=1
 * device instance $150 r0 *1 519,95 bjt
-Q$150 vsubs \$125 NA bjt AE=100P PE=40U AB=144P PB=48U AC=144P PC=48U NE=1
+Q$150 VSS VSS NA bjt AE=100P PE=40U AB=144P PB=48U AC=144P PC=48U NE=1
 * device instance $151 r0 *1 533,95 bjt
-Q$151 vsubs \$125 NC bjt AE=100P PE=40U AB=144P PB=48U AC=144P PC=48U NE=1
+Q$151 VSS VSS NC bjt AE=100P PE=40U AB=144P PB=48U AC=144P PC=48U NE=1
 * device instance $152 r0 *1 505,109 bjt
-Q$152 vsubs \$125 NC bjt AE=100P PE=40U AB=144P PB=48U AC=144P PC=48U NE=1
+Q$152 VSS VSS NC bjt AE=100P PE=40U AB=144P PB=48U AC=144P PC=48U NE=1
 * device instance $153 r0 *1 519,109 bjt
-Q$153 vsubs \$125 NC bjt AE=100P PE=40U AB=144P PB=48U AC=144P PC=48U NE=1
+Q$153 VSS VSS NC bjt AE=100P PE=40U AB=144P PB=48U AC=144P PC=48U NE=1
 * device instance $154 r0 *1 533,109 bjt
-Q$154 vsubs \$125 NC bjt AE=100P PE=40U AB=144P PB=48U AC=144P PC=48U NE=1
+Q$154 VSS VSS NC bjt AE=100P PE=40U AB=144P PB=48U AC=144P PC=48U NE=1
 * device instance $155 r0 *1 988.8,-362.3 cap_mim_2f0_m4m5_noshield
-C$155 \$47 VSS 2.42e-13 cap_mim_2f0_m4m5_noshield
+C$155 \$47 VSS 2.512752e-13
 * device instance $156 r0 *1 935.7,-353.8 cap_mim_2f0_m4m5_noshield
-C$156 \$48 VSS 1.568e-12 cap_mim_2f0_m4m5_noshield
+C$156 \$48 VSS 1.5868496e-12
 * device instance $157 r0 *1 966.5,-353.8 cap_mim_2f0_m4m5_noshield
-C$157 \$48 VSS 1.568e-12 cap_mim_2f0_m4m5_noshield
+C$157 \$48 VSS 1.5868496e-12
 * device instance $158 r0 *1 292.4,-329.3 cap_mim_2f0_m4m5_noshield
-C$158 VDD \$40 7.2e-14 cap_mim_2f0_m4m5_noshield
+C$158 VDD \$40 7.73592e-14
 * device instance $159 r0 *1 276.6,-322.3 cap_mim_2f0_m4m5_noshield
-C$159 \$6 \$45 8e-13 cap_mim_2f0_m4m5_noshield
+C$159 \$6 \$45 8.15064e-13
 * device instance $160 r0 *1 935.7,-323 cap_mim_2f0_m4m5_noshield
-C$160 \$48 VSS 1.568e-12 cap_mim_2f0_m4m5_noshield
+C$160 \$48 VSS 1.5868496e-12
 * device instance $161 r0 *1 966.5,-323 cap_mim_2f0_m4m5_noshield
-C$161 \$48 VSS 1.568e-12 cap_mim_2f0_m4m5_noshield
+C$161 \$48 VSS 1.5868496e-12
 * device instance $162 r0 *1 206.7,68.7 cap_mim_2f0_m4m5_noshield
-C$162 PG NZ 2.88e-13 cap_mim_2f0_m4m5_noshield
+C$162 PG NZ 2.979984e-13
 * device instance $163 r0 *1 307,92.867 ppolyf_u
-R$163 NB \$142 vsubs 10453.625 ppolyf_u
+R$163 NB \$141 VSS 10453.625 ppolyf_u L=59.735U W=2U
 * device instance $164 r0 *1 310,92.867 ppolyf_u
-R$164 NC \$142 vsubs 10453.625 ppolyf_u
+R$164 NC \$141 VSS 10453.625 ppolyf_u L=59.735U W=2U
 * device instance $165 r0 *1 313,90.762 ppolyf_u
-R$165 NA \$140 vsubs 9716.875 ppolyf_u
+R$165 NA \$139 VSS 9716.875 ppolyf_u L=55.525U W=2U
 * device instance $166 r0 *1 316,90.762 ppolyf_u
-R$166 CTAT \$140 vsubs 9716.875 ppolyf_u
+R$166 CTAT \$139 VSS 9716.875 ppolyf_u L=55.525U W=2U
 * device instance $167 r0 *1 319,113 ppolyf_u
-R$167 NZ \$143 vsubs 17500 ppolyf_u
+R$167 NZ \$142 VSS 17500 ppolyf_u L=100U W=2U
 * device instance $168 r0 *1 322,113 ppolyf_u
-R$168 \$102 \$143 vsubs 17500 ppolyf_u
+R$168 \$102 \$142 VSS 17500 ppolyf_u L=100U W=2U
 * device instance $169 r0 *1 325,113 ppolyf_u
-R$169 \$102 \$144 vsubs 17500 ppolyf_u
+R$169 \$102 \$143 VSS 17500 ppolyf_u L=100U W=2U
 * device instance $170 r0 *1 328,113 ppolyf_u
-R$170 \$103 \$144 vsubs 17500 ppolyf_u
+R$170 \$103 \$143 VSS 17500 ppolyf_u L=100U W=2U
 * device instance $171 r0 *1 331,113 ppolyf_u
-R$171 \$103 \$145 vsubs 17500 ppolyf_u
+R$171 \$103 \$144 VSS 17500 ppolyf_u L=100U W=2U
 * device instance $172 r0 *1 334,113 ppolyf_u
-R$172 \$104 \$145 vsubs 17500 ppolyf_u
+R$172 \$104 \$144 VSS 17500 ppolyf_u L=100U W=2U
 * device instance $173 r0 *1 337,113 ppolyf_u
-R$173 \$104 \$146 vsubs 17500 ppolyf_u
+R$173 \$104 \$145 VSS 17500 ppolyf_u L=100U W=2U
 * device instance $174 r0 *1 340,113 ppolyf_u
-R$174 \$105 \$146 vsubs 17500 ppolyf_u
+R$174 \$105 \$145 VSS 17500 ppolyf_u L=100U W=2U
 * device instance $175 r0 *1 343,113 ppolyf_u
-R$175 \$105 \$147 vsubs 17500 ppolyf_u
+R$175 \$105 \$146 VSS 17500 ppolyf_u L=100U W=2U
 * device instance $176 r0 *1 346,113 ppolyf_u
-R$176 N2 \$147 vsubs 17500 ppolyf_u
+R$176 N2 \$146 VSS 17500 ppolyf_u L=100U W=2U
 * device instance $177 r0 *1 349,118.262 ppolyf_u
-R$177 PTAT \$148 vsubs 19341.875 ppolyf_u
+R$177 PTAT \$147 VSS 19341.875 ppolyf_u L=110.525U W=2U
 * device instance $178 r0 *1 352,118.262 ppolyf_u
-R$178 \$106 \$148 vsubs 19341.875 ppolyf_u
+R$178 \$106 \$147 VSS 19341.875 ppolyf_u L=110.525U W=2U
 * device instance $179 r0 *1 355,118.262 ppolyf_u
-R$179 \$106 \$149 vsubs 19341.875 ppolyf_u
+R$179 \$106 \$148 VSS 19341.875 ppolyf_u L=110.525U W=2U
 * device instance $180 r0 *1 358,118.262 ppolyf_u
-R$180 \$107 \$149 vsubs 19341.875 ppolyf_u
+R$180 \$107 \$148 VSS 19341.875 ppolyf_u L=110.525U W=2U
 * device instance $181 r0 *1 361,118.262 ppolyf_u
-R$181 \$107 \$150 vsubs 19341.875 ppolyf_u
+R$181 \$107 \$149 VSS 19341.875 ppolyf_u L=110.525U W=2U
 * device instance $182 r0 *1 364,118.262 ppolyf_u
-R$182 \$108 \$150 vsubs 19341.875 ppolyf_u
+R$182 \$108 \$149 VSS 19341.875 ppolyf_u L=110.525U W=2U
 * device instance $183 r0 *1 367,118.262 ppolyf_u
-R$183 \$108 \$151 vsubs 19341.875 ppolyf_u
+R$183 \$108 \$150 VSS 19341.875 ppolyf_u L=110.525U W=2U
 * device instance $184 r0 *1 370,118.262 ppolyf_u
-R$184 \$109 \$151 vsubs 19341.875 ppolyf_u
+R$184 \$109 \$150 VSS 19341.875 ppolyf_u L=110.525U W=2U
 * device instance $185 r0 *1 373,118.262 ppolyf_u
-R$185 \$109 \$152 vsubs 19341.875 ppolyf_u
+R$185 \$109 \$151 VSS 19341.875 ppolyf_u L=110.525U W=2U
 * device instance $186 r0 *1 376,118.262 ppolyf_u
-R$186 \$110 \$152 vsubs 19341.875 ppolyf_u
+R$186 \$110 \$151 VSS 19341.875 ppolyf_u L=110.525U W=2U
 * device instance $187 r0 *1 379,118.262 ppolyf_u
-R$187 \$110 \$153 vsubs 19341.875 ppolyf_u
+R$187 \$110 \$152 VSS 19341.875 ppolyf_u L=110.525U W=2U
 * device instance $188 r0 *1 382,118.262 ppolyf_u
-R$188 \$111 \$153 vsubs 19341.875 ppolyf_u
+R$188 \$111 \$152 VSS 19341.875 ppolyf_u L=110.525U W=2U
 * device instance $189 r0 *1 385,118.262 ppolyf_u
-R$189 \$111 \$154 vsubs 19341.875 ppolyf_u
+R$189 \$111 \$153 VSS 19341.875 ppolyf_u L=110.525U W=2U
 * device instance $190 r0 *1 388,118.262 ppolyf_u
-R$190 \$112 \$154 vsubs 19341.875 ppolyf_u
+R$190 \$112 \$153 VSS 19341.875 ppolyf_u L=110.525U W=2U
 * device instance $191 r0 *1 391,118.262 ppolyf_u
-R$191 \$112 \$155 vsubs 19341.875 ppolyf_u
+R$191 \$112 \$154 VSS 19341.875 ppolyf_u L=110.525U W=2U
 * device instance $192 r0 *1 394,118.262 ppolyf_u
-R$192 \$113 \$155 vsubs 19341.875 ppolyf_u
+R$192 \$113 \$154 VSS 19341.875 ppolyf_u L=110.525U W=2U
 * device instance $193 r0 *1 397,118.262 ppolyf_u
-R$193 \$113 \$156 vsubs 19341.875 ppolyf_u
+R$193 \$113 \$155 VSS 19341.875 ppolyf_u L=110.525U W=2U
 * device instance $194 r0 *1 400,118.262 ppolyf_u
-R$194 \$114 \$156 vsubs 19341.875 ppolyf_u
+R$194 \$114 \$155 VSS 19341.875 ppolyf_u L=110.525U W=2U
 * device instance $195 r0 *1 403,118.262 ppolyf_u
-R$195 \$114 \$157 vsubs 19341.875 ppolyf_u
+R$195 \$114 \$156 VSS 19341.875 ppolyf_u L=110.525U W=2U
 * device instance $196 r0 *1 406,118.262 ppolyf_u
-R$196 \$115 \$157 vsubs 19341.875 ppolyf_u
+R$196 \$115 \$156 VSS 19341.875 ppolyf_u L=110.525U W=2U
 * device instance $197 r0 *1 409,118.262 ppolyf_u
-R$197 \$115 \$158 vsubs 19341.875 ppolyf_u
+R$197 \$115 \$157 VSS 19341.875 ppolyf_u L=110.525U W=2U
 * device instance $198 r0 *1 412,118.262 ppolyf_u
-R$198 \$116 \$158 vsubs 19341.875 ppolyf_u
+R$198 \$116 \$157 VSS 19341.875 ppolyf_u L=110.525U W=2U
 * device instance $199 r0 *1 415,118.262 ppolyf_u
-R$199 \$116 \$159 vsubs 19341.875 ppolyf_u
+R$199 \$116 \$158 VSS 19341.875 ppolyf_u L=110.525U W=2U
 * device instance $200 r0 *1 418,118.262 ppolyf_u
-R$200 T5 \$159 vsubs 19341.875 ppolyf_u
+R$200 T5 \$158 VSS 19341.875 ppolyf_u L=110.525U W=2U
 * device instance $201 r0 *1 421,120.427 ppolyf_u
-R$201 T5 \$160 vsubs 20099.625 ppolyf_u
+R$201 T5 \$159 VSS 20099.625 ppolyf_u L=114.855U W=2U
 * device instance $202 r0 *1 424,120.427 ppolyf_u
-R$202 T4 \$160 vsubs 20099.625 ppolyf_u
+R$202 T4 \$159 VSS 20099.625 ppolyf_u L=114.855U W=2U
 * device instance $203 r0 *1 427,91.672 ppolyf_u
-R$203 T4 \$141 vsubs 10035.375 ppolyf_u
+R$203 T4 \$140 VSS 10035.375 ppolyf_u L=57.345U W=2U
 * device instance $204 r0 *1 430,91.672 ppolyf_u
-R$204 T3 \$141 vsubs 10035.375 ppolyf_u
+R$204 T3 \$140 VSS 10035.375 ppolyf_u L=57.345U W=2U
 * device instance $205 r0 *1 433,77.295 ppolyf_u
-R$205 T3 \$132 vsubs 5003.25 ppolyf_u
+R$205 T3 \$131 VSS 5003.25 ppolyf_u L=28.59U W=2U
 * device instance $206 r0 *1 436,77.295 ppolyf_u
-R$206 T2 \$132 vsubs 5003.25 ppolyf_u
+R$206 T2 \$131 VSS 5003.25 ppolyf_u L=28.59U W=2U
 * device instance $207 r0 *1 439,70.105 ppolyf_u
-R$207 T2 \$128 vsubs 2486.75 ppolyf_u
+R$207 T2 \$127 VSS 2486.75 ppolyf_u L=14.21U W=2U
 * device instance $208 r0 *1 442,70.105 ppolyf_u
-R$208 T1 \$128 vsubs 2486.75 ppolyf_u
+R$208 T1 \$127 VSS 2486.75 ppolyf_u L=14.21U W=2U
 * device instance $209 r0 *1 445,66.507 ppolyf_u
-R$209 T1 \$123 vsubs 1227.625 ppolyf_u
+R$209 T1 \$123 VSS 1227.625 ppolyf_u L=7.015U W=2U
 * device instance $210 r0 *1 448,66.507 ppolyf_u
-R$210 T0 \$123 vsubs 1227.625 ppolyf_u
+R$210 T0 \$123 VSS 1227.625 ppolyf_u L=7.015U W=2U
 * device instance $211 r0 *1 451,64.712 ppolyf_u
-R$211 T0 \$122 vsubs 599.375 ppolyf_u
+R$211 T0 \$122 VSS 599.375 ppolyf_u L=3.425U W=2U
 * device instance $212 r0 *1 454,64.712 ppolyf_u
-R$212 VSS \$122 vsubs 599.375 ppolyf_u
+R$212 VSS \$122 VSS 599.375 ppolyf_u L=3.425U W=2U
 * device instance $213 r0 *1 607,-326.549 ppolyf_u_1k
-R$213 \$25 VDD vsubs 3948720 ppolyf_u_1k
+R$213 \$25 VDD VSS 3948720 ppolyf_u_1k L=7897.44U W=2U
 * device instance $214 r0 *1 759,-331.96 ppolyf_u_1k
-R$214 \$27 \$25 vsubs 3384615 ppolyf_u_1k
+R$214 \$27 \$25 VSS 3384615 ppolyf_u_1k L=6769.23U W=2U
 * device instance $215 r0 *1 860,-381.13 ppolyf_u_1k
-R$215 VSS \$27 vsubs 387500 ppolyf_u_1k
+R$215 VSS \$27 VSS 387500 ppolyf_u_1k L=775U W=2U
 * device instance $216 r0 *1 342.9,-258.75 ppolyf_u_1k
-R$216 VREF \$71 vsubs 128250 ppolyf_u_1k
+R$216 VREF \$71 VSS 128250 ppolyf_u_1k L=256.5U W=2U
 * device instance $217 r0 *1 345.9,-258.75 ppolyf_u_1k
-R$217 \$54 \$71 vsubs 128250 ppolyf_u_1k
+R$217 \$54 \$71 VSS 128250 ppolyf_u_1k L=256.5U W=2U
 * device instance $218 r0 *1 348.9,-258.75 ppolyf_u_1k
-R$218 \$54 \$72 vsubs 128250 ppolyf_u_1k
+R$218 \$54 \$72 VSS 128250 ppolyf_u_1k L=256.5U W=2U
 * device instance $219 r0 *1 351.9,-258.75 ppolyf_u_1k
-R$219 \$55 \$72 vsubs 128250 ppolyf_u_1k
+R$219 \$55 \$72 VSS 128250 ppolyf_u_1k L=256.5U W=2U
 * device instance $220 r0 *1 354.9,-258.75 ppolyf_u_1k
-R$220 \$55 \$73 vsubs 128250 ppolyf_u_1k
+R$220 \$55 \$73 VSS 128250 ppolyf_u_1k L=256.5U W=2U
 * device instance $221 r0 *1 357.9,-258.75 ppolyf_u_1k
-R$221 \$56 \$73 vsubs 128250 ppolyf_u_1k
+R$221 \$56 \$73 VSS 128250 ppolyf_u_1k L=256.5U W=2U
 * device instance $222 r0 *1 360.9,-258.75 ppolyf_u_1k
-R$222 \$56 \$74 vsubs 128250 ppolyf_u_1k
+R$222 \$56 \$74 VSS 128250 ppolyf_u_1k L=256.5U W=2U
 * device instance $223 r0 *1 363.9,-258.75 ppolyf_u_1k
-R$223 \$57 \$74 vsubs 128250 ppolyf_u_1k
+R$223 \$57 \$74 VSS 128250 ppolyf_u_1k L=256.5U W=2U
 * device instance $224 r0 *1 366.9,-258.75 ppolyf_u_1k
-R$224 \$57 \$75 vsubs 128250 ppolyf_u_1k
+R$224 \$57 \$75 VSS 128250 ppolyf_u_1k L=256.5U W=2U
 * device instance $225 r0 *1 369.9,-258.75 ppolyf_u_1k
-R$225 \$58 \$75 vsubs 128250 ppolyf_u_1k
+R$225 \$58 \$75 VSS 128250 ppolyf_u_1k L=256.5U W=2U
 * device instance $226 r0 *1 372.9,-258.75 ppolyf_u_1k
-R$226 \$58 \$70 vsubs 128250 ppolyf_u_1k
+R$226 \$58 \$70 VSS 128250 ppolyf_u_1k L=256.5U W=2U
 * device instance $227 r0 *1 375.9,-258.75 ppolyf_u_1k
-R$227 \$59 \$70 vsubs 128250 ppolyf_u_1k
+R$227 \$59 \$70 VSS 128250 ppolyf_u_1k L=256.5U W=2U
 * device instance $228 r0 *1 378.9,-258.75 ppolyf_u_1k
-R$228 \$59 \$69 vsubs 128250 ppolyf_u_1k
+R$228 \$59 \$69 VSS 128250 ppolyf_u_1k L=256.5U W=2U
 * device instance $229 r0 *1 381.9,-258.75 ppolyf_u_1k
-R$229 \$60 \$69 vsubs 128250 ppolyf_u_1k
+R$229 \$60 \$69 VSS 128250 ppolyf_u_1k L=256.5U W=2U
 * device instance $230 r0 *1 384.9,-258.75 ppolyf_u_1k
-R$230 \$60 \$76 vsubs 128250 ppolyf_u_1k
+R$230 \$60 \$76 VSS 128250 ppolyf_u_1k L=256.5U W=2U
 * device instance $231 r0 *1 387.9,-258.75 ppolyf_u_1k
-R$231 \$64 \$76 vsubs 128250 ppolyf_u_1k
+R$231 \$64 \$76 VSS 128250 ppolyf_u_1k L=256.5U W=2U
 * device instance $232 r0 *1 394.9,-260 ppolyf_u_1k
-R$232 \$45 \$66 vsubs 127000 ppolyf_u_1k
+R$232 \$45 \$66 VSS 127000 ppolyf_u_1k L=254U W=2U
 * device instance $233 r0 *1 397.9,-260 ppolyf_u_1k
-R$233 \$61 \$66 vsubs 127000 ppolyf_u_1k
+R$233 \$61 \$66 VSS 127000 ppolyf_u_1k L=254U W=2U
 * device instance $234 r0 *1 400.9,-260 ppolyf_u_1k
-R$234 \$61 \$67 vsubs 127000 ppolyf_u_1k
+R$234 \$61 \$67 VSS 127000 ppolyf_u_1k L=254U W=2U
 * device instance $235 r0 *1 403.9,-260 ppolyf_u_1k
-R$235 \$13 \$67 vsubs 127000 ppolyf_u_1k
+R$235 \$13 \$67 VSS 127000 ppolyf_u_1k L=254U W=2U
 * device instance $236 r0 *1 410.9,-299.5 ppolyf_u_1k
-R$236 \$18 \$68 vsubs 87500 ppolyf_u_1k
+R$236 \$18 \$68 VSS 87500 ppolyf_u_1k L=175U W=2U
 * device instance $237 r0 *1 413.9,-299.5 ppolyf_u_1k
-R$237 \$46 \$68 vsubs 87500 ppolyf_u_1k
+R$237 \$46 \$68 VSS 87500 ppolyf_u_1k L=175U W=2U
 * device instance $238 r0 *1 420.9,-382.625 ppolyf_u_1k
-R$238 \$7 \$62 vsubs 4375 ppolyf_u_1k
+R$238 \$7 \$62 VSS 4375 ppolyf_u_1k L=8.75U W=2U
 * device instance $239 r0 *1 423.9,-382.625 ppolyf_u_1k
-R$239 \$18 \$62 vsubs 4375 ppolyf_u_1k
+R$239 \$18 \$62 VSS 4375 ppolyf_u_1k L=8.75U W=2U
 .ENDS temp_por_top
