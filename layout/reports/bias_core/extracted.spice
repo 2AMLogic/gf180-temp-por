@@ -97,55 +97,55 @@ Q$43 vsubs \$27 \$25 bjt AE=100P PE=40U AB=169P PB=52U AC=169P PC=52U NE=1
 * device instance $44 r0 *1 308.9,48 bjt
 Q$44 vsubs \$27 \$25 bjt AE=100P PE=40U AB=169P PB=52U AC=169P PC=52U NE=1
 * device instance $45 r0 *1 292.4,70.7 cap_mim_2f0_m4m5_noshield
-C$45 VDD \$17 7.2e-14 cap_mim_2f0_m4m5_noshield
+C$45 VDD \$17 7.73592e-14
 * device instance $46 r0 *1 276.6,77.7 cap_mim_2f0_m4m5_noshield
-C$46 \$3 \$26 8e-13 cap_mim_2f0_m4m5_noshield
+C$46 \$3 \$26 8.15064e-13
 * device instance $47 r0 *1 342.9,141.25 ppolyf_u_1k
-R$47 VREF \$44 vsubs 128250 ppolyf_u_1k
+R$47 VREF \$44 vsubs 128250 ppolyf_u_1k L=256.5U W=2U
 * device instance $48 r0 *1 345.9,141.25 ppolyf_u_1k
-R$48 \$35 \$44 vsubs 128250 ppolyf_u_1k
+R$48 \$35 \$44 vsubs 128250 ppolyf_u_1k L=256.5U W=2U
 * device instance $49 r0 *1 348.9,141.25 ppolyf_u_1k
-R$49 \$35 \$45 vsubs 128250 ppolyf_u_1k
+R$49 \$35 \$45 vsubs 128250 ppolyf_u_1k L=256.5U W=2U
 * device instance $50 r0 *1 351.9,141.25 ppolyf_u_1k
-R$50 \$34 \$45 vsubs 128250 ppolyf_u_1k
+R$50 \$34 \$45 vsubs 128250 ppolyf_u_1k L=256.5U W=2U
 * device instance $51 r0 *1 354.9,141.25 ppolyf_u_1k
-R$51 \$34 \$46 vsubs 128250 ppolyf_u_1k
+R$51 \$34 \$46 vsubs 128250 ppolyf_u_1k L=256.5U W=2U
 * device instance $52 r0 *1 357.9,141.25 ppolyf_u_1k
-R$52 \$33 \$46 vsubs 128250 ppolyf_u_1k
+R$52 \$33 \$46 vsubs 128250 ppolyf_u_1k L=256.5U W=2U
 * device instance $53 r0 *1 360.9,141.25 ppolyf_u_1k
-R$53 \$33 \$47 vsubs 128250 ppolyf_u_1k
+R$53 \$33 \$47 vsubs 128250 ppolyf_u_1k L=256.5U W=2U
 * device instance $54 r0 *1 363.9,141.25 ppolyf_u_1k
-R$54 \$32 \$47 vsubs 128250 ppolyf_u_1k
+R$54 \$32 \$47 vsubs 128250 ppolyf_u_1k L=256.5U W=2U
 * device instance $55 r0 *1 366.9,141.25 ppolyf_u_1k
-R$55 \$32 \$48 vsubs 128250 ppolyf_u_1k
+R$55 \$32 \$48 vsubs 128250 ppolyf_u_1k L=256.5U W=2U
 * device instance $56 r0 *1 369.9,141.25 ppolyf_u_1k
-R$56 \$31 \$48 vsubs 128250 ppolyf_u_1k
+R$56 \$31 \$48 vsubs 128250 ppolyf_u_1k L=256.5U W=2U
 * device instance $57 r0 *1 372.9,141.25 ppolyf_u_1k
-R$57 \$31 \$43 vsubs 128250 ppolyf_u_1k
+R$57 \$31 \$43 vsubs 128250 ppolyf_u_1k L=256.5U W=2U
 * device instance $58 r0 *1 375.9,141.25 ppolyf_u_1k
-R$58 \$30 \$43 vsubs 128250 ppolyf_u_1k
+R$58 \$30 \$43 vsubs 128250 ppolyf_u_1k L=256.5U W=2U
 * device instance $59 r0 *1 378.9,141.25 ppolyf_u_1k
-R$59 \$30 \$42 vsubs 128250 ppolyf_u_1k
+R$59 \$30 \$42 vsubs 128250 ppolyf_u_1k L=256.5U W=2U
 * device instance $60 r0 *1 381.9,141.25 ppolyf_u_1k
-R$60 \$29 \$42 vsubs 128250 ppolyf_u_1k
+R$60 \$29 \$42 vsubs 128250 ppolyf_u_1k L=256.5U W=2U
 * device instance $61 r0 *1 384.9,141.25 ppolyf_u_1k
-R$61 \$29 \$49 vsubs 128250 ppolyf_u_1k
+R$61 \$29 \$49 vsubs 128250 ppolyf_u_1k L=256.5U W=2U
 * device instance $62 r0 *1 387.9,141.25 ppolyf_u_1k
-R$62 \$37 \$49 vsubs 128250 ppolyf_u_1k
+R$62 \$37 \$49 vsubs 128250 ppolyf_u_1k L=256.5U W=2U
 * device instance $63 r0 *1 394.9,140 ppolyf_u_1k
-R$63 \$26 \$41 vsubs 127000 ppolyf_u_1k
+R$63 \$26 \$41 vsubs 127000 ppolyf_u_1k L=254U W=2U
 * device instance $64 r0 *1 397.9,140 ppolyf_u_1k
-R$64 \$28 \$41 vsubs 127000 ppolyf_u_1k
+R$64 \$28 \$41 vsubs 127000 ppolyf_u_1k L=254U W=2U
 * device instance $65 r0 *1 400.9,140 ppolyf_u_1k
-R$65 \$28 \$40 vsubs 127000 ppolyf_u_1k
+R$65 \$28 \$40 vsubs 127000 ppolyf_u_1k L=254U W=2U
 * device instance $66 r0 *1 403.9,140 ppolyf_u_1k
-R$66 \$12 \$40 vsubs 127000 ppolyf_u_1k
+R$66 \$12 \$40 vsubs 127000 ppolyf_u_1k L=254U W=2U
 * device instance $67 r0 *1 410.9,100.5 ppolyf_u_1k
-R$67 \$24 \$39 vsubs 87500 ppolyf_u_1k
+R$67 \$24 \$39 vsubs 87500 ppolyf_u_1k L=175U W=2U
 * device instance $68 r0 *1 413.9,100.5 ppolyf_u_1k
-R$68 \$25 \$39 vsubs 87500 ppolyf_u_1k
+R$68 \$25 \$39 vsubs 87500 ppolyf_u_1k L=175U W=2U
 * device instance $69 r0 *1 420.9,17.375 ppolyf_u_1k
-R$69 \$5 \$36 vsubs 4375 ppolyf_u_1k
+R$69 \$5 \$36 vsubs 4375 ppolyf_u_1k L=8.75U W=2U
 * device instance $70 r0 *1 423.9,17.375 ppolyf_u_1k
-R$70 \$24 \$36 vsubs 4375 ppolyf_u_1k
+R$70 \$24 \$36 vsubs 4375 ppolyf_u_1k L=8.75U W=2U
 .ENDS bias_core

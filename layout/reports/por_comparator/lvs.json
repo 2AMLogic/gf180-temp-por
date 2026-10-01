@@ -4,12 +4,66 @@
   "layout": "por_comparator.gds",
   "reference": "por_comparator.reference.spice",
   "top": "por_comparator",
+  "reference_top": "POR_COMPARATOR",
+  "parameter_tolerance": null,
+  "options": {
+    "combine_devices": false,
+    "combine_devices_per_circuit": null,
+    "flatten_layout": false,
+    "flatten_reference": false,
+    "netgen_setup": null,
+    "parameter_tolerance": null,
+    "compare_parameters": null,
+    "power_connectivity": null,
+    "supply_nets": [
+      "GND",
+      "VCC",
+      "VDD",
+      "VGND",
+      "VPWR",
+      "VSS"
+    ]
+  },
+  "hints_applied": null,
   "status": "match",
+  "power_connectivity": {
+    "status": "unchecked",
+    "reason": "reference.form is 'plain-element', whose reference netlist carries its own power/ground pins and nets -- they take part in the ordinary compare, so this check (which exists to cover the signal-only 'gate-level-verilog' form) does not apply",
+    "power_pins": [],
+    "power_pins_derivation": null,
+    "instance_count": 0,
+    "expected_nets": null,
+    "unchecked_expected_pins": [],
+    "findings": [],
+    "finding_count": 0
+  },
+  "body_verification": {
+    "status": "unverified",
+    "reason": null,
+    "device_classes": [
+      "nfet",
+      "pfet"
+    ],
+    "device_count": 18,
+    "findings": [
+      {
+        "class": "nfet",
+        "device_count": 12
+      },
+      {
+        "class": "pfet",
+        "device_count": 6
+      }
+    ],
+    "finding_count": 2
+  },
   "mismatch_count": 3,
+  "error_count": 0,
   "category_counts": {
     "device.body_unverified": 2,
     "topology": 1
   },
+  "category_error_counts": {},
   "counts": {
     "nets": {
       "layout": 18,
@@ -32,30 +86,37 @@
     "pfet",
     "bjt",
     "cap_mim_2f0_m4m5_noshield",
-    "resistor"
+    "resistor",
+    "diode_nd2ps_06v0",
+    "diode_pd2nw_06v0"
   ],
   "environment": {
     "engine": "klayout",
-    "engine_version": "0.30.10",
+    "engine_version": "0.30.12",
     "layout_sha256": "c60a2ef35e34d6d4e0e70ba0a9937467b37676cc94a041b325e2117d5da44412",
     "reference_sha256": "bee586ec94d52cbc98ec0f48dfb0a3187f7e0df6e3b1d881c281639ded85c305",
     "extracted_netlist": null
   },
   "provenance": {
-    "klt_version": "0.2.0",
-    "klayout_version": "0.30.10",
+    "klt_version": "0.6.0",
+    "klayout_version": "0.30.12",
     "pdk": null,
     "deck": {
       "name": "gf180mcu",
-      "content_hash": "sha256:1256c45b3e472635b03a1888d0730822c1872b4a912a2c90fc1e4e7cd14a3913"
+      "content_hash": "sha256:95c2eb9148b29ded02182aeca4222287ff57f813691d5e2f9f8d7a675f6cb637",
+      "released": false
     },
-    "input": null
+    "input": {
+      "content_hash": "sha256:c60a2ef35e34d6d4e0e70ba0a9937467b37676cc94a041b325e2117d5da44412",
+      "role": "layout"
+    },
+    "klayout_version_mismatch": true
   },
   "mismatches": [
     {
       "category": "device.body_unverified",
       "severity": "warning",
-      "description": "12 NMOS device body terminal(s) were compared against the 'vsubs' deck-synthesized substrate net, not a real schematic net -- this deck draws no distinct NMOS substrate/tap layer (see docs/cli/extract.md, \"Coverage\")",
+      "description": "12 NMOS device body terminal(s) were compared against the 'vsubs' deck-synthesized substrate net, not a real schematic net -- no drawn substrate-tap geometry resolved these device(s)' body terminal to a real net (see docs/cli/extract.md, \"Coverage\")",
       "side": "layout",
       "net": null,
       "device": {
@@ -64,12 +125,15 @@
         "class": "nfet"
       },
       "property": null,
-      "details": null
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
     },
     {
       "category": "device.body_unverified",
       "severity": "warning",
-      "description": "6 PMOS device body terminal(s) were compared against an anonymous, deck-synthesized well net, not a real schematic net -- this deck has no distinct well-tap layer (see docs/cli/extract.md, \"Coverage\")",
+      "description": "6 PMOS device body terminal(s) were compared against an anonymous, KLayout-synthesized well net, not a real schematic net -- no drawn or derived well-tap geometry resolved these device(s)' body terminal to a real net (see docs/cli/extract.md, \"Coverage\")",
       "side": "layout",
       "net": null,
       "device": {
@@ -78,7 +142,10 @@
         "class": "pfet"
       },
       "property": null,
-      "details": null
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
     },
     {
       "category": "topology",
@@ -88,7 +155,10 @@
       "net": null,
       "device": null,
       "property": null,
-      "details": null
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
     }
   ],
   "net_correspondence": [
@@ -103,7 +173,7 @@
       "pin": true
     },
     {
-      "layout": "$5",
+      "layout": "\\$5",
       "reference": "CMPO",
       "pin": false
     },
@@ -113,27 +183,27 @@
       "pin": true
     },
     {
-      "layout": "$7",
+      "layout": "\\$7",
       "reference": "N1",
       "pin": false
     },
     {
-      "layout": "$4",
+      "layout": "\\$4",
       "reference": "NA",
       "pin": false
     },
     {
-      "layout": "$12",
+      "layout": "\\$12",
       "reference": "NBG",
       "pin": false
     },
     {
-      "layout": "$16",
+      "layout": "\\$16",
       "reference": "NW1",
       "pin": false
     },
     {
-      "layout": "$17",
+      "layout": "\\$17",
       "reference": "NW2",
       "pin": false
     },
@@ -143,17 +213,17 @@
       "pin": true
     },
     {
-      "layout": "$10",
+      "layout": "\\$10",
       "reference": "SNS",
       "pin": false
     },
     {
-      "layout": "$14",
+      "layout": "\\$14",
       "reference": "SNSB",
       "pin": false
     },
     {
-      "layout": "$9",
+      "layout": "\\$9",
       "reference": "TN",
       "pin": false
     },
@@ -163,7 +233,7 @@
       "pin": true
     },
     {
-      "layout": "$3",
+      "layout": "\\$3",
       "reference": "VDDA",
       "pin": false
     },

@@ -9,9 +9,9 @@
       "exit_code": 3,
       "status": "mismatch",
       "category_counts": {
-        "device.body_unverified": 2,
+        "device.body_unverified": 1,
         "device.unmatched": 1,
-        "topology": 2
+        "topology": 1
       }
     },
     {
@@ -21,9 +21,9 @@
       "exit_code": 3,
       "status": "mismatch",
       "category_counts": {
-        "device.body_unverified": 2,
+        "device.body_unverified": 1,
         "device.property": 5,
-        "topology": 2
+        "topology": 1
       }
     },
     {
@@ -33,9 +33,9 @@
       "exit_code": 3,
       "status": "mismatch",
       "category_counts": {
-        "device.body_unverified": 2,
+        "device.body_unverified": 1,
         "device.property": 11,
-        "topology": 5
+        "topology": 4
       }
     }
   ]

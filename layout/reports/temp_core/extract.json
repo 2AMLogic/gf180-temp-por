@@ -1,15 +1,15 @@
 {
-  "schema_version": 1,
+  "schema_version": 3,
   "file": "layout/cells/temp_core.gds",
   "deck": "gf180mcu",
   "top": "temp_core",
   "dbu_um": 0.001,
   "netlist_path": "layout/reports/temp_core/extracted.spice",
-  "netlist_sha256": "1265c52bf7ddc344ec533ac803228c5c1de672cf19e70720536cf406ee7f7192",
+  "netlist_sha256": "c89b299add45a1b5556cea9014a13776cbe0fe3a400f51a84c4f602a5abb1ba0",
   "status": "extracted",
   "device_count": 115,
-  "net_count": 73,
-  "pin_count": 30,
+  "net_count": 71,
+  "pin_count": 29,
   "device_counts": {
     "bjt": 9,
     "cap_mim_2f0_m4m5_noshield": 1,
@@ -19,12 +19,46 @@
   },
   "dummy_devices_dropped": 0,
   "ignored_layers": [],
+  "device_recognition_only_layers": [
+    {
+      "layer": 49,
+      "datatype": 0,
+      "shapes": 50
+    },
+    {
+      "layer": 75,
+      "datatype": 0,
+      "shapes": 2
+    },
+    {
+      "layer": 110,
+      "datatype": 5,
+      "shapes": 50
+    },
+    {
+      "layer": 117,
+      "datatype": 5,
+      "shapes": 1
+    },
+    {
+      "layer": 117,
+      "datatype": 10,
+      "shapes": 1
+    },
+    {
+      "layer": 127,
+      "datatype": 5,
+      "shapes": 9
+    }
+  ],
   "device_classes": [
     "nfet",
     "pfet",
     "bjt",
     "cap_mim_2f0_m4m5_noshield",
-    "resistor"
+    "resistor",
+    "diode_nd2ps_06v0",
+    "diode_pd2nw_06v0"
   ],
   "devices": [
     {
@@ -34,12 +68,17 @@
         "s": "VSS",
         "g": "VSS",
         "d": "VSS",
-        "b": "vsubs"
+        "b": "VSS"
       },
       "params": {
         "l_um": 8.0,
-        "w_um": 4.0
-      }
+        "w_um": 4.0,
+        "as_um2": 3.2,
+        "ad_um2": 3.2,
+        "ps_um": 9.6,
+        "pd_um": 9.6
+      },
+      "instance_path": []
     },
     {
       "name": "$10",
@@ -48,162 +87,187 @@
         "s": "VSS",
         "g": "ENB",
         "d": "NBG",
-        "b": "vsubs"
+        "b": "VSS"
       },
       "params": {
         "l_um": 0.5,
-        "w_um": 2.0
-      }
+        "w_um": 2.0,
+        "as_um2": 1.6,
+        "ad_um2": 1.6,
+        "ps_um": 5.6,
+        "pd_um": 5.6
+      },
+      "instance_path": []
     },
     {
       "name": "$100",
       "class": "ppolyf_u",
       "nets": {
-        "a": "$43",
-        "b": "$86",
-        "w": "vsubs"
+        "a": "\\$43",
+        "b": "\\$85",
+        "w": "VSS"
       },
       "params": {
         "r_ohm": 19341.875,
         "l_um": 110.525,
         "w_um": 2.0,
-        "area_um2": 221.05
-      }
+        "area_um2": 221.05,
+        "perimeter_um": 225.05
+      },
+      "instance_path": []
     },
     {
       "name": "$101",
       "class": "ppolyf_u",
       "nets": {
-        "a": "$44",
-        "b": "$86",
-        "w": "vsubs"
+        "a": "\\$44",
+        "b": "\\$85",
+        "w": "VSS"
       },
       "params": {
         "r_ohm": 19341.875,
         "l_um": 110.525,
         "w_um": 2.0,
-        "area_um2": 221.05
-      }
+        "area_um2": 221.05,
+        "perimeter_um": 225.05
+      },
+      "instance_path": []
     },
     {
       "name": "$102",
       "class": "ppolyf_u",
       "nets": {
-        "a": "$44",
-        "b": "$87",
-        "w": "vsubs"
+        "a": "\\$44",
+        "b": "\\$86",
+        "w": "VSS"
       },
       "params": {
         "r_ohm": 19341.875,
         "l_um": 110.525,
         "w_um": 2.0,
-        "area_um2": 221.05
-      }
+        "area_um2": 221.05,
+        "perimeter_um": 225.05
+      },
+      "instance_path": []
     },
     {
       "name": "$103",
       "class": "ppolyf_u",
       "nets": {
         "a": "T5",
-        "b": "$87",
-        "w": "vsubs"
+        "b": "\\$86",
+        "w": "VSS"
       },
       "params": {
         "r_ohm": 19341.875,
         "l_um": 110.525,
         "w_um": 2.0,
-        "area_um2": 221.05
-      }
+        "area_um2": 221.05,
+        "perimeter_um": 225.05
+      },
+      "instance_path": []
     },
     {
       "name": "$104",
       "class": "ppolyf_u",
       "nets": {
         "a": "T5",
-        "b": "$88",
-        "w": "vsubs"
+        "b": "\\$87",
+        "w": "VSS"
       },
       "params": {
         "r_ohm": 20099.625,
         "l_um": 114.855,
         "w_um": 2.0,
-        "area_um2": 229.71
-      }
+        "area_um2": 229.71,
+        "perimeter_um": 233.71
+      },
+      "instance_path": []
     },
     {
       "name": "$105",
       "class": "ppolyf_u",
       "nets": {
         "a": "T4",
-        "b": "$88",
-        "w": "vsubs"
+        "b": "\\$87",
+        "w": "VSS"
       },
       "params": {
         "r_ohm": 20099.625,
         "l_um": 114.855,
         "w_um": 2.0,
-        "area_um2": 229.71
-      }
+        "area_um2": 229.71,
+        "perimeter_um": 233.71
+      },
+      "instance_path": []
     },
     {
       "name": "$106",
       "class": "ppolyf_u",
       "nets": {
         "a": "T4",
-        "b": "$69",
-        "w": "vsubs"
+        "b": "\\$68",
+        "w": "VSS"
       },
       "params": {
         "r_ohm": 10035.375,
         "l_um": 57.345,
         "w_um": 2.0,
-        "area_um2": 114.69
-      }
+        "area_um2": 114.69,
+        "perimeter_um": 118.69
+      },
+      "instance_path": []
     },
     {
       "name": "$107",
       "class": "ppolyf_u",
       "nets": {
         "a": "T3",
-        "b": "$69",
-        "w": "vsubs"
+        "b": "\\$68",
+        "w": "VSS"
       },
       "params": {
         "r_ohm": 10035.375,
         "l_um": 57.345,
         "w_um": 2.0,
-        "area_um2": 114.69
-      }
+        "area_um2": 114.69,
+        "perimeter_um": 118.69
+      },
+      "instance_path": []
     },
     {
       "name": "$108",
       "class": "ppolyf_u",
       "nets": {
         "a": "T3",
-        "b": "$60",
-        "w": "vsubs"
+        "b": "\\$59",
+        "w": "VSS"
       },
       "params": {
         "r_ohm": 5003.25,
         "l_um": 28.59,
         "w_um": 2.0,
-        "area_um2": 57.18
-      }
+        "area_um2": 57.18,
+        "perimeter_um": 61.18
+      },
+      "instance_path": []
     },
     {
       "name": "$109",
       "class": "ppolyf_u",
       "nets": {
         "a": "T2",
-        "b": "$60",
-        "w": "vsubs"
+        "b": "\\$59",
+        "w": "VSS"
       },
       "params": {
         "r_ohm": 5003.25,
         "l_um": 28.59,
         "w_um": 2.0,
-        "area_um2": 57.18
-      }
+        "area_um2": 57.18,
+        "perimeter_um": 61.18
+      },
+      "instance_path": []
     },
     {
       "name": "$11",
@@ -212,102 +276,119 @@
         "s": "VSS",
         "g": "NBG",
         "d": "PB",
-        "b": "vsubs"
+        "b": "VSS"
       },
       "params": {
         "l_um": 2.0,
-        "w_um": 4.0
-      }
+        "w_um": 4.0,
+        "as_um2": 3.2,
+        "ad_um2": 3.2,
+        "ps_um": 9.6,
+        "pd_um": 9.6
+      },
+      "instance_path": []
     },
     {
       "name": "$110",
       "class": "ppolyf_u",
       "nets": {
         "a": "T2",
-        "b": "$56",
-        "w": "vsubs"
+        "b": "\\$55",
+        "w": "VSS"
       },
       "params": {
         "r_ohm": 2486.75,
         "l_um": 14.21,
         "w_um": 2.0,
-        "area_um2": 28.42
-      }
+        "area_um2": 28.42,
+        "perimeter_um": 32.42
+      },
+      "instance_path": []
     },
     {
       "name": "$111",
       "class": "ppolyf_u",
       "nets": {
         "a": "T1",
-        "b": "$56",
-        "w": "vsubs"
+        "b": "\\$55",
+        "w": "VSS"
       },
       "params": {
         "r_ohm": 2486.75,
         "l_um": 14.21,
         "w_um": 2.0,
-        "area_um2": 28.42
-      }
+        "area_um2": 28.42,
+        "perimeter_um": 32.42
+      },
+      "instance_path": []
     },
     {
       "name": "$112",
       "class": "ppolyf_u",
       "nets": {
         "a": "T1",
-        "b": "$51",
-        "w": "vsubs"
+        "b": "\\$51",
+        "w": "VSS"
       },
       "params": {
         "r_ohm": 1227.625,
         "l_um": 7.015,
         "w_um": 2.0,
-        "area_um2": 14.03
-      }
+        "area_um2": 14.03,
+        "perimeter_um": 18.03
+      },
+      "instance_path": []
     },
     {
       "name": "$113",
       "class": "ppolyf_u",
       "nets": {
         "a": "T0",
-        "b": "$51",
-        "w": "vsubs"
+        "b": "\\$51",
+        "w": "VSS"
       },
       "params": {
         "r_ohm": 1227.625,
         "l_um": 7.015,
         "w_um": 2.0,
-        "area_um2": 14.03
-      }
+        "area_um2": 14.03,
+        "perimeter_um": 18.03
+      },
+      "instance_path": []
     },
     {
       "name": "$114",
       "class": "ppolyf_u",
       "nets": {
         "a": "T0",
-        "b": "$50",
-        "w": "vsubs"
+        "b": "\\$50",
+        "w": "VSS"
       },
       "params": {
         "r_ohm": 599.375,
         "l_um": 3.425,
         "w_um": 2.0,
-        "area_um2": 6.85
-      }
+        "area_um2": 6.85,
+        "perimeter_um": 10.85
+      },
+      "instance_path": []
     },
     {
       "name": "$115",
       "class": "ppolyf_u",
       "nets": {
         "a": "VSS",
-        "b": "$50",
-        "w": "vsubs"
+        "b": "\\$50",
+        "w": "VSS"
       },
       "params": {
         "r_ohm": 599.375,
         "l_um": 3.425,
         "w_um": 2.0,
-        "area_um2": 6.85
-      }
+        "area_um2": 6.85,
+        "perimeter_um": 10.85
+      },
+      "instance_path": []
     },
     {
       "name": "$12",
@@ -316,12 +397,17 @@
         "s": "VSS",
         "g": "NBG",
         "d": "PCAS",
-        "b": "vsubs"
+        "b": "VSS"
       },
       "params": {
         "l_um": 2.0,
-        "w_um": 4.0
-      }
+        "w_um": 4.0,
+        "as_um2": 3.2,
+        "ad_um2": 3.2,
+        "ps_um": 9.6,
+        "pd_um": 9.6
+      },
+      "instance_path": []
     },
     {
       "name": "$13",
@@ -330,12 +416,17 @@
         "s": "VSS",
         "g": "EN",
         "d": "ENB",
-        "b": "vsubs"
+        "b": "VSS"
       },
       "params": {
         "l_um": 0.5,
-        "w_um": 1.0
-      }
+        "w_um": 1.0,
+        "as_um2": 0.8,
+        "ad_um2": 0.8,
+        "ps_um": 3.6,
+        "pd_um": 3.6
+      },
+      "instance_path": []
     },
     {
       "name": "$14",
@@ -344,12 +435,17 @@
         "s": "VSS",
         "g": "NR",
         "d": "ND",
-        "b": "vsubs"
+        "b": "VSS"
       },
       "params": {
         "l_um": 2.0,
-        "w_um": 2.0
-      }
+        "w_um": 2.0,
+        "as_um2": 1.6,
+        "ad_um2": 1.6,
+        "ps_um": 5.6,
+        "pd_um": 5.6
+      },
+      "instance_path": []
     },
     {
       "name": "$15",
@@ -358,12 +454,17 @@
         "s": "VSS",
         "g": "ND",
         "d": "PG",
-        "b": "vsubs"
+        "b": "VSS"
       },
       "params": {
         "l_um": 1.0,
-        "w_um": 4.0
-      }
+        "w_um": 4.0,
+        "as_um2": 3.2,
+        "ad_um2": 3.2,
+        "ps_um": 9.6,
+        "pd_um": 9.6
+      },
+      "instance_path": []
     },
     {
       "name": "$16",
@@ -372,12 +473,17 @@
         "s": "VSS",
         "g": "NR",
         "d": "NR",
-        "b": "vsubs"
+        "b": "VSS"
       },
       "params": {
         "l_um": 2.0,
-        "w_um": 2.0
-      }
+        "w_um": 2.0,
+        "as_um2": 1.6,
+        "ad_um2": 1.6,
+        "ps_um": 5.6,
+        "pd_um": 5.6
+      },
+      "instance_path": []
     },
     {
       "name": "$17",
@@ -386,12 +492,17 @@
         "s": "VSS",
         "g": "ENB",
         "d": "ND",
-        "b": "vsubs"
+        "b": "VSS"
       },
       "params": {
         "l_um": 0.5,
-        "w_um": 2.0
-      }
+        "w_um": 2.0,
+        "as_um2": 1.6,
+        "ad_um2": 1.6,
+        "ps_um": 5.6,
+        "pd_um": 5.6
+      },
+      "instance_path": []
     },
     {
       "name": "$18",
@@ -400,12 +511,17 @@
         "s": "VSS",
         "g": "ENB",
         "d": "PTAT",
-        "b": "vsubs"
+        "b": "VSS"
       },
       "params": {
         "l_um": 1.0,
-        "w_um": 1.0
-      }
+        "w_um": 1.0,
+        "as_um2": 0.8,
+        "ad_um2": 0.8,
+        "ps_um": 3.6,
+        "pd_um": 3.6
+      },
+      "instance_path": []
     },
     {
       "name": "$19",
@@ -414,12 +530,17 @@
         "s": "VSS",
         "g": "ENB",
         "d": "CTAT",
-        "b": "vsubs"
+        "b": "VSS"
       },
       "params": {
         "l_um": 1.0,
-        "w_um": 1.0
-      }
+        "w_um": 1.0,
+        "as_um2": 0.8,
+        "ad_um2": 0.8,
+        "ps_um": 3.6,
+        "pd_um": 3.6
+      },
+      "instance_path": []
     },
     {
       "name": "$2",
@@ -428,12 +549,17 @@
         "s": "VSS",
         "g": "N1",
         "d": "N1",
-        "b": "vsubs"
+        "b": "VSS"
       },
       "params": {
         "l_um": 8.0,
-        "w_um": 4.0
-      }
+        "w_um": 4.0,
+        "as_um2": 3.2,
+        "ad_um2": 3.2,
+        "ps_um": 9.6,
+        "pd_um": 9.6
+      },
+      "instance_path": []
     },
     {
       "name": "$20",
@@ -442,12 +568,17 @@
         "s": "VSS",
         "g": "ENB",
         "d": "N2",
-        "b": "vsubs"
+        "b": "VSS"
       },
       "params": {
         "l_um": 1.0,
-        "w_um": 2.0
-      }
+        "w_um": 2.0,
+        "as_um2": 1.6,
+        "ad_um2": 1.6,
+        "ps_um": 5.6,
+        "pd_um": 5.6
+      },
+      "instance_path": []
     },
     {
       "name": "$21",
@@ -456,12 +587,17 @@
         "s": "VSS",
         "g": "ENB",
         "d": "NT",
-        "b": "vsubs"
+        "b": "VSS"
       },
       "params": {
         "l_um": 1.0,
-        "w_um": 2.0
-      }
+        "w_um": 2.0,
+        "as_um2": 1.6,
+        "ad_um2": 1.6,
+        "ps_um": 5.6,
+        "pd_um": 5.6
+      },
+      "instance_path": []
     },
     {
       "name": "$22",
@@ -470,12 +606,17 @@
         "s": "T4",
         "g": "VDD",
         "d": "T5",
-        "b": "vsubs"
+        "b": "VSS"
       },
       "params": {
         "l_um": 0.5,
-        "w_um": 32.0
-      }
+        "w_um": 32.0,
+        "as_um2": 25.6,
+        "ad_um2": 25.6,
+        "ps_um": 65.6,
+        "pd_um": 65.6
+      },
+      "instance_path": []
     },
     {
       "name": "$23",
@@ -484,12 +625,17 @@
         "s": "T2",
         "g": "VSS",
         "d": "T3",
-        "b": "vsubs"
+        "b": "VSS"
       },
       "params": {
         "l_um": 0.5,
-        "w_um": 32.0
-      }
+        "w_um": 32.0,
+        "as_um2": 25.6,
+        "ad_um2": 25.6,
+        "ps_um": 65.6,
+        "pd_um": 65.6
+      },
+      "instance_path": []
     },
     {
       "name": "$24",
@@ -498,12 +644,17 @@
         "s": "T0",
         "g": "VSS",
         "d": "T1",
-        "b": "vsubs"
+        "b": "VSS"
       },
       "params": {
         "l_um": 0.5,
-        "w_um": 32.0
-      }
+        "w_um": 32.0,
+        "as_um2": 25.6,
+        "ad_um2": 25.6,
+        "ps_um": 65.6,
+        "pd_um": 65.6
+      },
+      "instance_path": []
     },
     {
       "name": "$25",
@@ -512,12 +663,17 @@
         "s": "VSS",
         "g": "VSS",
         "d": "T0",
-        "b": "vsubs"
+        "b": "VSS"
       },
       "params": {
         "l_um": 0.5,
-        "w_um": 32.0
-      }
+        "w_um": 32.0,
+        "as_um2": 25.6,
+        "ad_um2": 25.6,
+        "ps_um": 65.6,
+        "pd_um": 65.6
+      },
+      "instance_path": []
     },
     {
       "name": "$26",
@@ -526,12 +682,17 @@
         "s": "T1",
         "g": "VSS",
         "d": "T2",
-        "b": "vsubs"
+        "b": "VSS"
       },
       "params": {
         "l_um": 0.5,
-        "w_um": 32.0
-      }
+        "w_um": 32.0,
+        "as_um2": 25.6,
+        "ad_um2": 25.6,
+        "ps_um": 65.6,
+        "pd_um": 65.6
+      },
+      "instance_path": []
     },
     {
       "name": "$27",
@@ -540,12 +701,17 @@
         "s": "T3",
         "g": "VSS",
         "d": "T4",
-        "b": "vsubs"
+        "b": "VSS"
       },
       "params": {
         "l_um": 0.5,
-        "w_um": 32.0
-      }
+        "w_um": 32.0,
+        "as_um2": 25.6,
+        "ad_um2": 25.6,
+        "ps_um": 65.6,
+        "pd_um": 65.6
+      },
+      "instance_path": []
     },
     {
       "name": "$28",
@@ -554,12 +720,17 @@
         "s": "NT",
         "g": "NT",
         "d": "NT",
-        "b": "$28"
+        "b": "\\$28"
       },
       "params": {
         "l_um": 4.0,
-        "w_um": 16.0
-      }
+        "w_um": 16.0,
+        "as_um2": 12.8,
+        "ad_um2": 12.8,
+        "ps_um": 33.6,
+        "pd_um": 33.6
+      },
+      "instance_path": []
     },
     {
       "name": "$29",
@@ -568,12 +739,17 @@
         "s": "NT",
         "g": "NA",
         "d": "N1",
-        "b": "$28"
+        "b": "\\$28"
       },
       "params": {
         "l_um": 4.0,
-        "w_um": 16.0
-      }
+        "w_um": 16.0,
+        "as_um2": 12.8,
+        "ad_um2": 12.8,
+        "ps_um": 33.6,
+        "pd_um": 33.6
+      },
+      "instance_path": []
     },
     {
       "name": "$3",
@@ -582,12 +758,17 @@
         "s": "VSS",
         "g": "N1",
         "d": "N2",
-        "b": "vsubs"
+        "b": "VSS"
       },
       "params": {
         "l_um": 8.0,
-        "w_um": 4.0
-      }
+        "w_um": 4.0,
+        "as_um2": 3.2,
+        "ad_um2": 3.2,
+        "ps_um": 9.6,
+        "pd_um": 9.6
+      },
+      "instance_path": []
     },
     {
       "name": "$30",
@@ -596,12 +777,17 @@
         "s": "NT",
         "g": "NB",
         "d": "N2",
-        "b": "$28"
+        "b": "\\$28"
       },
       "params": {
         "l_um": 4.0,
-        "w_um": 16.0
-      }
+        "w_um": 16.0,
+        "as_um2": 12.8,
+        "ad_um2": 12.8,
+        "ps_um": 33.6,
+        "pd_um": 33.6
+      },
+      "instance_path": []
     },
     {
       "name": "$31",
@@ -610,12 +796,17 @@
         "s": "NT",
         "g": "NB",
         "d": "N2",
-        "b": "$28"
+        "b": "\\$28"
       },
       "params": {
         "l_um": 4.0,
-        "w_um": 16.0
-      }
+        "w_um": 16.0,
+        "as_um2": 12.8,
+        "ad_um2": 12.8,
+        "ps_um": 33.6,
+        "pd_um": 33.6
+      },
+      "instance_path": []
     },
     {
       "name": "$32",
@@ -624,12 +815,17 @@
         "s": "NT",
         "g": "NA",
         "d": "N1",
-        "b": "$28"
+        "b": "\\$28"
       },
       "params": {
         "l_um": 4.0,
-        "w_um": 16.0
-      }
+        "w_um": 16.0,
+        "as_um2": 12.8,
+        "ad_um2": 12.8,
+        "ps_um": 33.6,
+        "pd_um": 33.6
+      },
+      "instance_path": []
     },
     {
       "name": "$33",
@@ -638,12 +834,17 @@
         "s": "NT",
         "g": "NT",
         "d": "NT",
-        "b": "$28"
+        "b": "\\$28"
       },
       "params": {
         "l_um": 4.0,
-        "w_um": 16.0
-      }
+        "w_um": 16.0,
+        "as_um2": 12.8,
+        "ad_um2": 12.8,
+        "ps_um": 33.6,
+        "pd_um": 33.6
+      },
+      "instance_path": []
     },
     {
       "name": "$34",
@@ -652,12 +853,17 @@
         "s": "VDD",
         "g": "PB",
         "d": "NT",
-        "b": "$29"
+        "b": "\\$29"
       },
       "params": {
         "l_um": 4.0,
-        "w_um": 20.0
-      }
+        "w_um": 20.0,
+        "as_um2": 16.0,
+        "ad_um2": 16.0,
+        "ps_um": 41.6,
+        "pd_um": 41.6
+      },
+      "instance_path": []
     },
     {
       "name": "$35",
@@ -666,12 +872,17 @@
         "s": "VDD",
         "g": "VDD",
         "d": "VDD",
-        "b": "$29"
+        "b": "\\$29"
       },
       "params": {
         "l_um": 4.0,
-        "w_um": 4.0
-      }
+        "w_um": 4.0,
+        "as_um2": 3.2,
+        "ad_um2": 3.2,
+        "ps_um": 9.6,
+        "pd_um": 9.6
+      },
+      "instance_path": []
     },
     {
       "name": "$36",
@@ -680,12 +891,17 @@
         "s": "VDD",
         "g": "PG",
         "d": "M1D",
-        "b": "$29"
+        "b": "\\$29"
       },
       "params": {
         "l_um": 4.0,
-        "w_um": 4.0
-      }
+        "w_um": 4.0,
+        "as_um2": 3.2,
+        "ad_um2": 3.2,
+        "ps_um": 9.6,
+        "pd_um": 9.6
+      },
+      "instance_path": []
     },
     {
       "name": "$37",
@@ -694,12 +910,17 @@
         "s": "M1D",
         "g": "PCAS",
         "d": "NA",
-        "b": "$29"
+        "b": "\\$29"
       },
       "params": {
         "l_um": 1.0,
-        "w_um": 4.0
-      }
+        "w_um": 4.0,
+        "as_um2": 3.2,
+        "ad_um2": 3.2,
+        "ps_um": 9.6,
+        "pd_um": 9.6
+      },
+      "instance_path": []
     },
     {
       "name": "$38",
@@ -708,12 +929,17 @@
         "s": "VDD",
         "g": "PG",
         "d": "M2D",
-        "b": "$29"
+        "b": "\\$29"
       },
       "params": {
         "l_um": 4.0,
-        "w_um": 4.0
-      }
+        "w_um": 4.0,
+        "as_um2": 3.2,
+        "ad_um2": 3.2,
+        "ps_um": 9.6,
+        "pd_um": 9.6
+      },
+      "instance_path": []
     },
     {
       "name": "$39",
@@ -722,12 +948,17 @@
         "s": "M2D",
         "g": "PCAS",
         "d": "NB",
-        "b": "$29"
+        "b": "\\$29"
       },
       "params": {
         "l_um": 1.0,
-        "w_um": 4.0
-      }
+        "w_um": 4.0,
+        "as_um2": 3.2,
+        "ad_um2": 3.2,
+        "ps_um": 9.6,
+        "pd_um": 9.6
+      },
+      "instance_path": []
     },
     {
       "name": "$4",
@@ -736,12 +967,17 @@
         "s": "VSS",
         "g": "N1",
         "d": "N2",
-        "b": "vsubs"
+        "b": "VSS"
       },
       "params": {
         "l_um": 8.0,
-        "w_um": 4.0
-      }
+        "w_um": 4.0,
+        "as_um2": 3.2,
+        "ad_um2": 3.2,
+        "ps_um": 9.6,
+        "pd_um": 9.6
+      },
+      "instance_path": []
     },
     {
       "name": "$40",
@@ -750,12 +986,17 @@
         "s": "VDD",
         "g": "PG",
         "d": "M3D",
-        "b": "$29"
+        "b": "\\$29"
       },
       "params": {
         "l_um": 4.0,
-        "w_um": 4.0
-      }
+        "w_um": 4.0,
+        "as_um2": 3.2,
+        "ad_um2": 3.2,
+        "ps_um": 9.6,
+        "pd_um": 9.6
+      },
+      "instance_path": []
     },
     {
       "name": "$41",
@@ -764,12 +1005,17 @@
         "s": "M3D",
         "g": "PCAS",
         "d": "PTAT",
-        "b": "$29"
+        "b": "\\$29"
       },
       "params": {
         "l_um": 1.0,
-        "w_um": 4.0
-      }
+        "w_um": 4.0,
+        "as_um2": 3.2,
+        "ad_um2": 3.2,
+        "ps_um": 9.6,
+        "pd_um": 9.6
+      },
+      "instance_path": []
     },
     {
       "name": "$42",
@@ -778,12 +1024,17 @@
         "s": "M3D",
         "g": "PCAS",
         "d": "PTAT",
-        "b": "$29"
+        "b": "\\$29"
       },
       "params": {
         "l_um": 1.0,
-        "w_um": 4.0
-      }
+        "w_um": 4.0,
+        "as_um2": 3.2,
+        "ad_um2": 3.2,
+        "ps_um": 9.6,
+        "pd_um": 9.6
+      },
+      "instance_path": []
     },
     {
       "name": "$43",
@@ -792,12 +1043,17 @@
         "s": "VDD",
         "g": "PG",
         "d": "M3D",
-        "b": "$29"
+        "b": "\\$29"
       },
       "params": {
         "l_um": 4.0,
-        "w_um": 4.0
-      }
+        "w_um": 4.0,
+        "as_um2": 3.2,
+        "ad_um2": 3.2,
+        "ps_um": 9.6,
+        "pd_um": 9.6
+      },
+      "instance_path": []
     },
     {
       "name": "$44",
@@ -806,12 +1062,17 @@
         "s": "M2D",
         "g": "PCAS",
         "d": "NB",
-        "b": "$29"
+        "b": "\\$29"
       },
       "params": {
         "l_um": 1.0,
-        "w_um": 4.0
-      }
+        "w_um": 4.0,
+        "as_um2": 3.2,
+        "ad_um2": 3.2,
+        "ps_um": 9.6,
+        "pd_um": 9.6
+      },
+      "instance_path": []
     },
     {
       "name": "$45",
@@ -820,12 +1081,17 @@
         "s": "VDD",
         "g": "PG",
         "d": "M2D",
-        "b": "$29"
+        "b": "\\$29"
       },
       "params": {
         "l_um": 4.0,
-        "w_um": 4.0
-      }
+        "w_um": 4.0,
+        "as_um2": 3.2,
+        "ad_um2": 3.2,
+        "ps_um": 9.6,
+        "pd_um": 9.6
+      },
+      "instance_path": []
     },
     {
       "name": "$46",
@@ -834,12 +1100,17 @@
         "s": "M1D",
         "g": "PCAS",
         "d": "NA",
-        "b": "$29"
+        "b": "\\$29"
       },
       "params": {
         "l_um": 1.0,
-        "w_um": 4.0
-      }
+        "w_um": 4.0,
+        "as_um2": 3.2,
+        "ad_um2": 3.2,
+        "ps_um": 9.6,
+        "pd_um": 9.6
+      },
+      "instance_path": []
     },
     {
       "name": "$47",
@@ -848,12 +1119,17 @@
         "s": "VDD",
         "g": "PG",
         "d": "M1D",
-        "b": "$29"
+        "b": "\\$29"
       },
       "params": {
         "l_um": 4.0,
-        "w_um": 4.0
-      }
+        "w_um": 4.0,
+        "as_um2": 3.2,
+        "ad_um2": 3.2,
+        "ps_um": 9.6,
+        "pd_um": 9.6
+      },
+      "instance_path": []
     },
     {
       "name": "$48",
@@ -862,12 +1138,17 @@
         "s": "VDD",
         "g": "VDD",
         "d": "VDD",
-        "b": "$29"
+        "b": "\\$29"
       },
       "params": {
         "l_um": 4.0,
-        "w_um": 4.0
-      }
+        "w_um": 4.0,
+        "as_um2": 3.2,
+        "ad_um2": 3.2,
+        "ps_um": 9.6,
+        "pd_um": 9.6
+      },
+      "instance_path": []
     },
     {
       "name": "$49",
@@ -876,12 +1157,17 @@
         "s": "VDD",
         "g": "PB",
         "d": "PG",
-        "b": "$29"
+        "b": "\\$29"
       },
       "params": {
         "l_um": 4.0,
-        "w_um": 10.0
-      }
+        "w_um": 10.0,
+        "as_um2": 8.0,
+        "ad_um2": 8.0,
+        "ps_um": 21.6,
+        "pd_um": 21.6
+      },
+      "instance_path": []
     },
     {
       "name": "$5",
@@ -890,12 +1176,17 @@
         "s": "VSS",
         "g": "N1",
         "d": "N1",
-        "b": "vsubs"
+        "b": "VSS"
       },
       "params": {
         "l_um": 8.0,
-        "w_um": 4.0
-      }
+        "w_um": 4.0,
+        "as_um2": 3.2,
+        "ad_um2": 3.2,
+        "ps_um": 9.6,
+        "pd_um": 9.6
+      },
+      "instance_path": []
     },
     {
       "name": "$50",
@@ -904,12 +1195,17 @@
         "s": "VDD",
         "g": "PB",
         "d": "PB",
-        "b": "$29"
+        "b": "\\$29"
       },
       "params": {
         "l_um": 4.0,
-        "w_um": 10.0
-      }
+        "w_um": 10.0,
+        "as_um2": 8.0,
+        "ad_um2": 8.0,
+        "ps_um": 21.6,
+        "pd_um": 21.6
+      },
+      "instance_path": []
     },
     {
       "name": "$51",
@@ -918,12 +1214,17 @@
         "s": "VDD",
         "g": "PCAS",
         "d": "PCAS",
-        "b": "$29"
+        "b": "\\$29"
       },
       "params": {
         "l_um": 8.0,
-        "w_um": 1.0
-      }
+        "w_um": 1.0,
+        "as_um2": 0.8,
+        "ad_um2": 0.8,
+        "ps_um": 3.6,
+        "pd_um": 3.6
+      },
+      "instance_path": []
     },
     {
       "name": "$52",
@@ -932,12 +1233,17 @@
         "s": "VDD",
         "g": "EN",
         "d": "ENB",
-        "b": "$29"
+        "b": "\\$29"
       },
       "params": {
         "l_um": 0.5,
-        "w_um": 2.0
-      }
+        "w_um": 2.0,
+        "as_um2": 1.6,
+        "ad_um2": 1.6,
+        "ps_um": 5.6,
+        "pd_um": 5.6
+      },
+      "instance_path": []
     },
     {
       "name": "$53",
@@ -946,12 +1252,17 @@
         "s": "VDD",
         "g": "PB",
         "d": "ND",
-        "b": "$29"
+        "b": "\\$29"
       },
       "params": {
         "l_um": 8.0,
-        "w_um": 1.0
-      }
+        "w_um": 1.0,
+        "as_um2": 0.8,
+        "ad_um2": 0.8,
+        "ps_um": 3.6,
+        "pd_um": 3.6
+      },
+      "instance_path": []
     },
     {
       "name": "$54",
@@ -960,12 +1271,17 @@
         "s": "VDD",
         "g": "PG",
         "d": "NR",
-        "b": "$29"
+        "b": "\\$29"
       },
       "params": {
         "l_um": 4.0,
-        "w_um": 1.0
-      }
+        "w_um": 1.0,
+        "as_um2": 0.8,
+        "ad_um2": 0.8,
+        "ps_um": 3.6,
+        "pd_um": 3.6
+      },
+      "instance_path": []
     },
     {
       "name": "$55",
@@ -974,52 +1290,61 @@
         "s": "VDD",
         "g": "EN",
         "d": "PG",
-        "b": "$29"
+        "b": "\\$29"
       },
       "params": {
         "l_um": 0.5,
-        "w_um": 4.0
-      }
+        "w_um": 4.0,
+        "as_um2": 3.2,
+        "ad_um2": 3.2,
+        "ps_um": 9.6,
+        "pd_um": 9.6
+      },
+      "instance_path": []
     },
     {
       "name": "$56",
       "class": "bjt",
       "nets": {
-        "c": "vsubs",
-        "b": "$53",
+        "c": "VSS",
+        "b": "VSS",
         "e": "NC"
       },
-      "params": {}
+      "params": {},
+      "instance_path": []
     },
     {
       "name": "$57",
       "class": "bjt",
       "nets": {
-        "c": "vsubs",
-        "b": "$53",
+        "c": "VSS",
+        "b": "VSS",
         "e": "NC"
       },
-      "params": {}
+      "params": {},
+      "instance_path": []
     },
     {
       "name": "$58",
       "class": "bjt",
       "nets": {
-        "c": "vsubs",
-        "b": "$53",
+        "c": "VSS",
+        "b": "VSS",
         "e": "NC"
       },
-      "params": {}
+      "params": {},
+      "instance_path": []
     },
     {
       "name": "$59",
       "class": "bjt",
       "nets": {
-        "c": "vsubs",
-        "b": "$53",
+        "c": "VSS",
+        "b": "VSS",
         "e": "NC"
       },
-      "params": {}
+      "params": {},
+      "instance_path": []
     },
     {
       "name": "$6",
@@ -1028,62 +1353,72 @@
         "s": "VSS",
         "g": "VSS",
         "d": "VSS",
-        "b": "vsubs"
+        "b": "VSS"
       },
       "params": {
         "l_um": 8.0,
-        "w_um": 4.0
-      }
+        "w_um": 4.0,
+        "as_um2": 3.2,
+        "ad_um2": 3.2,
+        "ps_um": 9.6,
+        "pd_um": 9.6
+      },
+      "instance_path": []
     },
     {
       "name": "$60",
       "class": "bjt",
       "nets": {
-        "c": "vsubs",
-        "b": "$53",
+        "c": "VSS",
+        "b": "VSS",
         "e": "NA"
       },
-      "params": {}
+      "params": {},
+      "instance_path": []
     },
     {
       "name": "$61",
       "class": "bjt",
       "nets": {
-        "c": "vsubs",
-        "b": "$53",
+        "c": "VSS",
+        "b": "VSS",
         "e": "NC"
       },
-      "params": {}
+      "params": {},
+      "instance_path": []
     },
     {
       "name": "$62",
       "class": "bjt",
       "nets": {
-        "c": "vsubs",
-        "b": "$53",
+        "c": "VSS",
+        "b": "VSS",
         "e": "NC"
       },
-      "params": {}
+      "params": {},
+      "instance_path": []
     },
     {
       "name": "$63",
       "class": "bjt",
       "nets": {
-        "c": "vsubs",
-        "b": "$53",
+        "c": "VSS",
+        "b": "VSS",
         "e": "NC"
       },
-      "params": {}
+      "params": {},
+      "instance_path": []
     },
     {
       "name": "$64",
       "class": "bjt",
       "nets": {
-        "c": "vsubs",
-        "b": "$53",
+        "c": "VSS",
+        "b": "VSS",
         "e": "NC"
       },
-      "params": {}
+      "params": {},
+      "instance_path": []
     },
     {
       "name": "$65",
@@ -1093,69 +1428,79 @@
         "b": "NZ"
       },
       "params": {
-        "c_f": 2.88e-13,
-        "area_um2": 144.0
-      }
+        "c_f": 2.979984e-13,
+        "area_um2": 144.0,
+        "perimeter_um": 48.0
+      },
+      "instance_path": []
     },
     {
       "name": "$66",
       "class": "ppolyf_u",
       "nets": {
         "a": "NB",
-        "b": "$70",
-        "w": "vsubs"
+        "b": "\\$69",
+        "w": "VSS"
       },
       "params": {
         "r_ohm": 10453.625,
         "l_um": 59.735,
         "w_um": 2.0,
-        "area_um2": 119.47
-      }
+        "area_um2": 119.47,
+        "perimeter_um": 123.47
+      },
+      "instance_path": []
     },
     {
       "name": "$67",
       "class": "ppolyf_u",
       "nets": {
         "a": "NC",
-        "b": "$70",
-        "w": "vsubs"
+        "b": "\\$69",
+        "w": "VSS"
       },
       "params": {
         "r_ohm": 10453.625,
         "l_um": 59.735,
         "w_um": 2.0,
-        "area_um2": 119.47
-      }
+        "area_um2": 119.47,
+        "perimeter_um": 123.47
+      },
+      "instance_path": []
     },
     {
       "name": "$68",
       "class": "ppolyf_u",
       "nets": {
         "a": "NA",
-        "b": "$68",
-        "w": "vsubs"
+        "b": "\\$62",
+        "w": "VSS"
       },
       "params": {
         "r_ohm": 9716.875,
         "l_um": 55.525,
         "w_um": 2.0,
-        "area_um2": 111.05
-      }
+        "area_um2": 111.05,
+        "perimeter_um": 115.05
+      },
+      "instance_path": []
     },
     {
       "name": "$69",
       "class": "ppolyf_u",
       "nets": {
         "a": "CTAT",
-        "b": "$68",
-        "w": "vsubs"
+        "b": "\\$62",
+        "w": "VSS"
       },
       "params": {
         "r_ohm": 9716.875,
         "l_um": 55.525,
         "w_um": 2.0,
-        "area_um2": 111.05
-      }
+        "area_um2": 111.05,
+        "perimeter_um": 115.05
+      },
+      "instance_path": []
     },
     {
       "name": "$7",
@@ -1164,162 +1509,187 @@
         "s": "VSS",
         "g": "N2",
         "d": "PG",
-        "b": "vsubs"
+        "b": "VSS"
       },
       "params": {
         "l_um": 8.0,
-        "w_um": 8.0
-      }
+        "w_um": 8.0,
+        "as_um2": 6.4,
+        "ad_um2": 6.4,
+        "ps_um": 17.6,
+        "pd_um": 17.6
+      },
+      "instance_path": []
     },
     {
       "name": "$70",
       "class": "ppolyf_u",
       "nets": {
         "a": "NZ",
-        "b": "$71",
-        "w": "vsubs"
+        "b": "\\$70",
+        "w": "VSS"
       },
       "params": {
         "r_ohm": 17500.0,
         "l_um": 100.0,
         "w_um": 2.0,
-        "area_um2": 200.0
-      }
+        "area_um2": 200.0,
+        "perimeter_um": 204.0
+      },
+      "instance_path": []
     },
     {
       "name": "$71",
       "class": "ppolyf_u",
       "nets": {
-        "a": "$30",
-        "b": "$71",
-        "w": "vsubs"
+        "a": "\\$30",
+        "b": "\\$70",
+        "w": "VSS"
       },
       "params": {
         "r_ohm": 17500.0,
         "l_um": 100.0,
         "w_um": 2.0,
-        "area_um2": 200.0
-      }
+        "area_um2": 200.0,
+        "perimeter_um": 204.0
+      },
+      "instance_path": []
     },
     {
       "name": "$72",
       "class": "ppolyf_u",
       "nets": {
-        "a": "$30",
-        "b": "$72",
-        "w": "vsubs"
+        "a": "\\$30",
+        "b": "\\$71",
+        "w": "VSS"
       },
       "params": {
         "r_ohm": 17500.0,
         "l_um": 100.0,
         "w_um": 2.0,
-        "area_um2": 200.0
-      }
+        "area_um2": 200.0,
+        "perimeter_um": 204.0
+      },
+      "instance_path": []
     },
     {
       "name": "$73",
       "class": "ppolyf_u",
       "nets": {
-        "a": "$31",
-        "b": "$72",
-        "w": "vsubs"
+        "a": "\\$31",
+        "b": "\\$71",
+        "w": "VSS"
       },
       "params": {
         "r_ohm": 17500.0,
         "l_um": 100.0,
         "w_um": 2.0,
-        "area_um2": 200.0
-      }
+        "area_um2": 200.0,
+        "perimeter_um": 204.0
+      },
+      "instance_path": []
     },
     {
       "name": "$74",
       "class": "ppolyf_u",
       "nets": {
-        "a": "$31",
-        "b": "$73",
-        "w": "vsubs"
+        "a": "\\$31",
+        "b": "\\$72",
+        "w": "VSS"
       },
       "params": {
         "r_ohm": 17500.0,
         "l_um": 100.0,
         "w_um": 2.0,
-        "area_um2": 200.0
-      }
+        "area_um2": 200.0,
+        "perimeter_um": 204.0
+      },
+      "instance_path": []
     },
     {
       "name": "$75",
       "class": "ppolyf_u",
       "nets": {
-        "a": "$32",
-        "b": "$73",
-        "w": "vsubs"
+        "a": "\\$32",
+        "b": "\\$72",
+        "w": "VSS"
       },
       "params": {
         "r_ohm": 17500.0,
         "l_um": 100.0,
         "w_um": 2.0,
-        "area_um2": 200.0
-      }
+        "area_um2": 200.0,
+        "perimeter_um": 204.0
+      },
+      "instance_path": []
     },
     {
       "name": "$76",
       "class": "ppolyf_u",
       "nets": {
-        "a": "$32",
-        "b": "$74",
-        "w": "vsubs"
+        "a": "\\$32",
+        "b": "\\$73",
+        "w": "VSS"
       },
       "params": {
         "r_ohm": 17500.0,
         "l_um": 100.0,
         "w_um": 2.0,
-        "area_um2": 200.0
-      }
+        "area_um2": 200.0,
+        "perimeter_um": 204.0
+      },
+      "instance_path": []
     },
     {
       "name": "$77",
       "class": "ppolyf_u",
       "nets": {
-        "a": "$33",
-        "b": "$74",
-        "w": "vsubs"
+        "a": "\\$33",
+        "b": "\\$73",
+        "w": "VSS"
       },
       "params": {
         "r_ohm": 17500.0,
         "l_um": 100.0,
         "w_um": 2.0,
-        "area_um2": 200.0
-      }
+        "area_um2": 200.0,
+        "perimeter_um": 204.0
+      },
+      "instance_path": []
     },
     {
       "name": "$78",
       "class": "ppolyf_u",
       "nets": {
-        "a": "$33",
-        "b": "$75",
-        "w": "vsubs"
+        "a": "\\$33",
+        "b": "\\$74",
+        "w": "VSS"
       },
       "params": {
         "r_ohm": 17500.0,
         "l_um": 100.0,
         "w_um": 2.0,
-        "area_um2": 200.0
-      }
+        "area_um2": 200.0,
+        "perimeter_um": 204.0
+      },
+      "instance_path": []
     },
     {
       "name": "$79",
       "class": "ppolyf_u",
       "nets": {
         "a": "N2",
-        "b": "$75",
-        "w": "vsubs"
+        "b": "\\$74",
+        "w": "VSS"
       },
       "params": {
         "r_ohm": 17500.0,
         "l_um": 100.0,
         "w_um": 2.0,
-        "area_um2": 200.0
-      }
+        "area_um2": 200.0,
+        "perimeter_um": 204.0
+      },
+      "instance_path": []
     },
     {
       "name": "$8",
@@ -1328,162 +1698,187 @@
         "s": "VSS",
         "g": "NBG",
         "d": "IBIAS",
-        "b": "vsubs"
+        "b": "VSS"
       },
       "params": {
         "l_um": 2.0,
-        "w_um": 4.0
-      }
+        "w_um": 4.0,
+        "as_um2": 3.2,
+        "ad_um2": 3.2,
+        "ps_um": 9.6,
+        "pd_um": 9.6
+      },
+      "instance_path": []
     },
     {
       "name": "$80",
       "class": "ppolyf_u",
       "nets": {
         "a": "PTAT",
-        "b": "$76",
-        "w": "vsubs"
+        "b": "\\$75",
+        "w": "VSS"
       },
       "params": {
         "r_ohm": 19341.875,
         "l_um": 110.525,
         "w_um": 2.0,
-        "area_um2": 221.05
-      }
+        "area_um2": 221.05,
+        "perimeter_um": 225.05
+      },
+      "instance_path": []
     },
     {
       "name": "$81",
       "class": "ppolyf_u",
       "nets": {
-        "a": "$34",
-        "b": "$76",
-        "w": "vsubs"
+        "a": "\\$34",
+        "b": "\\$75",
+        "w": "VSS"
       },
       "params": {
         "r_ohm": 19341.875,
         "l_um": 110.525,
         "w_um": 2.0,
-        "area_um2": 221.05
-      }
+        "area_um2": 221.05,
+        "perimeter_um": 225.05
+      },
+      "instance_path": []
     },
     {
       "name": "$82",
       "class": "ppolyf_u",
       "nets": {
-        "a": "$34",
-        "b": "$77",
-        "w": "vsubs"
+        "a": "\\$34",
+        "b": "\\$76",
+        "w": "VSS"
       },
       "params": {
         "r_ohm": 19341.875,
         "l_um": 110.525,
         "w_um": 2.0,
-        "area_um2": 221.05
-      }
+        "area_um2": 221.05,
+        "perimeter_um": 225.05
+      },
+      "instance_path": []
     },
     {
       "name": "$83",
       "class": "ppolyf_u",
       "nets": {
-        "a": "$35",
-        "b": "$77",
-        "w": "vsubs"
+        "a": "\\$35",
+        "b": "\\$76",
+        "w": "VSS"
       },
       "params": {
         "r_ohm": 19341.875,
         "l_um": 110.525,
         "w_um": 2.0,
-        "area_um2": 221.05
-      }
+        "area_um2": 221.05,
+        "perimeter_um": 225.05
+      },
+      "instance_path": []
     },
     {
       "name": "$84",
       "class": "ppolyf_u",
       "nets": {
-        "a": "$35",
-        "b": "$78",
-        "w": "vsubs"
+        "a": "\\$35",
+        "b": "\\$77",
+        "w": "VSS"
       },
       "params": {
         "r_ohm": 19341.875,
         "l_um": 110.525,
         "w_um": 2.0,
-        "area_um2": 221.05
-      }
+        "area_um2": 221.05,
+        "perimeter_um": 225.05
+      },
+      "instance_path": []
     },
     {
       "name": "$85",
       "class": "ppolyf_u",
       "nets": {
-        "a": "$36",
-        "b": "$78",
-        "w": "vsubs"
+        "a": "\\$36",
+        "b": "\\$77",
+        "w": "VSS"
       },
       "params": {
         "r_ohm": 19341.875,
         "l_um": 110.525,
         "w_um": 2.0,
-        "area_um2": 221.05
-      }
+        "area_um2": 221.05,
+        "perimeter_um": 225.05
+      },
+      "instance_path": []
     },
     {
       "name": "$86",
       "class": "ppolyf_u",
       "nets": {
-        "a": "$36",
-        "b": "$79",
-        "w": "vsubs"
+        "a": "\\$36",
+        "b": "\\$78",
+        "w": "VSS"
       },
       "params": {
         "r_ohm": 19341.875,
         "l_um": 110.525,
         "w_um": 2.0,
-        "area_um2": 221.05
-      }
+        "area_um2": 221.05,
+        "perimeter_um": 225.05
+      },
+      "instance_path": []
     },
     {
       "name": "$87",
       "class": "ppolyf_u",
       "nets": {
-        "a": "$37",
-        "b": "$79",
-        "w": "vsubs"
+        "a": "\\$37",
+        "b": "\\$78",
+        "w": "VSS"
       },
       "params": {
         "r_ohm": 19341.875,
         "l_um": 110.525,
         "w_um": 2.0,
-        "area_um2": 221.05
-      }
+        "area_um2": 221.05,
+        "perimeter_um": 225.05
+      },
+      "instance_path": []
     },
     {
       "name": "$88",
       "class": "ppolyf_u",
       "nets": {
-        "a": "$37",
-        "b": "$80",
-        "w": "vsubs"
+        "a": "\\$37",
+        "b": "\\$79",
+        "w": "VSS"
       },
       "params": {
         "r_ohm": 19341.875,
         "l_um": 110.525,
         "w_um": 2.0,
-        "area_um2": 221.05
-      }
+        "area_um2": 221.05,
+        "perimeter_um": 225.05
+      },
+      "instance_path": []
     },
     {
       "name": "$89",
       "class": "ppolyf_u",
       "nets": {
-        "a": "$38",
-        "b": "$80",
-        "w": "vsubs"
+        "a": "\\$38",
+        "b": "\\$79",
+        "w": "VSS"
       },
       "params": {
         "r_ohm": 19341.875,
         "l_um": 110.525,
         "w_um": 2.0,
-        "area_um2": 221.05
-      }
+        "area_um2": 221.05,
+        "perimeter_um": 225.05
+      },
+      "instance_path": []
     },
     {
       "name": "$9",
@@ -1492,535 +1887,940 @@
         "s": "NBG",
         "g": "EN",
         "d": "IBIAS",
-        "b": "vsubs"
+        "b": "VSS"
       },
       "params": {
         "l_um": 0.5,
-        "w_um": 2.0
-      }
+        "w_um": 2.0,
+        "as_um2": 1.6,
+        "ad_um2": 1.6,
+        "ps_um": 5.6,
+        "pd_um": 5.6
+      },
+      "instance_path": []
     },
     {
       "name": "$90",
       "class": "ppolyf_u",
       "nets": {
-        "a": "$38",
-        "b": "$81",
-        "w": "vsubs"
+        "a": "\\$38",
+        "b": "\\$80",
+        "w": "VSS"
       },
       "params": {
         "r_ohm": 19341.875,
         "l_um": 110.525,
         "w_um": 2.0,
-        "area_um2": 221.05
-      }
+        "area_um2": 221.05,
+        "perimeter_um": 225.05
+      },
+      "instance_path": []
     },
     {
       "name": "$91",
       "class": "ppolyf_u",
       "nets": {
-        "a": "$39",
-        "b": "$81",
-        "w": "vsubs"
+        "a": "\\$39",
+        "b": "\\$80",
+        "w": "VSS"
       },
       "params": {
         "r_ohm": 19341.875,
         "l_um": 110.525,
         "w_um": 2.0,
-        "area_um2": 221.05
-      }
+        "area_um2": 221.05,
+        "perimeter_um": 225.05
+      },
+      "instance_path": []
     },
     {
       "name": "$92",
       "class": "ppolyf_u",
       "nets": {
-        "a": "$39",
-        "b": "$82",
-        "w": "vsubs"
+        "a": "\\$39",
+        "b": "\\$81",
+        "w": "VSS"
       },
       "params": {
         "r_ohm": 19341.875,
         "l_um": 110.525,
         "w_um": 2.0,
-        "area_um2": 221.05
-      }
+        "area_um2": 221.05,
+        "perimeter_um": 225.05
+      },
+      "instance_path": []
     },
     {
       "name": "$93",
       "class": "ppolyf_u",
       "nets": {
-        "a": "$40",
-        "b": "$82",
-        "w": "vsubs"
+        "a": "\\$40",
+        "b": "\\$81",
+        "w": "VSS"
       },
       "params": {
         "r_ohm": 19341.875,
         "l_um": 110.525,
         "w_um": 2.0,
-        "area_um2": 221.05
-      }
+        "area_um2": 221.05,
+        "perimeter_um": 225.05
+      },
+      "instance_path": []
     },
     {
       "name": "$94",
       "class": "ppolyf_u",
       "nets": {
-        "a": "$40",
-        "b": "$83",
-        "w": "vsubs"
+        "a": "\\$40",
+        "b": "\\$82",
+        "w": "VSS"
       },
       "params": {
         "r_ohm": 19341.875,
         "l_um": 110.525,
         "w_um": 2.0,
-        "area_um2": 221.05
-      }
+        "area_um2": 221.05,
+        "perimeter_um": 225.05
+      },
+      "instance_path": []
     },
     {
       "name": "$95",
       "class": "ppolyf_u",
       "nets": {
-        "a": "$41",
-        "b": "$83",
-        "w": "vsubs"
+        "a": "\\$41",
+        "b": "\\$82",
+        "w": "VSS"
       },
       "params": {
         "r_ohm": 19341.875,
         "l_um": 110.525,
         "w_um": 2.0,
-        "area_um2": 221.05
-      }
+        "area_um2": 221.05,
+        "perimeter_um": 225.05
+      },
+      "instance_path": []
     },
     {
       "name": "$96",
       "class": "ppolyf_u",
       "nets": {
-        "a": "$41",
-        "b": "$84",
-        "w": "vsubs"
+        "a": "\\$41",
+        "b": "\\$83",
+        "w": "VSS"
       },
       "params": {
         "r_ohm": 19341.875,
         "l_um": 110.525,
         "w_um": 2.0,
-        "area_um2": 221.05
-      }
+        "area_um2": 221.05,
+        "perimeter_um": 225.05
+      },
+      "instance_path": []
     },
     {
       "name": "$97",
       "class": "ppolyf_u",
       "nets": {
-        "a": "$42",
-        "b": "$84",
-        "w": "vsubs"
+        "a": "\\$42",
+        "b": "\\$83",
+        "w": "VSS"
       },
       "params": {
         "r_ohm": 19341.875,
         "l_um": 110.525,
         "w_um": 2.0,
-        "area_um2": 221.05
-      }
+        "area_um2": 221.05,
+        "perimeter_um": 225.05
+      },
+      "instance_path": []
     },
     {
       "name": "$98",
       "class": "ppolyf_u",
       "nets": {
-        "a": "$42",
-        "b": "$85",
-        "w": "vsubs"
+        "a": "\\$42",
+        "b": "\\$84",
+        "w": "VSS"
       },
       "params": {
         "r_ohm": 19341.875,
         "l_um": 110.525,
         "w_um": 2.0,
-        "area_um2": 221.05
-      }
+        "area_um2": 221.05,
+        "perimeter_um": 225.05
+      },
+      "instance_path": []
     },
     {
       "name": "$99",
       "class": "ppolyf_u",
       "nets": {
-        "a": "$43",
-        "b": "$85",
-        "w": "vsubs"
+        "a": "\\$43",
+        "b": "\\$84",
+        "w": "VSS"
       },
       "params": {
         "r_ohm": 19341.875,
         "l_um": 110.525,
         "w_um": 2.0,
-        "area_um2": 221.05
-      }
+        "area_um2": 221.05,
+        "perimeter_um": 225.05
+      },
+      "instance_path": []
     }
   ],
   "nets": [
     {
-      "name": "$28",
-      "pin": false,
-      "device_count": 6
-    },
-    {
-      "name": "$29",
-      "pin": false,
-      "device_count": 22
-    },
-    {
-      "name": "$30",
-      "pin": false,
-      "device_count": 2
-    },
-    {
-      "name": "$31",
-      "pin": false,
-      "device_count": 2
-    },
-    {
-      "name": "$32",
-      "pin": false,
-      "device_count": 2
-    },
-    {
-      "name": "$33",
-      "pin": false,
-      "device_count": 2
-    },
-    {
-      "name": "$34",
-      "pin": false,
-      "device_count": 2
-    },
-    {
-      "name": "$35",
-      "pin": false,
-      "device_count": 2
-    },
-    {
-      "name": "$36",
-      "pin": false,
-      "device_count": 2
-    },
-    {
-      "name": "$37",
-      "pin": false,
-      "device_count": 2
-    },
-    {
-      "name": "$38",
-      "pin": false,
-      "device_count": 2
-    },
-    {
-      "name": "$39",
-      "pin": false,
-      "device_count": 2
-    },
-    {
-      "name": "$40",
-      "pin": false,
-      "device_count": 2
-    },
-    {
-      "name": "$41",
-      "pin": false,
-      "device_count": 2
-    },
-    {
-      "name": "$42",
-      "pin": false,
-      "device_count": 2
-    },
-    {
-      "name": "$43",
-      "pin": false,
-      "device_count": 2
-    },
-    {
-      "name": "$44",
-      "pin": false,
-      "device_count": 2
-    },
-    {
-      "name": "$50",
-      "pin": false,
-      "device_count": 2
-    },
-    {
-      "name": "$51",
-      "pin": false,
-      "device_count": 2
-    },
-    {
-      "name": "$53",
-      "pin": false,
-      "device_count": 9
-    },
-    {
-      "name": "$56",
-      "pin": false,
-      "device_count": 2
-    },
-    {
-      "name": "$60",
-      "pin": false,
-      "device_count": 2
-    },
-    {
-      "name": "$68",
-      "pin": false,
-      "device_count": 2
-    },
-    {
-      "name": "$69",
-      "pin": false,
-      "device_count": 2
-    },
-    {
-      "name": "$70",
-      "pin": false,
-      "device_count": 2
-    },
-    {
-      "name": "$71",
-      "pin": false,
-      "device_count": 2
-    },
-    {
-      "name": "$72",
-      "pin": false,
-      "device_count": 2
-    },
-    {
-      "name": "$73",
-      "pin": false,
-      "device_count": 2
-    },
-    {
-      "name": "$74",
-      "pin": false,
-      "device_count": 2
-    },
-    {
-      "name": "$75",
-      "pin": false,
-      "device_count": 2
-    },
-    {
-      "name": "$76",
-      "pin": false,
-      "device_count": 2
-    },
-    {
-      "name": "$77",
-      "pin": false,
-      "device_count": 2
-    },
-    {
-      "name": "$78",
-      "pin": false,
-      "device_count": 2
-    },
-    {
-      "name": "$79",
-      "pin": false,
-      "device_count": 2
-    },
-    {
-      "name": "$80",
-      "pin": false,
-      "device_count": 2
-    },
-    {
-      "name": "$81",
-      "pin": false,
-      "device_count": 2
-    },
-    {
-      "name": "$82",
-      "pin": false,
-      "device_count": 2
-    },
-    {
-      "name": "$83",
-      "pin": false,
-      "device_count": 2
-    },
-    {
-      "name": "$84",
-      "pin": false,
-      "device_count": 2
-    },
-    {
-      "name": "$85",
-      "pin": false,
-      "device_count": 2
-    },
-    {
-      "name": "$86",
-      "pin": false,
-      "device_count": 2
-    },
-    {
-      "name": "$87",
-      "pin": false,
-      "device_count": 2
-    },
-    {
-      "name": "$88",
-      "pin": false,
-      "device_count": 2
-    },
-    {
       "name": "CTAT",
       "pin": true,
-      "device_count": 2
+      "device_count": 2,
+      "net_id": 12,
+      "pin_index": 0,
+      "label_positions_um": [
+        {
+          "text": "CTAT",
+          "x_um": -2.0,
+          "y_um": 22.0
+        }
+      ]
     },
     {
       "name": "EN",
       "pin": true,
-      "device_count": 4
+      "device_count": 4,
+      "net_id": 15,
+      "pin_index": 1,
+      "label_positions_um": [
+        {
+          "text": "EN",
+          "x_um": -2.0,
+          "y_um": 5.0
+        }
+      ]
     },
     {
       "name": "ENB",
       "pin": true,
-      "device_count": 8
+      "device_count": 8,
+      "net_id": 13,
+      "pin_index": 2,
+      "label_positions_um": [
+        {
+          "text": "ENB",
+          "x_um": -2.0,
+          "y_um": 6.0
+        }
+      ]
     },
     {
       "name": "IBIAS",
       "pin": true,
-      "device_count": 2
+      "device_count": 2,
+      "net_id": 9,
+      "pin_index": 3,
+      "label_positions_um": [
+        {
+          "text": "IBIAS",
+          "x_um": -2.0,
+          "y_um": 7.0
+        }
+      ]
     },
     {
       "name": "M1D",
       "pin": true,
-      "device_count": 4
+      "device_count": 4,
+      "net_id": 22,
+      "pin_index": 4,
+      "label_positions_um": [
+        {
+          "text": "M1D",
+          "x_um": -2.0,
+          "y_um": 17.0
+        }
+      ]
     },
     {
       "name": "M2D",
       "pin": true,
-      "device_count": 4
+      "device_count": 4,
+      "net_id": 21,
+      "pin_index": 5,
+      "label_positions_um": [
+        {
+          "text": "M2D",
+          "x_um": -2.0,
+          "y_um": 18.0
+        }
+      ]
     },
     {
       "name": "M3D",
       "pin": true,
-      "device_count": 4
+      "device_count": 4,
+      "net_id": 24,
+      "pin_index": 6,
+      "label_positions_um": [
+        {
+          "text": "M3D",
+          "x_um": -2.0,
+          "y_um": 19.0
+        }
+      ]
     },
     {
       "name": "N1",
       "pin": true,
-      "device_count": 8
+      "device_count": 8,
+      "net_id": 20,
+      "pin_index": 7,
+      "label_positions_um": [
+        {
+          "text": "N1",
+          "x_um": -2.0,
+          "y_um": 14.0
+        }
+      ]
     },
     {
       "name": "N2",
       "pin": true,
-      "device_count": 7
+      "device_count": 7,
+      "net_id": 8,
+      "pin_index": 8,
+      "label_positions_um": [
+        {
+          "text": "N2",
+          "x_um": -2.0,
+          "y_um": 15.0
+        }
+      ]
     },
     {
       "name": "NA",
       "pin": true,
-      "device_count": 6
+      "device_count": 6,
+      "net_id": 57,
+      "pin_index": 9,
+      "label_positions_um": [
+        {
+          "text": "NA",
+          "x_um": -2.0,
+          "y_um": 12.0
+        }
+      ]
     },
     {
       "name": "NB",
       "pin": true,
-      "device_count": 5
+      "device_count": 5,
+      "net_id": 23,
+      "pin_index": 10,
+      "label_positions_um": [
+        {
+          "text": "NB",
+          "x_um": -2.0,
+          "y_um": 13.0
+        }
+      ]
     },
     {
       "name": "NBG",
       "pin": true,
-      "device_count": 5
+      "device_count": 5,
+      "net_id": 17,
+      "pin_index": 11,
+      "label_positions_um": [
+        {
+          "text": "NBG",
+          "x_um": -2.0,
+          "y_um": 8.0
+        }
+      ]
     },
     {
       "name": "NC",
       "pin": true,
-      "device_count": 9
+      "device_count": 9,
+      "net_id": 53,
+      "pin_index": 12,
+      "label_positions_um": [
+        {
+          "text": "NC",
+          "x_um": -2.0,
+          "y_um": 30.0
+        }
+      ]
     },
     {
       "name": "ND",
       "pin": true,
-      "device_count": 4
+      "device_count": 4,
+      "net_id": 11,
+      "pin_index": 13,
+      "label_positions_um": [
+        {
+          "text": "ND",
+          "x_um": -2.0,
+          "y_um": 20.0
+        }
+      ]
     },
     {
       "name": "NR",
       "pin": true,
-      "device_count": 4
+      "device_count": 4,
+      "net_id": 26,
+      "pin_index": 14,
+      "label_positions_um": [
+        {
+          "text": "NR",
+          "x_um": -2.0,
+          "y_um": 21.0
+        }
+      ]
     },
     {
       "name": "NT",
       "pin": true,
-      "device_count": 12
+      "device_count": 12,
+      "net_id": 18,
+      "pin_index": 15,
+      "label_positions_um": [
+        {
+          "text": "NT",
+          "x_um": -2.0,
+          "y_um": 11.0
+        }
+      ]
     },
     {
       "name": "NZ",
       "pin": true,
-      "device_count": 2
+      "device_count": 2,
+      "net_id": 27,
+      "pin_index": 16,
+      "label_positions_um": [
+        {
+          "text": "NZ",
+          "x_um": -2.0,
+          "y_um": 31.0
+        }
+      ]
     },
     {
       "name": "PB",
       "pin": true,
-      "device_count": 6
+      "device_count": 6,
+      "net_id": 10,
+      "pin_index": 17,
+      "label_positions_um": [
+        {
+          "text": "PB",
+          "x_um": -2.0,
+          "y_um": 9.0
+        }
+      ]
     },
     {
       "name": "PCAS",
       "pin": true,
-      "device_count": 9
+      "device_count": 9,
+      "net_id": 16,
+      "pin_index": 18,
+      "label_positions_um": [
+        {
+          "text": "PCAS",
+          "x_um": -2.0,
+          "y_um": 10.0
+        }
+      ]
     },
     {
       "name": "PG",
       "pin": true,
-      "device_count": 12
+      "device_count": 12,
+      "net_id": 19,
+      "pin_index": 19,
+      "label_positions_um": [
+        {
+          "text": "PG",
+          "x_um": -2.0,
+          "y_um": 16.0
+        }
+      ]
     },
     {
       "name": "PTAT",
       "pin": true,
-      "device_count": 4
+      "device_count": 4,
+      "net_id": 25,
+      "pin_index": 20,
+      "label_positions_um": [
+        {
+          "text": "PTAT",
+          "x_um": -2.0,
+          "y_um": 23.0
+        }
+      ]
     },
     {
       "name": "T0",
       "pin": true,
-      "device_count": 4
+      "device_count": 4,
+      "net_id": 5,
+      "pin_index": 21,
+      "label_positions_um": [
+        {
+          "text": "T0",
+          "x_um": -2.0,
+          "y_um": 29.0
+        }
+      ]
     },
     {
       "name": "T1",
       "pin": true,
-      "device_count": 4
+      "device_count": 4,
+      "net_id": 6,
+      "pin_index": 22,
+      "label_positions_um": [
+        {
+          "text": "T1",
+          "x_um": -2.0,
+          "y_um": 28.0
+        }
+      ]
     },
     {
       "name": "T2",
       "pin": true,
-      "device_count": 4
+      "device_count": 4,
+      "net_id": 3,
+      "pin_index": 23,
+      "label_positions_um": [
+        {
+          "text": "T2",
+          "x_um": -2.0,
+          "y_um": 27.0
+        }
+      ]
     },
     {
       "name": "T3",
       "pin": true,
-      "device_count": 4
+      "device_count": 4,
+      "net_id": 4,
+      "pin_index": 24,
+      "label_positions_um": [
+        {
+          "text": "T3",
+          "x_um": -2.0,
+          "y_um": 26.0
+        }
+      ]
     },
     {
       "name": "T4",
       "pin": true,
-      "device_count": 4
+      "device_count": 4,
+      "net_id": 1,
+      "pin_index": 25,
+      "label_positions_um": [
+        {
+          "text": "T4",
+          "x_um": -2.0,
+          "y_um": 25.0
+        }
+      ]
     },
     {
       "name": "T5",
       "pin": true,
-      "device_count": 3
+      "device_count": 3,
+      "net_id": 2,
+      "pin_index": 26,
+      "label_positions_um": [
+        {
+          "text": "T5",
+          "x_um": -2.0,
+          "y_um": 24.0
+        }
+      ]
     },
     {
       "name": "VDD",
       "pin": true,
-      "device_count": 21
+      "device_count": 21,
+      "net_id": 14,
+      "pin_index": 27,
+      "label_positions_um": [
+        {
+          "text": "VDD",
+          "x_um": -2.0,
+          "y_um": 4.0
+        }
+      ]
     },
     {
       "name": "VSS",
       "pin": true,
-      "device_count": 31
+      "device_count": 126,
+      "net_id": 92,
+      "pin_index": 28,
+      "label_positions_um": [
+        {
+          "text": "VSS",
+          "x_um": -2.0,
+          "y_um": 3.0
+        }
+      ]
     },
     {
-      "name": "vsubs",
-      "pin": true,
-      "device_count": 86
+      "name": "\\$28",
+      "pin": false,
+      "device_count": 6,
+      "net_id": 28,
+      "pin_index": null,
+      "label_positions_um": []
+    },
+    {
+      "name": "\\$29",
+      "pin": false,
+      "device_count": 22,
+      "net_id": 29,
+      "pin_index": null,
+      "label_positions_um": []
+    },
+    {
+      "name": "\\$30",
+      "pin": false,
+      "device_count": 2,
+      "net_id": 30,
+      "pin_index": null,
+      "label_positions_um": []
+    },
+    {
+      "name": "\\$31",
+      "pin": false,
+      "device_count": 2,
+      "net_id": 31,
+      "pin_index": null,
+      "label_positions_um": []
+    },
+    {
+      "name": "\\$32",
+      "pin": false,
+      "device_count": 2,
+      "net_id": 32,
+      "pin_index": null,
+      "label_positions_um": []
+    },
+    {
+      "name": "\\$33",
+      "pin": false,
+      "device_count": 2,
+      "net_id": 33,
+      "pin_index": null,
+      "label_positions_um": []
+    },
+    {
+      "name": "\\$34",
+      "pin": false,
+      "device_count": 2,
+      "net_id": 34,
+      "pin_index": null,
+      "label_positions_um": []
+    },
+    {
+      "name": "\\$35",
+      "pin": false,
+      "device_count": 2,
+      "net_id": 35,
+      "pin_index": null,
+      "label_positions_um": []
+    },
+    {
+      "name": "\\$36",
+      "pin": false,
+      "device_count": 2,
+      "net_id": 36,
+      "pin_index": null,
+      "label_positions_um": []
+    },
+    {
+      "name": "\\$37",
+      "pin": false,
+      "device_count": 2,
+      "net_id": 37,
+      "pin_index": null,
+      "label_positions_um": []
+    },
+    {
+      "name": "\\$38",
+      "pin": false,
+      "device_count": 2,
+      "net_id": 38,
+      "pin_index": null,
+      "label_positions_um": []
+    },
+    {
+      "name": "\\$39",
+      "pin": false,
+      "device_count": 2,
+      "net_id": 39,
+      "pin_index": null,
+      "label_positions_um": []
+    },
+    {
+      "name": "\\$40",
+      "pin": false,
+      "device_count": 2,
+      "net_id": 40,
+      "pin_index": null,
+      "label_positions_um": []
+    },
+    {
+      "name": "\\$41",
+      "pin": false,
+      "device_count": 2,
+      "net_id": 41,
+      "pin_index": null,
+      "label_positions_um": []
+    },
+    {
+      "name": "\\$42",
+      "pin": false,
+      "device_count": 2,
+      "net_id": 42,
+      "pin_index": null,
+      "label_positions_um": []
+    },
+    {
+      "name": "\\$43",
+      "pin": false,
+      "device_count": 2,
+      "net_id": 43,
+      "pin_index": null,
+      "label_positions_um": []
+    },
+    {
+      "name": "\\$44",
+      "pin": false,
+      "device_count": 2,
+      "net_id": 44,
+      "pin_index": null,
+      "label_positions_um": []
+    },
+    {
+      "name": "\\$50",
+      "pin": false,
+      "device_count": 2,
+      "net_id": 50,
+      "pin_index": null,
+      "label_positions_um": []
+    },
+    {
+      "name": "\\$51",
+      "pin": false,
+      "device_count": 2,
+      "net_id": 51,
+      "pin_index": null,
+      "label_positions_um": []
+    },
+    {
+      "name": "\\$55",
+      "pin": false,
+      "device_count": 2,
+      "net_id": 55,
+      "pin_index": null,
+      "label_positions_um": []
+    },
+    {
+      "name": "\\$59",
+      "pin": false,
+      "device_count": 2,
+      "net_id": 59,
+      "pin_index": null,
+      "label_positions_um": []
+    },
+    {
+      "name": "\\$62",
+      "pin": false,
+      "device_count": 2,
+      "net_id": 62,
+      "pin_index": null,
+      "label_positions_um": []
+    },
+    {
+      "name": "\\$68",
+      "pin": false,
+      "device_count": 2,
+      "net_id": 68,
+      "pin_index": null,
+      "label_positions_um": []
+    },
+    {
+      "name": "\\$69",
+      "pin": false,
+      "device_count": 2,
+      "net_id": 69,
+      "pin_index": null,
+      "label_positions_um": []
+    },
+    {
+      "name": "\\$70",
+      "pin": false,
+      "device_count": 2,
+      "net_id": 70,
+      "pin_index": null,
+      "label_positions_um": []
+    },
+    {
+      "name": "\\$71",
+      "pin": false,
+      "device_count": 2,
+      "net_id": 71,
+      "pin_index": null,
+      "label_positions_um": []
+    },
+    {
+      "name": "\\$72",
+      "pin": false,
+      "device_count": 2,
+      "net_id": 72,
+      "pin_index": null,
+      "label_positions_um": []
+    },
+    {
+      "name": "\\$73",
+      "pin": false,
+      "device_count": 2,
+      "net_id": 73,
+      "pin_index": null,
+      "label_positions_um": []
+    },
+    {
+      "name": "\\$74",
+      "pin": false,
+      "device_count": 2,
+      "net_id": 74,
+      "pin_index": null,
+      "label_positions_um": []
+    },
+    {
+      "name": "\\$75",
+      "pin": false,
+      "device_count": 2,
+      "net_id": 75,
+      "pin_index": null,
+      "label_positions_um": []
+    },
+    {
+      "name": "\\$76",
+      "pin": false,
+      "device_count": 2,
+      "net_id": 76,
+      "pin_index": null,
+      "label_positions_um": []
+    },
+    {
+      "name": "\\$77",
+      "pin": false,
+      "device_count": 2,
+      "net_id": 77,
+      "pin_index": null,
+      "label_positions_um": []
+    },
+    {
+      "name": "\\$78",
+      "pin": false,
+      "device_count": 2,
+      "net_id": 78,
+      "pin_index": null,
+      "label_positions_um": []
+    },
+    {
+      "name": "\\$79",
+      "pin": false,
+      "device_count": 2,
+      "net_id": 79,
+      "pin_index": null,
+      "label_positions_um": []
+    },
+    {
+      "name": "\\$80",
+      "pin": false,
+      "device_count": 2,
+      "net_id": 80,
+      "pin_index": null,
+      "label_positions_um": []
+    },
+    {
+      "name": "\\$81",
+      "pin": false,
+      "device_count": 2,
+      "net_id": 81,
+      "pin_index": null,
+      "label_positions_um": []
+    },
+    {
+      "name": "\\$82",
+      "pin": false,
+      "device_count": 2,
+      "net_id": 82,
+      "pin_index": null,
+      "label_positions_um": []
+    },
+    {
+      "name": "\\$83",
+      "pin": false,
+      "device_count": 2,
+      "net_id": 83,
+      "pin_index": null,
+      "label_positions_um": []
+    },
+    {
+      "name": "\\$84",
+      "pin": false,
+      "device_count": 2,
+      "net_id": 84,
+      "pin_index": null,
+      "label_positions_um": []
+    },
+    {
+      "name": "\\$85",
+      "pin": false,
+      "device_count": 2,
+      "net_id": 85,
+      "pin_index": null,
+      "label_positions_um": []
+    },
+    {
+      "name": "\\$86",
+      "pin": false,
+      "device_count": 2,
+      "net_id": 86,
+      "pin_index": null,
+      "label_positions_um": []
+    },
+    {
+      "name": "\\$87",
+      "pin": false,
+      "device_count": 2,
+      "net_id": 87,
+      "pin_index": null,
+      "label_positions_um": []
     }
   ],
   "warnings": [
-    "110 poly-layer shapes not part of any recognised nfet/pfet gate touch contact at 2+ separate points (the resistor-body signature) and carry no resistor-marker layer at all; this deck may not model the device class drawn here, and its terminals have been absorbed into ordinary interconnect as an unintended short -- see docs/cli/extract.md's 'Known limitation: unmodelled device geometry'."
+    "110 poly-layer shapes not part of any recognised nfet/pfet gate touch contact at 2+ separate points (the resistor-body signature) and carry no resistor-marker layer at all; this deck may not model the device class drawn here, and its terminals have been absorbed into ordinary interconnect as an unintended short -- see docs/cli/extract.md's 'Known limitation: unmodelled device geometry'.",
+    "16 routing-stack clusters (16 shapes on 34/0) join no extracted net -- no via lands on this geometry and no same-layer wiring touches it, so it is invisible to the extracted netlist and to every downstream `klt lvs`/`klt sim` view; deliberate dead metal (artwork, fill) is expected here, unexplained dead metal usually means the connection you intended is missing -- see dead_metal[] for the per-cluster layer/bbox/shape count.",
+    "28 PMOS devices tie their body to an anonymous net with no DC bias path -- no drawn (or derivable) well tie connects this PMOS body to a real supply rail on this layout, so it is left floating rather than tied to a real supply rail; resimulating this netlist directly will not reproduce the schematic-level PMOS body bias -- see unbiased_pmos_body_nets[] for the full list. See docs/cli/extract.md's 'Parasitic (RC) extraction' section."
   ],
   "black_box_regions": [],
+  "abstracted_cells": [],
   "unmodelled_poly": [
     {
       "bbox_um": {
@@ -3014,19 +3814,355 @@
     }
   ],
   "merged_net_labels": [],
+  "voltage_domain_warnings": [],
+  "unbiased_pmos_body_nets": [
+    {
+      "device": "$28",
+      "net": "\\$28"
+    },
+    {
+      "device": "$29",
+      "net": "\\$28"
+    },
+    {
+      "device": "$30",
+      "net": "\\$28"
+    },
+    {
+      "device": "$31",
+      "net": "\\$28"
+    },
+    {
+      "device": "$32",
+      "net": "\\$28"
+    },
+    {
+      "device": "$33",
+      "net": "\\$28"
+    },
+    {
+      "device": "$34",
+      "net": "\\$29"
+    },
+    {
+      "device": "$35",
+      "net": "\\$29"
+    },
+    {
+      "device": "$36",
+      "net": "\\$29"
+    },
+    {
+      "device": "$37",
+      "net": "\\$29"
+    },
+    {
+      "device": "$38",
+      "net": "\\$29"
+    },
+    {
+      "device": "$39",
+      "net": "\\$29"
+    },
+    {
+      "device": "$40",
+      "net": "\\$29"
+    },
+    {
+      "device": "$41",
+      "net": "\\$29"
+    },
+    {
+      "device": "$42",
+      "net": "\\$29"
+    },
+    {
+      "device": "$43",
+      "net": "\\$29"
+    },
+    {
+      "device": "$44",
+      "net": "\\$29"
+    },
+    {
+      "device": "$45",
+      "net": "\\$29"
+    },
+    {
+      "device": "$46",
+      "net": "\\$29"
+    },
+    {
+      "device": "$47",
+      "net": "\\$29"
+    },
+    {
+      "device": "$48",
+      "net": "\\$29"
+    },
+    {
+      "device": "$49",
+      "net": "\\$29"
+    },
+    {
+      "device": "$50",
+      "net": "\\$29"
+    },
+    {
+      "device": "$51",
+      "net": "\\$29"
+    },
+    {
+      "device": "$52",
+      "net": "\\$29"
+    },
+    {
+      "device": "$53",
+      "net": "\\$29"
+    },
+    {
+      "device": "$54",
+      "net": "\\$29"
+    },
+    {
+      "device": "$55",
+      "net": "\\$29"
+    }
+  ],
+  "single_terminal_nets": [],
+  "dead_metal": [
+    {
+      "role": "metal0",
+      "layer": 34,
+      "datatype": 0,
+      "bbox_um": {
+        "left": 486.2,
+        "bottom": 62.2,
+        "right": 495.8,
+        "top": 71.8
+      },
+      "shapes": 1,
+      "area_um2": 92.16
+    },
+    {
+      "role": "metal0",
+      "layer": 34,
+      "datatype": 0,
+      "bbox_um": {
+        "left": 486.2,
+        "bottom": 76.2,
+        "right": 495.8,
+        "top": 85.8
+      },
+      "shapes": 1,
+      "area_um2": 92.16
+    },
+    {
+      "role": "metal0",
+      "layer": 34,
+      "datatype": 0,
+      "bbox_um": {
+        "left": 486.2,
+        "bottom": 90.2,
+        "right": 495.8,
+        "top": 99.8
+      },
+      "shapes": 1,
+      "area_um2": 92.16
+    },
+    {
+      "role": "metal0",
+      "layer": 34,
+      "datatype": 0,
+      "bbox_um": {
+        "left": 486.2,
+        "bottom": 104.2,
+        "right": 495.8,
+        "top": 113.8
+      },
+      "shapes": 1,
+      "area_um2": 92.16
+    },
+    {
+      "role": "metal0",
+      "layer": 34,
+      "datatype": 0,
+      "bbox_um": {
+        "left": 486.2,
+        "bottom": 118.2,
+        "right": 495.8,
+        "top": 127.8
+      },
+      "shapes": 1,
+      "area_um2": 92.16
+    },
+    {
+      "role": "metal0",
+      "layer": 34,
+      "datatype": 0,
+      "bbox_um": {
+        "left": 500.2,
+        "bottom": 62.2,
+        "right": 509.8,
+        "top": 71.8
+      },
+      "shapes": 1,
+      "area_um2": 92.16
+    },
+    {
+      "role": "metal0",
+      "layer": 34,
+      "datatype": 0,
+      "bbox_um": {
+        "left": 500.2,
+        "bottom": 118.2,
+        "right": 509.8,
+        "top": 127.8
+      },
+      "shapes": 1,
+      "area_um2": 92.16
+    },
+    {
+      "role": "metal0",
+      "layer": 34,
+      "datatype": 0,
+      "bbox_um": {
+        "left": 514.2,
+        "bottom": 62.2,
+        "right": 523.8,
+        "top": 71.8
+      },
+      "shapes": 1,
+      "area_um2": 92.16
+    },
+    {
+      "role": "metal0",
+      "layer": 34,
+      "datatype": 0,
+      "bbox_um": {
+        "left": 514.2,
+        "bottom": 118.2,
+        "right": 523.8,
+        "top": 127.8
+      },
+      "shapes": 1,
+      "area_um2": 92.16
+    },
+    {
+      "role": "metal0",
+      "layer": 34,
+      "datatype": 0,
+      "bbox_um": {
+        "left": 528.2,
+        "bottom": 62.2,
+        "right": 537.8,
+        "top": 71.8
+      },
+      "shapes": 1,
+      "area_um2": 92.16
+    },
+    {
+      "role": "metal0",
+      "layer": 34,
+      "datatype": 0,
+      "bbox_um": {
+        "left": 528.2,
+        "bottom": 118.2,
+        "right": 537.8,
+        "top": 127.8
+      },
+      "shapes": 1,
+      "area_um2": 92.16
+    },
+    {
+      "role": "metal0",
+      "layer": 34,
+      "datatype": 0,
+      "bbox_um": {
+        "left": 542.2,
+        "bottom": 62.2,
+        "right": 551.8,
+        "top": 71.8
+      },
+      "shapes": 1,
+      "area_um2": 92.16
+    },
+    {
+      "role": "metal0",
+      "layer": 34,
+      "datatype": 0,
+      "bbox_um": {
+        "left": 542.2,
+        "bottom": 76.2,
+        "right": 551.8,
+        "top": 85.8
+      },
+      "shapes": 1,
+      "area_um2": 92.16
+    },
+    {
+      "role": "metal0",
+      "layer": 34,
+      "datatype": 0,
+      "bbox_um": {
+        "left": 542.2,
+        "bottom": 90.2,
+        "right": 551.8,
+        "top": 99.8
+      },
+      "shapes": 1,
+      "area_um2": 92.16
+    },
+    {
+      "role": "metal0",
+      "layer": 34,
+      "datatype": 0,
+      "bbox_um": {
+        "left": 542.2,
+        "bottom": 104.2,
+        "right": 551.8,
+        "top": 113.8
+      },
+      "shapes": 1,
+      "area_um2": 92.16
+    },
+    {
+      "role": "metal0",
+      "layer": 34,
+      "datatype": 0,
+      "bbox_um": {
+        "left": 542.2,
+        "bottom": 118.2,
+        "right": 551.8,
+        "top": 127.8
+      },
+      "shapes": 1,
+      "area_um2": 92.16
+    }
+  ],
+  "matched_device_groups": [],
   "pdk": null,
   "provenance": {
-    "klt_version": "0.2.0",
-    "klayout_version": "0.30.10",
+    "klt_version": "0.6.0",
+    "klayout_version": "0.30.12",
     "pdk": null,
     "deck": {
       "name": "gf180mcu",
-      "content_hash": "sha256:1256c45b3e472635b03a1888d0730822c1872b4a912a2c90fc1e4e7cd14a3913"
+      "content_hash": "sha256:95c2eb9148b29ded02182aeca4222287ff57f813691d5e2f9f8d7a675f6cb637",
+      "released": false
     },
     "input": {
-      "content_hash": "sha256:360bbbea3f0659324430beb69c19ecee30d818111f6f00cfa62845932d7862a7"
+      "content_hash": "sha256:360bbbea3f0659324430beb69c19ecee30d818111f6f00cfa62845932d7862a7",
+      "role": "layout"
     },
     "gds_sha256": "360bbbea3f0659324430beb69c19ecee30d818111f6f00cfa62845932d7862a7"
   },
-  "parasitics": null
+  "parasitics": null,
+  "spef_path": null,
+  "subcircuit": null,
+  "metrics": {
+    "extract__device__count": 115,
+    "extract__net__count": 71,
+    "extract__pin__count": 29
+  }
 }

@@ -4,11 +4,65 @@
   "layout": "bias_core.gds",
   "reference": "bias_core.reference.spice",
   "top": "bias_core",
+  "reference_top": "BIAS_CORE",
+  "parameter_tolerance": null,
+  "options": {
+    "combine_devices": false,
+    "combine_devices_per_circuit": null,
+    "flatten_layout": false,
+    "flatten_reference": false,
+    "netgen_setup": null,
+    "parameter_tolerance": null,
+    "compare_parameters": null,
+    "power_connectivity": null,
+    "supply_nets": [
+      "GND",
+      "VCC",
+      "VDD",
+      "VGND",
+      "VPWR",
+      "VSS"
+    ]
+  },
+  "hints_applied": null,
   "status": "match",
+  "power_connectivity": {
+    "status": "unchecked",
+    "reason": "reference.form is 'plain-element', whose reference netlist carries its own power/ground pins and nets -- they take part in the ordinary compare, so this check (which exists to cover the signal-only 'gate-level-verilog' form) does not apply",
+    "power_pins": [],
+    "power_pins_derivation": null,
+    "instance_count": 0,
+    "expected_nets": null,
+    "unchecked_expected_pins": [],
+    "findings": [],
+    "finding_count": 0
+  },
+  "body_verification": {
+    "status": "unverified",
+    "reason": null,
+    "device_classes": [
+      "nfet",
+      "pfet"
+    ],
+    "device_count": 34,
+    "findings": [
+      {
+        "class": "nfet",
+        "device_count": 18
+      },
+      {
+        "class": "pfet",
+        "device_count": 16
+      }
+    ],
+    "finding_count": 2
+  },
   "mismatch_count": 2,
+  "error_count": 0,
   "category_counts": {
     "device.body_unverified": 2
   },
+  "category_error_counts": {},
   "counts": {
     "nets": {
       "layout": 50,
@@ -31,30 +85,37 @@
     "pfet",
     "bjt",
     "cap_mim_2f0_m4m5_noshield",
-    "resistor"
+    "resistor",
+    "diode_nd2ps_06v0",
+    "diode_pd2nw_06v0"
   ],
   "environment": {
     "engine": "klayout",
-    "engine_version": "0.30.10",
+    "engine_version": "0.30.12",
     "layout_sha256": "b2e68f8087bcf31cb329785109e93551ecc416b6659cc7c7d7b51ef79e4cdf96",
-    "reference_sha256": "4a7bdd2adf00999c4d0aa3ed98b357970ec997c0e397b10c66877107556c0552",
+    "reference_sha256": "26cb27bff3a6255ac25587ea3ff791ec32fffb2451d90c922ef6ca631c43cc91",
     "extracted_netlist": null
   },
   "provenance": {
-    "klt_version": "0.2.0",
-    "klayout_version": "0.30.10",
+    "klt_version": "0.6.0",
+    "klayout_version": "0.30.12",
     "pdk": null,
     "deck": {
       "name": "gf180mcu",
-      "content_hash": "sha256:1256c45b3e472635b03a1888d0730822c1872b4a912a2c90fc1e4e7cd14a3913"
+      "content_hash": "sha256:95c2eb9148b29ded02182aeca4222287ff57f813691d5e2f9f8d7a675f6cb637",
+      "released": false
     },
-    "input": null
+    "input": {
+      "content_hash": "sha256:b2e68f8087bcf31cb329785109e93551ecc416b6659cc7c7d7b51ef79e4cdf96",
+      "role": "layout"
+    },
+    "klayout_version_mismatch": true
   },
   "mismatches": [
     {
       "category": "device.body_unverified",
       "severity": "warning",
-      "description": "18 NMOS device body terminal(s) were compared against the 'vsubs' deck-synthesized substrate net, not a real schematic net -- this deck draws no distinct NMOS substrate/tap layer (see docs/cli/extract.md, \"Coverage\")",
+      "description": "18 NMOS device body terminal(s) were compared against the 'vsubs' deck-synthesized substrate net, not a real schematic net -- no drawn substrate-tap geometry resolved these device(s)' body terminal to a real net (see docs/cli/extract.md, \"Coverage\")",
       "side": "layout",
       "net": null,
       "device": {
@@ -63,12 +124,15 @@
         "class": "nfet"
       },
       "property": null,
-      "details": null
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
     },
     {
       "category": "device.body_unverified",
       "severity": "warning",
-      "description": "16 PMOS device body terminal(s) were compared against an anonymous, deck-synthesized well net, not a real schematic net -- this deck has no distinct well-tap layer (see docs/cli/extract.md, \"Coverage\")",
+      "description": "16 PMOS device body terminal(s) were compared against an anonymous, KLayout-synthesized well net, not a real schematic net -- no drawn or derived well-tap geometry resolved these device(s)' body terminal to a real net (see docs/cli/extract.md, \"Coverage\")",
       "side": "layout",
       "net": null,
       "device": {
@@ -77,7 +141,10 @@
         "class": "pfet"
       },
       "property": null,
-      "details": null
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
     }
   ],
   "net_correspondence": [
@@ -87,12 +154,12 @@
       "pin": true
     },
     {
-      "layout": "$25",
+      "layout": "\\$25",
       "reference": "EC",
       "pin": false
     },
     {
-      "layout": "$37",
+      "layout": "\\$37",
       "reference": "ER",
       "pin": false
     },
@@ -102,112 +169,112 @@
       "pin": true
     },
     {
-      "layout": "$18",
+      "layout": "\\$18",
       "reference": "KS1",
       "pin": false
     },
     {
-      "layout": "$19",
+      "layout": "\\$19",
       "reference": "KS2",
       "pin": false
     },
     {
-      "layout": "$20",
+      "layout": "\\$20",
       "reference": "KS3",
       "pin": false
     },
     {
-      "layout": "$21",
+      "layout": "\\$21",
       "reference": "KS4",
       "pin": false
     },
     {
-      "layout": "$11",
+      "layout": "\\$11",
       "reference": "N1",
       "pin": false
     },
     {
-      "layout": "$12",
+      "layout": "\\$12",
       "reference": "N2",
       "pin": false
     },
     {
-      "layout": "$4",
+      "layout": "\\$4",
       "reference": "NA",
       "pin": false
     },
     {
-      "layout": "$24",
+      "layout": "\\$24",
       "reference": "NB",
       "pin": false
     },
     {
-      "layout": "$7",
+      "layout": "\\$7",
       "reference": "NBG",
       "pin": false
     },
     {
-      "layout": "$5",
+      "layout": "\\$5",
       "reference": "NBTOP",
       "pin": false
     },
     {
-      "layout": "$22",
+      "layout": "\\$22",
       "reference": "NKG",
       "pin": false
     },
     {
-      "layout": "$13",
+      "layout": "\\$13",
       "reference": "NKM",
       "pin": false
     },
     {
-      "layout": "$16",
+      "layout": "\\$16",
       "reference": "NOKL",
       "pin": false
     },
     {
-      "layout": "$15",
+      "layout": "\\$15",
       "reference": "NOKO",
       "pin": false
     },
     {
-      "layout": "$17",
+      "layout": "\\$17",
       "reference": "NOKX",
       "pin": false
     },
     {
-      "layout": "$10",
+      "layout": "\\$10",
       "reference": "NT",
       "pin": false
     },
     {
-      "layout": "$38",
+      "layout": "\\$38",
       "reference": "NW1",
       "pin": false
     },
     {
-      "layout": "$27",
+      "layout": "\\$27",
       "reference": "NWQ",
       "pin": false
     },
     {
-      "layout": "$26",
+      "layout": "\\$26",
       "reference": "NZ",
       "pin": false
     },
     {
-      "layout": "$8",
+      "layout": "\\$8",
       "reference": "PB",
       "pin": false
     },
     {
-      "layout": "$3",
+      "layout": "\\$3",
       "reference": "PG",
       "pin": false
     },
     {
-      "layout": "$14",
+      "layout": "\\$14",
       "reference": "TOK",
       "pin": false
     },
@@ -232,103 +299,103 @@
       "pin": true
     },
     {
-      "layout": "$39",
-      "reference": "XR1.1",
+      "layout": "\\$39",
+      "reference": "XR1_1",
       "pin": false
     },
     {
-      "layout": "$44",
-      "reference": "XR2.1",
+      "layout": "\\$44",
+      "reference": "XR2_1",
       "pin": false
     },
     {
-      "layout": "$31",
-      "reference": "XR2.10",
+      "layout": "\\$31",
+      "reference": "XR2_10",
       "pin": false
     },
     {
-      "layout": "$43",
-      "reference": "XR2.11",
+      "layout": "\\$43",
+      "reference": "XR2_11",
       "pin": false
     },
     {
-      "layout": "$30",
-      "reference": "XR2.12",
+      "layout": "\\$30",
+      "reference": "XR2_12",
       "pin": false
     },
     {
-      "layout": "$42",
-      "reference": "XR2.13",
+      "layout": "\\$42",
+      "reference": "XR2_13",
       "pin": false
     },
     {
-      "layout": "$29",
-      "reference": "XR2.14",
+      "layout": "\\$29",
+      "reference": "XR2_14",
       "pin": false
     },
     {
-      "layout": "$49",
-      "reference": "XR2.15",
+      "layout": "\\$49",
+      "reference": "XR2_15",
       "pin": false
     },
     {
-      "layout": "$35",
-      "reference": "XR2.2",
+      "layout": "\\$35",
+      "reference": "XR2_2",
       "pin": false
     },
     {
-      "layout": "$45",
-      "reference": "XR2.3",
+      "layout": "\\$45",
+      "reference": "XR2_3",
       "pin": false
     },
     {
-      "layout": "$34",
-      "reference": "XR2.4",
+      "layout": "\\$34",
+      "reference": "XR2_4",
       "pin": false
     },
     {
-      "layout": "$46",
-      "reference": "XR2.5",
+      "layout": "\\$46",
+      "reference": "XR2_5",
       "pin": false
     },
     {
-      "layout": "$33",
-      "reference": "XR2.6",
+      "layout": "\\$33",
+      "reference": "XR2_6",
       "pin": false
     },
     {
-      "layout": "$47",
-      "reference": "XR2.7",
+      "layout": "\\$47",
+      "reference": "XR2_7",
       "pin": false
     },
     {
-      "layout": "$32",
-      "reference": "XR2.8",
+      "layout": "\\$32",
+      "reference": "XR2_8",
       "pin": false
     },
     {
-      "layout": "$48",
-      "reference": "XR2.9",
+      "layout": "\\$48",
+      "reference": "XR2_9",
       "pin": false
     },
     {
-      "layout": "$36",
-      "reference": "XRT.1",
+      "layout": "\\$36",
+      "reference": "XRT_1",
       "pin": false
     },
     {
-      "layout": "$41",
-      "reference": "XRZ.1",
+      "layout": "\\$41",
+      "reference": "XRZ_1",
       "pin": false
     },
     {
-      "layout": "$28",
-      "reference": "XRZ.2",
+      "layout": "\\$28",
+      "reference": "XRZ_2",
       "pin": false
     },
     {
-      "layout": "$40",
-      "reference": "XRZ.3",
+      "layout": "\\$40",
+      "reference": "XRZ_3",
       "pin": false
     }
   ]

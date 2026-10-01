@@ -1,11 +1,11 @@
 {
-  "schema_version": 1,
+  "schema_version": 3,
   "file": "layout/cells/por_comparator.gds",
   "deck": "gf180mcu",
   "top": "por_comparator",
   "dbu_um": 0.001,
   "netlist_path": "layout/reports/por_comparator/extracted.spice",
-  "netlist_sha256": "6bb7c546bf0cae8b8657b84ac3175d3b1bb86dde4ee8653fd3650bedb0947766",
+  "netlist_sha256": "25ef8fd24463f5d490d80e5fe5ede84cc11cccb6f129b7ebc2f49e36621ad0fe",
   "status": "extracted",
   "device_count": 21,
   "net_count": 18,
@@ -17,12 +17,31 @@
   },
   "dummy_devices_dropped": 0,
   "ignored_layers": [],
+  "device_recognition_only_layers": [
+    {
+      "layer": 49,
+      "datatype": 0,
+      "shapes": 227
+    },
+    {
+      "layer": 62,
+      "datatype": 0,
+      "shapes": 227
+    },
+    {
+      "layer": 110,
+      "datatype": 5,
+      "shapes": 227
+    }
+  ],
   "device_classes": [
     "nfet",
     "pfet",
     "bjt",
     "cap_mim_2f0_m4m5_noshield",
-    "resistor"
+    "resistor",
+    "diode_nd2ps_06v0",
+    "diode_pd2nw_06v0"
   ],
   "devices": [
     {
@@ -30,14 +49,19 @@
       "class": "nfet",
       "nets": {
         "s": "VSS",
-        "g": "$12",
-        "d": "$9",
+        "g": "\\$12",
+        "d": "\\$9",
         "b": "vsubs"
       },
       "params": {
         "l_um": 10.0,
-        "w_um": 1.0
-      }
+        "w_um": 1.0,
+        "as_um2": 0.8,
+        "ad_um2": 0.8,
+        "ps_um": 3.6,
+        "pd_um": 3.6
+      },
+      "instance_path": []
     },
     {
       "name": "$10",
@@ -45,13 +69,18 @@
       "nets": {
         "s": "VSS",
         "g": "BIAS_OKB",
-        "d": "$12",
+        "d": "\\$12",
         "b": "vsubs"
       },
       "params": {
         "l_um": 0.5,
-        "w_um": 2.0
-      }
+        "w_um": 2.0,
+        "as_um2": 1.6,
+        "ad_um2": 1.6,
+        "ps_um": 5.6,
+        "pd_um": 5.6
+      },
+      "instance_path": []
     },
     {
       "name": "$11",
@@ -59,83 +88,113 @@
       "nets": {
         "s": "VSS",
         "g": "BIAS_OKB",
-        "d": "$5",
+        "d": "\\$5",
         "b": "vsubs"
       },
       "params": {
         "l_um": 1.0,
-        "w_um": 2.0
-      }
+        "w_um": 2.0,
+        "as_um2": 1.6,
+        "ad_um2": 1.6,
+        "ps_um": 5.6,
+        "pd_um": 5.6
+      },
+      "instance_path": []
     },
     {
       "name": "$12",
       "class": "nfet",
       "nets": {
         "s": "VSS",
-        "g": "$7",
-        "d": "$14",
+        "g": "\\$7",
+        "d": "\\$14",
         "b": "vsubs"
       },
       "params": {
         "l_um": 0.5,
-        "w_um": 10.0
-      }
+        "w_um": 10.0,
+        "as_um2": 8.0,
+        "ad_um2": 8.0,
+        "ps_um": 21.6,
+        "pd_um": 21.6
+      },
+      "instance_path": []
     },
     {
       "name": "$13",
       "class": "pfet",
       "nets": {
         "s": "VDD",
-        "g": "$5",
-        "d": "$7",
-        "b": "$16"
+        "g": "\\$5",
+        "d": "\\$7",
+        "b": "\\$16"
       },
       "params": {
         "l_um": 0.5,
-        "w_um": 2.0
-      }
+        "w_um": 2.0,
+        "as_um2": 1.6,
+        "ad_um2": 1.6,
+        "ps_um": 5.6,
+        "pd_um": 5.6
+      },
+      "instance_path": []
     },
     {
       "name": "$14",
       "class": "pfet",
       "nets": {
         "s": "VDD",
-        "g": "$7",
+        "g": "\\$7",
         "d": "POR_RAW",
-        "b": "$16"
+        "b": "\\$16"
       },
       "params": {
         "l_um": 0.5,
-        "w_um": 2.0
-      }
+        "w_um": 2.0,
+        "as_um2": 1.6,
+        "ad_um2": 1.6,
+        "ps_um": 5.6,
+        "pd_um": 5.6
+      },
+      "instance_path": []
     },
     {
       "name": "$15",
       "class": "pfet",
       "nets": {
-        "s": "$3",
-        "g": "$4",
-        "d": "$4",
-        "b": "$16"
+        "s": "\\$3",
+        "g": "\\$4",
+        "d": "\\$4",
+        "b": "\\$16"
       },
       "params": {
         "l_um": 1.0,
-        "w_um": 4.0
-      }
+        "w_um": 4.0,
+        "as_um2": 3.2,
+        "ad_um2": 3.2,
+        "ps_um": 9.6,
+        "pd_um": 9.6
+      },
+      "instance_path": []
     },
     {
       "name": "$16",
       "class": "pfet",
       "nets": {
-        "s": "$3",
-        "g": "$4",
-        "d": "$5",
-        "b": "$16"
+        "s": "\\$3",
+        "g": "\\$4",
+        "d": "\\$5",
+        "b": "\\$16"
       },
       "params": {
         "l_um": 1.0,
-        "w_um": 4.0
-      }
+        "w_um": 4.0,
+        "as_um2": 3.2,
+        "ad_um2": 3.2,
+        "ps_um": 9.6,
+        "pd_um": 9.6
+      },
+      "instance_path": []
     },
     {
       "name": "$17",
@@ -143,13 +202,18 @@
       "nets": {
         "s": "VDD",
         "g": "BIAS_OKB",
-        "d": "$3",
-        "b": "$16"
+        "d": "\\$3",
+        "b": "\\$16"
       },
       "params": {
         "l_um": 0.5,
-        "w_um": 4.0
-      }
+        "w_um": 4.0,
+        "as_um2": 3.2,
+        "ad_um2": 3.2,
+        "ps_um": 9.6,
+        "pd_um": 9.6
+      },
+      "instance_path": []
     },
     {
       "name": "$18",
@@ -158,18 +222,28 @@
         "s": "VDD",
         "g": "BIAS_OK",
         "d": "BIAS_OKB",
-        "b": "$17"
+        "b": "\\$17"
       },
       "params": {
         "l_um": 0.5,
-        "w_um": 2.0
-      }
+        "w_um": 2.0,
+        "as_um2": 1.0,
+        "ad_um2": 1.6,
+        "ps_um": 5.0,
+        "pd_um": 5.6
+      },
+      "instance_path": [
+        {
+          "cell": "por_comparator_bias_okb_inv",
+          "array_index": null
+        }
+      ]
     },
     {
       "name": "$19",
       "class": "ppolyf_u_1k",
       "nets": {
-        "a": "$10",
+        "a": "\\$10",
         "b": "VDD",
         "w": "vsubs"
       },
@@ -177,8 +251,10 @@
         "r_ohm": 3948720.0,
         "l_um": 7897.44,
         "w_um": 2.0,
-        "area_um2": 15794.88
-      }
+        "area_um2": 15794.88,
+        "perimeter_um": 15798.88
+      },
+      "instance_path": []
     },
     {
       "name": "$2",
@@ -191,66 +267,85 @@
       },
       "params": {
         "l_um": 1.0,
-        "w_um": 1.0
-      }
+        "w_um": 1.0,
+        "as_um2": 0.8,
+        "ad_um2": 0.8,
+        "ps_um": 3.6,
+        "pd_um": 3.6
+      },
+      "instance_path": []
     },
     {
       "name": "$20",
       "class": "ppolyf_u_1k",
       "nets": {
-        "a": "$14",
-        "b": "$10",
+        "a": "\\$14",
+        "b": "\\$10",
         "w": "vsubs"
       },
       "params": {
         "r_ohm": 3384615.0,
         "l_um": 6769.23,
         "w_um": 2.0,
-        "area_um2": 13538.46
-      }
+        "area_um2": 13538.46,
+        "perimeter_um": 13542.46
+      },
+      "instance_path": []
     },
     {
       "name": "$21",
       "class": "ppolyf_u_1k",
       "nets": {
         "a": "VSS",
-        "b": "$14",
+        "b": "\\$14",
         "w": "vsubs"
       },
       "params": {
         "r_ohm": 387500.0,
         "l_um": 775.0,
         "w_um": 2.0,
-        "area_um2": 1550.0
-      }
+        "area_um2": 1550.0,
+        "perimeter_um": 1554.0
+      },
+      "instance_path": []
     },
     {
       "name": "$3",
       "class": "nfet",
       "nets": {
         "s": "VSS",
-        "g": "$5",
-        "d": "$7",
+        "g": "\\$5",
+        "d": "\\$7",
         "b": "vsubs"
       },
       "params": {
         "l_um": 0.5,
-        "w_um": 1.0
-      }
+        "w_um": 1.0,
+        "as_um2": 0.8,
+        "ad_um2": 0.8,
+        "ps_um": 3.6,
+        "pd_um": 3.6
+      },
+      "instance_path": []
     },
     {
       "name": "$4",
       "class": "nfet",
       "nets": {
         "s": "VSS",
-        "g": "$7",
+        "g": "\\$7",
         "d": "POR_RAW",
         "b": "vsubs"
       },
       "params": {
         "l_um": 0.5,
-        "w_um": 1.0
-      }
+        "w_um": 1.0,
+        "as_um2": 0.8,
+        "ad_um2": 0.8,
+        "ps_um": 3.6,
+        "pd_um": 3.6
+      },
+      "instance_path": []
     },
     {
       "name": "$5",
@@ -263,163 +358,302 @@
       },
       "params": {
         "l_um": 0.5,
-        "w_um": 1.0
-      }
+        "w_um": 1.0,
+        "as_um2": 0.5,
+        "ad_um2": 0.8,
+        "ps_um": 3.0,
+        "pd_um": 3.6
+      },
+      "instance_path": [
+        {
+          "cell": "por_comparator_bias_okb_inv",
+          "array_index": null
+        }
+      ]
     },
     {
       "name": "$6",
       "class": "nfet",
       "nets": {
-        "s": "$9",
-        "g": "$10",
-        "d": "$4",
+        "s": "\\$9",
+        "g": "\\$10",
+        "d": "\\$4",
         "b": "vsubs"
       },
       "params": {
         "l_um": 1.0,
-        "w_um": 2.0
-      }
+        "w_um": 2.0,
+        "as_um2": 1.6,
+        "ad_um2": 1.6,
+        "ps_um": 5.6,
+        "pd_um": 5.6
+      },
+      "instance_path": []
     },
     {
       "name": "$7",
       "class": "nfet",
       "nets": {
-        "s": "$9",
+        "s": "\\$9",
         "g": "VREF",
-        "d": "$5",
+        "d": "\\$5",
         "b": "vsubs"
       },
       "params": {
         "l_um": 1.0,
-        "w_um": 2.0
-      }
+        "w_um": 2.0,
+        "as_um2": 1.6,
+        "ad_um2": 1.6,
+        "ps_um": 5.6,
+        "pd_um": 5.6
+      },
+      "instance_path": []
     },
     {
       "name": "$8",
       "class": "nfet",
       "nets": {
         "s": "VSS",
-        "g": "$12",
+        "g": "\\$12",
         "d": "IBIAS",
         "b": "vsubs"
       },
       "params": {
         "l_um": 2.0,
-        "w_um": 2.0
-      }
+        "w_um": 2.0,
+        "as_um2": 1.6,
+        "ad_um2": 1.6,
+        "ps_um": 5.6,
+        "pd_um": 5.6
+      },
+      "instance_path": []
     },
     {
       "name": "$9",
       "class": "nfet",
       "nets": {
-        "s": "$12",
+        "s": "\\$12",
         "g": "BIAS_OK",
         "d": "IBIAS",
         "b": "vsubs"
       },
       "params": {
         "l_um": 0.5,
-        "w_um": 2.0
-      }
+        "w_um": 2.0,
+        "as_um2": 1.6,
+        "ad_um2": 1.6,
+        "ps_um": 5.6,
+        "pd_um": 5.6
+      },
+      "instance_path": []
     }
   ],
   "nets": [
     {
-      "name": "$10",
-      "pin": false,
-      "device_count": 3
-    },
-    {
-      "name": "$12",
-      "pin": false,
-      "device_count": 4
-    },
-    {
-      "name": "$14",
-      "pin": false,
-      "device_count": 3
-    },
-    {
-      "name": "$16",
-      "pin": false,
-      "device_count": 5
-    },
-    {
-      "name": "$17",
-      "pin": false,
-      "device_count": 1
-    },
-    {
-      "name": "$3",
-      "pin": false,
-      "device_count": 3
-    },
-    {
-      "name": "$4",
-      "pin": false,
-      "device_count": 4
-    },
-    {
-      "name": "$5",
-      "pin": false,
-      "device_count": 5
-    },
-    {
-      "name": "$7",
-      "pin": false,
-      "device_count": 5
-    },
-    {
-      "name": "$9",
-      "pin": false,
-      "device_count": 3
-    },
-    {
       "name": "BIAS_OK",
       "pin": true,
-      "device_count": 3
+      "device_count": 3,
+      "net_id": 15,
+      "pin_index": 0,
+      "label_positions_um": [
+        {
+          "text": "BIAS_OK",
+          "x_um": 72.6,
+          "y_um": 2.0
+        }
+      ]
     },
     {
       "name": "BIAS_OKB",
       "pin": true,
-      "device_count": 6
+      "device_count": 6,
+      "net_id": 6,
+      "pin_index": 1,
+      "label_positions_um": [
+        {
+          "text": "BIAS_OKB",
+          "x_um": 74.0,
+          "y_um": 2.0
+        }
+      ]
     },
     {
       "name": "IBIAS",
       "pin": true,
-      "device_count": 3
+      "device_count": 3,
+      "net_id": 13,
+      "pin_index": 2,
+      "label_positions_um": [
+        {
+          "text": "IBIAS",
+          "x_um": 43.55,
+          "y_um": 20.2
+        }
+      ]
     },
     {
       "name": "POR_RAW",
       "pin": true,
-      "device_count": 2
+      "device_count": 2,
+      "net_id": 8,
+      "pin_index": 3,
+      "label_positions_um": [
+        {
+          "text": "POR_RAW",
+          "x_um": 15.15,
+          "y_um": 18.6
+        }
+      ]
     },
     {
       "name": "VDD",
       "pin": true,
-      "device_count": 5
+      "device_count": 5,
+      "net_id": 2,
+      "pin_index": 4,
+      "label_positions_um": [
+        {
+          "text": "VDD",
+          "x_um": 66.6,
+          "y_um": 25.5
+        },
+        {
+          "text": "VDD",
+          "x_um": 72.6,
+          "y_um": 4.0
+        }
+      ]
     },
     {
       "name": "VREF",
       "pin": true,
-      "device_count": 1
+      "device_count": 1,
+      "net_id": 11,
+      "pin_index": 5,
+      "label_positions_um": [
+        {
+          "text": "VREF",
+          "x_um": 25.4,
+          "y_um": 14.6
+        }
+      ]
     },
     {
       "name": "VSS",
       "pin": true,
-      "device_count": 10
+      "device_count": 10,
+      "net_id": 1,
+      "pin_index": 6,
+      "label_positions_um": [
+        {
+          "text": "VSS",
+          "x_um": 66.6,
+          "y_um": -4.7
+        },
+        {
+          "text": "VSS",
+          "x_um": 72.6,
+          "y_um": 0.5
+        }
+      ]
+    },
+    {
+      "name": "\\$10",
+      "pin": false,
+      "device_count": 3,
+      "net_id": 10,
+      "pin_index": null,
+      "label_positions_um": []
+    },
+    {
+      "name": "\\$12",
+      "pin": false,
+      "device_count": 4,
+      "net_id": 12,
+      "pin_index": null,
+      "label_positions_um": []
+    },
+    {
+      "name": "\\$14",
+      "pin": false,
+      "device_count": 3,
+      "net_id": 14,
+      "pin_index": null,
+      "label_positions_um": []
+    },
+    {
+      "name": "\\$16",
+      "pin": false,
+      "device_count": 5,
+      "net_id": 16,
+      "pin_index": null,
+      "label_positions_um": []
+    },
+    {
+      "name": "\\$17",
+      "pin": false,
+      "device_count": 1,
+      "net_id": 17,
+      "pin_index": null,
+      "label_positions_um": []
+    },
+    {
+      "name": "\\$3",
+      "pin": false,
+      "device_count": 3,
+      "net_id": 3,
+      "pin_index": null,
+      "label_positions_um": []
+    },
+    {
+      "name": "\\$4",
+      "pin": false,
+      "device_count": 4,
+      "net_id": 4,
+      "pin_index": null,
+      "label_positions_um": []
+    },
+    {
+      "name": "\\$5",
+      "pin": false,
+      "device_count": 5,
+      "net_id": 5,
+      "pin_index": null,
+      "label_positions_um": []
+    },
+    {
+      "name": "\\$7",
+      "pin": false,
+      "device_count": 5,
+      "net_id": 7,
+      "pin_index": null,
+      "label_positions_um": []
+    },
+    {
+      "name": "\\$9",
+      "pin": false,
+      "device_count": 3,
+      "net_id": 9,
+      "pin_index": null,
+      "label_positions_um": []
     },
     {
       "name": "vsubs",
       "pin": true,
-      "device_count": 15
+      "device_count": 15,
+      "net_id": 18,
+      "pin_index": 7,
+      "label_positions_um": []
     }
   ],
   "warnings": [
     "12 poly-layer shapes not part of any recognised nfet/pfet gate touch contact at 2+ separate points (the resistor-body signature) and carry no resistor-marker layer at all; this deck may not model the device class drawn here, and its terminals have been absorbed into ordinary interconnect as an unintended short -- see docs/cli/extract.md's 'Known limitation: unmodelled device geometry'.",
-    "promoted 2 net(s) to top-level pins from label(s) found only below the top cell (inside instanced sub-cells): BIAS_OK, BIAS_OKB -- these are internal nodes once instanced; pass top_cell_pins_only (--top-cell-pins) to keep them internal (issue #291)"
+    "promoted 2 net(s) to top-level pins from label(s) found only below the top cell (inside instanced sub-cells): BIAS_OK, BIAS_OKB -- these are internal nodes once instanced; pass top_cell_pins_only (--top-cell-pins) to keep them internal (issue #291)",
+    "6 PMOS devices tie their body to an anonymous net with no DC bias path -- no drawn (or derivable) well tie connects this PMOS body to a real supply rail on this layout, so it is left floating rather than tied to a real supply rail; resimulating this netlist directly will not reproduce the schematic-level PMOS body bias -- see unbiased_pmos_body_nets[] for the full list. See docs/cli/extract.md's 'Parasitic (RC) extraction' section.",
+    "1 net connect to exactly one device terminal -- source/drain/body/resistor-equivalent, not a gate -- and are not a declared pin; this can be a legitimate single-terminal tie (e.g. an intentionally unterminated dummy's diffusion tie), but confirm these nets have no other intended connectivity -- see single_terminal_nets[] for the full list."
   ],
   "black_box_regions": [],
+  "abstracted_cells": [],
   "unmodelled_poly": [
     {
       "bbox_um": {
@@ -531,19 +765,65 @@
     }
   ],
   "merged_net_labels": [],
+  "voltage_domain_warnings": [],
+  "unbiased_pmos_body_nets": [
+    {
+      "device": "$13",
+      "net": "\\$16"
+    },
+    {
+      "device": "$14",
+      "net": "\\$16"
+    },
+    {
+      "device": "$15",
+      "net": "\\$16"
+    },
+    {
+      "device": "$16",
+      "net": "\\$16"
+    },
+    {
+      "device": "$17",
+      "net": "\\$16"
+    },
+    {
+      "device": "$18",
+      "net": "\\$17"
+    }
+  ],
+  "single_terminal_nets": [
+    {
+      "net": "\\$17",
+      "device": "$18",
+      "terminal": "b",
+      "terminal_kind": "body"
+    }
+  ],
+  "dead_metal": [],
+  "matched_device_groups": [],
   "pdk": null,
   "provenance": {
-    "klt_version": "0.2.0",
-    "klayout_version": "0.30.10",
+    "klt_version": "0.6.0",
+    "klayout_version": "0.30.12",
     "pdk": null,
     "deck": {
       "name": "gf180mcu",
-      "content_hash": "sha256:1256c45b3e472635b03a1888d0730822c1872b4a912a2c90fc1e4e7cd14a3913"
+      "content_hash": "sha256:95c2eb9148b29ded02182aeca4222287ff57f813691d5e2f9f8d7a675f6cb637",
+      "released": false
     },
     "input": {
-      "content_hash": "sha256:c60a2ef35e34d6d4e0e70ba0a9937467b37676cc94a041b325e2117d5da44412"
+      "content_hash": "sha256:c60a2ef35e34d6d4e0e70ba0a9937467b37676cc94a041b325e2117d5da44412",
+      "role": "layout"
     },
     "gds_sha256": "c60a2ef35e34d6d4e0e70ba0a9937467b37676cc94a041b325e2117d5da44412"
   },
-  "parasitics": null
+  "parasitics": null,
+  "spef_path": null,
+  "subcircuit": null,
+  "metrics": {
+    "extract__device__count": 21,
+    "extract__net__count": 18,
+    "extract__pin__count": 8
+  }
 }
