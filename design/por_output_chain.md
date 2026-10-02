@@ -868,13 +868,19 @@ electrically-identical `cap_mim_2f0_m3m4_noshield` (klayout-tools#315 — same
 2.0 fF/µm² device, stack-variant name only, not a splice or a schematic
 fallback).
 
-### `XMBD`/`IBIAS` watch item: clean when measured, and the model has changed under it since
+### `XMBD`/`IBIAS` watch item: clean, and re-measured under the star parasitic model
 
 The Watch item this re-run was asked to check: that the extraction's spliced
 parasitics do not introduce a spurious series device into the `IBIAS` path,
 where `XMBD`'s local mirror diode has none by design.
 
-- **Measurement, against the netlist this record ran on**:
+It has now been answered twice, against two different parasitic models, and
+the second answer is the load-bearing one — because the first rested partly on
+an argument the model change retired.
+
+**First answer (pre-#314 extraction, record `20260811-055201-d0ee17d`)**
+
+- **Measurement, against the netlist that record ran on**:
   `iq_asserted_1x_na` (this cell's own `IBIAS`-referenced draw) is
   **27.7701 nA post-layout vs. 27.7702 nA schematic** at `tt_27c_3.30v` — a
   4-ppm difference, i.e. unchanged to the precision this harness reports. A
@@ -884,29 +890,82 @@ where `XMBD`'s local mirror diode has none by design.
 - **Topology, at the time**: that netlist tied `IBIAS`'s parasitic model as a
   **shunt** — one series R into a dangling `IBIAS__par` node carrying the
   net's lumped C, with `XMBD`/`XMN1` both still on the `IBIAS` node itself —
-  so no extracted resistance could sit between them. That was the same
+  so no extracted resistance *could* sit between them. That was the same
   construction every net in that extraction got; `IBIAS` was not a special
-  case.
+  case. **This leg no longer holds**: it was a statement about the model, and
+  #314 changed the model.
 
-> **Model change, 2026-10-02 (#314, #316) — this watch item is open again.**
-> #314 regenerated `layout/postlayout/` against the `klt` pinned in
-> `layout/toolchain.json`, whose parasitic model is a per-net **star**: each
-> device terminal on a net becomes a `<net>__t<k>` node and the net's lumped
-> series resistance is split across the arms joining them. In the committed
-> `layout/postlayout/por_output_chain.spice` that is three arms on `IBIAS`
-> (ΣR 4398.7 Ω, ΣC 45.3 fF — the same lumped totals as before, redistributed):
-> `RIBIAS_t0 IBIAS__t0 IBIAS 2199.33`, `RIBIAS_t1 IBIAS__t1 IBIAS 1099.67`,
-> `RIBIAS_t2 IBIAS__t2 IBIAS 1099.67`. `X12` — the diode-connected mirror
-> device — now has its drain on `IBIAS__t1` and its gate on `IBIAS__t2`, i.e.
-> the model **does** put ≈2.2 kΩ between two terminals that the schematic
-> shorts, which is exactly the shape this watch item was written to look for.
-> It is a model artefact rather than a layout finding (a star about a
-> fictitious hub, not the drawn route), and at this cell's ~28 nA it is a
-> ~61 µV offset by Ohm's law — but that is arithmetic, not a measurement, and
-> **this repo does not accept a claim without a testbench**. The measurement
-> above stands for the netlist it names; re-confirming the watch item against
-> the star model needs a re-run, which would be a new append-only record.
-> Tracked as [#319](https://github.com/2AMLogic/gf180-temp-por/issues/319).
+**Second answer (post-#314 star extraction, record `20261002-145833-6dc0f39`, #319)**
+
+#314 regenerated `layout/postlayout/` against the `klt` pinned in
+`layout/toolchain.json`, whose parasitic model is a per-net **star**: each
+device terminal on a net becomes a `<net>__t<k>` node and the net's lumped
+series resistance is split across the arms joining them. In the committed
+`layout/postlayout/por_output_chain.spice` that is three arms on `IBIAS`
+(ΣR 4398.7 Ω, ΣC 45.3 fF — the same lumped totals as before, redistributed):
+
+```
+RIBIAS_t0 IBIAS__t0 IBIAS 2199.33055      XMN1 gate     (no DC current)
+RIBIAS_t1 IBIAS__t1 IBIAS 1099.665275     XMBD drain    (carries I_IBIAS)
+RIBIAS_t2 IBIAS__t2 IBIAS 1099.665275     XMBD gate     (no DC current)
+CIBIAS    IBIAS VSS  4.5280553e-14
+```
+
+`X12` (`XMBD`, 4 µm/4 µm) has its drain on `IBIAS__t1` and its gate on
+`IBIAS__t2`, so the model **does** put resistance between two terminals the
+schematic shorts — exactly the shape this watch item was written to look for.
+It is a model artefact rather than a layout finding (a star about a fictitious
+hub, not the drawn route), but that is not a reason to leave it unmeasured.
+
+- **What the topology actually costs, before measuring.** Two of the three
+  arms land on MOS gates, which carry no DC current, so the drop is not
+  across ≈2.2 kΩ: the whole `IBIAS` pin current flows through `RIBIAS_t1`
+  alone. The testbench forces 500 nA into the pin (1.5 µA at the 3× DUT), so
+  that is **0.550 mV** (1.65 mV at 3×). Both gates still sit at exactly
+  `V(IBIAS)` in DC. The consequence is therefore not a gate-bias error at
+  all — it is that `XMBD` stops being *exactly* diode-connected: its `Vds`
+  sits 0.550 mV below its `Vgs`, and the mirrored current moves only through
+  `XMBD`'s own output conductance. That predicts a small effect; it does not
+  prove one, so:
+- **Measurement, against the current netlist** (`tt` process column,
+  3 temperatures × 3 supplies, record `20261002-145833-6dc0f39`):
+  `iq_asserted_1x_na` is **+56 to +86 ppm** against record
+  `20260811-055201-d0ee17d`'s own `tt_*` rows — 27.7701 → **27.7721 nA** at
+  `tt_27c_3.30v` — and `iq_asserted_3x_na` **+126 to +189 ppm**.
+  `iq_released_1x_na` moves by the same +58 to +90 ppm. Against the 400 nA
+  self-imposed ceiling this cell holds for its share of
+  [`#por-iq`](../spec/target-spec.md), a 2 pA shift is nothing.
+
+**Verdict: the watch item is clean, and is now closed on a measurement taken
+under the model that *can* express the failure** rather than on an argument
+that the failure could not be represented. The star model does put in-path
+resistance between a net's own device terminals; on `IBIAS` it lands where no
+DC current flows (two gates) plus 1099.67 Ω where 500 nA does, and the
+mirror's delivered current is unmoved to within 10⁻⁴.
+
+Two things this does **not** close:
+
+- **The ~2 % one-shot widening the same record shows.** `tpulse_1x_ms` and
+  `tpulse_3x_ms` are **+1.97 % to +2.01 %** across the nine points against
+  `20260811-055201-d0ee17d`'s `tt_*` rows (5.90136 → 6.01875 ms at
+  `tt_27c_3.30v`), uniformly and in addition to the ~2 % the pre-#314
+  extraction already added over schematic. The one-shot is a current-starved
+  ramp and the regenerated extraction carries ΣC 901.4 fF against the
+  previous 828.6 fF, plus 81.195 fF of now-real inter-net coupling
+  (`layout/postlayout/AUDIT.md`), so a longer ramp is the expected direction
+  and it only *adds* margin over the ≥1 ms floor. But the published binding
+  minimum (4.31816 ms at `ff_-40c_2.97v`) is off the `tt` column, so the
+  numbers in ["The pulse-width / dwell-time delta"](#the-pulse-width--dwell-time-delta)
+  below remain `20260811-055201-d0ee17d`'s and remain correct for the netlist
+  that record names — they are not yet restated against the star extraction.
+- **`v_asserted_1x_mv` is ~4× larger** (0.78 nV → 3.80 nV at `tt_27c_3.30v`).
+  Both are solver noise around a hard logic low against a 300 mV limit; the
+  ratio is large only because the quantity is ~10⁸ times smaller than the
+  check it is measured against.
+
+Both are grid-scale re-runs rather than watch-item questions, and
+`sim/run_corners.py` has no remote/batch backend, so they are tracked
+separately rather than taken on a shared dispatch host.
 
 ### The pulse-width / dwell-time delta
 
