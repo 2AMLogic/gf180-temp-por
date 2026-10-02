@@ -9,6 +9,13 @@
     "4": {
       "file": "layout/reports/temp_por_top/lvs.json"
     },
+    "11": [
+      {
+        "file": "layout/reports/temp_por_top/erc_supply.json",
+        "content_hash": "sha256:a119a12b1fa2daff64772a4a804a0ea14f17c68dc9357fe167dfd287df0628fd"
+      },
+      "layout/reports/temp_por_top/lvs.json"
+    ],
     "8": {
       "file": "signoff/evidence/characterization-report.json",
       "content_hash": "sha256:d78561eeb7c7710fa87699e5499434884afe47821c71d2249be4760d6a2e84ed"

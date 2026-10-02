@@ -49,7 +49,7 @@ artifact, and there is no partition boundary to declare.
 | 8 | Characterization report | **`met`** | `evidence/characterization-report.json`, a generic envelope wrapping `spec/target-spec.md`, pinned to `sha256:d78561ee…`. **Disclosed exceptions below.** |
 | 9 | Testbenches shipped | `unmet` / `no_evidence` | **Uncited on purpose.** Every `sim/` experiment carries a committed `testbench/`; `sim/README.md` documents cold-start invocation; the PDK is pinned in `ci.yml`. Same reason as item 1. |
 | 10 | Repo hygiene | `unmet` / `no_evidence` | **Uncited on purpose.** README, Apache-2.0 LICENSE, and CI are all present. Same reason as item 1. |
-| 11 | Power delivery (structural) | *no row yet* / a manual read now says **`met`** | Not in `klt 0.5.0`'s bundled checklist, so `klt signoff` cannot cite it yet either way — see below. Both halves the analog column asks for now hold ([#300](https://github.com/2AMLogic/gf180-temp-por/issues/300)): `layout/reports/temp_por_top/erc_supply.json` reports `erc_finding_count: 0` — zero `erc.supply_short` and zero `erc.unconnected_net`, i.e. `VDD` and `VSS` each resolve to exactly one electrical island — pinned to `sha256:a119a12b…` (the committed GDS) and `sha256:8fd22666…` (the committed spec); and `layout/reports/temp_por_top/lvs.json` carries both supplies in `net_correspondence`. **Two caveats, both disclosed below**: `erc.missing_tie` is *not computed* (no `ties[]`, per [klayout-tools#2169](https://github.com/2AMLogic/klayout-tools/issues/2169)), and the report was produced with an unreleased `klt` build. See `layout/README.md`'s "Item 11" section for the full account. |
+| 11 | Power delivery (structural) | *no row yet* / a manual read now says **`met`** | Not in `klt 0.5.0`'s bundled checklist, so `klt signoff` cannot cite it yet either way — a manifest entry is committed (`block-manifest.json`'s `"11"` key) for the next time `signoff/toolchain.json`'s pin moves past the release that adds it, and `klt signoff --manifest --tiers-doc <a build past it>` already renders `met` today (verified; see `layout/README.md`'s "Item 11" section). Every condition the analog column asks for holds ([#300](https://github.com/2AMLogic/gf180-temp-por/issues/300), `ties[]` added by [#310](https://github.com/2AMLogic/gf180-temp-por/issues/310)): `layout/reports/temp_por_top/erc_supply.json` reports `erc_finding_count: 0` — zero `erc.supply_short`, zero `erc.unconnected_net`, and zero `erc.missing_tie`, with all four declared `ties[]` entries graded `checked` (none `skipped`/degenerate) — pinned to `sha256:a119a12b…` (the committed GDS) and `sha256:4926d4bd…` (the committed spec); and `layout/reports/temp_por_top/lvs.json` carries both supplies in `net_correspondence`. **One caveat, disclosed below**: the report was produced with an unreleased `klt` build, past even the pinned `layout/toolchain.json`'s `v0.6.0`. See `layout/README.md`'s "Item 11" section for the full account. |
 
 **3 of 10 is a lower number than #145's 10/10, and both are honest reads of
 different questions.** #145 asked "does this repo contain the artifact the
@@ -174,7 +174,8 @@ Verified against klayout-tools `main`'s doc:
 klt signoff --manifest signoff/block-manifest.json \
     --tiers-doc /path/to/klayout-tools/docs/design-evidence-tiers.md \
     --format json
-# t1_item_count: 10 -> 11; item 11: unmet / no_evidence
+# t1_item_count: 10 -> 11; item 11: met (since #310 added the `ties[]`
+# declaration below -- before that, this rendered unmet / no_evidence)
 ```
 
 `check.py` treats that new row as **drift and fails**, with a message naming
@@ -218,24 +219,35 @@ section has the full account, including why `RES_MK` and not the `Resistor`
 `62/0` ID layer, and the measured over-coverage cross-check showing the
 carve-out removes no gate region.
 
-**Two caveats keep this from being a no-questions `met`**, and both are
-recorded in the spec and in `layout/README.md` rather than papered over:
+**One caveat keeps this from being a no-questions `met`** (a second, about
+`erc.missing_tie` not being computed at all, was resolved by #310 — see
+below), and it is recorded in the spec and in `layout/README.md` rather than
+papered over:
 
-1. **`erc.missing_tie` is not computed.** The spec declares no `ties[]`,
-   because declaring one collapses a real design into a single island and
-   reports a *different* false `erc.supply_short`
-   ([klayout-tools#2169](https://github.com/2AMLogic/klayout-tools/issues/2169)).
-   Per `klt erc`'s own contract, omitting `ties[]` means the rule is never
-   computed — its absence from `erc_findings` is an absence of evidence, not
-   a zero-findings verdict on well ties. `layout/README.md` names the
-   guard-ring continuity and build-time via-landing assertions that stand in
-   for it.
-2. **The report was produced with an unreleased `klt`.** `devices[]` and
-   `provenance` both postdate `klt 0.5.0`, so the run used a `main` build at
-   commit `99a5716c` (`klt 0.5.0+g99a5716ccccb`). No other report under
-   `layout/reports/` was regenerated against it, and this one names no deck
-   (`provenance.deck: null`), so the deck-hash pins that protect the DRC/LVS
-   evidence are untouched.
+- **The report was produced with an unreleased `klt`.** #310's `ties[]`
+  declaration needs `well_requires`/`well_excludes`
+  ([klayout-tools#2339](https://github.com/2AMLogic/klayout-tools/issues/2339))
+  and `well_requires_boxes`/`well_excludes_boxes`
+  ([klayout-tools#2540](https://github.com/2AMLogic/klayout-tools/issues/2540)),
+  both of which postdate even the `v0.6.0` *tag* `layout/toolchain.json` now
+  pins — confirmed by reading `klt erc`'s source directly at that tag. So the
+  run used a `main` build at commit `af8d6c54312e`
+  (`klt 0.6.0+gaf8d6c54312e`). No other report under `layout/reports/` was
+  regenerated against it, and this one names no deck (`provenance.deck:
+  null`), so the deck-hash pins that protect the DRC/LVS evidence are
+  untouched.
+
+**`erc.missing_tie` is now computed, resolved by #310.** The spec declared no
+`ties[]` until then, because on every `klt` build this repo could reach at
+the time, declaring one collapsed a real design into a single island and
+reported a *different* false `erc.supply_short`
+([klayout-tools#2169](https://github.com/2AMLogic/klayout-tools/issues/2169)).
+That bug is fixed upstream (the fix predates even `v0.6.0`), so the spec now
+declares four `ties[]` entries covering every substrate/well tie in the
+design, and the committed report shows zero `erc.missing_tie` findings with
+all four graded `checked` — see `layout/README.md`'s "`erc.missing_tie`: now
+computed" section for the full per-entry account and the falsifiability
+checks run against this GDS before any of it was committed.
 
 A third, smaller tool gap surfaced while verifying the carve-out and was
 filed generically as
