@@ -1925,7 +1925,7 @@ This repo had neither the spec nor the report until #300; both now exist —
   sha256:a119a12b1fa2daff64772a4a804a0ea14f17c68dc9357fe167dfd287df0628fd`,
   matching the committed `layout/cells/temp_por_top.gds` (`shasum -a 256`),
   and `provenance.spec.content_hash ==
-  sha256:4926d4bdebae20d8a6aa76b591ec870f65d27e4f4d559fc0fa50cc03d69a3219`,
+  sha256:88b908db25b01130c2ea30ca698ca8c742220316209c5f8fcf8067ed80699d7a`,
   matching the committed spec (re-run for #310, which added `ties[]` — see
   "`erc.missing_tie`: now computed" below for what changed and why the hash
   moved).
@@ -1983,6 +1983,10 @@ This mirrors the same class of gap `layout/toolchain.json` vs.
 --check-gds-hash`) — a producer needing a newer, unreleased build than the
 grader it will eventually be read by. Nothing else under `layout/reports/`
 was regenerated against `99a5716c`; the deck-hash gates that protect the
+DRC/LVS evidence are untouched, and this report names no deck at all
+(`provenance.deck: null`) because `klt erc` reads only the spec's own declared
+layers, never a curated deck — restated, for both toolchain notes together, in
+the parenthetical that closes the next section.
 
 ### Toolchain note (#310): why `ties[]` needed a build past `klt 0.6.0` too
 
@@ -2033,10 +2037,41 @@ throwaway two-tie probe against `bias_core.gds` with both taps
 spec's own commentary names (never the whole device row, never a ring's
 enclosing rectangle) is what keeps this report's `erc_status: clean` a
 statement about real taps rather than an artifact of how broadly they were
-declared — confirmed by deliberately emptying one `tap_boxes` entry at a time
-and checking that exactly the corresponding well's `erc.missing_tie` finding
-reappears, scoped to it alone, with every other declared tie — including
-ones sharing its `well_layer`, its `net`, or both — unaffected.
+declared — confirmed by deleting, one region at a time, the tap box(es) that
+tie a single well/tub/ring (leaving the rest of that entry's `tap_boxes`
+intact) and checking that exactly that region's `erc.missing_tie` finding
+reappears, scoped to its own bbox alone, with every other declared tie —
+including ones sharing its `well_layer`, its `net`, or both — unaffected.
+Verified that way for each of `device_body_wells`' five wells, each of
+`pnp_base_tubs`' two base tubs, and a whole `substrate_tie` ring: one finding
+each, `erc_coverage.skipped` still empty.
+
+**Two things that probe does *not* show**, spelled out because the obvious
+first experiment runs into both:
+
+- **Emptying a whole `tap_boxes` array reports no finding at all.** A tap
+  assertion that narrows nothing grades `degenerate_tap_declaration`
+  ([klayout-tools#2199](https://github.com/2AMLogic/klayout-tools/issues/2199)),
+  so the entry moves into `erc_coverage.skipped` and `erc_status` degrades to
+  `clean_partial` while `erc_findings` / `erc_finding_count` — the fields
+  "Reading the `status` field" below names as the ones carrying the verdict —
+  stay at zero. Confirmed for all four entries. That is still a real guard,
+  because the degradation is loud rather than a silent clean, but it is a
+  *coverage* signal, not a verdict finding: item 11's pass condition is
+  therefore zero findings **and** `erc_coverage.skipped: []` **and**
+  `erc_status: clean`, never the finding count alone.
+- **Deleting a single segment of a multi-segment tie leaves the report fully
+  clean** (`erc_status: clean`, `skipped: []`) — by construction, not as a
+  gap: each `substrate_tie` ring is asserted by four edge segments and the
+  remaining three still tie it, and NW2 carries six finger taps for the one
+  well. The sensitivity this declaration has is per-region, not per-segment.
+
+The complementary probe — declaring a tie's `net` *wrong* rather than removing
+its tap — does report `erc.missing_tie`, under a different description
+("well/tub tap is not connected to declared net …"): declaring
+`nw2_tail_well`'s net as `VDD` instead of `NT` yields exactly one finding, on
+NW2's own bbox. That is the independent check that `NT`, not the supply, really
+is that well's body tie.
 
 (The DRC/LVS evidence beside this report is untouched by either toolchain
 note above, and this report names no deck at all — `provenance.deck: null`
@@ -2240,9 +2275,13 @@ The four entries, and what each one is about:
 See the spec's own `_comment` block for the full per-entry justification,
 including the falsifiability checks run against this GDS before any of the
 above was combined into one spec (each class verified to produce a real
-`erc.missing_tie` finding when its own tap is deliberately emptied, with
-every other declared tie unaffected) and the connectivity-corruption risk an
-unnarrowed tap would have posed on this specific, implant-free stream.
+`erc.missing_tie` finding when the tap box(es) tying one of its wells/tubs/
+rings are deliberately deleted, with every other declared tie unaffected —
+and the two near-miss probes that do *not* produce a finding, emptying a whole
+`tap_boxes` array and dropping a single segment of a multi-segment ring, which
+the methodology note under "Toolchain note (#310)" above spells out) and the
+connectivity-corruption risk an unnarrowed tap would have posed on this
+specific, implant-free stream.
 
 What this supersedes, from before #310: `layout/floorplan.md`'s guard-ring/
 moat prose account is now corroborated by a computed `erc.missing_tie`
