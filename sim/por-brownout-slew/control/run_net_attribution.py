@@ -27,17 +27,35 @@ INTRINSIC to the starved loop at this bias level (in which case DR-019's
 number is the number, and the only remaining lever is `bias_core`'s
 architecture).
 
+RETIRED AGAINST THE CURRENT NETLISTS -- see issue #316
+
+This control's method below is valid only for the parasitic model
+`layout/postlayout.py` emitted before #314: one *dangling* R-C leg per net, so
+deleting both of a net's cards removed its load and changed no connectivity.
+The netlists it reads now carry a per-net **star** (the net is the hub, each
+device terminal on it a `<net>__t<k>` node, the net's lumped series R split
+across the arms joining them) -- so deleting a net's cards would *disconnect*
+every device terminal on it rather than ideal-ise it.
+
+`short_nets` therefore refuses, loudly, rather than generating a variant whose
+difference from the `ext` arm means something other than what this file claims.
+Issue #316 owns re-deriving the manipulation for the star model (collapsing a
+net's terminal nodes onto its hub is the shape-correct "short", and does not
+reintroduce the ill-conditioned stub #214 measured). The committed
+`net_attribution_results.md` and the records it cites stay valid for the
+netlists they name -- `sim/` is append-only -- and are not restated here.
+
 METHOD -- one variable: which nets' interconnect parasitics exist
 
-`layout/postlayout.py` models each net's drawn interconnect as ONE lumped
+`layout/postlayout.py` modelled each net's drawn interconnect as ONE lumped
 series R from the net to a `<net>__par` stub node plus ONE lumped C from that
-stub to `VSS`, and the stub node appears on those two cards and nowhere else
+stub to `VSS`, and the stub node appeared on those two cards and nowhere else
 (checked against the netlist, not assumed). So a net's whole parasitic
-contribution is exactly two cards, and "this net were ideal" is: comment both
-out. Nothing else in the netlist moves -- same devices, same dimensions, same
+contribution was exactly two cards, and "this net were ideal" was: comment both
+out. Nothing else in the netlist moved -- same devices, same dimensions, same
 topology, same card ordering, same line count -- so a variant's difference
-from the `ext` arm is attributable to the named nets and to nothing else.
-`diff` between a generated netlist under `netlists/` and its source shows
+from the `ext` arm was attributable to the named nets and to nothing else.
+`diff` between a generated netlist under `netlists/` and its source showed
 precisely the 2 x N commented cards.
 
 #214's suggested spelling of "shorted out" was to keep both cards and set
@@ -52,12 +70,12 @@ dynamic-gmin / true-gmin / source stepping all fail, and the `loop` deck at
 truer statement of the manipulation: the net carries no interconnect load,
 and there is no stub node left to be ill-conditioned.
 
-The R/C pair for a named net is located with `sim/postlayout_delta.py`'s own
-`parasitics_by_net()` parser and its `_R_CARD` / `_C_CARD` / `PAR_SUFFIX`
-constants, NOT with a second regex written here: the extraction renumbers its
-`R_n` / `C_n` cards whenever the layout is regenerated, so a net has to be
-found by name, and there must be exactly one parser in the repo that knows
-how to do it.
+The cards belonging to a named net are located with `sim/postlayout_delta.py`'s
+own `parasitic_cards()` parser, NOT with a second regex written here: the
+extraction renumbers its cards whenever the layout is regenerated, so a net has
+to be found by name, and there must be exactly one parser in the repo that
+knows how to do it -- which is also what makes the refusal above automatic
+rather than a comment someone has to notice.
 
 Variants (see VARIANTS below for the exact net lists):
 
@@ -136,15 +154,13 @@ sys.path.insert(0, str(REPO_ROOT / "sim"))
 from harness import HARNESS_VERSION, cliutil, runner  # noqa: E402
 from harness.pdk import PdkNotFound, find_pdk  # noqa: E402
 
-# The extracted-netlist parser, imported rather than re-derived: `_R_CARD`,
-# `_C_CARD` and `PAR_SUFFIX` are the private spelling of `layout/postlayout.py`'s
-# own emission format, and a second copy of them here is exactly the drift
-# this control cannot afford (the cards are renumbered on every layout
-# regeneration, so the net name is the only stable handle).
+# The extracted-netlist parser, imported rather than re-derived:
+# `parasitic_cards` knows `layout/postlayout.py`'s own emission format, and a
+# second copy of that knowledge here is exactly the drift this control cannot
+# afford (the cards are renumbered on every layout regeneration, so the net
+# name is the only stable handle).
 from postlayout_delta import (  # noqa: E402
-    _C_CARD,
-    _R_CARD,
-    PAR_SUFFIX,
+    parasitic_cards,
     parasitics_by_net,
 )
 
@@ -258,37 +274,52 @@ def build_variants(parasitics: dict[str, dict[str, float]]) -> list[Variant]:
 
 
 def short_nets(netlist: Path, nets: tuple[str, ...]) -> tuple[str, dict[str, int]]:
-    """``netlist``'s text with each named net's parasitic R/C pair shorted.
+    """``netlist``'s text with each named net's parasitic cards commented out.
 
-    Returns the text and a per-net count of cards shorted. Every other line
-    -- devices, subcircuit header, comments, and the R/C cards of every net
-    NOT named -- is passed through byte-for-byte, which is what makes a
-    variant a one-variable manipulation rather than a re-extraction.
+    Returns the text and a per-net count of cards commented. Every other line
+    -- devices, subcircuit header, comments, and the cards of every net NOT
+    named -- is passed through byte-for-byte, which is what makes a variant a
+    one-variable manipulation rather than a re-extraction.
 
-    Card identification is `sim/postlayout_delta.py`'s, not a second regex:
-    the same `_R_CARD` / `_C_CARD` patterns and the same `PAR_SUFFIX`
-    stub-node convention `parasitics_by_net()` buckets on, so a card this
-    counts as net N's is exactly a card that function attributes to net N.
+    Card attribution is `sim/postlayout_delta.py`'s `parasitic_cards()`, not a
+    second regex, so a card this counts as net N's is exactly a card
+    `parasitics_by_net()` attributes to net N.
+
+    **Refuses** when a named net carries a star arm, which is every net with
+    drawn interconnect in the netlists `layout/postlayout.py` emits since #314:
+    commenting an arm out opens the connection between a device terminal and
+    the rest of its net instead of ideal-ising the net's load. See this
+    module's docstring and issue #316.
     """
     wanted = set(nets)
     shorted: dict[str, int] = {net: 0 for net in nets}
+    comment: dict[str, int] = {}
+    arms: list[str] = []
+    for card in parasitic_cards(netlist):
+        owners = [net for net in card.nets if net in wanted]
+        if not owners:
+            continue
+        if card.kind == "resistance":
+            arms.append(card.line.strip())
+            continue
+        comment[card.line] = comment.get(card.line, 0) + 1
+        for net in owners:
+            shorted[net] += 1
+    if arms:
+        raise SystemExit(
+            f"{netlist} models the named net(s) with a "
+            f"per-net resistive star ({len(arms)} arm card(s), e.g. "
+            f"{arms[0]!r}), not the single dangling R-C leg this control's "
+            "manipulation is defined against. Commenting an arm out opens a "
+            "device terminal rather than ideal-ising the net, so no variant is "
+            "generated. Issue #316 owns re-deriving the manipulation (collapse "
+            "the net's `__t<k>` terminal nodes onto its hub) -- until then this "
+            "control cannot be re-run, and its committed results stay valid "
+            "only for the netlists they name."
+        )
     out: list[str] = []
     for raw in netlist.read_text().splitlines():
-        line = raw.strip()
-        replacement = None
-        if line and not line.startswith(("*", ".")):
-            for pattern in (_R_CARD, _C_CARD):
-                match = pattern.match(line)
-                if not match:
-                    continue
-                a, b, _ = match.groups()
-                stub = a if a.endswith(PAR_SUFFIX) else b
-                net = stub[: -len(PAR_SUFFIX)] if stub.endswith(PAR_SUFFIX) else stub
-                if net in wanted:
-                    replacement = SHORT_PREFIX + raw
-                    shorted[net] += 1
-                break
-        out.append(raw if replacement is None else replacement)
+        out.append(SHORT_PREFIX + raw if raw in comment else raw)
     return "\n".join(out) + "\n", shorted
 
 

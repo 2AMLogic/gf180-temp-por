@@ -1,9 +1,9 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "cell": "por_output_chain",
   "note": "recorded by layout/postlayout.py --extract; the committed extracted.spice/extract.json of the DRC/LVS flow are not touched by this run",
   "netlist_path": "layout/reports/por_output_chain/extracted-parasitics.spice",
-  "netlist_sha256": "5a3ae0003c49476ee100fc327caa62e9fb2ac2483c0b61d66db5af5070d93a37",
+  "netlist_sha256": "0ab0300796880d941e7a5e63da088fe3ba6613ff503e2500edebae30c897f90f",
   "top_cell_pins": false,
   "device_count": 33,
   "device_counts": {
@@ -11,24 +11,64 @@
     "nfet": 14,
     "pfet": 14
   },
+  "devices": {
+    "$1": "nfet",
+    "$10": "nfet",
+    "$11": "nfet",
+    "$12": "nfet",
+    "$13": "nfet",
+    "$14": "nfet",
+    "$15": "pfet",
+    "$16": "pfet",
+    "$17": "pfet",
+    "$18": "pfet",
+    "$19": "pfet",
+    "$2": "nfet",
+    "$20": "pfet",
+    "$21": "pfet",
+    "$22": "pfet",
+    "$23": "pfet",
+    "$24": "pfet",
+    "$25": "pfet",
+    "$26": "pfet",
+    "$27": "pfet",
+    "$28": "pfet",
+    "$29": "cap_mim_2f0_m4m5_noshield",
+    "$3": "nfet",
+    "$30": "cap_mim_2f0_m4m5_noshield",
+    "$31": "cap_mim_2f0_m4m5_noshield",
+    "$32": "cap_mim_2f0_m4m5_noshield",
+    "$33": "cap_mim_2f0_m4m5_noshield",
+    "$4": "nfet",
+    "$5": "nfet",
+    "$6": "nfet",
+    "$7": "nfet",
+    "$8": "nfet",
+    "$9": "nfet"
+  },
   "net_count": 20,
   "pin_count": 6,
   "coverage": {
     "nets_total": 20,
     "nets_with_parasitics": 18,
     "fraction": 0.9,
-    "total_resistance_ohm": 66323.225,
-    "total_capacitance_ff": 828.884348
+    "total_resistance_ohm": 66418.3371,
+    "total_capacitance_ff": 901.404814,
+    "coupling_capacitance_ff": 81.195487,
+    "distributed_rc": false,
+    "critical_nets": []
   },
   "warnings": [
-    "16 poly-layer shapes not part of any recognised nfet/pfet gate touch contact at 2+ separate points (the resistor-body signature) and carry no resistor-marker layer at all; this deck may not model the device class drawn here, and its terminals have been absorbed into ordinary interconnect as an unintended short -- see docs/cli/extract.md's 'Known limitation: unmodelled device geometry'."
+    "16 poly-layer shapes not part of any recognised nfet/pfet gate touch contact at 2+ separate points (the resistor-body signature) and carry no resistor-marker layer at all; this deck may not model the device class drawn here, and its terminals have been absorbed into ordinary interconnect as an unintended short -- see docs/cli/extract.md's 'Known limitation: unmodelled device geometry'.",
+    "14 PMOS devices tie their body to an anonymous net with no DC bias path -- no drawn (or derivable) well tie connects this PMOS body to a real supply rail on this layout, so it is left floating rather than tied to a real supply rail; resimulating this netlist directly will not reproduce the schematic-level PMOS body bias -- see unbiased_pmos_body_nets[] for the full list. See docs/cli/extract.md's 'Parasitic (RC) extraction' section."
   ],
   "provenance": {
-    "klt_version": "0.2.0",
-    "klayout_version": "0.30.10",
+    "klt_version": "0.6.0",
+    "klayout_version": "0.30.12",
     "deck": {
       "name": "gf180mcu",
-      "content_hash": "sha256:1256c45b3e472635b03a1888d0730822c1872b4a912a2c90fc1e4e7cd14a3913"
+      "content_hash": "sha256:95c2eb9148b29ded02182aeca4222287ff57f813691d5e2f9f8d7a675f6cb637",
+      "released": false
     },
     "gds_sha256": "25943ef873ddc2800a6108ed59bff2a8e6d5bdfb3fd1f435a6609c8156aef538"
   },

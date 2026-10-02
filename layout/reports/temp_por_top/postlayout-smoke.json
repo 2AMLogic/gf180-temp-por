@@ -21,9 +21,9 @@
   "measurements": [
     {
       "measure": "t_release_ms",
-      "postlayout": 10.2705,
+      "postlayout": 10.47137,
       "schematic": 10.06806,
-      "delta_frac": 0.02010715073211732,
+      "delta_frac": 0.040058362782899704,
       "window": [
         1.0,
         29.0
@@ -45,9 +45,9 @@
     },
     {
       "measure": "ptat_final_v",
-      "postlayout": 1.293092,
+      "postlayout": 1.294305,
       "schematic": 1.292475,
-      "delta_frac": 0.00047737867270149724,
+      "delta_frac": 0.0014158881216271093,
       "window": [
         0.5,
         2.5
@@ -57,9 +57,9 @@
     },
     {
       "measure": "ctat_final_v",
-      "postlayout": 0.6532742,
+      "postlayout": 0.6549827,
       "schematic": 0.6533474,
-      "delta_frac": -0.00011203840407108912,
+      "delta_frac": 0.0025029563138997814,
       "window": [
         0.3,
         1.2
