@@ -963,11 +963,27 @@ Two things this does **not** close:
   ratio is large only because the quantity is ~10⁸ times smaller than the
   check it is measured against.
 
-Both are grid-scale re-runs rather than watch-item questions, and
-`sim/run_corners.py` has no remote/batch backend, so they are tracked
-separately rather than taken on a shared dispatch host.
+The first is a grid-scale restatement rather than a watch-item question —
+restating it needs the process axis this record does not have, and the deglitch
+and floor post-layout records have not been probed against the star extraction
+at all. Tracked as
+[#322](https://github.com/2AMLogic/gf180-temp-por/issues/322), together with
+the two `testbench-postlayout/tb.json` provenance notes that still describe the
+retired extraction. The second needs nothing: it is two noise values.
 
 ### The pulse-width / dwell-time delta
+
+> **Which extraction these numbers belong to** (2026-10-02, #319). Everything
+> in this section is record `20260811-055201-d0ee17d`'s 81-point grid, taken on
+> the **pre-#314** extraction, and it stays accurate for the netlist that
+> record names. It is *not* the current post-layout answer: the `tt`-column
+> re-run above measures `tpulse_1x_ms`/`tpulse_3x_ms` a uniform +1.97 to
+> +2.01 % higher on the committed star extraction. The shift is a widening, so
+> every margin quoted below is conservative rather than optimistic, and the
+> ≥1 ms floor is not at risk. Restating the table — including re-identifying
+> the binding corner from measurement rather than assuming it held — needs the
+> process axis and is tracked as
+> [#322](https://github.com/2AMLogic/gf180-temp-por/issues/322).
 
 Per `layout/README.md`/`sim/README.md`'s framing (PR #180's own smoke sim on
 this cell, `+2.09 %` on `t_release_ms` at `tt_27c_3.30v`): this is where "a
