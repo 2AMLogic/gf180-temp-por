@@ -723,9 +723,14 @@ the drawn layout still do it?*
 **What the extracted netlist is, and is not.** `temp_core` comes out as
 **115 drawn devices at their drawn dimensions** (27 `nfet_03v3`, 28
 `pfet_03v3`, 9 `pnp_10p00x10p00`, 50 `ppolyf_u`, 1 `cap_mim_2f0_m3m4_noshield`)
-with first-order interconnect R/C on 69 of 73 nets (**ΣC = 1552.3 fF**), net
-names restored through `klt lvs`'s 73/73 verified correspondence; `temp_por_top`
-the same for all four cells (239 devices, ΣC = 5900.6 fF). Per
+with first-order interconnect R/C on 69 of 71 nets (**ΣC = 1652.9 fF**), net
+names restored through `klt lvs`'s 71/71 verified correspondence;
+`temp_por_top` the same for all four cells (239 devices, ΣC = 7165.8 fF).
+Those are the committed figures as of #316 (2026-10-02); they read 69/73 nets
+/ ΣC 1552.3 fF and 5900.6 fF when this section was written, before #264 routed
+the MiM plates and #314 regenerated the extraction against the `klt` pinned in
+`layout/toolchain.json`. The records above are append-only and unedited; they
+remain accurate for the netlists they name. Per
 [`layout/postlayout/AUDIT.md`](../layout/postlayout/AUDIT.md), one thing is
 *not* the layout's:
 
@@ -791,32 +796,47 @@ Nothing in `spec/target-spec.md` moved, and nothing needed to.
 ### Parasitic loading on the high-impedance nodes
 
 #18's acceptance criteria ask for this explicitly rather than folded into a
-pass/fail. Read out of the extracted netlist (`layout/postlayout.py` models
-each net's drawn interconnect as one lumped series R to a `<net>__par` stub
-with a lumped C to `VSS`, so the loading a node sees is its own row); the full
-table is in each delta record.
+pass/fail. Read out of the extracted netlist; the full table is in each delta
+record.
 
-| Node | Why it matters | ΣC | ΣR |
-| --- | --- | --- | --- |
-| `PTAT` | the output pad, `R2` ≈ 516 kΩ source impedance, no buffer | 39.5 fF | 962 Ω |
-| `CTAT` | the output pad, `XRISO` ≈ 20 kΩ | 32.4 fF | 509 Ω |
-| `NA` / `NB` | the amplifier inputs — `V(NA) = V(NB)` *is* the measurement | 63.1 / 43.5 fF | 2133 / 2057 Ω |
-| `NC` | `R1`'s bottom node into the 8× PNP array — not high-impedance itself, listed because the PTAT term is the voltage `V(NB) − V(NC)` across `R1` | 85.4 fF | 66 Ω |
-| `PG` | the mirror gate = the amplifier's output node (and one `XCC` plate) | 61.7 fF | 5100 Ω |
-| `NZ` | the other `XCC` plate | 29.3 fF | 106 Ω |
-| `PB` / `PCAS` | bias gate nodes, capacitively loaded only | 47.2 / 53.7 fF | 3536 / 4549 Ω |
-| `ND` / `NR` | the startup kick pair | 34.8 / 35.4 fF | 1513 / 1695 Ω |
-| `IBIAS` | the DR-010 shared node | 20.3 fF | 323 Ω |
+`layout/postlayout.py` models each net's drawn interconnect as one resistive
+**star** (`layout/postlayout/AUDIT.md` → "The parasitic model"): the net's own
+name is the hub, each device terminal on it is a `<net>__t<k>` node, the net's
+single lumped series resistance is split across the `R<net>_t<k>` arms joining
+them, its lumped capacitance sits on the hub, and vertical-overlap coupling to
+another net is a direct `Ccc__<a>__<b>`. So the loading a node sees is still
+its own row below — ΣR is the sum of that net's arms, which is the one lumped
+series resistance `klt` reports for it — with the difference that the
+resistance now sits *between* the net's own device terminals rather than on a
+dangling stub.
 
-Cell total 1552.3 fF over 69 nets. In the assembled `temp_por_top` the shared
-`IBIAS` net grows to **122.6 fF / 10.6 kΩ** because it spans all four cells,
-`RESETn` carries 78.0 fF / 5.6 kΩ, and the assembly totals 5880.2 fF over 136
-nets.
+**The figures below are re-derived from `layout/postlayout/temp_core.spice` as
+committed** (#316), which is the netlist #314 regenerated against the `klt`
+pinned in `layout/toolchain.json` — not the one the records above were taken
+against. They moved by a few percent in the regeneration; those records are
+append-only evidence and are unedited.
+
+| Node | Why it matters | ΣC | ΣR | arms |
+| --- | --- | --- | --- | ---: |
+| `PTAT` | the output pad, `R2` ≈ 516 kΩ source impedance, no buffer | 42.5 fF | 971 Ω | 4 |
+| `CTAT` | the output pad, `XRISO` ≈ 20 kΩ | 35.4 fF | 517 Ω | 2 |
+| `NA` / `NB` | the amplifier inputs — `V(NA) = V(NB)` *is* the measurement | 77.3 / 47.2 fF | 2173 / 2068 Ω | 6 / 5 |
+| `NC` | `R1`'s bottom node into the 8× PNP array — not high-impedance itself, listed because the PTAT term is the voltage `V(NB) − V(NC)` across `R1` | 106.3 fF | 125 Ω | 9 |
+| `PG` | the mirror gate = the amplifier's output node (and one `XCC` plate) | 68.1 fF | 5110 Ω | 12 |
+| `NZ` | the other `XCC` plate | 34.6 fF | 119 Ω | 2 |
+| `PB` / `PCAS` | bias gate nodes, capacitively loaded only | 47.1 / 53.7 fF | 3536 / 4549 Ω | 6 / 9 |
+| `ND` / `NR` | the startup kick pair | 34.8 / 35.4 fF | 1513 / 1695 Ω | 4 / 4 |
+| `IBIAS` | the DR-010 shared node | 20.3 fF | 323 Ω | 2 |
+
+Cell total 1652.9 fF over 69 of 71 nets, plus 1.1 fF of net-to-net coupling.
+In the assembled `temp_por_top` the shared `IBIAS` net grows to **241.6 fF /
+11.0 kΩ** because it spans all four cells, `RESETn` carries 204.3 fF /
+6.0 kΩ, and the assembly totals 7165.8 fF over 136 of 143 nets.
 
 **None of that is enough to move a spec row, and the reason is structural**:
 every quantity these four experiments measure is a DC operating point or a
-microsecond-to-millisecond transient. The worst case here is `PTAT` — 39.5 fF
-against a 516 kΩ source impedance, a **20 ns** pole — two orders of magnitude
+microsecond-to-millisecond transient. The worst case here is `PTAT` — 42.5 fF
+against a 516 kΩ source impedance, a **22 ns** pole — two orders of magnitude
 below the 3–5 µs sensor start and six below the 1–17 ms reset release.
 
 ### What the parasitics did do

@@ -768,15 +768,20 @@ Referred out through the divider's ~2.1× ratio, ±20 mV on `VREF` is ±43 mV on
 
 **And this term is the same on both netlists** (+19.065 / −20.684 mV
 schematic, +19.043 / −20.756 mV extracted), which bounds what post-layout can
-say about it. `klt`'s parasitic model emits one lumped capacitance per net
-with the **ground net** as its second terminal — every one of the 103 `C_*`
-cards in `layout/postlayout/temp_por_top.spice` does — so it has no
-representation of net-to-net coupling at all. The 97.7 mV measured here is
-therefore a *device-level* coupling term (the reference's own
-drain/bulk-to-`VDD` capacitance, present identically in the schematic
-netlist), and **any additional coupling onto `VREF` from drawn interconnect
-adjacency is outside what this netlist can show, in either direction**. Filed
-generically as
+say about it. The netlist these rows were measured against had no
+representation of net-to-net coupling at all: `klt`'s parasitic model then
+emitted one lumped capacitance per net with the **ground net** as its second
+terminal, and every `C_*` card in it did exactly that. Since #314 the
+committed extraction does carry net-to-net coupling, but only the
+**vertical-overlap** term: `VREF` is one end of 0.103 fF of it in
+`layout/postlayout/temp_por_top.spice`, spread over seven `Ccc__*` partners
+whose largest two are 0.023 fF each (to `RESETn` and to `VSS`). So the 97.7 mV measured here is a
+*device-level* coupling term (the reference's own drain/bulk-to-`VDD`
+capacitance, present identically in the schematic netlist), and **any
+additional coupling onto `VREF` from drawn interconnect adjacency is still
+outside what this netlist can show, in either direction** — a vertical
+overlap of a few hundredths of a femtofarad is not the lateral/fringe
+adjacency term the question is about. Filed generically as
 [klayout-tools#728](https://github.com/2AMLogic/klayout-tools/issues/728) per
 CLAUDE.md's friction protocol; the eventual fix is the field-solver work that
 repo already tracks.

@@ -852,36 +852,61 @@ cell, including the deglitch one-shot's two MiM caps (`XCDG` and the 4×
 is a **stronger** result than #18's original framing anticipated (which
 expected `XCDG`/`XCTIM` to still be schematic-ideal splices with parasitics
 added only on the surrounding routing) — see the issue's own "Dependency
-re-check" addendum. 18/30 nets carry first-order interconnect parasitics
-(ΣR 66322 Ω, ΣC 828.6 fF total); the 12 nets without drawn interconnect are
-body/plate/well ties the extraction deck's connectivity stack does not reach
-(`NW1`→`VDD`, `XCDG`/`XCTIM`'s plate and `VSS` ties, `vsubs`→`VSS`), tied per
-the schematic per AUDIT.md's "Body, well and plate ties" table. The 5 MiM caps
+re-check" addendum. 18/20 nets carry first-order interconnect parasitics
+across 131 cards (ΣR 66 418 Ω, ΣC 901.4 fF, of which 81.2 fF is net-to-net
+coupling — almost all of it the deglitch timing cap's plate overlap to the
+ground rail); the 2 nets without drawn interconnect are body/plate/well ties
+the extraction deck's connectivity stack does not reach, tied per the
+schematic per AUDIT.md's "Body, well and plate ties" table. (Those figures
+are re-read from the committed `AUDIT.md` as of #316, 2026-10-02. They read
+`18/30` nets and ΣC 828.6 fF when this section was written; the ten untied
+nets that disappeared between then and now were MiM plate/well ties, and the
+ΣC moved when #314 regenerated the extraction against a newer `klt`. The
+records below are unedited and remain accurate for the netlist they name.) The 5 MiM caps
 are extracted as `cap_mim_2f0_m4m5_noshield` and emitted as the
 electrically-identical `cap_mim_2f0_m3m4_noshield` (klayout-tools#315 — same
 2.0 fF/µm² device, stack-variant name only, not a splice or a schematic
 fallback).
 
-### `XMBD`/`IBIAS` watch item: confirmed clean
+### `XMBD`/`IBIAS` watch item: clean when measured, and the model has changed under it since
 
 The Watch item this re-run was asked to check: that the extraction's spliced
 parasitics do not introduce a spurious series device into the `IBIAS` path,
-where `XMBD`'s local mirror diode has none by design. Confirmed clean by
-inspection and by measurement:
+where `XMBD`'s local mirror diode has none by design.
 
-- **Topology**: `layout/postlayout/por_output_chain.spice` ties `IBIAS`'s
-  parasitic model as a **shunt** — `RIBIAS IBIAS IBIAS__par 4398.7`, then
-  `CIBIAS IBIAS__par VSS 45.3 fF` — a pi-leg to an otherwise-unconnected
-  `IBIAS__par` node, not a series element between the pin and `XMBD`/`XMN1`
-  (both still tie directly to the `IBIAS` node itself). This is the same
-  construction every other net in the extraction gets (see the `*__par`
-  nodes throughout the file); `IBIAS` is not a special case.
-- **Measurement**: `iq_asserted_1x_na` (this cell's own `IBIAS`-referenced
-  draw) is **27.7701 nA post-layout vs. 27.7702 nA schematic** at
-  `tt_27c_3.30v` — a 4-ppm difference, i.e. unchanged to the precision this
-  harness reports. A series impedance in the `IBIAS` path would show up here
-  as a DC operating-point shift (the mirror's own gate-source bias would
-  move); it does not.
+- **Measurement, against the netlist this record ran on**:
+  `iq_asserted_1x_na` (this cell's own `IBIAS`-referenced draw) is
+  **27.7701 nA post-layout vs. 27.7702 nA schematic** at `tt_27c_3.30v` — a
+  4-ppm difference, i.e. unchanged to the precision this harness reports. A
+  series impedance in the `IBIAS` path would show up here as a DC
+  operating-point shift (the mirror's own gate-source bias would move); it did
+  not.
+- **Topology, at the time**: that netlist tied `IBIAS`'s parasitic model as a
+  **shunt** — one series R into a dangling `IBIAS__par` node carrying the
+  net's lumped C, with `XMBD`/`XMN1` both still on the `IBIAS` node itself —
+  so no extracted resistance could sit between them. That was the same
+  construction every net in that extraction got; `IBIAS` was not a special
+  case.
+
+> **Model change, 2026-10-02 (#314, #316) — this watch item is open again.**
+> #314 regenerated `layout/postlayout/` against the `klt` pinned in
+> `layout/toolchain.json`, whose parasitic model is a per-net **star**: each
+> device terminal on a net becomes a `<net>__t<k>` node and the net's lumped
+> series resistance is split across the arms joining them. In the committed
+> `layout/postlayout/por_output_chain.spice` that is three arms on `IBIAS`
+> (ΣR 4398.7 Ω, ΣC 45.3 fF — the same lumped totals as before, redistributed):
+> `RIBIAS_t0 IBIAS__t0 IBIAS 2199.33`, `RIBIAS_t1 IBIAS__t1 IBIAS 1099.67`,
+> `RIBIAS_t2 IBIAS__t2 IBIAS 1099.67`. `X12` — the diode-connected mirror
+> device — now has its drain on `IBIAS__t1` and its gate on `IBIAS__t2`, i.e.
+> the model **does** put ≈2.2 kΩ between two terminals that the schematic
+> shorts, which is exactly the shape this watch item was written to look for.
+> It is a model artefact rather than a layout finding (a star about a
+> fictitious hub, not the drawn route), and at this cell's ~28 nA it is a
+> ~61 µV offset by Ohm's law — but that is arithmetic, not a measurement, and
+> **this repo does not accept a claim without a testbench**. The measurement
+> above stands for the netlist it names; re-confirming the watch item against
+> the star model needs a re-run, which would be a new append-only record.
+> Tracked as [#319](https://github.com/2AMLogic/gf180-temp-por/issues/319).
 
 ### The pulse-width / dwell-time delta
 
@@ -1008,12 +1033,19 @@ Decomposing each edge's dwell as `(V_trip − V0) / slope`
 | | | −24.0 % | **−0.5 %** | −11.7 % | **+15.7 %** |
 
 **The `XMG1`/`XMG2` trip-point hypothesis is refuted.** `V_trip` moves by
-under 1 % on either edge, and it could not have moved: `XMG1`'s trip is a DC
-ratio between two devices whose `W`/`L` the extraction reproduces exactly, and
-the extraction's parasitic model is *one series R into one lumped C per net*
-([`layout/README.md`](../layout/README.md)), which is DC-invariant by
-construction. The same fact is why `iq_asserted_1x_na` reads 27.7701 nA
-post-layout against 27.7702 nA schematic.
+under 1 % on either edge, and on the netlist these rows were measured against
+it could not have moved: `XMG1`'s trip is a DC ratio between two devices whose
+`W`/`L` the extraction reproduces exactly, and that extraction's parasitic
+model was *one series R into one lumped C per net* — a dangling leg, carrying
+no DC current, hence DC-invariant by construction. The same fact is why
+`iq_asserted_1x_na` read 27.7701 nA post-layout against 27.7702 nA schematic.
+(Since #314 the model is a per-net star
+([`layout/README.md`](../layout/README.md)), which is only *nearly*
+DC-invariant: resistance between a net's own terminals does move an operating
+point, by ≤0.3 % on the DC quantities `layout/README.md` compares. These rows
+are append-only evidence for the netlist they name and are unedited; the
+measured conclusion is not in doubt at that size of term, but a re-run against
+the current netlists would be a new record, not an edit to these.)
 
 What moved is `V0` — the level the ramp actually starts from — in **opposite
 directions on the two edges but with the same sign of effect**: on both edges
