@@ -1757,21 +1757,21 @@ def mim_side_um(
     rely on the default -- the two are not interchangeable, and plugging a
     newer deck's coefficients into an older deck's capacitance silently
     reconstructs the wrong plate size instead of failing loudly. This is not
-    hypothetical: ``layout/postlayout.py``'s own committed evidence
+    hypothetical, and the reason is structural rather than historical:
+    ``layout/postlayout.py``'s own committed evidence
     (``layout/reports/*/extracted-parasitics.*``, ``layout/postlayout/*.spice``)
     is produced out-of-band by a separate ``postlayout.py --extract``/(no-arg)
     cycle, not gated by ``layout/toolchain.json``'s pin (the same
     independently-versioned-evidence precedent ``signoff/toolchain.json``
     documents against ``layout/toolchain.json``, and
     ``layout/reports/temp_por_top/erc_supply.json``'s own out-of-band
-    provenance) -- so when #312 moved *this* module's pinned law forward, that
-    evidence did not move with it, and ``postlayout.py`` passes the v0.2.0
-    pair explicitly rather than this function's new default. Regenerating
-    that evidence against the klt now pinned here hits two new
-    ``klt extract --parasitics`` output shapes ``postlayout.py``'s own parser
-    does not yet handle (a ``.GLOBAL`` control line; distributed-RC segment
-    resistor cards) -- unrelated to the capacitance law itself, tracked as
-    issue #314.
+    provenance) -- so a pin move here does **not** move that evidence with it,
+    and between the two there is a window in which the default is the wrong
+    law for it. #312 opened exactly that window and #314 closed it by
+    regenerating the evidence; ``postlayout.py`` passes no coefficients today
+    because its evidence and this default are once again the same deck's. A
+    future pin move reopens the window, and the caller that reconstructs a
+    plate size from an older recording is the one that has to say so.
     """
     if capacitance_f <= 0.0:
         raise ReferenceError(f"capacitance {capacitance_f} is not positive")

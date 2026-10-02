@@ -32,6 +32,23 @@ records it:
   the resistors (``ppolyf_u``/``ppolyf_u_1k``), the bipolars (one generic
   ``bjt`` class) and the MiM caps.
 
+  A recognised MiM capacitor is the one card that does **not** name its own
+  class. ``klt 0.6.0`` writes it as a bare ``C$45 a b 7.73592e-14``, which is
+  byte-for-byte the shape of a parasitic coupling capacitor. That is
+  deliberate upstream, not a regression (klayout-tools#1558, restated and
+  closed as intended in klayout-tools#2386): KLayout's default writer appends
+  the class as a trailing token, ngspice's native ``C`` element reads that
+  token as a required ``.model`` reference, and no deck's capacitor class name
+  is a real ``.model`` in any PDK model library -- so the card was
+  unsimulatable with it. A resistor's trailing token survives because it *is*
+  a suppliable model name. Upstream's own documented recovery path for the
+  class is ``extract --format json``'s ``devices[].class``, so that is what
+  this module uses: ``--extract`` records the extractor's device census into
+  ``extracted-parasitics.json``'s ``devices`` map, and
+  :func:`parse_extracted` *requires* it. A drawn device and a parasitic are
+  never told apart by guesswork, and the emitted census is asserted against
+  the extractor's own ``device_counts`` before a netlist is written.
+
   ``klt extract --pdk`` will do this binding itself, and it was tried first.
   It is not used here for two measured reasons, both filed upstream. Its
   bound MOS card **drops the extractor's own measured** ``AS``/``AD``/
@@ -90,6 +107,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -141,28 +159,45 @@ CAP_MODEL = {klass: model for model, klass in ref.CAP_CLASS.items()}
 #: ``R / rho * width`` and is what the emitted card declares.
 SHEET_RHO = {klass: rho for _model, (klass, rho) in ref.RESISTOR_CLASS.items()}
 
-#: The parasitic network ``--parasitics`` adds: one series R from the net to a
-#: synthetic ``<net>__par`` node and one C from that node to the substrate.
-PAR_SUFFIX = "__par"
+#: The parasitic network ``--parasitics`` adds, as of the ``klt`` pinned in
+#: ``layout/toolchain.json``: a **star** per net (klayout-tools#592). A net
+#: ``N`` that carries drawn interconnect keeps its own name as the star's hub
+#: node and grows one ``N__t<k>`` node per device terminal on it; every
+#: terminal is joined to the hub by its own arm
+#: (``R<N>_t<k> N__t<k> N <ohms>``, the net's single lumped series resistance
+#: split across the arms), the net's lumped capacitance sits on the hub
+#: (``C<N> N vsubs <farads>``), and vertical-overlap coupling to another net
+#: is a direct capacitor between the two nets' nodes (``Ccc__<a>__<b>``).
+#: Device cards therefore name ``N__t<k>``, never ``N``, wherever ``N`` has
+#: parasitics -- which is why this suffix has to be understood here and not
+#: merely tolerated.
+#:
+#: Before the #311/#312 pin move the model was one series R from the net to a
+#: single ``<net>__par`` stub plus one C from that stub to the substrate -- a
+#: *dangling* leg, whose resistance therefore sat in no signal path at all.
+#: The per-net *totals* are the same quantity either way; only their
+#: distribution across the net's terminals is finer, and in the star it is in
+#: series with the circuit. (``sim/``'s own readers of these netlists still
+#: assume the retired ``__par`` stub and are tracked as #316; recorded ``sim/``
+#: results name the netlist they ran against and stay valid.)
+#: (Finer still is available and is not
+#: used: ``--distributed-rc``/``--critical-net`` (klayout-tools#976/#977)
+#: break a *named* net into per-segment R/C instead of one hub. This module
+#: passes neither flag and the recorded ``parasitics.distributed_rc`` is
+#: ``false`` in every committed report, so no cell here is segmented.)
+TERMINAL_SUFFIX = "__t"
 
-#: The MiM capacitance law this module's own *already-committed* evidence
-#: (``layout/reports/*/extracted-parasitics.*``, ``layout/postlayout/*.spice``)
-#: was extracted under -- the v0.2.0 deck's area-only coefficients
-#: (``ref.MIM_AREA_CAP_F_UM2``/``ref.MIM_PERIM_CAP_F_UM`` **before** #312
-#: moved the pin forward). Declared here, frozen, rather than reading
-#: ``ref``'s own constants directly, because this module's evidence is
-#: produced out-of-band by a separate ``--extract``/(no-arg) regeneration
-#: cycle that is not gated by ``layout/toolchain.json``'s pin -- the same
-#: independently-pinned-evidence precedent ``signoff/toolchain.json``
-#: documents against ``layout/toolchain.json`` -- so when #312 moved the live
-#: pin forward, this module's own not-yet-regenerated evidence did not move
-#: with it. Using the new law against this old evidence would silently
-#: reconstruct the wrong plate size instead of failing loudly; see
-#: ``ref.mim_side_um``'s own docstring. Retire this pair (use
-#: ``ref.mim_side_um``'s default instead) once issue #314 regenerates this
-#: module's evidence against the klt now pinned in ``layout/toolchain.json``.
-_MIM_AREA_CAP_F_UM2 = 2.0e-15
-_MIM_PERIM_CAP_F_UM = 0.0
+#: ``<net>__t<k>``, the star model's per-terminal node. ``<net>`` is matched
+#: greedily because a layout net name may itself end in ``__t<digits>``.
+TERMINAL_NODE_RE = re.compile(r"^(?P<net>.+)__t(?P<index>\d+)$")
+
+#: SPICE's own global ground. ``--parasitics`` ties the deck's substrate net to
+#: it through a 1 Tohm leak (``Rvsubs_dctie vsubs 0 1e+12``, reported as
+#: ``parasitics.substrate_dc_tie``) so the substrate node has a DC path in a
+#: netlist that does not otherwise bias it. It is the one node on an extracted
+#: card that is not an extracted net, so it is passed through verbatim rather
+#: than looked up in the net correspondence.
+SPICE_GROUND = "0"
 
 HEADER_NOTE = "GENERATED by layout/postlayout.py -- do not edit."
 
@@ -211,11 +246,25 @@ def logical_lines(text: str) -> list[str]:
         raise PostlayoutError("continuation line with nothing to continue") from exc
 
 
-def parse_extracted(text: str) -> tuple[str, list[str], list[Card]]:
+def parse_extracted(
+    text: str, device_classes: dict[str, str]
+) -> tuple[str, list[str], list[Card]]:
     """Split an extracted netlist into ``(top, pins, cards)``.
 
-    Deliberately strict: an unrecognised card is an error, not a skipped line.
-    A silently dropped device would produce a netlist that simulates and lies.
+    ``device_classes`` is the extractor's own device census -- instance name to
+    deck class, ``{"$1": "nfet", "$45": "cap_mim_2f0_m4m5_noshield"}`` -- read
+    out of the committed JSON record beside the netlist, where ``--extract``
+    put it straight from ``klt extract --format json``'s ``devices[]``. It is
+    **required**, not a convenience: a recognised capacitor's card carries no
+    class token (see this module's docstring, klayout-tools#1558/#2386), so the
+    only thing separating a drawn MiM capacitor from a parasitic coupling
+    capacitor of the identical shape is the extractor's own statement about
+    which instance names are devices.
+
+    Deliberately strict in both directions: an unrecognised card is an error,
+    not a skipped line, and a card whose class the census and the netlist
+    disagree about is an error too. A silently dropped device would produce a
+    netlist that simulates and lies.
     """
     top = ""
     pins: list[str] = []
@@ -230,36 +279,71 @@ def parse_extracted(text: str) -> tuple[str, list[str], list[Card]]:
             continue
         if upper == ".ENDS":
             continue
+        if upper == ".GLOBAL":
+            # The parasitic model's own substrate return node, declared across
+            # subcircuit scope (klayout-tools#1503). Skipped rather than
+            # rejected: it carries no device and no topology this module needs
+            # -- every net it names already appears on the cards that use it,
+            # and :data:`SPICE_GROUND`/``body_ties`` are what give the
+            # substrate node a return path in the emitted netlist.
+            continue
         if upper.startswith("."):
             raise PostlayoutError(f"unexpected control line {line!r}")
         prefix, name = head[0].upper(), head[1:]
         nodes = tuple(unescape(f) for f in fields[1:])
+        declared = device_classes.get(name)
         if prefix == "M":
             # M<n> d g s b <class> L=.. W=.. AS=.. AD=.. PS=.. PD=..
             params = tuple(
                 tuple(field.split("=", 1)) for field in fields[6:]
             )
-            cards.append(Card("M", name, nodes[:4], None, fields[5], params))
+            card = Card("M", name, nodes[:4], None, fields[5], params)
         elif prefix == "Q":
             # Q<n> c b e <class> AE=.. PE=.. ...
             params = tuple(
                 tuple(field.split("=", 1)) for field in fields[5:]
             )
-            cards.append(Card("Q", name, nodes[:3], None, fields[4], params))
-        elif prefix == "R" and len(fields) == 6:
-            # R<n> a b bulk <ohms> <class>  -- a drawn poly resistor
-            cards.append(Card("R", name, nodes[:3], fields[4], fields[5]))
+            card = Card("Q", name, nodes[:3], None, fields[4], params)
+        elif prefix == "R" and len(fields) >= 6 and "=" not in fields[5]:
+            # R<n> a b bulk <ohms> <class> [L=.. W=..]  -- a drawn poly
+            # resistor. The trailing L/W are the extractor's own measured
+            # drawn geometry, added by klayout-tools#1927; emit_cards checks
+            # them against the schematic rather than discarding them.
+            params = tuple(
+                tuple(field.split("=", 1)) for field in fields[6:]
+            )
+            card = Card("R", name, nodes[:3], fields[4], fields[5], params)
         elif prefix == "R" and len(fields) == 4:
-            # R<net> <net> <net>__par <ohms>  -- a parasitic
-            cards.append(Card("R", name, nodes[:2], fields[3], None))
+            # R<net>_t<k> <net>__t<k> <net> <ohms>  -- one arm of a net's
+            # parasitic star, or the substrate DC tie (which runs to
+            # :data:`SPICE_GROUND` instead of to a hub).
+            card = Card("R", name, nodes[:2], fields[3], None)
         elif prefix == "C" and len(fields) == 5:
-            # C<n> a b <farads> <class>  -- a drawn MiM capacitor
-            cards.append(Card("C", name, nodes[:2], fields[3], fields[4]))
+            # C<n> a b <farads> <class>  -- a drawn capacitor that *does* name
+            # its class. Not written by the pinned klt (the class token makes
+            # the card unsimulatable, klayout-tools#1558) but accepted, so a
+            # deck that names it is read rather than rejected.
+            card = Card("C", name, nodes[:2], fields[3], fields[4])
         elif prefix == "C" and len(fields) == 4:
-            # C<net> <net>__par <substrate> <farads>  -- a parasitic
-            cards.append(Card("C", name, nodes[:2], fields[3], None))
+            # Either a drawn capacitor written bare, or a parasitic (a net's
+            # lumped C to the substrate, or net-to-net coupling). Identical
+            # shapes; only ``device_classes`` tells them apart.
+            card = Card("C", name, nodes[:2], fields[3], declared)
         else:
             raise PostlayoutError(f"unrecognised card {line!r}")
+        if declared is not None and card.klass != declared:
+            raise PostlayoutError(
+                f"card {line!r} names device class {card.klass!r}, but the "
+                f"extraction's own device census calls instance {name!r} a "
+                f"{declared!r}"
+            )
+        if declared is None and card.klass is not None:
+            raise PostlayoutError(
+                f"card {line!r} names device class {card.klass!r}, but the "
+                f"extraction's own device census has no instance {name!r} -- "
+                "the netlist and the JSON report describe different runs"
+            )
+        cards.append(card)
     if not top:
         raise PostlayoutError("no .SUBCKT line in the extracted netlist")
     return top, pins, cards
@@ -490,13 +574,34 @@ def instance(name: str) -> str:
     return "X" + name.replace("$", "")
 
 
-def canonical_case(cell: str) -> dict[str, str]:
-    """UPPERCASE reference net -> the reference netlist's own spelling.
+def correspondence_key(net: str) -> str:
+    """A reference net name as ``klt lvs`` spells it back in the compare.
 
-    ``klt lvs`` reports correspondence against the netlist reader's upcased
-    names (``RESETN``, ``VSUBS``), which would make the post-layout netlist
-    read differently from the schematic for no reason. The reference netlist
-    ``lvs_reference`` generates is the authority for the spelling.
+    The compare does not report the reference netlist's own net names: it
+    reports its SPICE *reader*'s normalisation of them. That has always
+    upcased (``RESETn`` -> ``RESETN``), and as of the ``klt`` pinned in
+    ``layout/toolchain.json`` it also replaces an assembly's hierarchy
+    separator: ``xbias.NW1`` comes back as ``XBIAS_NW1`` where klt 0.2.0 said
+    ``XBIAS.NW1``.
+
+    Every join against the correspondence goes through this on both sides, so
+    the reader's spelling is used **only** to match and never to name: what
+    the post-layout netlist emits stays the reference netlist's own spelling
+    (through :func:`sanitize`, ``xbias__NW1``). Joining on the raw name
+    instead is not a cosmetic bug -- it silently misses the body ties keyed on
+    an assembly's well nets, which leaves every PMOS well floating in a
+    netlist that still elaborates.
+    """
+    return net.upper().replace(".", "_")
+
+
+def canonical_case(cell: str) -> dict[str, str]:
+    """:func:`correspondence_key` -> the reference netlist's own spelling.
+
+    ``klt lvs`` reports correspondence against the netlist reader's own
+    normalisation of the reference net names, which would make the post-layout
+    netlist read differently from the schematic for no reason. The reference
+    netlist ``lvs_reference`` generates is the authority for the spelling.
     """
     nets: set[str] = set()
     for line in ref.logical_lines(ref.build(cell)):
@@ -506,7 +611,16 @@ def canonical_case(cell: str) -> dict[str, str]:
         elif fields[0][0].upper() in "MQRC":
             count = {"M": 4, "Q": 3, "R": 3, "C": 2}[fields[0][0].upper()]
             nets.update(fields[1 : 1 + count])
-    return {net.upper(): net for net in nets}
+    spelling: dict[str, str] = {}
+    for net in sorted(nets):
+        key = correspondence_key(net)
+        if spelling.setdefault(key, net) != net:
+            raise PostlayoutError(
+                f"{cell}: reference nets {spelling[key]!r} and {net!r} are "
+                f"indistinguishable to klt lvs (both {key!r}), so the "
+                "correspondence cannot be joined back to one of them"
+            )
+    return spelling
 
 
 def net_map(cell: str, correspondence: dict[str, str]) -> dict[str, str]:
@@ -518,7 +632,9 @@ def net_map(cell: str, correspondence: dict[str, str]) -> dict[str, str]:
     says it is.
     """
     spelling = canonical_case(cell)
-    ties = {net.upper(): tied for net, tied in body_ties(cell).items()}
+    ties = {
+        correspondence_key(net): tied for net, tied in body_ties(cell).items()
+    }
     mapping: dict[str, str] = {}
     for layout_net, reference_net in correspondence.items():
         if reference_net is None:
@@ -526,9 +642,36 @@ def net_map(cell: str, correspondence: dict[str, str]) -> dict[str, str]:
                 f"{cell}: extracted net {layout_net!r} has no reference net; "
                 "the LVS compare did not match every net"
             )
-        key = reference_net.upper()
+        key = correspondence_key(reference_net)
+        if key not in ties and key not in spelling:
+            # Every reference net is one this repo generated, so failing to
+            # find it means the join itself is broken -- not that this net is
+            # special. Falling back to the compare's own spelling here is what
+            # made klt 0.6.0's `.`-to-`_` rename (see correspondence_key) a
+            # silent body-tie miss rather than an error.
+            raise PostlayoutError(
+                f"{cell}: the compare's reference net {reference_net!r} "
+                f"(joined as {key!r}) is not a net of the reference netlist "
+                "lvs_reference generates, so neither its schematic spelling "
+                "nor its body tie can be resolved"
+            )
         target = ties.get(key, spelling.get(key, reference_net))
         mapping[layout_net] = sanitize(target)
+    substrate_key = correspondence_key(ref.SUBSTRATE_NET)
+    if ref.SUBSTRATE_NET not in mapping and substrate_key in ties:
+        # The parasitic model's own ground-reference node, declared
+        # ``.GLOBAL vsubs`` and carrying the return of every net's lumped
+        # capacitance. It is not always one of the *compared* nets: a cell
+        # whose drawn taps resolve the substrate into the ground rail
+        # (lvs_reference.BODY_TIES_RESOLVED_CELLS) has no separate substrate
+        # net for klt lvs to pair, so the correspondence does not mention it
+        # at all -- and without this the model's ground reference would be an
+        # unmapped node and every lumped cap in the cell would return
+        # nowhere. The body tie is the schematic's own answer for where the
+        # substrate sits, read out of the golden netlist either way, so this
+        # adds no new assumption; it applies the same one to a node the
+        # compare had nothing to say about.
+        mapping[ref.SUBSTRATE_NET] = sanitize(ties[substrate_key])
     return mapping
 
 
@@ -550,6 +693,10 @@ def emit_cards(cell: str, cards: list[Card], names: dict[str, str]) -> tuple[
     parasitics: list[str] = []
 
     def node(net: str) -> str:
+        if net == SPICE_GROUND:
+            # Not an extracted net: see SPICE_GROUND. Passed through so the
+            # substrate DC tie keeps the return path the extractor gave it.
+            return net
         if net not in names:
             raise PostlayoutError(
                 f"{cell}: extracted net {net!r} is not in the LVS net "
@@ -601,6 +748,33 @@ def emit_cards(cell: str, cards: list[Card], names: dict[str, str]) -> tuple[
                     "does not declare"
                 )
             length_um = _num(card.value) / SHEET_RHO[card.klass] * width_um
+            # klayout-tools#1927 added the extractor's own measured drawn L/W
+            # to the card. Where they are present they are *checked*, not
+            # trusted and not ignored: the length emitted below is still
+            # reconstructed from the resistance through the schematic's width
+            # and the deck's sheet rho, so a deck whose rho moved under this
+            # module would otherwise re-emit every resistor at the wrong
+            # length and still look perfectly self-consistent.
+            measured = {key.upper(): value for key, value in card.params}
+            if "W" in measured:
+                drawn_um = ref.to_um(measured["W"].lower())
+                if abs(drawn_um - width_um) > 1e-4:
+                    raise PostlayoutError(
+                        f"{cell}: {card.prefix}{card.name} is drawn "
+                        f"{drawn_um} um wide but the schematic's {model} is "
+                        f"{width_um} um"
+                    )
+            if "L" in measured:
+                drawn_um = ref.to_um(measured["L"].lower())
+                if abs(drawn_um - length_um) > 1e-3 * max(1.0, drawn_um):
+                    raise PostlayoutError(
+                        f"{cell}: {card.prefix}{card.name} is drawn "
+                        f"{drawn_um} um long, but {card.value} ohm at the "
+                        f"deck's {SHEET_RHO[card.klass]} ohm/sq and "
+                        f"{width_um} um wide reconstructs to {length_um} um "
+                        "-- the deck's sheet rho and the drawn geometry "
+                        "disagree"
+                    )
             head, tail, bulk = (node(n) for n in card.nodes)
             devices.append(
                 f"{instance(card.name)} {head} {tail} {bulk} {model} "
@@ -612,16 +786,16 @@ def emit_cards(cell: str, cards: list[Card], names: dict[str, str]) -> tuple[
             model = CAP_MODEL.get(card.klass)
             if model is None:
                 raise PostlayoutError(f"{cell}: unknown cap class {card.klass!r}")
-            # #312: ref.mim_side_um solves the two-term law's quadratic
-            # inverse (single source of truth with ref.mim_capacitance_f, the
-            # forward direction build_cap_cards uses) -- called with this
-            # module's own frozen, already-extracted-under law
-            # (_MIM_AREA_CAP_F_UM2/_MIM_PERIM_CAP_F_UM), not ref's live pin;
-            # see both constants' own docstring for why the two must not be
-            # conflated.
-            side_um = ref.mim_side_um(
-                _num(card.value), _MIM_AREA_CAP_F_UM2, _MIM_PERIM_CAP_F_UM
-            )
+            # ref.mim_side_um solves the two-term law's quadratic inverse
+            # (single source of truth with ref.mim_capacitance_f, the forward
+            # direction build_cap_cards uses), at that module's *live* pinned
+            # coefficients -- correct here, and only here, because this
+            # module's committed evidence is itself extracted under the klt
+            # layout/toolchain.json pins (#314). Passing an older deck's
+            # coefficients against newer evidence, or the reverse, silently
+            # reconstructs the wrong plate size instead of failing loudly;
+            # see ref.mim_side_um's own docstring.
+            side_um = ref.mim_side_um(_num(card.value))
             plate_a, plate_b = (node(n) for n in card.nodes)
             devices.append(
                 f"{instance(card.name)} {plate_a} {plate_b} {model} "
@@ -646,23 +820,47 @@ def emit_cards(cell: str, cards: list[Card], names: dict[str, str]) -> tuple[
 
 
 def parasitic_nodes(cards: list[Card], names: dict[str, str]) -> dict[str, str]:
-    """``$10__par`` -> a node name derived from ``$10``'s *reference* name.
+    """``$10__t3`` -> a node name derived from ``$10``'s mapped net name.
 
-    Deliberately not derived from the tied circuit net: two isolated nets can
-    tie to the same circuit net (an Nwell and ``VDD``), and their parasitic
-    nodes must stay distinct or the two lumped caps collapse into one.
+    One entry per star-terminal node the cards actually use
+    (:data:`TERMINAL_SUFFIX`), keyed on the extractor's spelling. The index is
+    carried through verbatim, so the emitted netlist keeps the extractor's own
+    terminal numbering and a reader can line an emitted arm back up against
+    the card it came from.
+
+    Two distinct terminal nodes may never collapse onto one emitted node, and
+    that is checked rather than assumed: ``names`` is the *tied* mapping, so
+    two isolated nets can legitimately share one circuit net (an Nwell and
+    ``VDD``) -- if either ever grew its own parasitics, their star nodes would
+    land on top of each other and silently merge two lumped networks into one.
+    (No isolated net has parasitics today: a net with no drawn interconnect of
+    its own gets no star, which is why ``nets_with_parasitics`` is below
+    ``nets_total`` in every recorded report.)
     """
     extra: dict[str, str] = {}
     for card in cards:
         for net in card.nodes:
-            if not net.endswith(PAR_SUFFIX) or net in names:
+            if net in names or net in extra:
                 continue
-            base = net[: -len(PAR_SUFFIX)]
+            match = TERMINAL_NODE_RE.match(net)
+            if match is None:
+                continue
+            base = match.group("net")
             if base not in names:
                 raise PostlayoutError(
-                    f"parasitic node {net!r} has no parent net {base!r}"
+                    f"parasitic terminal node {net!r} has no parent net "
+                    f"{base!r}"
                 )
-            extra[net] = f"{names[base]}{PAR_SUFFIX}"
+            extra[net] = f"{names[base]}{TERMINAL_SUFFIX}{match.group('index')}"
+    collisions = sorted(
+        {node for node in extra.values() if list(extra.values()).count(node) > 1}
+    )
+    if collisions:
+        raise PostlayoutError(
+            f"{len(collisions)} parasitic terminal node(s) collide after the "
+            f"net rename, e.g. {collisions[:3]} -- two separate lumped "
+            "networks would silently become one"
+        )
     return extra
 
 
@@ -693,7 +891,15 @@ def ideal_cards(cell: str) -> tuple[list[str], list[dict]]:
 
 def coverage(report: dict) -> dict:
     """The klayout-tools#283 sanity check: how much of the net graph carries
-    parasitics, reported per cell so a silent-zero regression is visible."""
+    parasitics, reported per cell so a silent-zero regression is visible.
+
+    Also records which parasitic *model* produced the numbers. ``--extract``
+    asks for neither ``--distributed-rc`` nor ``--critical-net``, so
+    ``distributed_rc`` is expected to be ``false`` and ``critical_nets`` empty
+    in every committed report; recording the extractor's own answer is what
+    makes that an auditable fact about the evidence rather than an assumption
+    about the flags (see :data:`TERMINAL_SUFFIX`).
+    """
     parasitics = report.get("parasitics") or {}
     nets = parasitics.get("nets") or []
     total = report["net_count"]
@@ -703,6 +909,9 @@ def coverage(report: dict) -> dict:
         "fraction": round(len(nets) / total, 4) if total else 0.0,
         "total_resistance_ohm": parasitics.get("total_resistance_ohm"),
         "total_capacitance_ff": parasitics.get("total_capacitance_ff"),
+        "coupling_capacitance_ff": parasitics.get("total_coupling_capacitance_ff"),
+        "distributed_rc": bool(parasitics.get("distributed_rc")),
+        "critical_nets": list(parasitics.get("critical_nets") or []),
     }
 
 
@@ -722,13 +931,26 @@ def build_netlist(cell: str) -> tuple[str, dict]:
             f"{json_path.name}; re-run --extract"
         )
 
-    top, _pins, cards = parse_extracted(text)
+    if "devices" not in record:
+        raise PostlayoutError(
+            f"{cell}: {json_path.name} has no `devices` census (schema "
+            f"{record.get('schema_version')}); it predates the census a bare "
+            "capacitor card needs to be told from a parasitic one -- re-run "
+            "`python3 layout/postlayout.py --extract`"
+        )
+    top, _pins, cards = parse_extracted(text, record["devices"])
     if top != cell:
         raise PostlayoutError(f"{cell}: extracted netlist's top cell is {top!r}")
 
     names = net_map(cell, record["net_correspondence"])
     names.update(parasitic_nodes(cards, names))
     body_lines, census = emit_cards(cell, cards, names)
+    if census != record["device_counts"]:
+        raise PostlayoutError(
+            f"{cell}: the emitted device census {census} is not the "
+            f"extraction's own {record['device_counts']} -- a drawn device was "
+            "dropped or invented between the netlist and the JSON report"
+        )
     ideal_lines, ideal_records = ideal_cards(cell)
 
     text_golden, _body = golden(cell)
@@ -769,8 +991,15 @@ def build_netlist(cell: str) -> tuple[str, dict]:
         "* FROM THE LAYOUT: every device and its dimensions, the whole",
         f"*   topology, and first-order interconnect R/C on "
         f"{stats['nets_with_parasitics']}/{stats['nets_total']} nets",
-        f"*   (sigma {stats['total_capacitance_ff']:.1f} fF). "
-        f"klt {record['provenance']['klt_version']}, deck {DECK},",
+        f"*   (sigma {stats['total_capacitance_ff']:.1f} fF, of which "
+        f"{stats['coupling_capacitance_ff']:.3f} fF is net-to-net coupling).",
+        "*   One star per net: <net> is the hub, <net>__t<k> each device",
+        "*   terminal on it, R<net>_t<k> the arm between them"
+        + (
+            "." if not stats["distributed_rc"]
+            else " (distributed-RC)."
+        ),
+        f"*   klt {record['provenance']['klt_version']}, deck {DECK},",
         f"*   GDS sha256 {record['provenance']['gds_sha256'][:16]}...",
         "* Net names are the schematic's, restored through klt lvs's own net",
         f"*   correspondence -- {record['lvs']['status']}, "
@@ -834,7 +1063,8 @@ def substitutions(cell: str, census: dict[str, int]) -> list[dict]:
                     "emitted_as": model,
                     "count": census[klass],
                     "why": "klayout-tools#315 -- the deck models one stack "
-                           "variant; both are the same 2.0 fF/um^2 device",
+                           "variant; the drawn plate is the schematic's "
+                           "either way",
                 }
             )
     return out
@@ -890,10 +1120,16 @@ def run_extraction(cell: str) -> None:
         # loads nothing. Refusing to record it is what keeps a regression loud.
         raise PostlayoutError(f"{cell}: --parasitics loaded zero nets")
 
+    # Both sides are normalised to the netlist's own unescaped spelling (see
+    # unescape): the pinned klt escapes a positional net as `\$26` in the
+    # netlist *and* in both JSON reports, but that has not always been true of
+    # all three at once (klayout-tools#696), and the committed record is the
+    # thing stage 2 joins the netlist against by name.
     correspondence = {
-        entry["layout"]: entry["reference"] for entry in compare["net_correspondence"]
+        unescape(entry["layout"]): entry["reference"]
+        for entry in compare["net_correspondence"]
     }
-    extracted_nets = {net["name"] for net in report["nets"]}
+    extracted_nets = {unescape(net["name"]) for net in report["nets"]}
     missing = sorted(extracted_nets - set(correspondence))
     if missing:
         raise PostlayoutError(
@@ -901,9 +1137,21 @@ def run_extraction(cell: str) -> None:
             f"correspondence, e.g. {missing[:5]}"
         )
 
+    # The extractor's own statement about which instance names are devices and
+    # what class each one is. Recorded because a bare capacitor card does not
+    # name its class (klayout-tools#1558/#2386) and the written deck therefore
+    # cannot be read on its own; see parse_extracted.
+    devices = {entry["name"]: entry["class"] for entry in report["devices"]}
+    if len(devices) != len(report["devices"]):
+        raise PostlayoutError(
+            f"{cell}: the extraction reports {len(report['devices'])} devices "
+            f"under {len(devices)} distinct instance name(s) -- a card could "
+            "not be attributed to one device"
+        )
+
     body = spice_path.read_text()
     record = {
-        "schema_version": 1,
+        "schema_version": 2,
         "cell": cell,
         "note": "recorded by layout/postlayout.py --extract; the committed "
                 "extracted.spice/extract.json of the DRC/LVS flow are not "
@@ -913,6 +1161,7 @@ def run_extraction(cell: str) -> None:
         "top_cell_pins": bool(flags),
         "device_count": report["device_count"],
         "device_counts": report["device_counts"],
+        "devices": devices,
         "net_count": report["net_count"],
         "pin_count": report["pin_count"],
         "coverage": stats,
@@ -953,8 +1202,8 @@ def audit_markdown(audits: list[dict]) -> str:
         "## Devices and parasitic coverage",
         "",
         "| cell | drawn devices | ideal (not drawn) | parasitic R/C cards | "
-        "nets with parasitics | ΣR | ΣC |",
-        "|---|---|---|---|---|---|---|",
+        "nets with parasitics | ΣR | ΣC | of which coupling |",
+        "|---|---|---|---|---|---|---|---|",
     ]
     for audit in audits:
         stats = audit["coverage"]
@@ -965,7 +1214,8 @@ def audit_markdown(audits: list[dict]) -> str:
             f"{stats['nets_with_parasitics']}/{stats['nets_total']} "
             f"({stats['fraction'] * 100:.1f} %) | "
             f"{stats['total_resistance_ohm']:.0f} Ω | "
-            f"{stats['total_capacitance_ff']:.1f} fF |"
+            f"{stats['total_capacitance_ff']:.1f} fF | "
+            f"{stats['coupling_capacitance_ff']:.3f} fF |"
         )
     lines += [
         "",
@@ -974,6 +1224,41 @@ def audit_markdown(audits: list[dict]) -> str:
         "record it. The nets without parasitics are the ones with no drawn",
         "interconnect of their own — isolated well/plate nets and the",
         "substrate global.",
+        "",
+        "## The parasitic model",
+        "",
+        "One **star** per net (klayout-tools#592): the net keeps its own name",
+        "as the star's hub, each device terminal on it becomes a `<net>__t<k>`",
+        "node, and the net's single lumped series resistance is split across",
+        "the `R<net>_t<k>` arms joining them. The net's lumped capacitance",
+        "sits on the hub (`C<net>`), and vertical-overlap coupling to another",
+        "net is a direct `Ccc__<a>__<b>` between the two nets rather than a",
+        "pair of capacitors to ground — the `of which coupling` column above.",
+        "`Rvsubs_dctie` is the extractor's own 1 TΩ leak giving the substrate",
+        "node a DC path; it survives into the emitted netlist on whichever",
+        "schematic net the substrate is tied to.",
+        "",
+        "A finer model exists upstream and is **not** used here:",
+        "`--distributed-rc` with `--critical-net` (klayout-tools#976/#977)",
+        "breaks a named net into per-segment R/C instead of one hub.",
+        "`layout/postlayout.py --extract` passes neither flag, and each",
+        "report records the extractor's own answer so that is a checkable",
+        "fact rather than an assumption:",
+        "",
+    ]
+    for audit in audits:
+        stats = audit["coverage"]
+        lines.append(
+            f"* **`{audit['cell']}`** — `distributed_rc`: "
+            f"`{str(stats['distributed_rc']).lower()}`, `critical_nets`: "
+            + (
+                "none"
+                if not stats["critical_nets"]
+                else ", ".join(f"`{net}`" for net in stats["critical_nets"])
+            )
+            + "."
+        )
+    lines += [
         "",
         "## Per-cell device census",
         "",

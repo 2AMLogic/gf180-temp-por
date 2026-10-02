@@ -10,19 +10,45 @@ for where this sits in the flow.
 
 ## Devices and parasitic coverage
 
-| cell | drawn devices | ideal (not drawn) | parasitic R/C cards | nets with parasitics | ΣR | ΣC |
-|---|---|---|---|---|---|---|
-| `bias_core` | 70 | 0 | 94 | 47/50 (94.0 %) | 130842 Ω | 1940.1 fF |
-| `por_comparator` | 21 | 0 | 30 | 15/18 (83.3 %) | 18117 Ω | 472.9 fF |
-| `por_output_chain` | 33 | 0 | 36 | 18/20 (90.0 %) | 66323 Ω | 828.9 fF |
-| `temp_core` | 115 | 0 | 138 | 69/73 (94.5 %) | 65734 Ω | 1552.3 fF |
-| `temp_por_top` | 239 | 0 | 272 | 136/145 (93.8 %) | 280929 Ω | 5900.6 fF |
+| cell | drawn devices | ideal (not drawn) | parasitic R/C cards | nets with parasitics | ΣR | ΣC | of which coupling |
+|---|---|---|---|---|---|---|---|
+| `bias_core` | 70 | 0 | 223 | 47/50 (94.0 %) | 130878 Ω | 1961.6 fF | 0.585 fF |
+| `por_comparator` | 21 | 0 | 81 | 15/18 (83.3 %) | 18283 Ω | 526.4 fF | 0.057 fF |
+| `por_output_chain` | 33 | 0 | 131 | 18/20 (90.0 %) | 66418 Ω | 901.4 fF | 81.195 fF |
+| `temp_core` | 115 | 0 | 512 | 69/71 (97.2 %) | 66008 Ω | 1652.9 fF | 1.076 fF |
+| `temp_por_top` | 239 | 0 | 1033 | 136/143 (95.1 %) | 283443 Ω | 7165.8 fF | 85.089 fF |
 
 `nets with parasitics` is the klayout-tools#283 sanity check: a run
 that silently loaded nothing reads 0 here, and `--extract` refuses to
 record it. The nets without parasitics are the ones with no drawn
 interconnect of their own — isolated well/plate nets and the
 substrate global.
+
+## The parasitic model
+
+One **star** per net (klayout-tools#592): the net keeps its own name
+as the star's hub, each device terminal on it becomes a `<net>__t<k>`
+node, and the net's single lumped series resistance is split across
+the `R<net>_t<k>` arms joining them. The net's lumped capacitance
+sits on the hub (`C<net>`), and vertical-overlap coupling to another
+net is a direct `Ccc__<a>__<b>` between the two nets rather than a
+pair of capacitors to ground — the `of which coupling` column above.
+`Rvsubs_dctie` is the extractor's own 1 TΩ leak giving the substrate
+node a DC path; it survives into the emitted netlist on whichever
+schematic net the substrate is tied to.
+
+A finer model exists upstream and is **not** used here:
+`--distributed-rc` with `--critical-net` (klayout-tools#976/#977)
+breaks a named net into per-segment R/C instead of one hub.
+`layout/postlayout.py --extract` passes neither flag, and each
+report records the extractor's own answer so that is a checkable
+fact rather than an assumption:
+
+* **`bias_core`** — `distributed_rc`: `false`, `critical_nets`: none.
+* **`por_comparator`** — `distributed_rc`: `false`, `critical_nets`: none.
+* **`por_output_chain`** — `distributed_rc`: `false`, `critical_nets`: none.
+* **`temp_core`** — `distributed_rc`: `false`, `critical_nets`: none.
+* **`temp_por_top`** — `distributed_rc`: `false`, `critical_nets`: none.
 
 ## Per-cell device census
 
@@ -80,12 +106,12 @@ own schematic node (#264, #259), so none is tied here:
 | cell | devices | extracted as | emitted as | why |
 |---|---|---|---|---|
 | `bias_core` | 24 | `ppolyf_u_1k` | `ppolyf_u_3k` | klayout-tools#323 -- the deck wires the PDK's default POLY_RES option only; the drawn geometry is the schematic's either way |
-| `bias_core` | 2 | `cap_mim_2f0_m4m5_noshield` | `cap_mim_2f0_m3m4_noshield` | klayout-tools#315 -- the deck models one stack variant; both are the same 2.0 fF/um^2 device |
+| `bias_core` | 2 | `cap_mim_2f0_m4m5_noshield` | `cap_mim_2f0_m3m4_noshield` | klayout-tools#315 -- the deck models one stack variant; the drawn plate is the schematic's either way |
 | `por_comparator` | 3 | `ppolyf_u_1k` | `ppolyf_u_3k` | klayout-tools#323 -- the deck wires the PDK's default POLY_RES option only; the drawn geometry is the schematic's either way |
-| `por_output_chain` | 5 | `cap_mim_2f0_m4m5_noshield` | `cap_mim_2f0_m3m4_noshield` | klayout-tools#315 -- the deck models one stack variant; both are the same 2.0 fF/um^2 device |
-| `temp_core` | 1 | `cap_mim_2f0_m4m5_noshield` | `cap_mim_2f0_m3m4_noshield` | klayout-tools#315 -- the deck models one stack variant; both are the same 2.0 fF/um^2 device |
+| `por_output_chain` | 5 | `cap_mim_2f0_m4m5_noshield` | `cap_mim_2f0_m3m4_noshield` | klayout-tools#315 -- the deck models one stack variant; the drawn plate is the schematic's either way |
+| `temp_core` | 1 | `cap_mim_2f0_m4m5_noshield` | `cap_mim_2f0_m3m4_noshield` | klayout-tools#315 -- the deck models one stack variant; the drawn plate is the schematic's either way |
 | `temp_por_top` | 27 | `ppolyf_u_1k` | `ppolyf_u_3k` | klayout-tools#323 -- the deck wires the PDK's default POLY_RES option only; the drawn geometry is the schematic's either way |
-| `temp_por_top` | 8 | `cap_mim_2f0_m4m5_noshield` | `cap_mim_2f0_m3m4_noshield` | klayout-tools#315 -- the deck models one stack variant; both are the same 2.0 fF/um^2 device |
+| `temp_por_top` | 8 | `cap_mim_2f0_m4m5_noshield` | `cap_mim_2f0_m3m4_noshield` | klayout-tools#315 -- the deck models one stack variant; the drawn plate is the schematic's either way |
 
 The drawn geometry is the schematic's in both cases; only the deck's
 *name* for it differs. Emitting the deck's name would simulate this

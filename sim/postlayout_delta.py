@@ -34,10 +34,12 @@ WHAT IT COMPUTES
    would make ``build_tb.py --check`` overwrite the hand edits), the source
    list is instead recovered from the fragment's own "Forked from
    ``layout/postlayout/<cell>.spice``" header line. ``layout/postlayout.py``
-   models each net's interconnect as one lumped series R to a ``<net>__par``
-   stub node with a lumped C from that stub to ``VSS``, so per-net ΣC and ΣR
-   are directly recoverable, and the loading a named high-impedance node
-   actually sees is its own row of that table. ``--high-z`` names the nodes
+   models each net's interconnect as one resistive **star** -- the net's own
+   name is the hub, each device terminal on it is a ``<net>__t<k>`` node, and
+   the net's single lumped series resistance is split across the arms joining
+   them, with the net's lumped C on the hub -- so per-net ΣC and ΣR are
+   directly recoverable, and the loading a named high-impedance node actually
+   sees is its own row of that table. ``--high-z`` names the nodes
    to call out (they are a property of the *design* -- e.g.
    ``design/temp_core.md``'s ``PTAT`` at R_src ≈ 516 kΩ -- not of the
    extraction, so the tool is told rather than guessing).
@@ -72,6 +74,7 @@ import argparse
 import re
 import sys
 from pathlib import Path
+from typing import NamedTuple
 
 SIM_DIR = Path(__file__).resolve().parent
 REPO_ROOT = SIM_DIR.parent
@@ -91,12 +94,38 @@ from harness.testbench import load as load_testbench  # noqa: E402
 #: never ``testbench/`` itself.
 POSTLAYOUT_TESTBENCH_DIRNAME = f"{TESTBENCH_DIRNAME}-postlayout"
 
-#: ``layout/postlayout.py``'s stub-node suffix: interconnect on net ``N`` is
-#: ``R_k N N__par`` + ``C_k N__par VSS``.
-PAR_SUFFIX = "__par"
+#: ``layout/postlayout.py``'s star-model terminal-node suffix. A net ``N`` that
+#: carries drawn interconnect becomes a hub node ``N`` plus one ``N__t<k>``
+#: node per device terminal on it; see that module's ``TERMINAL_SUFFIX`` and
+#: ``layout/postlayout/AUDIT.md`` -> "The parasitic model".
+TERMINAL_RE = re.compile(r"^(?P<net>.+)__t\d+$")
 
-_R_CARD = re.compile(r"^R\S*\s+(\S+)\s+(\S+)\s+(\S+)\s*$", re.IGNORECASE)
-_C_CARD = re.compile(r"^C\S*\s+(\S+)\s+(\S+)\s+(\S+)\s*$", re.IGNORECASE)
+#: ``klt``'s own name prefix for a net-to-net coupling capacitor, passed
+#: through verbatim by ``layout/postlayout.py``. It is the only thing that
+#: separates a coupling card from a net's own ground capacitance card, which
+#: have the identical shape -- so :func:`parasitics_by_net`'s own totals are
+#: asserted against ``layout/postlayout/audit.json``'s in
+#: ``sim/tests/test_postlayout_delta.py``: if klt ever renames these, that test
+#: fails rather than the attribution quietly moving.
+COUPLING_PREFIX = "CCC"
+
+#: ``klt``'s 1 Tohm substrate DC tie (``Rvsubs_dctie <ground> 0 1e+12``). Not
+#: interconnect on any net -- it exists only to give the substrate node a DC
+#: path -- and large enough to swamp a cell's whole ΣR if it were summed in.
+DCTIE_SUFFIX = "_DCTIE"
+
+_R_CARD = re.compile(r"^(R\S*)\s+(\S+)\s+(\S+)\s+(\S+)\s*$", re.IGNORECASE)
+_C_CARD = re.compile(r"^(C\S*)\s+(\S+)\s+(\S+)\s+(\S+)\s*$", re.IGNORECASE)
+
+
+class ParasiticCardError(Exception):
+    """A parasitic card whose shape this reader does not recognise.
+
+    Never downgraded to a skip. The failure this exists to prevent is a model
+    change upstream (#314 moved ``layout/postlayout.py`` from a dangling
+    ``<net>__par`` leg to a per-net star) silently re-attributing a cell's whole
+    capacitance to its ground rail while every number still looked plausible.
+    """
 
 
 def _number(token: str) -> float | None:
@@ -112,35 +141,115 @@ def _number(token: str) -> float | None:
 # --------------------------------------------------------------------------
 
 
-def parasitics_by_net(netlist: Path) -> dict[str, dict[str, float]]:
-    """Per-net interconnect ΣR / ΣC from an extracted netlist.
+class ParasiticCard(NamedTuple):
+    """One parasitic card of a post-layout netlist, and whose load it is."""
 
-    Keyed on the *schematic* net name (the stub suffix stripped), because
-    that is the name the design documents and the measure expressions use.
+    line: str                 # the raw line, unmodified
+    kind: str                 # resistance | capacitance | coupling | substrate_tie
+    nets: tuple[str, ...]     # the schematic net(s) it loads; () for the tie
+    value: float              # ohms or farads
+
+
+def parasitic_cards(netlist: Path) -> list[ParasiticCard]:
+    """Every parasitic card of ``netlist``, attributed to its net(s).
+
+    The one parser for ``layout/postlayout.py``'s emitted parasitic network, so
+    a consumer that *sums* a net's load (:func:`parasitics_by_net`) and one that
+    *suppresses* it (``run_net_attribution.py``'s ``short_nets``) can never
+    disagree about which cards are that net's. Four shapes, all of them klt's
+    own naming passed through unchanged:
+
+    ======================================  ====================================
+    ``R<net>_t<k> <net>__t<k> <net> <ohms>``  one arm of the net's star
+    ``C<net> <net> <ground> <farads>``        the net's lumped ground C
+    ``Ccc__<a>__<b> <a> <b> <farads>``        net-to-net coupling: loads both
+    ``R<subs>_dctie <ground> 0 1e+12``        the substrate DC tie: loads none
+    ======================================  ====================================
+
+    Raises :class:`ParasiticCardError` on anything else rather than skipping it.
     """
-    nets: dict[str, dict[str, float]] = {}
-
-    def bucket(name: str) -> dict[str, float]:
-        base = name[: -len(PAR_SUFFIX)] if name.endswith(PAR_SUFFIX) else name
-        return nets.setdefault(base, {"r_ohm": 0.0, "c_f": 0.0})
-
+    cards: list[ParasiticCard] = []
     for raw in netlist.read_text().splitlines():
         line = raw.strip()
         if not line or line.startswith(("*", ".")):
             continue
-        for pattern, key in ((_R_CARD, "r_ohm"), (_C_CARD, "c_f")):
+        for pattern, kind in ((_R_CARD, "resistance"), (_C_CARD, "capacitance")):
             match = pattern.match(line)
             if not match:
                 continue
-            a, b, value = match.groups()
-            number = _number(value)
-            if number is None:
-                continue
-            # The stub node names the net; for the C card the other node is
-            # the ground the plate returns to, which is not this net.
-            node = a if a.endswith(PAR_SUFFIX) else b
-            bucket(node)[key] += number
+            name, a, b, token = match.groups()
+            value = _number(token)
+            if value is None:
+                # Not a parasitic: a device card whose third field happens to
+                # be a node (the emitted devices are all X cards, so this is
+                # only reachable for a hand-edited fragment).
+                break
+            if kind == "resistance" and name.upper().endswith(DCTIE_SUFFIX):
+                cards.append(ParasiticCard(raw, "substrate_tie", (), value))
+                break
+            if kind == "resistance":
+                # Both nodes are the same net: one is the hub, the other its
+                # own terminal node.
+                hub = _star_hub(name, a, b)
+                cards.append(ParasiticCard(raw, "resistance", (hub,), value))
+                break
+            if name.upper().startswith(COUPLING_PREFIX):
+                cards.append(ParasiticCard(raw, "coupling", (a, b), value))
+                break
+            # The net's own lumped capacitance; the far node is the ground it
+            # returns to, which is not this net's load.
+            cards.append(ParasiticCard(raw, "capacitance", (a,), value))
             break
+    return cards
+
+
+def _star_hub(name: str, a: str, b: str) -> str:
+    """The net a star arm belongs to: the hub of ``<net>`` / ``<net>__t<k>``."""
+    for terminal, hub in ((a, b), (b, a)):
+        match = TERMINAL_RE.match(terminal)
+        if match and match.group("net") == hub:
+            return hub
+    raise ParasiticCardError(
+        f"{name}: {a!r} and {b!r} are not a star terminal and its own hub, so "
+        "this resistor cannot be attributed to one net -- the parasitic model "
+        "layout/postlayout.py emits has changed shape"
+    )
+
+
+def parasitics_by_net(netlist: Path) -> dict[str, dict[str, float]]:
+    """Per-net interconnect ΣR / ΣC from an extracted netlist.
+
+    Keyed on the *schematic* net name, because that is the name the design
+    documents and the measure expressions use. Per net:
+
+    * ``r_ohm`` -- its star's arms. Summing them gives the net's one lumped
+      series resistance, which is the quantity klt reports per net.
+    * ``c_f`` -- its own lumped capacitance to ground. Summing over nets
+      reproduces the extraction's ``total_capacitance_ff`` exactly.
+    * ``c_coupling_f`` -- coupling capacitance to *other* nets. A coupling
+      capacitor loads both of its nets, so it is counted on each: summing over
+      nets gives twice the extraction's ``total_coupling_capacitance_ff``.
+
+    The substrate DC tie is excluded from ``r_ohm``: it is a 1 Tohm leak giving
+    the substrate node a DC path, not interconnect on any net.
+    """
+    nets: dict[str, dict[str, float]] = {}
+
+    def bucket(name: str) -> dict[str, float]:
+        return nets.setdefault(
+            name, {"r_ohm": 0.0, "c_f": 0.0, "c_coupling_f": 0.0}
+        )
+
+    key = {
+        "resistance": "r_ohm",
+        "capacitance": "c_f",
+        "coupling": "c_coupling_f",
+    }
+    for card in parasitic_cards(netlist):
+        if card.kind == "substrate_tie":
+            continue
+        for net in card.nets:
+            bucket(net)[key[card.kind]] += card.value
     return nets
 
 
@@ -310,26 +419,32 @@ def render(
         "",
         "## 1. Parasitic loading on the high-impedance nodes",
         "",
-        "`layout/postlayout.py` models each net's drawn interconnect as one lumped",
-        "series R from the net to a `<net>__par` stub with a lumped C from that stub",
-        "to `VSS`, so the loading a node sees is its own row here. Read out of the",
-        "extracted netlist, not measured:",
+        "`layout/postlayout.py` models each net's drawn interconnect as one",
+        "resistive star -- the net is the hub, each device terminal on it a",
+        "`<net>__t<k>` node, the net's lumped series R split across the arms",
+        "joining them and its lumped C on the hub -- so the loading a node sees is",
+        "its own row here. `coupling C` is capacitance charged between this net and",
+        "a *different* net rather than to ground, and is counted on both of them.",
+        "Read out of the extracted netlist, not measured:",
         "",
     ]
 
     if high_z:
         lines += [
-            "| net | ΣC (fF) | ΣR (Ω) | share of cell ΣC |",
-            "|---|---|---|---|",
+            "| net | ΣC (fF) | coupling C (fF) | ΣR (Ω) | share of cell ΣC |",
+            "|---|---|---|---|---|",
         ]
         total_c = sum(v["c_f"] for v in parasitics.values()) or 1.0
         for net in high_z:
             entry = parasitics.get(net)
             if entry is None:
-                lines.append(f"| `{net}` | **no drawn interconnect of its own** | — | — |")
+                lines.append(
+                    f"| `{net}` | **no drawn interconnect of its own** | — | — | — |"
+                )
                 continue
             lines.append(
-                f"| `{net}` | {entry['c_f'] * 1e15:.2f} | {entry['r_ohm']:.1f} | "
+                f"| `{net}` | {entry['c_f'] * 1e15:.2f} | "
+                f"{entry['c_coupling_f'] * 1e15:.3f} | {entry['r_ohm']:.1f} | "
                 f"{entry['c_f'] / total_c * 100:.1f} % |"
             )
         lines.append("")
@@ -338,11 +453,14 @@ def render(
     lines += [
         "Ten most heavily loaded nets in the same netlist, for scale:",
         "",
-        "| net | ΣC (fF) | ΣR (Ω) |",
-        "|---|---|---|",
+        "| net | ΣC (fF) | coupling C (fF) | ΣR (Ω) |",
+        "|---|---|---|---|",
     ]
     for net, entry in ranked:
-        lines.append(f"| `{net}` | {entry['c_f'] * 1e15:.2f} | {entry['r_ohm']:.1f} |")
+        lines.append(
+            f"| `{net}` | {entry['c_f'] * 1e15:.2f} | "
+            f"{entry['c_coupling_f'] * 1e15:.3f} | {entry['r_ohm']:.1f} |"
+        )
     lines += [
         "",
         f"Cell total: {sum(v['c_f'] for v in parasitics.values()) * 1e15:.1f} fF of "
@@ -555,9 +673,11 @@ def main(argv: list[str] | None = None) -> int:
     parasitics: dict[str, dict[str, float]] = {}
     for source in sources:
         for net, entry in parasitics_by_net(REPO_ROOT / source).items():
-            got = parasitics.setdefault(net, {"r_ohm": 0.0, "c_f": 0.0})
-            got["r_ohm"] += entry["r_ohm"]
-            got["c_f"] += entry["c_f"]
+            got = parasitics.setdefault(
+                net, {"r_ohm": 0.0, "c_f": 0.0, "c_coupling_f": 0.0}
+            )
+            for key, value in entry.items():
+                got[key] += value
 
     high_z = [n.strip() for n in args.high_z.split(",") if n.strip()]
     delta = compare(schematic_points, extracted_points, tb.checks)

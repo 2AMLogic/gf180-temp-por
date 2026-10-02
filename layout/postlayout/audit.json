@@ -11,13 +11,16 @@
         "ppolyf_u_1k": 24
       },
       "device_total": 70,
-      "parasitic_cards": 94,
+      "parasitic_cards": 223,
       "coverage": {
         "nets_total": 50,
         "nets_with_parasitics": 47,
         "fraction": 0.94,
-        "total_resistance_ohm": 130841.6954,
-        "total_capacitance_ff": 1940.064947
+        "total_resistance_ohm": 130877.8062,
+        "total_capacitance_ff": 1961.563004,
+        "coupling_capacitance_ff": 0.585346,
+        "distributed_rc": false,
+        "critical_nets": []
       },
       "ties": {
         "vsubs": "VSS",
@@ -39,7 +42,7 @@
           "extracted_as": "cap_mim_2f0_m4m5_noshield",
           "emitted_as": "cap_mim_2f0_m3m4_noshield",
           "count": 2,
-          "why": "klayout-tools#315 -- the deck models one stack variant; both are the same 2.0 fF/um^2 device"
+          "why": "klayout-tools#315 -- the deck models one stack variant; the drawn plate is the schematic's either way"
         }
       ],
       "ports": [
@@ -50,11 +53,12 @@
         "BIAS_OK"
       ],
       "provenance": {
-        "klt_version": "0.2.0",
-        "klayout_version": "0.30.10",
+        "klt_version": "0.6.0",
+        "klayout_version": "0.30.12",
         "deck": {
           "name": "gf180mcu",
-          "content_hash": "sha256:1256c45b3e472635b03a1888d0730822c1872b4a912a2c90fc1e4e7cd14a3913"
+          "content_hash": "sha256:95c2eb9148b29ded02182aeca4222287ff57f813691d5e2f9f8d7a675f6cb637",
+          "released": false
         },
         "gds_sha256": "b2e68f8087bcf31cb329785109e93551ecc416b6659cc7c7d7b51ef79e4cdf96"
       },
@@ -68,13 +72,16 @@
         "ppolyf_u_1k": 3
       },
       "device_total": 21,
-      "parasitic_cards": 30,
+      "parasitic_cards": 81,
       "coverage": {
         "nets_total": 18,
         "nets_with_parasitics": 15,
         "fraction": 0.8333,
-        "total_resistance_ohm": 18117.4588,
-        "total_capacitance_ff": 472.926636
+        "total_resistance_ohm": 18283.0024,
+        "total_capacitance_ff": 526.365705,
+        "coupling_capacitance_ff": 0.056665,
+        "distributed_rc": false,
+        "critical_nets": []
       },
       "ties": {
         "vsubs": "VSS",
@@ -101,11 +108,12 @@
         "POR_RAW"
       ],
       "provenance": {
-        "klt_version": "0.2.0",
-        "klayout_version": "0.30.10",
+        "klt_version": "0.6.0",
+        "klayout_version": "0.30.12",
         "deck": {
           "name": "gf180mcu",
-          "content_hash": "sha256:1256c45b3e472635b03a1888d0730822c1872b4a912a2c90fc1e4e7cd14a3913"
+          "content_hash": "sha256:95c2eb9148b29ded02182aeca4222287ff57f813691d5e2f9f8d7a675f6cb637",
+          "released": false
         },
         "gds_sha256": "c60a2ef35e34d6d4e0e70ba0a9937467b37676cc94a041b325e2117d5da44412"
       },
@@ -119,13 +127,16 @@
         "cap_mim_2f0_m4m5_noshield": 5
       },
       "device_total": 33,
-      "parasitic_cards": 36,
+      "parasitic_cards": 131,
       "coverage": {
         "nets_total": 20,
         "nets_with_parasitics": 18,
         "fraction": 0.9,
-        "total_resistance_ohm": 66323.225,
-        "total_capacitance_ff": 828.884348
+        "total_resistance_ohm": 66418.3371,
+        "total_capacitance_ff": 901.404814,
+        "coupling_capacitance_ff": 81.195487,
+        "distributed_rc": false,
+        "critical_nets": []
       },
       "ties": {
         "vsubs": "VSS",
@@ -138,7 +149,7 @@
           "extracted_as": "cap_mim_2f0_m4m5_noshield",
           "emitted_as": "cap_mim_2f0_m3m4_noshield",
           "count": 5,
-          "why": "klayout-tools#315 -- the deck models one stack variant; both are the same 2.0 fF/um^2 device"
+          "why": "klayout-tools#315 -- the deck models one stack variant; the drawn plate is the schematic's either way"
         }
       ],
       "ports": [
@@ -149,11 +160,12 @@
         "RESETn"
       ],
       "provenance": {
-        "klt_version": "0.2.0",
-        "klayout_version": "0.30.10",
+        "klt_version": "0.6.0",
+        "klayout_version": "0.30.12",
         "deck": {
           "name": "gf180mcu",
-          "content_hash": "sha256:1256c45b3e472635b03a1888d0730822c1872b4a912a2c90fc1e4e7cd14a3913"
+          "content_hash": "sha256:95c2eb9148b29ded02182aeca4222287ff57f813691d5e2f9f8d7a675f6cb637",
+          "released": false
         },
         "gds_sha256": "25943ef873ddc2800a6108ed59bff2a8e6d5bdfb3fd1f435a6609c8156aef538"
       },
@@ -169,13 +181,16 @@
         "ppolyf_u": 50
       },
       "device_total": 115,
-      "parasitic_cards": 138,
+      "parasitic_cards": 512,
       "coverage": {
-        "nets_total": 73,
+        "nets_total": 71,
         "nets_with_parasitics": 69,
-        "fraction": 0.9452,
-        "total_resistance_ohm": 65734.4637,
-        "total_capacitance_ff": 1552.307553
+        "fraction": 0.9718,
+        "total_resistance_ohm": 66008.326,
+        "total_capacitance_ff": 1652.94544,
+        "coupling_capacitance_ff": 1.075888,
+        "distributed_rc": false,
+        "critical_nets": []
       },
       "ties": {
         "vsubs": "VSS",
@@ -190,7 +205,7 @@
           "extracted_as": "cap_mim_2f0_m4m5_noshield",
           "emitted_as": "cap_mim_2f0_m3m4_noshield",
           "count": 1,
-          "why": "klayout-tools#315 -- the deck models one stack variant; both are the same 2.0 fF/um^2 device"
+          "why": "klayout-tools#315 -- the deck models one stack variant; the drawn plate is the schematic's either way"
         }
       ],
       "ports": [
@@ -202,11 +217,12 @@
         "CTAT"
       ],
       "provenance": {
-        "klt_version": "0.2.0",
-        "klayout_version": "0.30.10",
+        "klt_version": "0.6.0",
+        "klayout_version": "0.30.12",
         "deck": {
           "name": "gf180mcu",
-          "content_hash": "sha256:1256c45b3e472635b03a1888d0730822c1872b4a912a2c90fc1e4e7cd14a3913"
+          "content_hash": "sha256:95c2eb9148b29ded02182aeca4222287ff57f813691d5e2f9f8d7a675f6cb637",
+          "released": false
         },
         "gds_sha256": "360bbbea3f0659324430beb69c19ecee30d818111f6f00cfa62845932d7862a7"
       },
@@ -223,13 +239,16 @@
         "ppolyf_u_1k": 27
       },
       "device_total": 239,
-      "parasitic_cards": 272,
+      "parasitic_cards": 1033,
       "coverage": {
-        "nets_total": 145,
+        "nets_total": 143,
         "nets_with_parasitics": 136,
-        "fraction": 0.9379,
-        "total_resistance_ohm": 280929.3522,
-        "total_capacitance_ff": 5900.569376
+        "fraction": 0.951,
+        "total_resistance_ohm": 283442.9881,
+        "total_capacitance_ff": 7165.772513,
+        "coupling_capacitance_ff": 85.089052,
+        "distributed_rc": false,
+        "critical_nets": []
       },
       "ties": {
         "vsubs": "VSS",
@@ -257,7 +276,7 @@
           "extracted_as": "cap_mim_2f0_m4m5_noshield",
           "emitted_as": "cap_mim_2f0_m3m4_noshield",
           "count": 8,
-          "why": "klayout-tools#315 -- the deck models one stack variant; both are the same 2.0 fF/um^2 device"
+          "why": "klayout-tools#315 -- the deck models one stack variant; the drawn plate is the schematic's either way"
         }
       ],
       "ports": [
@@ -268,11 +287,12 @@
         "RESETn"
       ],
       "provenance": {
-        "klt_version": "0.2.0",
-        "klayout_version": "0.30.10",
+        "klt_version": "0.6.0",
+        "klayout_version": "0.30.12",
         "deck": {
           "name": "gf180mcu",
-          "content_hash": "sha256:1256c45b3e472635b03a1888d0730822c1872b4a912a2c90fc1e4e7cd14a3913"
+          "content_hash": "sha256:95c2eb9148b29ded02182aeca4222287ff57f813691d5e2f9f8d7a675f6cb637",
+          "released": false
         },
         "gds_sha256": "a119a12b1fa2daff64772a4a804a0ea14f17c68dc9357fe167dfd287df0628fd"
       },

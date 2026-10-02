@@ -17,9 +17,9 @@
   "measurements": [
     {
       "measure": "vref_v",
-      "postlayout": 1.1994384875,
+      "postlayout": 1.2008978899,
       "schematic": 1.1993493769,
-      "delta_frac": 7.429911726819604e-05,
+      "delta_frac": 0.0012911275311639494,
       "window": [
         0.9,
         1.5
@@ -29,9 +29,9 @@
     },
     {
       "measure": "bias_ok_v",
-      "postlayout": 3.29999981,
+      "postlayout": 3.2999998022,
       "schematic": 3.2999998101,
-      "delta_frac": -3.030303455411617e-11,
+      "delta_frac": -2.3939395952026816e-09,
       "window": [
         2.9,
         3.31
@@ -41,9 +41,9 @@
     },
     {
       "measure": "ibias_ua",
-      "postlayout": 0.54519255846,
+      "postlayout": 0.54569754267,
       "schematic": 0.54551117401,
-      "delta_frac": -0.0005840678709803502,
+      "delta_frac": 0.00034164040789488024,
       "window": [
         0.05,
         5.0
@@ -53,9 +53,9 @@
     },
     {
       "measure": "pg_v",
-      "postlayout": 2.5238284947,
+      "postlayout": 2.5237608932,
       "schematic": 2.523796458,
-      "delta_frac": 1.2693852508750905e-05,
+      "delta_frac": -1.4091786161033451e-05,
       "window": [
         0.5,
         3.31

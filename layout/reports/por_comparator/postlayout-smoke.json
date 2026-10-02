@@ -17,9 +17,9 @@
   "measurements": [
     {
       "measure": "por_raw_v",
-      "postlayout": 3.2999999874,
+      "postlayout": 3.2999999853,
       "schematic": 3.2999999874,
-      "delta_frac": 0.0,
+      "delta_frac": -6.363636914463519e-10,
       "window": [
         2.9,
         3.31
@@ -29,9 +29,9 @@
     },
     {
       "measure": "sns_v",
-      "postlayout": 1.6122818568,
+      "postlayout": 1.6123766263,
       "schematic": 1.6122818568,
-      "delta_frac": 0.0,
+      "delta_frac": 5.877973482135163e-05,
       "window": [
         1.0,
         2.5
@@ -41,9 +41,9 @@
     },
     {
       "measure": "snsb_v",
-      "postlayout": 0.16566085858,
+      "postlayout": 0.16573015766,
       "schematic": 0.1656608587,
-      "delta_frac": -7.243715315164217e-10,
+      "delta_frac": 0.0004183182469522693,
       "window": [
         0.05,
         0.6

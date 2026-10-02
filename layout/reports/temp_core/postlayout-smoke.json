@@ -17,9 +17,9 @@
   "measurements": [
     {
       "measure": "ptat_v",
-      "postlayout": 1.2939883729,
+      "postlayout": 1.2956030539,
       "schematic": 1.2933413408,
-      "delta_frac": 0.0005002794541459643,
+      "delta_frac": 0.0017487364152459688,
       "window": [
         0.5,
         2.5
@@ -29,9 +29,9 @@
     },
     {
       "measure": "ctat_v",
-      "postlayout": 0.65327412204,
+      "postlayout": 0.65501786125,
       "schematic": 0.65334724097,
-      "delta_frac": -0.00011191434724878023,
+      "delta_frac": 0.0025570174254042665,
       "window": [
         0.3,
         1.2
@@ -41,9 +41,9 @@
     },
     {
       "measure": "pg_v",
-      "postlayout": 2.2340564053,
+      "postlayout": 2.2348320268,
       "schematic": 2.2352182386,
-      "delta_frac": -0.0005197851735173558,
+      "delta_frac": -0.0001727848284925767,
       "window": [
         0.5,
         3.31

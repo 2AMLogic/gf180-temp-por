@@ -564,7 +564,7 @@ every high-sheet-rho resistor, including the POR sense divider.
 
 | | |
 | --- | --- |
-| From the layout | every device and its dimensions; the whole topology; first-order R/C on every net with drawn routing (60–95 % of nets per cell — see `AUDIT.md`) |
+| From the layout | every device and its dimensions; the whole topology; first-order R/C on every net with drawn routing (83–97 % of nets per cell — see `AUDIT.md`) |
 | From the schematic | the body/well ties above, and net *names* |
 | Not present | **nothing.** Every golden device in all four schematics is drawn, extracted and in the netlist; `AUDIT.md`'s "ideal (not drawn)" column reads 0 for every cell. `temp_core`'s `XCC` was the last exception and #259 drew it ([DR-028](../spec/decision-records/DR-028-temp-core-xcc-draw-it.md)) |
 
@@ -599,16 +599,31 @@ still describes the netlist it names.
   **not** a `sim/` evidence record — one PVT point, loose sanity windows — and
   says so in every artifact it writes.
 
-The DC quantities agree with the schematic to five or six digits, which is
-expected and is not a null result: the parasitic model is one series R into
-one lumped C per net, so a DC operating point is parasitic-invariant by
-construction. What the agreement proves is that the post-layout netlist is the
-*same circuit* — `por_comparator`'s `SNS`/`SNSB` carry no drawn label at all,
-so reproducing the schematic's 1.61228 V tap is only possible if the
-correspondence, the divider's restored sheet rho and the body ties are all
+The DC quantities agree with the schematic to within a few parts in a
+thousand, which is expected and is not a null result. The parasitic model is
+one resistive **star** per net — the net's own name is the hub, each device
+terminal on it is a `<net>__t<k>` node, and the net's single lumped series
+resistance is split across the `R<net>_t<k>` arms joining them, with the net's
+lumped C on the hub and vertical-overlap coupling as a direct capacitor
+between two nets (`AUDIT.md` → "The parasitic model"). A DC operating point is
+therefore *nearly* invariant under it: only the drawn resistance between a
+net's own terminals can move one, which is what the residual ≤0.3 % DC deltas
+are. What the agreement proves is that the post-layout netlist is the *same
+circuit* — `por_comparator`'s `SNS`/`SNSB` carry no drawn label at all, so
+reproducing the schematic's 1.61228 V tap to within 0.01 % is only possible if
+the correspondence, the divider's restored sheet rho and the body ties are all
 right. The reset-release times are where the drawn interconnect actually
-bites: `por_output_chain` +2.1 %, `temp_por_top` +2.0 % against the schematic.
+bites: `por_output_chain` +4.1 %, `temp_por_top` +4.0 % against the schematic.
 Those are the measurements a post-layout claim should be taken on.
+
+Both of those moved from ≈+2 % when the evidence here was regenerated against
+the `klt` `layout/toolchain.json` pins (#314), and the reason is the model
+rather than the layout: the previous release modelled a net's whole
+interconnect as a *dangling* R–C leg (one series R to a synthetic `<net>__par`
+node, one C from that node to the substrate), so its resistance sat in no
+signal path at all and only its capacitance loaded the circuit. In the star
+the same total resistance is in series between each device terminal and the
+rest of its net, which is both a larger delay and a more faithful one.
 
 ## The cells under test
 

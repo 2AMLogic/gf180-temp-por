@@ -1,9 +1,9 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "cell": "por_comparator",
   "note": "recorded by layout/postlayout.py --extract; the committed extracted.spice/extract.json of the DRC/LVS flow are not touched by this run",
   "netlist_path": "layout/reports/por_comparator/extracted-parasitics.spice",
-  "netlist_sha256": "bdf10b42c22fec06edae8108319b4f07e2c4f9a8242c548201c98cdcdca738bb",
+  "netlist_sha256": "63a6f936d337b201118ca5d76f54ed74dec2d89ad137e18a7b276461c18f0495",
   "top_cell_pins": false,
   "device_count": 21,
   "device_counts": {
@@ -11,25 +11,54 @@
     "pfet": 6,
     "ppolyf_u_1k": 3
   },
+  "devices": {
+    "$1": "nfet",
+    "$10": "nfet",
+    "$11": "nfet",
+    "$12": "nfet",
+    "$13": "pfet",
+    "$14": "pfet",
+    "$15": "pfet",
+    "$16": "pfet",
+    "$17": "pfet",
+    "$18": "pfet",
+    "$19": "ppolyf_u_1k",
+    "$2": "nfet",
+    "$20": "ppolyf_u_1k",
+    "$21": "ppolyf_u_1k",
+    "$3": "nfet",
+    "$4": "nfet",
+    "$5": "nfet",
+    "$6": "nfet",
+    "$7": "nfet",
+    "$8": "nfet",
+    "$9": "nfet"
+  },
   "net_count": 18,
   "pin_count": 8,
   "coverage": {
     "nets_total": 18,
     "nets_with_parasitics": 15,
     "fraction": 0.8333,
-    "total_resistance_ohm": 18117.4588,
-    "total_capacitance_ff": 472.926636
+    "total_resistance_ohm": 18283.0024,
+    "total_capacitance_ff": 526.365705,
+    "coupling_capacitance_ff": 0.056665,
+    "distributed_rc": false,
+    "critical_nets": []
   },
   "warnings": [
     "12 poly-layer shapes not part of any recognised nfet/pfet gate touch contact at 2+ separate points (the resistor-body signature) and carry no resistor-marker layer at all; this deck may not model the device class drawn here, and its terminals have been absorbed into ordinary interconnect as an unintended short -- see docs/cli/extract.md's 'Known limitation: unmodelled device geometry'.",
-    "promoted 2 net(s) to top-level pins from label(s) found only below the top cell (inside instanced sub-cells): BIAS_OK, BIAS_OKB -- these are internal nodes once instanced; pass top_cell_pins_only (--top-cell-pins) to keep them internal (issue #291)"
+    "promoted 2 net(s) to top-level pins from label(s) found only below the top cell (inside instanced sub-cells): BIAS_OK, BIAS_OKB -- these are internal nodes once instanced; pass top_cell_pins_only (--top-cell-pins) to keep them internal (issue #291)",
+    "6 PMOS devices tie their body to an anonymous net with no DC bias path -- no drawn (or derivable) well tie connects this PMOS body to a real supply rail on this layout, so it is left floating rather than tied to a real supply rail; resimulating this netlist directly will not reproduce the schematic-level PMOS body bias -- see unbiased_pmos_body_nets[] for the full list. See docs/cli/extract.md's 'Parasitic (RC) extraction' section.",
+    "1 net connect to exactly one device terminal -- source/drain/body/resistor-equivalent, not a gate -- and are not a declared pin; this can be a legitimate single-terminal tie (e.g. an intentionally unterminated dummy's diffusion tie), but confirm these nets have no other intended connectivity -- see single_terminal_nets[] for the full list."
   ],
   "provenance": {
-    "klt_version": "0.2.0",
-    "klayout_version": "0.30.10",
+    "klt_version": "0.6.0",
+    "klayout_version": "0.30.12",
     "deck": {
       "name": "gf180mcu",
-      "content_hash": "sha256:1256c45b3e472635b03a1888d0730822c1872b4a912a2c90fc1e4e7cd14a3913"
+      "content_hash": "sha256:95c2eb9148b29ded02182aeca4222287ff57f813691d5e2f9f8d7a675f6cb637",
+      "released": false
     },
     "gds_sha256": "c60a2ef35e34d6d4e0e70ba0a9937467b37676cc94a041b325e2117d5da44412"
   },

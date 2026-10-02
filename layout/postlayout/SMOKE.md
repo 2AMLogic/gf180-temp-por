@@ -9,28 +9,32 @@ module docstring of `layout/postlayout_smoke.py` for why.
 
 | cell | measure | post-layout | schematic | Δ | sanity window | verdict |
 |---|---|---|---|---|---|---|
-| `bias_core` | `vref_v` | 1.19944 | 1.19935 | +0.01 % | 0.9 … 1.5 | ok |
+| `bias_core` | `vref_v` | 1.2009 | 1.19935 | +0.13 % | 0.9 … 1.5 | ok |
 | `bias_core` | `bias_ok_v` | 3.3 | 3.3 | -0.00 % | 2.9 … 3.31 | ok |
-| `bias_core` | `ibias_ua` | 0.545193 | 0.545511 | -0.06 % | 0.05 … 5 | ok |
-| `bias_core` | `pg_v` | 2.52383 | 2.5238 | +0.00 % | 0.5 … 3.31 | ok |
-| `por_comparator` | `por_raw_v` | 3.3 | 3.3 | +0.00 % | 2.9 … 3.31 | ok |
-| `por_comparator` | `sns_v` | 1.61228 | 1.61228 | +0.00 % | 1 … 2.5 | ok |
-| `por_comparator` | `snsb_v` | 0.165661 | 0.165661 | -0.00 % | 0.05 … 0.6 | ok |
-| `por_output_chain` | `t_release_ms` | 5.90049 | 5.7794 | +2.10 % | 0.05 … 19 | ok |
+| `bias_core` | `ibias_ua` | 0.545698 | 0.545511 | +0.03 % | 0.05 … 5 | ok |
+| `bias_core` | `pg_v` | 2.52376 | 2.5238 | -0.00 % | 0.5 … 3.31 | ok |
+| `por_comparator` | `por_raw_v` | 3.3 | 3.3 | -0.00 % | 2.9 … 3.31 | ok |
+| `por_comparator` | `sns_v` | 1.61238 | 1.61228 | +0.01 % | 1 … 2.5 | ok |
+| `por_comparator` | `snsb_v` | 0.16573 | 0.165661 | +0.04 % | 0.05 … 0.6 | ok |
+| `por_output_chain` | `t_release_ms` | 6.01777 | 5.7794 | +4.12 % | 0.05 … 19 | ok |
 | `por_output_chain` | `resetn_final_v` | 3.3 | 3.3 | +0.00 % | 2.9 … 3.31 | ok |
-| `temp_core` | `ptat_v` | 1.29399 | 1.29334 | +0.05 % | 0.5 … 2.5 | ok |
-| `temp_core` | `ctat_v` | 0.653274 | 0.653347 | -0.01 % | 0.3 … 1.2 | ok |
-| `temp_core` | `pg_v` | 2.23406 | 2.23522 | -0.05 % | 0.5 … 3.31 | ok |
-| `temp_por_top` | `t_release_ms` | 10.2705 | 10.0681 | +2.01 % | 1 … 29 | ok |
+| `temp_core` | `ptat_v` | 1.2956 | 1.29334 | +0.17 % | 0.5 … 2.5 | ok |
+| `temp_core` | `ctat_v` | 0.655018 | 0.653347 | +0.26 % | 0.3 … 1.2 | ok |
+| `temp_core` | `pg_v` | 2.23483 | 2.23522 | -0.02 % | 0.5 … 3.31 | ok |
+| `temp_por_top` | `t_release_ms` | 10.4714 | 10.0681 | +4.01 % | 1 … 29 | ok |
 | `temp_por_top` | `resetn_final_v` | 3.3 | 3.3 | +0.00 % | 2.9 … 3.31 | ok |
-| `temp_por_top` | `ptat_final_v` | 1.29309 | 1.29248 | +0.05 % | 0.5 … 2.5 | ok |
-| `temp_por_top` | `ctat_final_v` | 0.653274 | 0.653347 | -0.01 % | 0.3 … 1.2 | ok |
+| `temp_por_top` | `ptat_final_v` | 1.29431 | 1.29248 | +0.14 % | 0.5 … 2.5 | ok |
+| `temp_por_top` | `ctat_final_v` | 0.654983 | 0.653347 | +0.25 % | 0.3 … 1.2 | ok |
 
 ## Reading the Δ column
 
 Δ ≈ 0 on a DC quantity is **not** a null result. The parasitic model
-is one series R into one lumped C per net, so a DC operating point is
-parasitic-invariant by construction; what Δ ≈ 0 proves is that the
+is one resistive star per net into one lumped C on its hub (see
+`layout/postlayout/AUDIT.md` → "The parasitic model"), so a DC
+operating point is very nearly parasitic-invariant by construction —
+only the drawn series resistance between a net's own terminals can
+move it, which is why the DC deltas below are small but not
+identically zero. What Δ ≈ 0 proves is that the
 post-layout netlist is the *same circuit* — a mis-tied well, a
 floating MiM plate or a divider reattached to the wrong node could
 not reproduce the schematic's node voltages to six digits.
