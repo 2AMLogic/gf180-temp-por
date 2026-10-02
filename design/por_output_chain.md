@@ -270,6 +270,13 @@ control. `tim_loss_wide_pct` and its 1 µs sibling `tim_loss_1us_pct` carry **no
 bound** on purpose: they are the margin, and a bound on them would report only
 the flip, never the movement that precedes it.
 
+(The extracted column above is the extraction #314 retired. On the current
+star extraction, record `20261002-180956-d4369b3`, the same 1 µs → 1.05 µs step
+costs 51 mV (2.695 → 2.643 V at `ff_125c_2.97v`), `tim_min_during_wide_chatter_v`
+bottoms at 0.379 V, and `tim_loss_wide_pct` is still negative at all 81 points
+— the verdict is unchanged and the droop is smaller; see
+["The pulse-width / dwell-time delta"](#the-pulse-width--dwell-time-delta).)
+
 **The dwell is not simply `CDG · V_trip / I` either**, and the difference is
 load-bearing for anything that changes the capacitance on this node. `NDG`'s
 ramp does not start from the rail it was sitting on: when `POR_RAW` falls,
@@ -843,6 +850,28 @@ supersedes `20260811-094940-4249351`, which supersedes the stamped
 which supersedes the same schematic record. See
 [#209](https://github.com/2AMLogic/gf180-temp-por/issues/209).
 
+**Current post-layout evidence: the star extraction (#322).** The table above
+was taken on the extraction #314 retired. All three grids were re-run, full
+81-point PVT, against the `layout/postlayout/por_output_chain.spice` committed
+today (the per-net star model described below), same stimulus:
+
+| Evidence (current) | Netlist provenance | Supersedes (pre-#314 record) |
+| --- | --- | --- |
+| [`sim/por-output-chain-pulse/records/20261002-175842-1b8a4da.md`](../sim/por-output-chain-pulse/records/20261002-175842-1b8a4da.md) | extracted (star) | `20260811-055201-d0ee17d` |
+| [`sim/por-output-chain-deglitch/records/20261002-180956-d4369b3.md`](../sim/por-output-chain-deglitch/records/20261002-180956-d4369b3.md) | extracted (star) | `20260811-210344-5ea1df3` |
+| [`sim/por-output-chain-floor/records/20261002-181248-add3577.md`](../sim/por-output-chain-floor/records/20261002-181248-add3577.md) | extracted (star) | `20260811-125812-8e43e14` |
+
+**All three are 81/81 PASS, on a clean tree.** The deglitch and floor grids
+were first run back-to-back with the pulse grid's outputs still uncommitted,
+so `20261002-180124-1b8a4da` and `20261002-180712-1b8a4da` carry the harness's
+"taken against a dirty working tree" stamp; the clean-tree records cited above
+reproduce their result and spread tables byte-for-byte. The deglitch row
+supersedes `20260811-210344-5ea1df3` rather than `…-095259-…` because that is
+the newest pre-#314 post-layout deglitch record, the one taken at DR-027's 30 µs
+qualifying dip and the real delivered `IBIAS`. What moved, and by how much, is
+in ["The pulse-width / dwell-time delta"](#the-pulse-width--dwell-time-delta)
+below.
+
 ### What "extracted" means for this cell specifically
 
 Per [`layout/postlayout/AUDIT.md`](../layout/postlayout/AUDIT.md)'s
@@ -945,7 +974,10 @@ mirror's delivered current is unmoved to within 10⁻⁴.
 
 Two things this does **not** close:
 
-- **The ~2 % one-shot widening the same record shows.** `tpulse_1x_ms` and
+- **The ~2 % one-shot widening the same record shows** — since closed on the
+  full grid by #322; see
+  ["The pulse-width / dwell-time delta"](#the-pulse-width--dwell-time-delta).
+  As #319 left it: `tpulse_1x_ms` and
   `tpulse_3x_ms` are **+1.97 % to +2.01 %** across the nine points against
   `20260811-055201-d0ee17d`'s `tt_*` rows (5.90136 → 6.01875 ms at
   `tt_27c_3.30v`), uniformly and in addition to the ~2 % the pre-#314
@@ -968,88 +1000,162 @@ restating it needs the process axis this record does not have, and the deglitch
 and floor post-layout records have not been probed against the star extraction
 at all. Tracked as
 [#322](https://github.com/2AMLogic/gf180-temp-por/issues/322), together with
-the two `testbench-postlayout/tb.json` provenance notes that still describe the
-retired extraction. The second needs nothing: it is two noise values.
+the two `testbench-postlayout/tb.json` provenance notes that still described the
+retired extraction — both now done. The full grid confirms #319's reading
+across the process axis: `iq_asserted_1x_na` moves **+0.006 % to +0.009 %** at
+all 81 points against `20260811-055201-d0ee17d`
+(record `20261002-175842-1b8a4da`). The second needs nothing: it is two noise
+values (on the full grid, 0.5–1.8 nV before, 3.2–8.0 nV now, against 300 mV).
 
 ### The pulse-width / dwell-time delta
 
-> **Which extraction these numbers belong to** (2026-10-02, #319). Everything
-> in this section is record `20260811-055201-d0ee17d`'s 81-point grid, taken on
-> the **pre-#314** extraction, and it stays accurate for the netlist that
-> record names. It is *not* the current post-layout answer: the `tt`-column
-> re-run above measures `tpulse_1x_ms`/`tpulse_3x_ms` a uniform +1.97 to
-> +2.01 % higher on the committed star extraction. The shift is a widening, so
-> every margin quoted below is conservative rather than optimistic, and the
-> ≥1 ms floor is not at risk. Restating the table — including re-identifying
-> the binding corner from measurement rather than assuming it held — needs the
-> process axis and is tracked as
-> [#322](https://github.com/2AMLogic/gf180-temp-por/issues/322).
+> **Which extraction these numbers belong to** (2026-10-02, #322). The current
+> post-layout column below is the three **star-extraction** records listed in
+> [Post-layout re-run](#post-layout-re-run-issue-86) —
+> `20261002-175842-1b8a4da` (pulse), `20261002-180956-d4369b3` (deglitch) and
+> `20261002-181248-add3577` (floor), each a full 81-point grid on a clean tree.
+> The pre-#314 column is the records they supersede (`20260811-055201-d0ee17d`,
+> `20260811-210344-5ea1df3`, `20260811-125812-8e43e14`), kept beside it so the
+> movement is visible; those records stay accurate for the netlist they name.
+> The schematic baseline is `20260802-205904-bdc077d` for the pulse and floor
+> rows and `20260811-210054-613ccb0` (the 30 µs-dip, real-`IBIAS` deck) for the
+> deglitch rows. Before #322 this section published the pre-#314 column alone.
 
-Per `layout/README.md`/`sim/README.md`'s framing (PR #180's own smoke sim on
-this cell, `+2.09 %` on `t_release_ms` at `tt_27c_3.30v`): this is where "a
-post-layout claim taken on these netlists should be a timing/edge claim," and
-this record's full-grid numbers confirm that at the nominal corner and give
-the shape across the whole PVT grid instead of one point.
+PR #180's own smoke sim on this cell put the post-layout one-shot at `+2.09 %`
+on `t_release_ms` at `tt_27c_3.30v`, which is where `layout/README.md` /
+`sim/README.md`'s framing — "a post-layout claim taken on these netlists should
+be a timing/edge claim" — comes from. The full grids confirm it and give the
+shape across the whole PVT grid instead of one point.
 
-**`por-reset-pulse` (the one-shot width) widens by ~1.9–2.4 %, uniformly**,
-consistent with the added parasitic C/R loading a nA-scale current-starved
-ramp:
+**`por-reset-pulse` (the one-shot width) widens by +3.7 % to +4.7 % over
+schematic** on the current extraction — +1.78 % to +2.26 % on top of the
+pre-#314 extraction's own +1.9 % to +2.4 % — consistent with more parasitic C
+(ΣC 901.4 fF against 828.6 fF, plus 81.195 fF of inter-net coupling) loading a
+nA-scale current-starved ramp:
 
-| Quantity | Schematic | Post-layout | Δ |
-| --- | ---: | ---: | ---: |
-| `tpulse_1x_ms` min (`ff_-40c_2.97v`, the binding corner — unchanged) | 4.2172 | 4.31816 | **+2.40 %** |
-| `tpulse_1x_ms` max (`ss_125c_3.63v`) | 7.75505 | 7.90046 | +1.88 % |
-| `tpulse_3x_ms` min (`ff_-40c_2.97v`) | 1.57985 | 1.61748 | +2.38 % |
-| `tpulse_3x_ms` max (`ss_125c_3.63v`) | 2.82289 | 2.87708 | +1.92 % |
-| `tpulse_1x_ms` at `tt_27c_3.30v` (nominal, cross-check vs. PR #180's own smoke) | 5.78035 | 5.90136 | +2.093 % |
+| Quantity | Schematic | Pre-#314 extraction | Star extraction (current) | Δ vs. pre-#314 | Δ vs. schematic |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `tpulse_1x_ms` min (`ff_-40c_2.97v`, the binding corner) | 4.2172 | 4.31816 | **4.41377** | +2.21 % | **+4.66 %** |
+| `tpulse_1x_ms` max (`ss_125c_3.63v`) | 7.75505 | 7.90046 | 8.04306 | +1.80 % | +3.71 % |
+| `tpulse_3x_ms` min (`ff_-40c_2.97v`) | 1.57985 | 1.61748 | **1.65314** | +2.20 % | +4.64 % |
+| `tpulse_3x_ms` max (`ss_125c_3.63v`) | 2.82289 | 2.87708 | 2.92883 | +1.80 % | +3.75 % |
+| `tpulse_1x_ms` at `tt_27c_3.30v` (nominal; PR #180's smoke point) | 5.78035 | 5.90136 | 6.01875 | +1.99 % | +4.12 % |
 
-The binding corner is unchanged (`FF / −40 °C / 2.97 V`, per
+**The binding corner is re-identified from the new grid, not carried over**:
+the minimum of all 81 `tpulse_1x_ms` rows in `20261002-175842-1b8a4da` is
+`ff_-40c_2.97v`, and so is the minimum of `tpulse_3x_ms` — the same
+`FF / −40 °C / 2.97 V` corner
 ["The one-shot is a current-starved ramp"](#the-one-shot-is-a-current-starved-ramp-and-its-trip-is-vdd--v_sg)
-above) and the widening only *adds* margin against the ≥1 ms floor (4.32 ms
-at nominal, 1.62 ms at 3× `IBIAS` — both still comfortably over 1 ms).
-`por-reset-valid-floor` similarly widens with margin to spare: worst-case
-ratio **0.0059 × VDD** (was 0.0055×, still 17× under the 0.1× limit) and
-worst-case absolute **1.97 mV** (was 1.74 mV, still 152× under 300 mV).
+predicts, and the maximum stays at `ss_125c_3.63v`. #319's `tt`-column probe
+saw a uniform +1.97 % to +2.01 %; across the process axis the shift is
+**not** uniform — +1.78 % (`ss_125c_2.97v`) to +2.26 % (`ff_-40c_3.63v`), the
+largest shifts at the cold/fast end — but it is a widening at every one of the
+81 points, so the binding minimum moves *away* from the ≥1 ms floor: 4.41 ms
+at nominal `IBIAS`, **1.65 ms at 3× `IBIAS`**, both comfortably over 1 ms.
 
-**The deglitch dwell moves in *both* directions, and the falling-edge
-(qualifying-dip) dwell shrinks — not grows — by a materially larger margin
-than the pulse widens.** At matched corners (not just the grid's own
-min/max, since the binding corner shifts):
+**`por-reset-valid-floor` does not move.** Every one of the 81 points is
+within −0.05 % to +0.03 % of the pre-#314 record. Worst-case ratio **0.00594 ×
+VDD** at `sf_125c_2.97v` (pre-#314 0.00594×, schematic 0.0055×; 17× under the
+0.1× limit), worst-case absolute **1.972 mV** at `ss_-40c_2.97v` (pre-#314
+1.972 mV, schematic 1.74 mV; 152× under 300 mV). The floor is a DC
+leakage-against-pull-down ratio, and nothing the star model adds carries DC
+current on that path.
 
-| Corner | `dwell_pgdg_1x_us` schematic | post-layout | Δ |
-| --- | ---: | ---: | ---: |
-| `ff_125c_2.97v` | 1.86 | 1.34 | **−28.0 %** |
-| `ff_125c_3.63v` | 2.01 | 1.28 | **−36.3 %** |
-| `ss_-40c_2.97v` | 4.41 | 4.17 | −5.4 % |
-| `ss_-40c_3.63v` | 4.58 | 4.06 | −11.4 % |
-
-The grid-wide minimum (nominal `IBIAS`) drops from **1.86 µs to 1.28 µs**.
-Every corner still **passes** the checked requirement — `dwell_pgdg_halfib_us`
-(the half-`IBIAS` stress DUT the ceiling check runs against) has a grid
-maximum of **8.03 µs post-layout vs. 8.88 µs schematic**, both under the
-10 µs `T_dip,min` ceiling with margin to spare — but the *ceiling* was never
-the tight side of this design's own margin. [Deglitch dwell](#deglitch-dwell--cdg-is-bounded-on-both-sides)
-above documents a real prior failure at a **1.07 µs** dwell (the pre-resize
-`CDG` = 98 fF cut, which let a 1 µs qualifying glitch through at 30/81
-points): the schematic-level minimum (1.86 µs) sits **74 % above** that
-failure point; the post-layout minimum (1.28 µs) sits only **20 % above** it.
-Meanwhile the *other* direction of the same filter — `dwell_rise_1x_us`,
-`POR_RAW` rising through `NDG`/`CDG` — **widens**, by a comparable magnitude
-(+13.7 % at `ff_-40c_2.97v`, +11.7 % at `ss_125c_3.63v`), the same direction
-as the one-shot pulse.
-
-This asymmetry (one edge of the same RC filter shrinking, the other
-widening, by percentages several times the ~2 % the DC-invariant devices
-elsewhere in this cell would predict from a single ~39 fF shunt load on
-`NDG`) was measured but not explained by #86, whose scope was verification,
-not design; it was flagged and routed to a new tracking issue, #182 — now
-diagnosed in
+**The deglitch dwell is where the star extraction moved things most — and it
+moved them *longer*, on both edges.** The pre-#314 extraction shortened the
+falling (qualifying-dip) edge and lengthened the rising one against schematic;
+the asymmetry is diagnosed in
 [Root cause of the deglitch asymmetry](#root-cause-of-the-deglitch-asymmetry-and-why-cdg-is-not-resized-issue-182)
-below. Routing it rather than absorbing it silently was the right call: the *lower* bound this
-design already treats as tight (["Deglitch dwell"](#deglitch-dwell--cdg-is-bounded-on-both-sides):
-"this capacitor is not free to grow") has visibly less headroom against a real
-extracted layout than the schematic ever measured, even though no ratified
-check fails today.
+below. On the current extraction every falling-edge dwell is **+7.4 % to
++13.3 %** longer than on the retired one, and every rising-edge dwell **+5.9 %
+to +7.1 %** longer — several times the ~2 % the one-shot moved. At matched
+corners (nominal `IBIAS`, `dwell_pgdg_1x_us`):
+
+| Corner | Schematic | Pre-#314 extraction | Star extraction (current) | Δ vs. pre-#314 | Δ vs. schematic |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `ff_125c_2.97v` | 1.86 | 1.34 | 1.50 | +11.9 % | −19.4 % |
+| `ff_125c_3.63v` | 2.01 | 1.28 | **1.45** | +13.3 % | **−27.9 %** |
+| `ss_-40c_2.97v` | 4.41 | 4.17 | 4.48 | +7.4 % | +1.6 % |
+| `ss_-40c_3.63v` | 4.58 | 4.06 | 4.39 | +8.1 % | −4.1 % |
+
+So the asymmetry against schematic **persists** — the falling edge is still
+shorter than schematic at 80 of 81 points, the rising edge (`dwell_rise_1x_us`)
+now +16.3 % to +23.6 % longer — but the erosion of the falling edge is partly
+reversed. That matters on the side of this filter the design treats as tight
+(["Deglitch dwell"](#deglitch-dwell--cdg-is-bounded-on-both-sides): "this
+capacitor is not free to grow"):
+
+- The grid-wide minimum falling dwell at nominal `IBIAS` is **1.45 µs at
+  `ff_125c_3.63v`** (pre-#314 1.28 µs, schematic 1.86 µs). Against the
+  **1.07 µs** dwell of the documented prior failure (the pre-resize
+  `CDG` = 98 fF cut, which let a 1 µs qualifying glitch through at 30/81
+  points), that is **36 % above** it, where the retired extraction sat 20 %
+  above and the schematic 74 %.
+- `pgdg_min_during_chatter` — the direct measurement that a 1 µs `POR_RAW`
+  glitch does not move the filter output — has a grid minimum of **2.695 V at
+  `ff_125c_2.97v`** against its 2.5 V bound: **+7.8 % headroom**, where the
+  retired extraction left +1.4 % (2.536 V). At the wider 1.05 µs burst
+  (`pgdg_min_during_wide_chatter`) the minimum is 2.643 V (pre-#314 2.452 V),
+  and `tim_loss_wide_pct` is still negative at all 81 points (worst −0.097 %),
+  i.e. the one-shot loses no charge anywhere on the grid.
+
+No check fails at either extraction; the point is the direction. The
+falling-edge margin the #182 section calls "visibly less headroom against a
+real extracted layout than the schematic ever measured" is still less than
+schematic, by less than that section measured.
+
+#### `dwell_pgdg_stress_us` against DR-027's 30 µs: the slowest crossing moved, the bound does not
+
+`dwell_pgdg_stress_us` is the qualifying-dip crossing time on the stress DUT
+at the real delivered `IBIAS` (91.0251 nA) — the quantity
+[DR-027](../spec/decision-records/DR-027-por-brownout-tdip-recost.md) cut
+`por-brownout`'s `T_dip,min` = 30 µs from. It is published per corner precisely
+so a re-run can show this:
+
+| | Schematic | Pre-#314 extraction | Star extraction (current) |
+| --- | ---: | ---: | ---: |
+| slowest crossing, grid max | 23.12 µs (`ss_-40c_3.63v`)¹ | 20.77 µs (`ss_-40c_2.97v`) | **22.34 µs (`ss_-40c_2.97v`)** |
+| fastest crossing, grid min | 9.58 µs (`ff_125c_2.97v`) | 6.14 µs (`ff_125c_3.63v`) | 6.99 µs (`ff_125c_3.63v`) |
+| margin of the slowest crossing to the 30 µs bound | +29.8 %¹ | +44.4 % | **+34.3 %** |
+
+¹ The deck reports this crossing to 10 ns; DR-027 and
+`control/dwell_results.md` quote it as **23.110 µs**, and the +29.8 % is
+DR-027's own figure against that value.
+
+**The slowest post-layout crossing moved materially: +1.57 µs (+7.6 %), from
+20.77 µs to 22.34 µs**, at the same corner, and every one of the 81 points
+moved by +7.6 % to +13.8 % (+0.80 to +1.63 µs). It is a PASS at all 81 points,
+but a PASS is not "unchanged":
+
+- **Against the 23.110 µs the bound was cut from**: the extracted netlist's
+  slowest crossing is still below it, but now by **0.77 µs (3.3 %)** where it
+  was 2.34 µs. The retired extraction let DR-027 say "the extracted netlist is
+  *faster*"; on the current extraction that is still true at the worst corner,
+  barely, and the three `ss_-40c` rows (22.34 / 22.06 / 21.71 µs) are now the
+  three slowest extracted points.
+- **The pinned value is unchanged.** DR-027 §5's rule — smallest multiple of
+  5 µs at least 1.10× the slowest crossing across *both* netlist levels — is
+  still set by the schematic's 23.110 µs (1.10× = 25.42 µs → **30 µs**). On the
+  extracted crossing alone it would be 1.10 × 22.34 = 24.57 µs → 25 µs. The
+  extracted crossing would have to pass 27.27 µs before it alone pushed the
+  rule past 30 µs; it is 4.93 µs short of that.
+- **DR-027 §5's never-trips contingency is not triggered.** `dwell_pgdg_stress_us`
+  is a `WHEN`-based measure that errors out if `PGDG` never reaches 1.0 V inside
+  its window, and it resolved at all 81 points; `pgdg_min_during_halfib_dip_v`,
+  the same stress DUT's `PGDG` minimum over the 30 µs dip itself, peaks at
+  **0.0317 V** (`sf_-40c_3.63v`) against the 1.0 V trip. Every corner trips
+  inside the 30 µs dip, so none sits on an asymptotic floor above trip — a
+  stronger statement than the contingency (which DR-027 checked with a 600 µs
+  probe dip) needs.
+
+What was **not** re-run: `control/run_dwell_sweep.py`, the 324-run open-ended
+probe sweep the bound was cut from, whose `control/dwell_results.md`
+`postlayout` columns and DR-027 §3's "20.77 µs worst" still describe the
+retired extraction. The deck measures the same crossing at the same bias — on
+the retired extraction the deck and the control agreed exactly (20.77 µs at
+`ss_-40c_2.97v`) — so 22.34 µs is the current number, but regenerating the
+control (and leaving the decision record's wording to the operator) is tracked
+as [#324](https://github.com/2AMLogic/gf180-temp-por/issues/324).
 
 ### Reproducing this section's evidence
 
@@ -1067,6 +1173,15 @@ Three control experiments under
 diagnose the delta the section above measured. They are diagnoses, not
 records — the corner-grid evidence stays in `records/` (`sim/README.md`,
 "Control experiments").
+
+> **Extraction note** (#322). Every post-layout number in this section was
+> measured on the extraction #314 retired, and the diagnosis is left as
+> measured. On the current star extraction the falling-edge erosion it explains
+> is **partly reversed, not gone**: the grid-minimum falling dwell is 1.45 µs
+> (1.28 µs here, 1.86 µs schematic) and `pgdg_min_during_chatter`'s grid
+> minimum is 2.695 V (2.536 V here) — see
+> ["The pulse-width / dwell-time delta"](#the-pulse-width--dwell-time-delta).
+> The control experiments below were not re-run against it.
 
 ### First, re-verified — and this time on a clean tree
 
