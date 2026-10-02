@@ -27,38 +27,48 @@ INTRINSIC to the starved loop at this bias level (in which case DR-019's
 number is the number, and the only remaining lever is `bias_core`'s
 architecture).
 
-RETIRED AGAINST THE CURRENT NETLISTS -- see issue #316
-
-This control's method below is valid only for the parasitic model
-`layout/postlayout.py` emitted before #314: one *dangling* R-C leg per net, so
-deleting both of a net's cards removed its load and changed no connectivity.
-The netlists it reads now carry a per-net **star** (the net is the hub, each
-device terminal on it a `<net>__t<k>` node, the net's lumped series R split
-across the arms joining them) -- so deleting a net's cards would *disconnect*
-every device terminal on it rather than ideal-ise it.
-
-`short_nets` therefore refuses, loudly, rather than generating a variant whose
-difference from the `ext` arm means something other than what this file claims.
-Issue #316 owns re-deriving the manipulation for the star model (collapsing a
-net's terminal nodes onto its hub is the shape-correct "short", and does not
-reintroduce the ill-conditioned stub #214 measured). The committed
-`net_attribution_results.md` and the records it cites stay valid for the
-netlists they name -- `sim/` is append-only -- and are not restated here.
-
 METHOD -- one variable: which nets' interconnect parasitics exist
 
-`layout/postlayout.py` modelled each net's drawn interconnect as ONE lumped
-series R from the net to a `<net>__par` stub node plus ONE lumped C from that
-stub to `VSS`, and the stub node appeared on those two cards and nowhere else
-(checked against the netlist, not assumed). So a net's whole parasitic
-contribution was exactly two cards, and "this net were ideal" was: comment both
-out. Nothing else in the netlist moved -- same devices, same dimensions, same
-topology, same card ordering, same line count -- so a variant's difference
-from the `ext` arm was attributable to the named nets and to nothing else.
-`diff` between a generated netlist under `netlists/` and its source showed
-precisely the 2 x N commented cards.
+`layout/postlayout.py` models each net's drawn interconnect as one resistive
+**star**: the net's own name is the hub, each device terminal on it is a
+`<net>__t<k>` node, the net's single lumped series resistance is split across
+the `R<net>_t<k>` arms joining them, its lumped capacitance sits on the hub
+(`C<net> <net> VSS`), and vertical-overlap coupling to another net is a direct
+`Ccc__<a>__<b>` between the two. Making one net ideal is therefore two moves,
+and it has to be both:
 
-#214's suggested spelling of "shorted out" was to keep both cards and set
+  1. **collapse** every `<net>__t<k>` terminal node onto the hub, by renaming
+     it on the device card that uses it -- this is what removes the net's
+     series resistance, and it is a pure renaming, so the device still sits on
+     the net; and
+  2. **comment out** the cards that only existed to carry the load now gone:
+     the net's arms, its lumped C, and every coupling capacitor it is on.
+
+Doing only (2) would be the wrong manipulation and the easy mistake: an arm is
+the ONLY connection between a device terminal and the rest of its net, so
+commenting it out *opens* that terminal instead of ideal-ising the net. The
+resulting deck still parses and still simulates -- it just answers a different
+question than the one this file claims to answer. That is why the counts are
+asserted rather than assumed (see `short_nets`): every terminal node of a named
+net must have exactly one arm to its hub and must appear on exactly one other
+card, or no variant is generated at all.
+
+Nothing else in the netlist moves -- same devices, same dimensions, same
+topology, same card ordering, same line count -- so a variant's difference from
+the `ext` arm is attributable to the named nets and to nothing else. `diff`
+between a generated netlist under `netlists/` and its source shows exactly the
+commented cards plus the renamed device terminals, and nothing more.
+
+The previous model (`layout/postlayout.py` before #314, `klt` before 0.6.0) put
+each net's whole interconnect on ONE *dangling* R-C leg -- `R<net> <net>
+<net>__par` plus `C<net> <net>__par VSS`, with the stub node on those two cards
+and nowhere else -- so step (1) did not exist and "this net were ideal" was
+just: comment both cards out. `sim/`'s committed records and the
+`net_attribution_results.md` beside this file were produced under that model
+and stay valid for the netlists they name (`sim/` is append-only evidence); the
+method restated above is what a re-run against today's netlists does.
+
+#214's suggested spelling of "shorted out" was to keep a net's cards and set
 R -> a negligible non-zero value with C -> 0 F, non-zero to avoid a singular
 matrix. That was tried first, at 1 uOhm, and rejected on measured evidence:
 it makes things WORSE, not better, because the stub node then hangs off a
@@ -66,16 +76,17 @@ it makes things WORSE, not better, because the stub node then hangs off a
 `Warning: singular matrix: check node xdut.xbias__nbg` six times per deck,
 dynamic-gmin / true-gmin / source stepping all fail, and the `loop` deck at
 3.63 V / 3.40 mV/us had not finished after 20 minutes where the untouched
-`ext` deck takes 8 s. Removing the branch is both better conditioned and a
-truer statement of the manipulation: the net carries no interconnect load,
-and there is no stub node left to be ill-conditioned.
+`ext` deck takes 8 s. Collapsing the terminals keeps that property under the
+star model: the branch is removed rather than made tiny, there is no
+near-singular conductance anywhere, and -- unlike commenting the arms out --
+no node is left hanging on a single card either.
 
 The cards belonging to a named net are located with `sim/postlayout_delta.py`'s
 own `parasitic_cards()` parser, NOT with a second regex written here: the
 extraction renumbers its cards whenever the layout is regenerated, so a net has
 to be found by name, and there must be exactly one parser in the repo that
-knows how to do it -- which is also what makes the refusal above automatic
-rather than a comment someone has to notice.
+knows how to do it -- which is also what makes a future model change fail here
+automatically rather than through a comment someone has to notice.
 
 Variants (see VARIANTS below for the exact net lists):
 
@@ -141,10 +152,12 @@ Stdlib only, no virtualenv required.
 from __future__ import annotations
 
 import importlib.util
+import re
 import sys
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
+from typing import NamedTuple
 
 CONTROL_DIR = Path(__file__).resolve().parent
 REPO_ROOT = CONTROL_DIR.parents[2]
@@ -160,6 +173,7 @@ from harness.pdk import PdkNotFound, find_pdk  # noqa: E402
 # afford (the cards are renumbered on every layout regeneration, so the net
 # name is the only stable handle).
 from postlayout_delta import (  # noqa: E402
+    TERMINAL_RE,
     parasitic_cards,
     parasitics_by_net,
 )
@@ -179,11 +193,13 @@ SCHEMATIC = REPO_ROOT / "design" / "netlist" / "temp_por_top.spice"
 EXTRACTED = REPO_ROOT / "layout" / "postlayout" / "temp_por_top.spice"
 NETLIST_DIR = CONTROL_DIR / "netlists"
 
-#: How a shorted card is spelled in the generated netlist. Commented out
+#: How a removed card is spelled in the generated netlist. Commented out
 #: rather than deleted, so the generated netlist stays line-for-line
 #: comparable with its source and a reader can see the value that was
 #: removed. See the module docstring for why the branch is removed outright
-#: instead of being given a negligible R and a zero C.
+#: instead of being given a negligible R and a zero C. A collapsed terminal
+#: node is NOT spelled this way -- its device card is edited in place, and
+#: the arm card that used to join it to the hub carries this prefix instead.
 SHORT_PREFIX = "* SHORTED OUT by run_net_attribution.py: "
 
 #: The two rungs. 3.40 is the pre-DR-019 bound the extracted arm fails at all
@@ -273,62 +289,178 @@ def build_variants(parasitics: dict[str, dict[str, float]]) -> list[Variant]:
     ]
 
 
-def short_nets(netlist: Path, nets: tuple[str, ...]) -> tuple[str, dict[str, int]]:
-    """``netlist``'s text with each named net's parasitic cards commented out.
+class NetShort(NamedTuple):
+    """What making one named net's interconnect ideal actually removed."""
 
-    Returns the text and a per-net count of cards commented. Every other line
-    -- devices, subcircuit header, comments, and the cards of every net NOT
-    named -- is passed through byte-for-byte, which is what makes a variant a
-    one-variable manipulation rather than a re-extraction.
+    #: ``R<net>_t<k>`` star arms commented out == terminal nodes collapsed
+    #: onto the hub. The two are the same number by construction, and
+    #: :func:`short_nets` refuses if the netlist disagrees.
+    arms: int
+    #: ``<net>__t<k>`` nodes renamed to ``<net>`` on their device cards.
+    terminals: int
+    #: the net's own lumped ``C<net> <net> <ground>`` card.
+    capacitors: int
+    #: ``Ccc__<a>__<b>`` coupling capacitors this net is one end of.
+    couplings: int
+
+    @property
+    def cards(self) -> int:
+        """Cards commented out. A renamed terminal is not a removed card."""
+        return self.arms + self.capacitors + self.couplings
+
+
+def _star_terminal(card_line: str, hub: str) -> str:
+    """The ``<hub>__t<k>`` node of one star-arm card."""
+    for token in card_line.split()[1:3]:
+        match = TERMINAL_RE.match(token)
+        if match and match.group("net") == hub:
+            return token
+    raise SystemExit(
+        f"{card_line.strip()!r}: attributed to net {hub!r} but neither node is "
+        f"a {hub}__t<k> terminal of it -- layout/postlayout.py's parasitic "
+        "model has changed shape and this manipulation has not been re-derived "
+        "against it (see this module's METHOD section)."
+    )
+
+
+def short_nets(
+    netlist: Path, nets: tuple[str, ...]
+) -> tuple[str, dict[str, NetShort]]:
+    """``netlist``'s text with each named net's interconnect made ideal.
+
+    Two moves per named net, per this module's METHOD section: its
+    ``<net>__t<k>`` terminal nodes are **collapsed** onto the hub (renamed on
+    the device cards that use them, which is what removes the net's series
+    resistance without disconnecting anything), and the cards that carried the
+    load now gone -- its star arms, its lumped C and every coupling capacitor
+    it is on -- are **commented out**. Returns the text and a per-net
+    :class:`NetShort` of what was removed.
+
+    Every other line -- devices on other nets, the subcircuit header, comments,
+    and the cards of every net NOT named -- is passed through byte-for-byte,
+    which is what makes a variant a one-variable manipulation rather than a
+    re-extraction. The line count never changes.
 
     Card attribution is `sim/postlayout_delta.py`'s `parasitic_cards()`, not a
-    second regex, so a card this counts as net N's is exactly a card
+    second regex, so a card this removes as net N's is exactly a card
     `parasitics_by_net()` attributes to net N.
 
-    **Refuses** when a named net carries a star arm, which is every net with
-    drawn interconnect in the netlists `layout/postlayout.py` emits since #314:
-    commenting an arm out opens the connection between a device terminal and
-    the rest of its net instead of ideal-ising the net's load. See this
-    module's docstring and issue #316.
+    **Refuses, generating nothing**, when the netlist's own text disagrees with
+    that model for a named net: a terminal node with no arm to its hub, an arm
+    whose terminal does not belong to the net it was attributed to, or a
+    terminal node that is not on exactly one other card. Each of those would
+    make the collapse delete or re-route something other than interconnect, and
+    a variant that is wrong in that way still simulates -- it just answers a
+    different question (issue #316; #314 added the first version of this
+    refusal when the model changed under the previous manipulation).
     """
     wanted = set(nets)
-    shorted: dict[str, int] = {net: 0 for net in nets}
-    comment: dict[str, int] = {}
-    arms: list[str] = []
+    counts = {net: {"arms": 0, "capacitors": 0, "couplings": 0} for net in nets}
+    collapse: dict[str, str] = {}   # <net>__t<k> -> <net>
+    drop: set[str] = set()          # raw lines to comment out
+
     for card in parasitic_cards(netlist):
         owners = [net for net in card.nets if net in wanted]
         if not owners:
             continue
+        drop.add(card.line)
         if card.kind == "resistance":
-            arms.append(card.line.strip())
-            continue
-        comment[card.line] = comment.get(card.line, 0) + 1
-        for net in owners:
-            shorted[net] += 1
-    if arms:
-        raise SystemExit(
-            f"{netlist} models the named net(s) with a "
-            f"per-net resistive star ({len(arms)} arm card(s), e.g. "
-            f"{arms[0]!r}), not the single dangling R-C leg this control's "
-            "manipulation is defined against. Commenting an arm out opens a "
-            "device terminal rather than ideal-ising the net, so no variant is "
-            "generated. Issue #316 owns re-deriving the manipulation (collapse "
-            "the net's `__t<k>` terminal nodes onto its hub) -- until then this "
-            "control cannot be re-run, and its committed results stay valid "
-            "only for the netlists they name."
+            hub = card.nets[0]
+            collapse[_star_terminal(card.line, hub)] = hub
+            counts[hub]["arms"] += 1
+        elif card.kind == "capacitance":
+            counts[owners[0]]["capacitors"] += 1
+        else:
+            for net in owners:
+                counts[net]["couplings"] += 1
+
+    source = netlist.read_text()
+    _assert_star_is_complete(netlist, source, wanted, collapse, drop)
+
+    pattern = (
+        re.compile(
+            r"(?<![\w.])(" + "|".join(re.escape(t) for t in sorted(collapse)) + r")(?![\w.])"
         )
+        if collapse
+        else None
+    )
     out: list[str] = []
-    for raw in netlist.read_text().splitlines():
-        out.append(SHORT_PREFIX + raw if raw in comment else raw)
+    for raw in source.splitlines():
+        if raw in drop:
+            out.append(SHORT_PREFIX + raw)
+        elif pattern is not None:
+            out.append(pattern.sub(lambda m: collapse[m.group(1)], raw))
+        else:
+            out.append(raw)
+
+    shorted = {
+        net: NetShort(
+            arms=c["arms"],
+            terminals=c["arms"],
+            capacitors=c["capacitors"],
+            couplings=c["couplings"],
+        )
+        for net, c in counts.items()
+    }
     return "\n".join(out) + "\n", shorted
 
 
-def write_variant_netlist(variant: Variant) -> dict[str, int]:
+def _assert_star_is_complete(
+    netlist: Path,
+    source: str,
+    wanted: set[str],
+    collapse: dict[str, str],
+    drop: set[str],
+) -> None:
+    """Check the collapse against what ``source`` actually contains.
+
+    Read straight off the netlist's text rather than off `parasitic_cards()`'s
+    answer, so the two readings have to agree: the parser says which cards are
+    net N's, the text says which nodes of net N the devices are actually on,
+    and a model change that moved one without the other is caught here instead
+    of silently producing a variant nobody can interpret.
+    """
+    seen: dict[str, int] = {}
+    for raw in source.splitlines():
+        line = raw.strip()
+        if not line or line.startswith(("*", ".")) or raw in drop:
+            continue
+        for token in line.split()[1:]:
+            match = TERMINAL_RE.match(token)
+            if match and match.group("net") in wanted:
+                seen[token] = seen.get(token, 0) + 1
+
+    orphans = sorted(set(seen) - set(collapse))
+    if orphans:
+        raise SystemExit(
+            f"{netlist}: {', '.join(orphans[:6])}"
+            + (f" (+{len(orphans) - 6} more)" if len(orphans) > 6 else "")
+            + " -- terminal node(s) of a named net with no R<net>_t<k> arm to "
+            "the hub. Collapsing them would delete whatever element does join "
+            "them to their net, so no variant is generated: layout/"
+            "postlayout.py's parasitic model has changed shape and this "
+            "manipulation has to be re-derived against it (see this module's "
+            "METHOD section)."
+        )
+    stranded = sorted(t for t in collapse if seen.get(t, 0) != 1)
+    if stranded:
+        raise SystemExit(
+            f"{netlist}: {', '.join(stranded[:6])}"
+            + (f" (+{len(stranded) - 6} more)" if len(stranded) > 6 else "")
+            + " -- terminal node(s) that are not on exactly one device card "
+            f"({', '.join(f'{t}x{seen.get(t, 0)}' for t in stranded[:6])}). "
+            "The star model puts one device terminal on each, so this netlist "
+            "is not the model this manipulation is derived against and no "
+            "variant is generated."
+        )
+
+
+def write_variant_netlist(variant: Variant) -> dict[str, NetShort]:
     """Generate ``variant``'s DUT netlist on disk. Raises if a named net has
     no cards to short -- a silently-missed net would show up in the results
     as "shorting it changed nothing", which is the opposite conclusion."""
     text, shorted = short_nets(variant.base, variant.nets)
-    empty = sorted(net for net, count in shorted.items() if count == 0)
+    empty = sorted(net for net, short in shorted.items() if short.cards == 0)
     if empty:
         raise SystemExit(
             f"{variant.key}: no parasitic cards found for "
@@ -341,9 +473,12 @@ def write_variant_netlist(variant: Variant) -> dict[str, int]:
         f"* {variant.base.name} -- {len(variant.nets)} net(s) shorted out:",
         "*   " + ", ".join(variant.nets[:12])
         + (f", ... ({len(variant.nets)} total)" if len(variant.nets) > 12 else ""),
-        f"* Their {sum(shorted.values())} interconnect R/C card(s) are commented "
-        "out below, so those nets carry no interconnect load at all; every "
-        "other line is byte-for-byte the source netlist's.",
+        f"* Their {sum(s.cards for s in shorted.values())} interconnect card(s) "
+        f"are commented out below and their {sum(s.terminals for s in shorted.values())} "
+        "`<net>__t<k>` terminal node(s) are collapsed onto their own hub on the "
+        "device cards, so those nets carry no interconnect load at all and no "
+        "device terminal is opened; every other line is byte-for-byte the "
+        "source netlist's.",
         "* GENERATED by sim/por-brownout-slew/control/run_net_attribution.py "
         "-- do not edit.",
         f"* source sha256 {runner.sha256_file(variant.base)[:16]}...",
@@ -582,12 +717,19 @@ def write_results(
     lines.append("")
     lines.append(
         "`layout/postlayout.py` models a net's whole drawn interconnect as one "
-        "lumped series R to a `<net>__par` stub plus one lumped C from that "
-        "stub to `VSS`, and nothing else in the netlist references the stub. "
-        "Each arm below comments out that pair for the named nets and changes "
-        "nothing else — the generated netlists under `netlists/` diff against "
-        "the source in exactly 2 × *nets* lines, so those nets carry no "
-        "interconnect load and every other net keeps the extraction's."
+        "resistive **star**: the net's own name is the hub, each device "
+        "terminal on it is a `<net>__t<k>` node, its lumped series resistance "
+        "is split across the `R<net>_t<k>` arms joining them, its lumped "
+        "capacitance sits on the hub, and vertical-overlap coupling to another "
+        "net is a direct `Ccc__<a>__<b>`. Each arm below makes the named nets "
+        "ideal by collapsing their terminal nodes onto their own hub (a "
+        "rename on the device card, which removes the series resistance "
+        "without opening any terminal) and commenting out the cards that "
+        "carried the load now gone — the net's arms, its lumped C and every "
+        "coupling capacitor it is on. Nothing else changes: the generated "
+        "netlists under `netlists/` diff against their source in exactly those "
+        "lines and no others, so those nets carry no interconnect load and "
+        "every other net keeps the extraction's."
     )
     lines.append("")
     lines.append(
@@ -615,7 +757,12 @@ def write_results(
     lines.append("")
     lines.append(
         f"Cell total for reference: {total_c * 1e15:.1f} fF of interconnect "
-        f"capacitance over {len(parasitics)} nets."
+        f"capacitance over {len(parasitics)} nets. The ΣC column is each arm's "
+        "nets' own lumped capacitance to ground; the coupling capacitors those "
+        "nets are one end of ("
+        f"{sum(v['c_coupling_f'] for v in parasitics.values()) * 1e15:.1f} fF "
+        "over the whole cell, counted on both of their nets) are removed with "
+        "them but are not in that column."
     )
     lines.append("")
 

@@ -177,9 +177,9 @@ SHEET_RHO = {klass: rho for _model, (klass, rho) in ref.RESISTOR_CLASS.items()}
 #: *dangling* leg, whose resistance therefore sat in no signal path at all.
 #: The per-net *totals* are the same quantity either way; only their
 #: distribution across the net's terminals is finer, and in the star it is in
-#: series with the circuit. (``sim/``'s own readers of these netlists still
-#: assume the retired ``__par`` stub and are tracked as #316; recorded ``sim/``
-#: results name the netlist they ran against and stay valid.)
+#: series with the circuit. (``sim/``'s own readers of these netlists were
+#: re-derived against the star in #314/#316; recorded ``sim/`` results name
+#: the netlist they ran against and stay valid for it.)
 #: (Finer still is available and is not
 #: used: ``--distributed-rc``/``--critical-net`` (klayout-tools#976/#977)
 #: break a *named* net into per-segment R/C instead of one hub. This module

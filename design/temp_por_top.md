@@ -111,7 +111,7 @@ not reach them. Two deck substitutions were undone on the way out (27
 for it differs. (For `temp-por-top-release`'s current, post-#259 figures —
 239 drawn devices, 0 ideal, 145 nets — see §4 of the closing roll-up below.)
 
-### The IR / cross-domain-coupling question, and why this netlist cannot answer it
+### The IR / cross-domain-coupling question, and why this netlist still cannot answer it
 
 [#18](https://github.com/2AMLogic/gf180-temp-por/issues/18) asked this
 assembly-level re-run for one thing no per-cell re-run could give: **IR drop
@@ -121,38 +121,69 @@ seam": `IBIAS`, `RESETn`/`EN`, `VSS` and the POR domain's `VDD` riser, four
 Metal3 columns over an unbroken moat). Reporting it as its own finding, as
 that issue requires:
 
-**The answer is that this netlist is structurally incapable of showing either,
-and that is a property of the extraction flow, not of the layout.**
-`klt extract --parasitics` emits, per net, exactly one series resistor into a
-synthetic dangling `<net>__par` node and one capacitor from that node to the
-substrate (`layout/postlayout.py`'s own `PAR_SUFFIX` comment). Every device
-terminal stays on `<net>` itself. Concretely, for the four nets that cross the
-seam:
+**The answer is still that neither effect may be cited from this deck — but
+since #314 the reason is the model's resolution rather than its absence**, and
+either way it is a property of the extraction flow, not of the layout.
 
-| Net | Parasitic emitted | What it models | What it cannot model |
-| --- | --- | --- | --- |
-| `IBIAS` | `RIBIAS IBIAS IBIAS__par 10 641.6 Ω` + `CIBIAS IBIAS__par VSS 122.6 fF` | the net's total capacitance, loaded through its total resistance | no R between `bias_core`'s source and `temp_core`'s far-end tap |
-| `RESETn` | `REN_RESETn … 5644.1 Ω` + `CEN_RESETn … 78.0 fF` | same | same, for the driver→`temp_core.EN` run |
-| `VDD` | `RVDD … 12 215.8 Ω` + `CVDD … 373.9 fF` | rail capacitance | **no rail IR drop**: no DC current can flow through `RVDD`, whose far end feeds only a capacitor |
-| `VSS` | `RVSS … 3387.0 Ω` + `CVSS … 1829.3 fF` | ground capacitance | same, for the ground return |
+> **Model change, 2026-10-02 (#314, #316).** Every record cited in this
+> document was taken against the parasitic model `klt` emitted before 0.6.0:
+> one *dangling* R–C leg per net (`R<net> <net> <net>__par` plus `C<net>
+> <net>__par VSS`), with every device terminal left on `<net>` itself. No DC
+> current could flow through any extracted resistance, and the extraction
+> produced no capacitor between two circuit nets at all, so under that model
+> both of the effects #18 asked about were identically zero **by
+> construction**. #314 regenerated `layout/postlayout/` against the `klt`
+> pinned in `layout/toolchain.json`, whose model is a per-net **star**, and
+> both are now represented to first order. The rest of this subsection
+> describes the committed netlists as they stand today. The records above are
+> unedited and stay accurate for the netlists they name (`sim/` is append-only
+> evidence) — which also means **none of them is evidence about the star
+> model's IR or coupling terms**: that needs a re-run, and none has been made.
 
-So: **no shared-rail IR drop develops anywhere in this deck by construction,
-and there is no net-to-net coupling capacitance at all** — the extraction
-produces no capacitor between any two circuit nets, only net-to-substrate
-ones. The two effects #18 wanted are precisely the two the model omits. What
-the model *does* carry, and carries honestly, is each crossing net's own
-**RC loading**, and that is visibly what produces the timing deltas below.
+Per [`layout/postlayout/AUDIT.md`](../layout/postlayout/AUDIT.md) → "The
+parasitic model": each net keeps its own name as the hub of a star, each
+device terminal on it becomes a `<net>__t<k>` node, the net's one lumped
+series resistance is split across the `R<net>_t<k>` arms joining them, its
+lumped capacitance sits on the hub, and vertical-overlap coupling to another
+net is a direct `Ccc__<a>__<b>` between the two. Read out of
+`layout/postlayout/temp_por_top.spice` as committed, for the four nets that
+cross the seam:
+
+| Net | arms | ΣR (Ω) | ΣC (fF) | Σ coupling (fF) | what the star does, and does not, model |
+| --- | ---: | ---: | ---: | ---: | --- |
+| `IBIAS` | 9 | 10 990.6 | 241.6 | 0.16 | each device terminal sits behind its own 350–1847 Ω arm, so bias current **does** develop a drop between `bias_core`'s source and `temp_core`'s tap — but through a fictitious hub, so the drop between two terminals is `R_i + R_j`, not the drawn run's |
+| `RESETn` | 8 | 6009.1 | 204.3 | 0.29 | same, for the driver→`temp_core.EN` run (634–799 Ω per arm) |
+| `VDD` | 53 | 12 565.4 | 730.8 | 0.67 | rail IR drop is **no longer zero** (79–435 Ω per terminal), but a star cannot say which loads share which drawn segment, which is the whole content of a shared-rail claim |
+| `VSS` | 247 | 3901.5 | 2145.2 | 82.3 | same for the ground return (6–39 Ω per terminal); its coupling is almost entirely MiM plate-to-ground overlap (`xpor__TIM` alone 78.5 fF), not signal crosstalk |
+
+So the two effects #18 wanted are now *present* in the deck rather than
+omitted from it, and are still not citable, for two separate reasons:
+
+- **Resistance is lumped into a star, not distributed along the drawn
+  route.** `AUDIT.md` records `distributed_rc: false` and no critical nets for
+  every cell — `layout/postlayout.py --extract` passes neither `klt`'s
+  `--distributed-rc` nor `--critical-net`. A shared-rail IR claim is a claim
+  about *which* loads a drawn segment is shared by; a star about a fictitious
+  hub has no segments to share.
+- **Coupling is vertical overlap only.** 126 coupling capacitors total
+  85.1 fF across the assembly, of which 82.3 fF is to `VSS` and 78.5 fF of
+  that is one MiM plate (`xpor__TIM`). Every *signal-to-signal* pair in the
+  extraction adds up to **2.77 fF**; the largest single pair is
+  `xbias__NZ`–`xbias__PG` at 0.230 fF, and the largest one involving a
+  seam-crossing signal net is `xpor__NDG`–`RESETn` at 0.060 fF. No lateral or
+  fringe term is extracted at all, which is most of the crosstalk a seam
+  question is asking about.
 
 This is a known, already-filed tool limitation, not a new one — the
 friction protocol is satisfied by citing it rather than re-filing:
 klayout-tools#338 and #592 document the in-path/distributed-resistance gap
-(both closed, #592 explicitly deferring the model change), and it is scoped
-for repair in the open epics klayout-tools#701 (Method-of-Moments field
-solver — "real parasitic extraction (R, C, and coupling)") and #709 (PEX-aware
-post-layout sim flow — "Phase 2 — coupling + distributed RC"). **Until one of
-those lands, no post-layout record this repo can produce may be cited as
-evidence about cross-domain IR or crosstalk**, and none of the records above
-is written as if it were.
+(both closed; #592 is the issue that introduced the star in `klt` 0.6.0), and
+full repair is scoped in the open epics klayout-tools#701 (Method-of-Moments
+field solver — "real parasitic extraction (R, C, and coupling)") and #709
+(PEX-aware post-layout sim flow — "Phase 2 — coupling + distributed RC").
+**Until one of those lands, no post-layout record this repo can produce may be
+cited as evidence about cross-domain IR or crosstalk**, and none of the
+records above is written as if it were.
 
 ### What did move: a uniform ~2 % timing slowdown
 
@@ -403,21 +434,26 @@ the extracted netlist**, and this roll-up says so rather than rounding up.
 This is the most consequential thing this roll-up has to state, so it is
 stated first and without qualification: **no post-layout record this repo
 can produce may be cited as cross-domain IR-drop or crosstalk evidence.**
-`klt extract --parasitics` emits, per net, exactly one series resistor into a
-synthetic dangling `<net>__par` node and one capacitor from that node to
-substrate (see "The IR / cross-domain-coupling question" above for the exact
-cards on the four seam-crossing nets, `IBIAS`/`RESETn`/`VDD`/`VSS`). There is
-no DC path through any `R<net>` — its far end feeds only a capacitor — so no
-rail can develop IR drop in this deck by construction, and there is no
-capacitor between any two circuit nets at all, so no net-to-net coupling term
-is representable either. This is a property of the extraction model, not of
-the layout: klayout-tools#338/#592 document and close the gap partway
-(deferring the model change), and klayout-tools#701 (a Method-of-Moments
-field solver) and #709 (a PEX-aware post-layout sim flow, "Phase 2 —
-coupling + distributed RC") are the open epics that would eventually let a
-future re-run answer this. Until one of those lands, a clean-looking
-post-layout suite on this axis means "not tested," not "tested and passed" —
-and every record in this repo, including this one, is written on that basis.
+The records this roll-up covers were taken against a parasitic model in which
+both effects were identically zero by construction — one dangling R–C leg per
+net, no DC path through any extracted resistance, no capacitor between any two
+circuit nets. Since #314 the committed netlists carry `klt` 0.6.0's per-net
+**star** instead, in which a rail does develop a first-order IR drop and
+vertical-overlap coupling is extracted (85.1 fF across the assembly, of which
+2.77 fF is signal-to-signal) — so the conclusion is unchanged but its reason
+is now resolution, not absence: the resistance is lumped into a star about a
+fictitious hub rather than distributed along the drawn route
+(`distributed_rc: false` for every cell), and no lateral or fringe coupling is
+extracted at all. See "The IR / cross-domain-coupling question" above for the
+per-net figures on the four seam-crossing nets, `IBIAS`/`RESETn`/`VDD`/`VSS`.
+This is a property of the extraction model, not of the layout:
+klayout-tools#338/#592 document and close the gap partway (#592 is the star
+itself), and klayout-tools#701 (a Method-of-Moments field solver) and #709 (a
+PEX-aware post-layout sim flow, "Phase 2 — coupling + distributed RC") are the
+open epics that would eventually let a future re-run answer this. Until one of
+those lands, a clean-looking post-layout suite on this axis means "not
+tested," not "tested and passed" — and every record in this repo, including
+this one, is written on that basis.
 
 ### 2. The one substantive, consistent finding: ~2 % uniform reset-timing lengthening
 
