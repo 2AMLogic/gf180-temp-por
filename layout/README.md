@@ -1925,8 +1925,10 @@ This repo had neither the spec nor the report until #300; both now exist —
   sha256:a119a12b1fa2daff64772a4a804a0ea14f17c68dc9357fe167dfd287df0628fd`,
   matching the committed `layout/cells/temp_por_top.gds` (`shasum -a 256`),
   and `provenance.spec.content_hash ==
-  sha256:8fd226667a5b2b7d36dab67d8a61b4681d81931190bf3697d84c4a51f61025b2`,
-  matching the committed spec.
+  sha256:88b908db25b01130c2ea30ca698ca8c742220316209c5f8fcf8067ed80699d7a`,
+  matching the committed spec (re-run for #310, which added `ties[]` — see
+  "`erc.missing_tie`: now computed" below for what changed and why the hash
+  moved).
 
 **The run is clean: `erc_finding_count: 0`.** Both declared supplies —
 `VDD` and `VSS`, each `"kind": "supply"` — resolve to exactly one
@@ -1982,8 +1984,99 @@ This mirrors the same class of gap `layout/toolchain.json` vs.
 grader it will eventually be read by. Nothing else under `layout/reports/`
 was regenerated against `99a5716c`; the deck-hash gates that protect the
 DRC/LVS evidence are untouched, and this report names no deck at all
-(`provenance.deck: null`) because `klt erc` reads only the spec's own
-declared layers, never a curated deck.
+(`provenance.deck: null`) because `klt erc` reads only the spec's own declared
+layers, never a curated deck — restated, for both toolchain notes together, in
+the parenthetical that closes the next section.
+
+### Toolchain note (#310): why `ties[]` needed a build past `klt 0.6.0` too
+
+`layout/toolchain.json` now pins `klt 0.6.0` (moved there by #311/#312,
+unrelated to `klt erc`), and at first glance that release looks sufficient
+for `ties[]`: it already carries `tap_boxes` (#2234) and `well_layer: null` +
+`well_boxes` (#2255), both load-bearing for this spec's `substrate_tie`
+entry. It is **not** sufficient for the other three entries, confirmed by
+reading `klt erc`'s source directly at the `v0.6.0` tag (commit `c622e8ad`,
+2026-09-22): `well_requires`/`well_excludes` (issue #2339, the device-body/
+PNP-base class selector) and `well_requires_boxes`/`well_excludes_boxes`
+(issue #2540, the same selector for a tub with no marker layer to narrow by —
+needed for `nw2_tail_well`'s own well selection) both merged to `main` on
+2026-09-30, eight days after the tag. Running this spec against the released
+`v0.6.0` reproduces exactly the failure that absence predicts: 16 false
+`erc.missing_tie` findings, one per merged polygon the selector could not
+narrow, because the unrecognised selector key is accepted but has no effect —
+every tie grades every shape of its `well_layer`, the pre-#2339 behaviour.
+
+This re-run therefore answers to `klayout-tools` built from `main` at commit
+`af8d6c54312e` (`klt 0.6.0+gaf8d6c54312e`, `klayout_version: "0.30.12"`),
+echoed in `provenance.klt_version`, which carries the `+gaf8d6c54312e` suffix
+precisely so it is never mistaken for the tagged `v0.6.0` release. As before,
+nothing else under `layout/reports/` was regenerated against this build —
+`layout/run_checks.sh`'s `toolchain_gate` probes only `klt drc`'s curated
+deck (never `klt erc`, which reads only this spec's own declared layers and
+names no deck at all), and `layout/lvs_reference.py`'s `GDS_HASH_FIELDS` does
+not list `erc_supply.json`, so neither gate is affected by this report
+answering to a different build than the one that produced the DRC/LVS
+evidence beside it.
+
+**A methodology note worth recording alongside the toolchain one.** Every
+`tap_boxes` entry in the committed spec is a narrow, independently-verified
+assertion — never the bare, un-narrowed `tap_layer` a quick `tap_is_dedicated:
+true` probe would accept. This is not merely the `klayout-tools#2199`
+degeneracy rule (an unnarrowed tap on an implant-free stream always grades
+`degenerate_tap_declaration`, never `checked`) forcing the hand that wrote it.
+Verified directly against this block's own GDS: an un-narrowed tap registered
+into `klt erc`'s connectivity graph can **merge unrelated nets** on a stream
+whose `_mos_finger` draws no implant layer at all — a drawn gate does not cut
+a comp region registered as one conductor, so a well-wide tap conducts across
+every source/drain terminal that well's row draws, not just the real tie. A
+throwaway two-tie probe against `bias_core.gds` with both taps
+`tap_is_dedicated: true` and no narrowing merged `BIAS_OK`/`IBIAS`/`VDD`/
+`VREF` into one electrical net and reported *every* declared well tied to
+*every* declared net, including a vertical-PNP base tub whose real tie is
+`VSS`, not `VDD`. Narrowing every `tap_boxes` entry to the specific comp this
+spec's own commentary names (never the whole device row, never a ring's
+enclosing rectangle) is what keeps this report's `erc_status: clean` a
+statement about real taps rather than an artifact of how broadly they were
+declared — confirmed by deleting, one region at a time, the tap box(es) that
+tie a single well/tub/ring (leaving the rest of that entry's `tap_boxes`
+intact) and checking that exactly that region's `erc.missing_tie` finding
+reappears, scoped to its own bbox alone, with every other declared tie —
+including ones sharing its `well_layer`, its `net`, or both — unaffected.
+Verified that way for each of `device_body_wells`' five wells, each of
+`pnp_base_tubs`' two base tubs, and a whole `substrate_tie` ring: one finding
+each, `erc_coverage.skipped` still empty.
+
+**Two things that probe does *not* show**, spelled out because the obvious
+first experiment runs into both:
+
+- **Emptying a whole `tap_boxes` array reports no finding at all.** A tap
+  assertion that narrows nothing grades `degenerate_tap_declaration`
+  ([klayout-tools#2199](https://github.com/2AMLogic/klayout-tools/issues/2199)),
+  so the entry moves into `erc_coverage.skipped` and `erc_status` degrades to
+  `clean_partial` while `erc_findings` / `erc_finding_count` — the fields
+  "Reading the `status` field" below names as the ones carrying the verdict —
+  stay at zero. Confirmed for all four entries. That is still a real guard,
+  because the degradation is loud rather than a silent clean, but it is a
+  *coverage* signal, not a verdict finding: item 11's pass condition is
+  therefore zero findings **and** `erc_coverage.skipped: []` **and**
+  `erc_status: clean`, never the finding count alone.
+- **Deleting a single segment of a multi-segment tie leaves the report fully
+  clean** (`erc_status: clean`, `skipped: []`) — by construction, not as a
+  gap: each `substrate_tie` ring is asserted by four edge segments and the
+  remaining three still tie it, and NW2 carries six finger taps for the one
+  well. The sensitivity this declaration has is per-region, not per-segment.
+
+The complementary probe — declaring a tie's `net` *wrong* rather than removing
+its tap — does report `erc.missing_tie`, under a different description
+("well/tub tap is not connected to declared net …"): declaring
+`nw2_tail_well`'s net as `VDD` instead of `NT` yields exactly one finding, on
+NW2's own bbox. That is the independent check that `NT`, not the supply, really
+is that well's body tie.
+
+(The DRC/LVS evidence beside this report is untouched by either toolchain
+note above, and this report names no deck at all — `provenance.deck: null`
+— because `klt erc` reads only the spec's own declared layers, never a
+curated deck.)
 
 ### How the false `erc.supply_short` was resolved: `devices[]`
 
@@ -2132,52 +2225,95 @@ not in this flow's reach today — but it is not what item 11 grades. The
 fields that carry item 11's verdict are `erc_findings` and
 `erc_finding_count`, and both are empty/zero.
 
-### `erc.missing_tie`: not computed, and what stands in for it
+### `erc.missing_tie`: now computed (#310)
 
-The spec deliberately declares no `ties[]` — per
-[klayout-tools#2169](https://github.com/2AMLogic/klayout-tools/issues/2169),
-declaring one collapses a real design into one electrical island and reports
-a *different* false `erc.supply_short`. Because `ties[]` is omitted,
-`erc.missing_tie` is **not computed** by this run (`docs/cli/erc.md`:
-"Omitted entirely -> `erc.missing_tie` is never computed") — its absence
-from `erc_supply.json`'s `erc_findings` is an absence of evidence, not a
-zero-findings verdict on well ties.
+The spec declared no `ties[]` until #310, per
+[klayout-tools#2169](https://github.com/2AMLogic/klayout-tools/issues/2169):
+on the `klt` build this repo could reach at the time, declaring one collapsed
+a real design into one electrical island and reported a *different* false
+`erc.supply_short`. That bug is fixed upstream (the fix is in every `klt`
+build this repo can reach, including the released `v0.6.0` — see "Toolchain
+note (#310)" above for the *different* feature gap that build still has), so
+the spec now declares four `ties[]` entries and `erc.missing_tie` is
+**computed**: zero findings, every tie graded `checked` (none in
+`erc_coverage.skipped`), confirmed in the committed report.
 
-What stands in, in its absence:
+The four entries, and what each one is about:
 
-- `layout/floorplan.md`'s guard-ring/moat treatment: a continuous COMP +
-  Metal1 perimeter guard ring, VSS-tied, contacted at 1 µm pitch, plus a
-  domain-seam moat tied by three risers to the same rail — "VSS is
-  therefore the guard-ring tie net by construction"
-  (`layout/build_cells.py`, `_top_cell`'s own routing comment).
-- `layout/build_cells.py`'s own `_top_assert_connected` build-time check: every
-  via this cell draws is asserted to land inside metal on both of the levels
-  it bridges, so a tie riser drawn a hair off its landing pad is caught at
-  build time as an open (which LVS then independently confirms, rather than
-  silently producing a floating guard-ring segment).
-- The gf180mcu curated deck draws no distinct substrate/well-tap marker layer
-  at all (this repo's own "Known deck limits" section, item 4's disclosure in
-  `signoff/README.md`: NMOS body terminals compare against a
-  deck-synthesized `vsubs` net, PMOS against an anonymous deck-synthesized
-  well net) — so, unlike `gf180-drone-fc`'s digital flow (whose fill-tie
-  cell's own `VNW`/`VPW` well-pin labels are cited as standing-in evidence),
-  this block has no labelled well/tap geometry to cite directly. The guard
-  ring's own drawn continuity and contact pitch (above) is what is offered
-  instead.
+- **`device_body_wells` -> VDD** — every ordinary PMOS device-body Nwell in
+  the design (`temp_core`'s NW1, `bias_core`'s and `por_comparator`'s and
+  `por_output_chain`'s PMOS rows, `por_comparator_bias_okb_inv`'s own small
+  well), via `well_excludes: ["127/5"]` (drops the two PNP base tubs) and
+  `well_excludes_boxes` (drops `temp_core`'s NW2 — see `nw2_tail_well`
+  below). `tap_boxes` names each well's own dedicated VDD tie-strap comp (or,
+  for `temp_core`'s NW1, which draws no separate strap, the source-side half
+  of a real VDD-sourced device's own comp) — this stream draws no implant
+  layer on any MOS device at all, so `tap_requires` cannot name a real tap
+  boolean here (klayout-tools#2199/#2234).
+- **`pnp_base_tubs` -> VSS** — the two vertical-PNP arrays' own base tubs
+  (`temp_core`'s and `bias_core`'s), selected by `well_requires: ["127/5"]`
+  (klayout-tools#2339): both are diode-connected to their own collector
+  substrate ring, so the base ties to VSS rather than VDD, unlike every
+  device-body well above.
+- **`nw2_tail_well` -> NT** — `temp_core`'s differential-pair well, which
+  this design deliberately body-ties to the pair's own shared tail node
+  rather than to a supply (a standard body-effect-cancellation move),
+  confirmed from `_TEMP_CORE_ROW`: none of NW2's six fingers names VDD, and
+  `NT` carries its own Metal1 label inside `temp_core`, so the tie is
+  independently checkable rather than merely asserted.
+- **`substrate_tie` -> VSS**, `well_layer: null` + `well_boxes`
+  (klayout-tools#2255) — every native-substrate tie in the design: the outer
+  perimeter guard ring, the domain-seam moat, each sub-circuit's own guard
+  ring, and the PNP arrays' outer (Pplus) collector rings. The deck draws no
+  p-well/p-substrate layer at all (this repo's own "Known deck limits"
+  section, item 4's disclosure in `signoff/README.md`), so these ties have
+  nothing to name as a drawn well; `well_boxes` asserts each ring's own four
+  edge segments (never a ring's enclosing rectangle — for the outer
+  perimeter ring that is within 1% of the whole top cell's own extent and
+  would grade `degenerate_well_assertion`).
+
+See the spec's own `_comment` block for the full per-entry justification,
+including the falsifiability checks run against this GDS before any of the
+above was combined into one spec (each class verified to produce a real
+`erc.missing_tie` finding when the tap box(es) tying one of its wells/tubs/
+rings are deliberately deleted, with every other declared tie unaffected —
+and the two near-miss probes that do *not* produce a finding, emptying a whole
+`tap_boxes` array and dropping a single segment of a multi-segment ring, which
+the methodology note under "Toolchain note (#310)" above spells out) and the
+connectivity-corruption risk an unnarrowed tap would have posed on this
+specific, implant-free stream.
+
+What this supersedes, from before #310: `layout/floorplan.md`'s guard-ring/
+moat prose account is now corroborated by a computed `erc.missing_tie`
+result rather than standing in for one, and the gf180mcu curated deck's own
+gap — it draws no distinct substrate/well-tap marker layer at all, so
+unlike `gf180-drone-fc`'s digital flow (whose fill-tie cell's own `VNW`/
+`VPW` well-pin labels are cited as standing-in evidence) this block has no
+PDK-marked well/tap geometry to cite directly — is why `substrate_tie`
+above asserts the ring geometry with `well_boxes` instead of selecting a
+drawn well layer. `layout/build_cells.py`'s own `_top_assert_connected`
+build-time check (every via this cell draws is asserted to land inside
+metal on both of the levels it bridges) and LVS's independent confirmation
+of the same vias are unaffected and still apply.
 
 ### Reproducing
 
 ```bash
-# The build this one report answers to -- NOT the pinned klt, on purpose
-# (see "Toolchain note" above). Use a throwaway environment: this build
+# The build this report answers to -- NOT the pinned `klt`, on purpose (see
+# "Toolchain note (#310)" above). Use a throwaway environment: this build
 # must not become the `klt` that layout/run_checks.sh sees on PATH.
 python3 -m venv /tmp/klt-erc && /tmp/klt-erc/bin/pip install \
-  "git+https://github.com/2AMLogic/klayout-tools.git@99a5716c"
+  "git+https://github.com/2AMLogic/klayout-tools.git@af8d6c54312e"
 
 /tmp/klt-erc/bin/klt erc layout/cells/temp_por_top.gds \
   layout/cells/temp_por_top.erc-supply-spec.json --format json \
   | diff -u layout/reports/temp_por_top/erc_supply.json - && echo reproduced
 ```
+
+(The original, `ties`-less version of this report instead answered to commit
+`99a5716c` — still the commit named in "Toolchain note: why this report was
+not produced with the pinned `klt 0.5.0`" above, which that paragraph's own
+history is about, not this one's.)
 
 Exit code `4` (`not_checked`) is expected and is not a failure of item 11 —
 see "Reading the `status` field" above. The assertions that matter are
