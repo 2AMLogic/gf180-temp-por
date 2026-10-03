@@ -40,7 +40,6 @@ Stdlib only, no virtualenv required.
 from __future__ import annotations
 
 import json
-import subprocess
 import sys
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -121,17 +120,9 @@ def compose_deck(pdk, netlist: Path, corner_name: str, temp_c: float, options: l
 def run_one(job):
     pdk, options, deck_dir, log_dir, net_name, netlist, corner_name, temp_c = job
     name = f"dip-{net_name}-{corner_name}_{int(temp_c)}c"
-    deck_path = deck_dir / f"{name}.spice"
-    deck_path.write_text(compose_deck(pdk, netlist, corner_name, temp_c, options))
-    proc = subprocess.run(
-        ["ngspice", "-b", deck_path.name],
-        capture_output=True,
-        text=True,
-        cwd=deck_dir,
-        check=False,
+    output = runner.run_deck_raw(
+        name, compose_deck(pdk, netlist, corner_name, temp_c, options), CONTROL_DIR
     )
-    output = proc.stdout + "\n" + proc.stderr
-    (log_dir / f"{name}.log").write_text(output)
     return (net_name, corner_name, temp_c), name, runner.parse_measurements(output)
 
 

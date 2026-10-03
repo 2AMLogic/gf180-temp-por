@@ -42,7 +42,6 @@ from __future__ import annotations
 import json
 import os
 import re
-import subprocess
 import sys
 from pathlib import Path
 
@@ -187,20 +186,12 @@ def main() -> int:
 
     def run(size_um, point_id, corner_name, temp_c, vdd, width_us, required):
         run_id = f"cdg_{size_slug(size_um)}__{point_id}__{width_us:g}us"
-        deck_path = deck_dir / f"{run_id}.spice"
-        deck_path.write_text(
-            compose_deck(pdk, size_um, corner_name, temp_c, vdd, width_us, options, deck_dir)
+        output = runner.run_deck_raw(
+            run_id,
+            compose_deck(pdk, size_um, corner_name, temp_c, vdd, width_us, options, deck_dir),
+            CONTROL_DIR,
+            timeout_s=1800,
         )
-        proc = subprocess.run(
-            ["ngspice", "-b", deck_path.name],
-            capture_output=True,
-            text=True,
-            cwd=deck_dir,
-            check=False,
-            timeout=1800,
-        )
-        output = proc.stdout + "\n" + proc.stderr
-        (log_dir / f"{run_id}.log").write_text(output)
         meas = runner.parse_bare_measurements(output)
         missing = [k for k in required if k not in meas]
         if missing:

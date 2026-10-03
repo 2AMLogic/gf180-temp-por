@@ -336,7 +336,9 @@ def parse_bare_measurements(text: str) -> dict[str, float]:
     return found
 
 
-def run_deck_raw(name: str, text: str, control_dir: Path) -> str:
+def run_deck_raw(
+    name: str, text: str, control_dir: Path, timeout_s: int | None = None
+) -> str:
     """Write ``text`` as ``<control_dir>/decks/<name>.spice``, run ngspice on
     it, log the raw output to ``<control_dir>/logs/<name>.log``, and return
     that raw stdout+stderr text.
@@ -345,6 +347,9 @@ def run_deck_raw(name: str, text: str, control_dir: Path) -> str:
     that ``run_deck()`` below layers bare-measurement parsing on top of, for
     callers that need the raw text instead (e.g. trace-file parsing or a
     differently-formatted measurement parser).
+
+    ``timeout_s`` is passed to ``subprocess.run`` (default ``None``: no
+    timeout); expiry raises ``subprocess.TimeoutExpired``.
     """
     deck_dir = control_dir / "decks"
     log_dir = control_dir / "logs"
@@ -358,6 +363,7 @@ def run_deck_raw(name: str, text: str, control_dir: Path) -> str:
         text=True,
         cwd=deck_dir,
         check=False,
+        timeout=timeout_s,
     )
     output = proc.stdout + "\n" + proc.stderr
     (log_dir / f"{name}.log").write_text(output)

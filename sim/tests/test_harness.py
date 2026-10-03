@@ -439,6 +439,25 @@ class ParsePrintsTests(unittest.TestCase):
         self.assertEqual(runner.parse_prints(""), {})
 
 
+class RunDeckRawTimeoutTests(unittest.TestCase):
+    def _run(self, **kwargs):
+        with tempfile.TemporaryDirectory() as tmp:
+            control = Path(tmp)
+            proc = mock.Mock(stdout="out", stderr="err")
+            with mock.patch.object(runner.subprocess, "run", return_value=proc) as run:
+                text = runner.run_deck_raw("d", ".end\n", control, **kwargs)
+            self.assertEqual(text, "out\nerr")
+            self.assertEqual((control / "decks" / "d.spice").read_text(), ".end\n")
+            self.assertEqual((control / "logs" / "d.log").read_text(), "out\nerr")
+            return run.call_args.kwargs
+
+    def test_default_has_no_timeout(self):
+        self.assertIsNone(self._run()["timeout"])
+
+    def test_timeout_is_forwarded(self):
+        self.assertEqual(self._run(timeout_s=900)["timeout"], 900)
+
+
 class ParseBareMeasurementsTests(unittest.TestCase):
     def test_parses_find_when_output(self):
         # `.measure ... find`/`when` output: "name = value", no `at=` suffix.
