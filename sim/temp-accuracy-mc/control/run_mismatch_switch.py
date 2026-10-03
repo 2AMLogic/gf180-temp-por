@@ -45,7 +45,6 @@ from __future__ import annotations
 
 import json
 import os
-import subprocess
 import sys
 import textwrap
 from pathlib import Path
@@ -182,18 +181,10 @@ def main() -> int:
 
     results: dict[str, dict[str, float]] = {}
     for name, mismatch, placement, seed, _label in VARIANTS:
-        deck_path = deck_dir / f"{name}.spice"
         log_path = log_dir / f"{name}.log"
-        deck_path.write_text(compose_deck(pdk, mismatch, placement, seed, options, deck_dir))
-        proc = subprocess.run(
-            ["ngspice", "-b", deck_path.name],
-            capture_output=True,
-            text=True,
-            cwd=deck_dir,
-            check=False,
+        output = runner.run_deck_raw(
+            name, compose_deck(pdk, mismatch, placement, seed, options, deck_dir), CONTROL_DIR
         )
-        output = proc.stdout + "\n" + proc.stderr
-        log_path.write_text(output)
         values = runner.parse_prints(output)
         missing = [expr for expr, _, _ in PROBES if expr not in values]
         if missing:

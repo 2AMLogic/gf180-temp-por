@@ -60,7 +60,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import subprocess
 import sys
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -263,17 +262,11 @@ def compose(pdk, corner, dut: str, vdd: float, tramp: float) -> str:
 def run_one(pdk, corner, point) -> dict:
     run_id, arm, dut, vdd, tramp = point
     deck = compose(pdk, corner, dut, vdd, tramp)
-    deck_path = CONTROL_DIR / "decks" / f"{run_id}.spice"
-    deck_path.parent.mkdir(parents=True, exist_ok=True)
-    deck_path.write_text(deck)
-    log_path = CONTROL_DIR / "logs" / f"{run_id}.log"
-    log_path.parent.mkdir(parents=True, exist_ok=True)
+    CONTROL_DIR.joinpath("decks").mkdir(parents=True, exist_ok=True)
+    CONTROL_DIR.joinpath("logs").mkdir(parents=True, exist_ok=True)
     started = time.time()
-    proc = subprocess.run(
-        ["ngspice", "-b", str(deck_path)], capture_output=True, text=True, timeout=14400
-    )
-    log_path.write_text(proc.stdout + proc.stderr)
-    meas = runner.parse_measurements(proc.stdout)
+    output = runner.run_deck_raw(run_id, deck, CONTROL_DIR, timeout_s=14400)
+    meas = runner.parse_measurements(output)
     return {
         "run": run_id,
         "arm": arm,

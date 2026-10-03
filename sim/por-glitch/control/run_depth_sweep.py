@@ -36,7 +36,6 @@ from __future__ import annotations
 import concurrent.futures
 import json
 import os
-import subprocess
 import sys
 import textwrap
 from pathlib import Path
@@ -168,25 +167,18 @@ def run_one(args) -> tuple[str, dict]:
     (pdk, options, deck_dir, log_dir, trace_dir, run_id, corner_name, temp_c, vdd, glitch_v,
      hold_s, arm, dut_rel) = args
     trace_name = f"{run_id}.csv"
-    deck_path = deck_dir / f"sweep_{run_id}.spice"
-    deck_path.write_text(
+    output = runner.run_deck_raw(
+        f"sweep_{run_id}",
         compose_deck(
             pdk, corner_name, temp_c, vdd, glitch_v, hold_s, options, deck_dir, trace_name,
             dut_rel, arm,
-        )
+        ),
+        CONTROL_DIR,
+        timeout_s=3600,
     )
-    proc = subprocess.run(
-        ["ngspice", "-b", deck_path.name],
-        capture_output=True,
-        text=True,
-        cwd=deck_dir,
-        check=False,
-        timeout=3600,
-    )
-    (log_dir / f"sweep_{run_id}.log").write_text(proc.stdout + "\n" + proc.stderr)
     raw = deck_dir / trace_name
     if not raw.exists():
-        raise SystemExit(f"{run_id}: ngspice produced no {trace_name}\n{proc.stdout}\n{proc.stderr}")
+        raise SystemExit(f"{run_id}: ngspice produced no {trace_name}\n{output}")
     text = raw.read_text()
     (trace_dir / f"sweep_{run_id}.csv").write_text(text)
     raw.unlink()

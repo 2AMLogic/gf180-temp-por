@@ -29,7 +29,6 @@ from __future__ import annotations
 
 import json
 import os
-import subprocess
 import sys
 import textwrap
 from pathlib import Path
@@ -133,20 +132,14 @@ def main() -> int:
     summaries: dict[str, dict] = {}
 
     for point_id, corner_name, temp_c, vdd in POINTS:
-        deck_path = deck_dir / f"{point_id}.spice"
         log_path = log_dir / f"{point_id}.log"
         trace_path = trace_dir / f"{point_id}.csv"
-        deck_path.write_text(compose_deck(pdk, corner_name, temp_c, vdd, options, deck_dir))
-        proc = subprocess.run(
-            ["ngspice", "-b", deck_path.name],
-            capture_output=True,
-            text=True,
-            cwd=deck_dir,
-            check=False,
-            timeout=900,
+        output = runner.run_deck_raw(
+            point_id,
+            compose_deck(pdk, corner_name, temp_c, vdd, options, deck_dir),
+            CONTROL_DIR,
+            timeout_s=900,
         )
-        output = proc.stdout + "\n" + proc.stderr
-        log_path.write_text(output)
         raw_trace = deck_dir / "trace.csv"
         if not raw_trace.exists():
             print(f"{point_id}: ngspice produced no trace.csv", file=sys.stderr)
