@@ -2,6 +2,10 @@
 
 Merged PRs and closed issues from the initial 30-day snapshot (2026-09-07 onward).
 
+### 2026-10-07
+
+- **PR #329**: docs: align README with current extraction and ERC evidence
+
 ### 2026-10-03
 
 - **PR #327**: sim: finish consolidating control-script ngspice invocations onto run_deck_raw
