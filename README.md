@@ -40,7 +40,7 @@ project has:
   (issue #18 and its children #82–#87).
 
 **Where that leaves the layout.** It is drawn and assembled. DRC is
-clean on all five cells including `temp_por_top` (239 devices, 145
+clean on all five cells including `temp_por_top` (239 devices, 143
 nets), and each is LVS-matched device-for-device and net-for-net against
 its schematic-derived reference netlist — **whole**, with no device
 excluded. The last exclusion was `temp_core`'s MiM compensation cap
@@ -50,11 +50,13 @@ than drawn; it is drawn and routed as of #259, executing
 #177), which found both of its recorded justifications expired. Nothing
 in `layout/postlayout/` is spliced in ideal any more. Recorded `sim/`
 results that predate it stay valid for the netlists they name, and say
-so in their own provenance lines. Guard-ring and well-tie *correctness*
-is checked by nothing in this flow, because the deck has no tap or
-well-label layer; the status block at the top of
-[`layout/README.md`](layout/README.md) carries that and the rest of the
-known deck limits.
+so in their own provenance lines. The separate
+[`ERC supply report`](layout/reports/temp_por_top/erc_supply.json) now
+checks four declared well/substrate-tie classes: zero findings, all four
+checked, none skipped. This checks connectivity using asserted tap/well
+geometry; it does not establish implant correctness or latch-up sign-off.
+[`layout/README.md`](layout/README.md#ercmissing_tie-now-computed-310)
+documents that scope and the separate `klt` build used for this report.
 
 **The assembled footprint measures 1.059 mm² (1334 × 794 µm), not "tiny."**
 This block's stated reason to exist includes that a small, self-contained
@@ -80,11 +82,14 @@ DR-014/DR-017 own those), some newly under extraction — and each is
 routed to its own open issue rather than absorbed. One target was
 re-costed against measured evidence through a decision record (DR-018),
 not quietly relaxed. And the block's cross-domain IR-drop and crosstalk
-question is **not answered by anything in this repository**: the
-extraction available today emits per-net lumped R/C to substrate only,
-with no DC rail path and no net-to-net capacitance, so no record in
-`sim/` may be read as IR or coupling evidence — a clean-looking result
-on that axis means "not tested", not "tested and passed".
+question is **not answered by anything in this repository**. The current
+`klt 0.6.0` extraction models per-net resistance as a star and includes
+vertical-overlap coupling, so first-order rail drop and coupling are now
+represented. It still lacks distributed route resistance and lateral/fringe
+coupling; the older records used a model with neither effect. As the
+[`post-layout roll-up`](design/temp_por_top.md#1-the-ir-drop--crosstalk-watch-item-cannot-be-answered-by-this-repos-tooling-today)
+explains, no record in `sim/` may be cited as cross-domain IR-drop or
+crosstalk evidence.
 
 Full testbench sign-off has not happened. Every claim this project makes
 is expected to be backed by a testbench and by PVT corner data recorded
@@ -220,7 +225,7 @@ files](#mapping-the-proposals-spec-table-to-output-files)" below).
 | gf180mcu PDK | `open_pdks` commit `c6d73a35f524070e85faff4a6a9eef49553ebc2b` — the revision this repo's committed `sim/` evidence and `.github/workflows/ci.yml` are taken against | device models | `pip install volare && volare enable --pdk gf180mcu c6d73a35f524070e85faff4a6a9eef49553ebc2b`, or an equivalent [`ciel`](https://github.com/efabless/ciel)/[IIC-OSIC-TOOLS](https://github.com/iic-jku/iic-osic-tools)-provisioned install |
 | `xschem` | ≥ 3.4.7 | schematic capture / netlist export — **not** needed to run `make check`/`make smoke`/`make characterize` below, which simulate the netlists already committed under `design/netlist/`; only needed to regenerate them | build from source per [`design/README.md`](design/README.md)'s Requirements note (Ubuntu's apt package below 3.4.7 has a netlisting regression) |
 | python3 | ≥ 3.9 | the simulation harness itself | stdlib only — no pip packages needed for `make check`/`make smoke`/`make characterize` |
-| `klayout-tools` (`klt`) 0.2.0, KLayout, Magic, Netgen | pinned in [`layout/toolchain.json`](layout/toolchain.json) | layout DRC/LVS/extraction | `uv tool install --force klayout-tools==0.2.0`; KLayout/Magic/Netgen themselves come bundled with a `ciel`/IIC-OSIC-TOOLS PDK install, or install separately per `klayout-tools`' own docs |
+| `klayout-tools` (`klt`) 0.6.0, KLayout, Magic, Netgen | pinned in [`layout/toolchain.json`](layout/toolchain.json) | layout DRC/LVS/extraction | `uv tool install --force klayout-tools==0.6.0`; KLayout/Magic/Netgen themselves come bundled with a `ciel`/IIC-OSIC-TOOLS PDK install, or install separately per `klayout-tools`' own docs |
 
 The last row is listed for completeness of the open-source flow this project
 uses end to end ([`layout/README.md`](layout/README.md)); it is **not**
