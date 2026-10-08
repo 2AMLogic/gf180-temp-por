@@ -80,24 +80,55 @@ def format_record_id(short_sha: str, when: _dt.datetime) -> str:
     return f"{when.strftime('%Y%m%d-%H%M%S')}-{short_sha}"
 
 
+def _record_id_occupied(experiment_dir: Path, records_dir: Path, record_id: str) -> bool:
+    """True if any artifact of ``record_id`` already exists.
+
+    A final record, a netlist snapshot, or a raw-log directory each occupy the
+    id on their own, so an interrupted run (logs but no summary) still blocks
+    reuse.
+    """
+    return (
+        (records_dir / f"{record_id}.md").exists()
+        or (experiment_dir / SNAPSHOT_DIR / f"{record_id}.spice").exists()
+        or (experiment_dir / CORNERS_DIR / record_id).exists()
+    )
+
+
 def allocate_record_id(
     repo_root: Path,
     records_dir: Path,
     when: _dt.datetime | None = None,
     git: dict | None = None,
+    reserve: bool = False,
 ) -> str:
     """Mint a fresh, unused ``<record-id>``.
 
-    Append-only: if a record with this id already exists (same second, same
-    commit) we advance the timestamp until the id is free rather than
-    overwriting or inventing a non-conforming suffix.
+    Append-only: if the id is occupied (same second, same commit) we advance
+    the timestamp until it is free rather than overwriting or inventing a
+    non-conforming suffix. An id is occupied by a record, a netlist snapshot,
+    or a raw-log directory, so legacy interrupted runs are respected too.
+
+    With ``reserve=True`` the id is claimed atomically by exclusively creating
+    the raw-log directory ``<experiment>/corners/<record-id>`` (``mkdir``
+    fails if it exists), so concurrent processes can never receive the same
+    id. A reservation is never reclaimed: an abandoned one keeps its id
+    occupied so interrupted evidence is not reused. The experiment directory
+    is ``records_dir.parent``.
     """
     when = when or _dt.datetime.now(_dt.timezone.utc)
     short_sha = (git or git_provenance(repo_root))["short"]
+    experiment_dir = records_dir.parent
     while True:
         record_id = format_record_id(short_sha, when)
-        if not (records_dir / f"{record_id}.md").exists():
-            return record_id
+        if not _record_id_occupied(experiment_dir, records_dir, record_id):
+            if not reserve:
+                return record_id
+            (experiment_dir / CORNERS_DIR).mkdir(parents=True, exist_ok=True)
+            try:
+                (experiment_dir / CORNERS_DIR / record_id).mkdir()
+                return record_id
+            except FileExistsError:
+                pass  # lost the race; advance
         when += _dt.timedelta(seconds=1)
 
 
@@ -382,6 +413,22 @@ class RecordExists(RuntimeError):
     """Refused to overwrite an existing append-only record."""
 
 
+def write_exclusive(path: Path, text: str) -> None:
+    """Create ``path`` with ``text``; raise ``RecordExists`` if it exists.
+
+    Uses exclusive creation (``open(..., "x")``) so an existing artifact is
+    refused atomically and its bytes are never touched.
+    """
+    try:
+        with open(path, "x") as fh:
+            fh.write(text)
+    except FileExistsError:
+        raise RecordExists(
+            f"{path} already exists; append-only evidence is never rewritten "
+            "-- mint a new record-id"
+        ) from None
+
+
 def write_netlist_snapshot(tb: Testbench, experiment_dir: Path, record_id: str) -> Path:
     """Freeze the DUT netlist for this record.
 
@@ -392,8 +439,6 @@ def write_netlist_snapshot(tb: Testbench, experiment_dir: Path, record_id: str) 
     out_dir = experiment_dir / SNAPSHOT_DIR
     out_dir.mkdir(parents=True, exist_ok=True)
     path = out_dir / f"{record_id}.spice"
-    if path.exists():
-        raise RecordExists(f"{path} already exists; append-only evidence is never rewritten")
     header = "\n".join(
         [
             f"* Frozen netlist snapshot for record {record_id}",
@@ -403,7 +448,7 @@ def write_netlist_snapshot(tb: Testbench, experiment_dir: Path, record_id: str) 
             "",
         ]
     )
-    path.write_text(header + tb.netlist.read_text())
+    write_exclusive(path, header + tb.netlist.read_text())
     return path
 
 
@@ -572,9 +617,7 @@ def write_record(record: dict, experiment_dir: Path) -> Path:
     out_dir = experiment_dir / RECORDS_DIR
     out_dir.mkdir(parents=True, exist_ok=True)
     path = out_dir / f"{record['record_id']}.md"
-    if path.exists():
-        raise RecordExists(
-            f"{path} already exists; records are append-only -- mint a new record-id"
-        )
-    path.write_text(render_record(record, experiment_dir.name))
+    if path.exists():  # fail before rendering; write_exclusive still guards the race
+        write_exclusive(path, "")
+    write_exclusive(path, render_record(record, experiment_dir.name))
     return path

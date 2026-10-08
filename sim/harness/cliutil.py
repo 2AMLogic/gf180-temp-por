@@ -16,7 +16,7 @@ import argparse
 import json
 import os
 import sys
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Callable
 
@@ -138,8 +138,26 @@ def provision_record(
 
     started = datetime.now(timezone.utc)
     git = report_mod.git_provenance(repo_root)
-    record_id = report_mod.allocate_record_id(repo_root, records_dir, started, git=git)
-    workdir = work_dir / experiment_name / record_id
+    when = started
+    while True:
+        # Writing runs atomically reserve the record id (its raw-log
+        # directory) before any simulation starts; --no-write runs reserve
+        # nothing in the evidence tree.
+        record_id = report_mod.allocate_record_id(
+            repo_root, records_dir, when, git=git, reserve=not no_write
+        )
+        workdir = work_dir / experiment_name / record_id
+        # The scratch directory is claimed exclusively too, so two runs
+        # (including --no-write ones) never share decks.
+        workdir.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            workdir.mkdir()
+            break
+        except FileExistsError:
+            # The id's leading YYYYMMDD-HHMMSS is the (possibly advanced) time.
+            when = datetime.strptime(record_id[:15], "%Y%m%d-%H%M%S").replace(
+                tzinfo=timezone.utc
+            ) + timedelta(seconds=1)
     log_dir = None if no_write else experiment_dir / report_mod.CORNERS_DIR / record_id
     return record_id, workdir, log_dir, git, started
 
@@ -211,9 +229,7 @@ def write_derived_record(text: str, records_dir: Path, filename: str) -> Path:
 
     records_dir.mkdir(parents=True, exist_ok=True)
     path = records_dir / filename
-    if path.exists():
-        raise report_mod.RecordExists(f"{path} already exists; records are append-only")
-    path.write_text(text)
+    report_mod.write_exclusive(path, text)
     return path
 
 
