@@ -14,8 +14,8 @@ no longer exists.
 
 This script is what stops that. It re-runs the grader and refuses to pass on
 any drift between what is committed and what the current tree actually
-grades to. Four distinct checks, because `klt signoff` alone cannot cover all
-four (see signoff/README.md, "What the grader cannot check"):
+grades to. Five distinct checks, because `klt signoff` alone cannot cover all
+of them (see signoff/README.md, "What the grader cannot check"):
 
 1. **Hand-rolled evidence is self-consistent.** A generic evidence envelope
    (`"kind": "generic"`) is written by hand, and so is the `content_hash`
@@ -38,6 +38,11 @@ four (see signoff/README.md, "What the grader cannot check"):
    `klt` release that merely adds a field does not trip it -- but a citation
    going stale, a check starting to fail, or the T1 checklist itself growing
    an item all do.
+
+5. **Cited supply-ERC evidence still describes its inputs.** The pinned
+   grader does not render item 11, so nothing else re-hashes the GDS and
+   supply spec an `erc_supply.json` cited by the manifest was run against.
+   `check_erc_supply_freshness` does, with no klt ERC invocation.
 
 Pure stdlib; no PDK, no xschem, no ngspice. Only `klt` on PATH.
 """
@@ -151,6 +156,85 @@ def check_committed_report_hashes() -> bool:
         )
         return False
     return True
+
+
+def _erc_citations(manifest: dict) -> list[str]:
+    """Manifest-cited evidence files for item 11 that are ERC reports."""
+    cited = (manifest.get("evidence") or {}).get("11") or []
+    if not isinstance(cited, list):
+        cited = [cited]
+    files = []
+    for entry in cited:
+        file = entry.get("file") if isinstance(entry, dict) else entry
+        if isinstance(file, str) and Path(file).name.startswith("erc"):
+            files.append(file)
+    return files
+
+
+def check_erc_supply_freshness(
+    root: Path = REPO_ROOT, manifest_path: Path | None = None
+) -> bool:
+    """A cited supply-ERC report's recorded hashes match its actual inputs.
+
+    Re-hashes the GDS (the report's `file`) and the supply spec (its `spec`)
+    and compares them to `provenance.input.content_hash` and
+    `provenance.spec.content_hash`. Missing/unreadable report, input or
+    recorded hash is a failure, never a silent skip. Pure stdlib.
+    """
+    manifest_path = manifest_path or root / "signoff" / "block-manifest.json"
+    try:
+        manifest = json.loads(manifest_path.read_text())
+    except (OSError, ValueError) as exc:
+        fail(f"{manifest_path}: unreadable manifest ({exc})")
+        return False
+    ok = True
+    for rel in _erc_citations(manifest):
+        report_path = root / rel
+        try:
+            report = json.loads(report_path.read_text())
+        except (OSError, ValueError) as exc:
+            fail(f"{rel}: cited by item 11 but unreadable ({exc})")
+            ok = False
+            continue
+        prov = report.get("provenance") if isinstance(report, dict) else None
+        prov = prov if isinstance(prov, dict) else {}
+        for label, name_key, hash_key in (
+            ("GDS", "file", "input"),
+            ("supply spec", "spec", "spec"),
+        ):
+            name = report.get(name_key)
+            recorded = (prov.get(hash_key) or {}).get("content_hash")
+            field = f"provenance.{hash_key}.content_hash"
+            if not isinstance(name, str) or not name:
+                fail(f"{rel}: no {name_key!r} naming the {label} it was run on")
+                ok = False
+                continue
+            if not recorded:
+                fail(
+                    f"{rel}: no {field} -- the {label} freshness cannot be "
+                    "verified. Regenerate the report with a klt that records it."
+                )
+                ok = False
+                continue
+            path = root / name
+            try:
+                actual = sha256_file(path)
+            except OSError as exc:
+                fail(f"{rel}: {label} {name!r} is missing or unreadable ({exc})")
+                ok = False
+                continue
+            if actual != recorded:
+                fail(
+                    f"{rel}: {field} is {recorded} but {name} now hashes to "
+                    f"{actual}.\n     The {label} changed since the supply ERC "
+                    "ran (or the report was edited). Re-run klt erc against "
+                    "the current files and commit the regenerated report; do "
+                    "not hand-edit the hash."
+                )
+                ok = False
+                continue
+            print(f"ok   {rel}: {field} matches {name}")
+    return ok
 
 
 def check_toolchain_pin() -> None:
@@ -331,6 +415,7 @@ def main(argv: list[str] | None = None) -> int:
 
     ok = check_generic_envelopes()
     ok = check_committed_report_hashes() and ok
+    ok = check_erc_supply_freshness() and ok
 
     report, ran = run_grader()
     if not ran:
