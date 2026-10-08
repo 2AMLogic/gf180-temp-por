@@ -87,6 +87,8 @@ jobs:
       - name: sim/selftest.sh (harness unit tests; PVT smoke auto-skips without a PDK)
         run: bash sim/selftest.sh
 
+      # Per-suite steps give separate logs; `make test` in the Makefile is the
+      # source of truth for which suites exist -- keep these in sync with it.
       - name: layout/tests (lvs_reference.py transform unit tests, no PDK/klt)
         run: python3 -m unittest discover -s layout/tests -t layout/tests
 

@@ -19,7 +19,7 @@
     "klt signoff --manifest did not exist in klt 0.2.0, so the grader could not",
     "be pinned to the producer's version even if that were desirable.",
     "",
-    "signoff/check.sh warns (it does not fail) when the klt on PATH is not this",
+    "signoff/check.py warns (it does not fail) when the klt on PATH is not this",
     "version: a newer grader is exactly how a newly-added T1 checklist item",
     "reaches this repo, and the drift check against signoff/tier-report.json is",
     "what turns that into a loud, actionable failure."
