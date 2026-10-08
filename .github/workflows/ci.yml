@@ -90,6 +90,9 @@ jobs:
       - name: layout/tests (lvs_reference.py transform unit tests, no PDK/klt)
         run: python3 -m unittest discover -s layout/tests -t layout/tests
 
+      - name: signoff/tests (ERC freshness gate unit tests, no PDK/klt)
+        run: python3 -m unittest discover -s signoff/tests -t signoff/tests
+
       - name: Install the pinned signoff grader (klt -- no PDK needed)
         # signoff/toolchain.json pins the klt build that GRADES this block.
         # It is a different pin from layout/toolchain.json's, which pins the
