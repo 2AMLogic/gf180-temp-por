@@ -19,14 +19,14 @@ _None._
 
 Human-approved issues ready for implementation (`loom:issue`).
 
-- **#342**: signoff: move the T1 grader pin to klt 0.6.0 so the verdict of record includes item 11
-- **#345**: Test entry points disagree: make check and npm test skip the signoff suite; add one make test source of truth
+_None._
 
 ## In Progress
 
 Issues currently being built (`loom:building`).
 
-_None._
+- **#342**: signoff: move the T1 grader pin to klt 0.6.0 so the verdict of record includes item 11
+- **#345**: Test entry points disagree: make check and npm test skip the signoff suite; add one make test source of truth
 
 ## PRs Awaiting Review
 
@@ -62,8 +62,8 @@ _None._
 |------|-------|
 | Operator merge-risk holds | 0 |
 | Operator priority | 0 |
-| Ready (`loom:issue`) | 2 |
-| In Progress (`loom:building`) | 0 |
+| Ready (`loom:issue`) | 0 |
+| In Progress (`loom:building`) | 2 |
 | PRs awaiting review | 0 |
 | Approved PRs awaiting merge | 0 |
 | Curated | 3 |
