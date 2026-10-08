@@ -93,6 +93,13 @@ def experiments() -> list[tuple[Path, bool]]:
     return out
 
 
+def _describe(code: int) -> str:
+    """Render a child return code; negative means killed by that signal."""
+    if code < 0:
+        return f"killed by signal {-code}"
+    return f"exit {code}"
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
@@ -145,9 +152,13 @@ def main(argv: list[str] | None = None) -> int:
         start = time.monotonic()
         proc = subprocess.run(cmd, cwd=REPO_ROOT)
         elapsed = time.monotonic() - start
-        results.append((slug, proc.returncode, elapsed))
-        worst = max(worst, proc.returncode)
-        print(f"--- {slug}: exit {proc.returncode} ({elapsed:.1f}s) ---")
+        raw = proc.returncode
+        results.append((slug, raw, elapsed))
+        # A child killed by a signal reports a negative code; max() would
+        # ignore it, so aggregate it as a simulation error. The raw code is
+        # kept in `results` so the summary can show the signal.
+        worst = max(worst, cliutil.EXIT_SIM_ERROR if raw < 0 else raw)
+        print(f"--- {slug}: {_describe(raw)} ({elapsed:.1f}s) ---")
 
     campaign_elapsed = time.monotonic() - campaign_start
 
@@ -155,7 +166,8 @@ def main(argv: list[str] | None = None) -> int:
     print(f"characterize summary ({campaign_elapsed:.1f}s total):")
     label = {0: "PASS", 1: "CHECK FAIL", 2: "SIM ERROR", 3: "ENV ERROR"}
     for slug, code, elapsed in results:
-        print(f"  {label.get(code, f'exit {code}'):<12} {slug:<32} {elapsed:>7.1f}s")
+        text = f"SIGNAL {-code}" if code < 0 else label.get(code, f"exit {code}")
+        print(f"  {text:<12} {slug:<32} {elapsed:>7.1f}s")
     n_pass = sum(1 for _, code, _ in results if code == 0)
     print(f"\n{n_pass}/{len(results)} experiments passed.")
     if worst != cliutil.EXIT_OK:

@@ -7,9 +7,13 @@ handling, and the --list dry-run path, never a real ngspice invocation.
 
 from __future__ import annotations
 
+import contextlib
+import io
 import subprocess
 import sys
 import unittest
+from types import SimpleNamespace
+from unittest import mock
 from pathlib import Path
 
 SIM_DIR = Path(__file__).resolve().parents[1]
@@ -67,6 +71,50 @@ class ExperimentDiscoveryTests(unittest.TestCase):
             cwd=REPO_ROOT, capture_output=True, text=True,
         )
         self.assertEqual(proc.returncode, cliutil.EXIT_ENVIRONMENT, proc.stdout + proc.stderr)
+
+
+class ExitAggregationTests(unittest.TestCase):
+    """Child return codes are mocked; no ngspice or PDK is involved."""
+
+    def _run(self, codes):
+        exps = [(Path(f"/nonexistent/exp{i}"), False) for i in range(len(codes))]
+        it = iter(codes)
+        out, err = io.StringIO(), io.StringIO()
+        with mock.patch.object(characterize, "experiments", return_value=exps), \
+             mock.patch.object(characterize.subprocess, "run",
+                               side_effect=lambda *a, **k: SimpleNamespace(returncode=next(it))) as run, \
+             mock.patch.object(characterize.time, "monotonic", return_value=0.0), \
+             contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            rc = characterize.main([])
+        self.assertEqual(run.call_count, len(codes))
+        return rc, out.getvalue(), err.getvalue()
+
+    def test_sole_signal_fails(self):
+        rc, out, err = self._run([-9])
+        self.assertEqual(rc, cliutil.EXIT_SIM_ERROR)
+        self.assertNotIn("all experiments passed", out)
+        self.assertIn("FAILED", err)
+        self.assertIn("SIGNAL 9", out)
+        self.assertIn("killed by signal 9", out)
+
+    def test_mixed_order_fails(self):
+        for codes in ([0, -9], [-9, 0], [0, -11, 0]):
+            with self.subTest(codes=codes):
+                rc, out, _ = self._run(codes)
+                self.assertEqual(rc, cliutil.EXIT_SIM_ERROR)
+                self.assertNotIn("all experiments passed", out)
+
+    def test_positive_codes_keep_max_semantics(self):
+        self.assertEqual(self._run([1, 0])[0], 1)
+        self.assertEqual(self._run([1, 3, 2])[0], 3)
+        self.assertEqual(self._run([1, -9])[0], cliutil.EXIT_SIM_ERROR)
+        self.assertEqual(self._run([-9, 3])[0], 3)
+
+    def test_all_zero_passes(self):
+        rc, out, err = self._run([0, 0])
+        self.assertEqual(rc, cliutil.EXIT_OK)
+        self.assertIn("all experiments passed", out)
+        self.assertNotIn("FAILED", err)
 
 
 if __name__ == "__main__":
