@@ -407,6 +407,16 @@ python3 sim/por-output-chain-deglitch/control/run_dwell_sweep.py --backend batch
   non-`pass` corner, missing log or missing measurement is an `error` result
   (or an exception for `run_deck*`), never `ok`. A report without
   `environment.remote.job_id` is rejected as "not executed on the fleet".
+* Runner/client skew: a report whose `environment.remote.runner_compatibility`
+  is anything but `match` is rejected, and every later request in the same run
+  is refused without being submitted, so a grid does not burn one fleet job
+  per deck on a runner that cannot run it. `--klt EXE` selects the `klt`
+  client used for submission (default `klt` on `PATH`); point it at a client
+  that matches the fleet runner when they differ.
+* An aborted analysis is never an absent measurement: a corner whose raw log
+  carries ngspice's `simulation(s) aborted` trailer, or for which no requested
+  measurement produced a value at all, is an `error` even where an absent
+  measurement is otherwise tolerated (below).
 * Raw logs: each returned ngspice log is copied byte-for-byte to the path the
   local run would have written (`corners/<record>/<corner>.log`,
   `control/logs/<deck>.log`) and parsed by the existing parsers.
@@ -418,6 +428,11 @@ python3 sim/por-output-chain-deglitch/control/run_dwell_sweep.py --backend batch
   as `par('...')`). Anything else in a `.control` block (`write`, `wrdata`,
   `alter`, ...), an include that does not resolve on the host, or a foreign
   `.lib` is rejected before submission.
+* `klt sim` runs the analysis as a `.control` command, where ngspice does not
+  expand `.param` braces (`tran 2e-06 {stop_s}` is a TSTOP of zero there). A
+  `{name}` in the analysis line is therefore replaced with the deck's own
+  plain-number `.param` text; an expression, an unknown name or a lifted
+  per-corner parameter is rejected before submission.
 * The control scripts treat an absent measurement as "never happened" (for
   example `t_trip`), so for `run_deck*` a corner whose only error diagnostics
   are `measurement`/`no_such_vector` stays `ok` with the value absent;
@@ -432,6 +447,11 @@ python3 sim/por-output-chain-deglitch/control/run_dwell_sweep.py --backend batch
 
 Reuse `klt_batch.translate_deck()` / `run_units()` for other `run_deck*`
 callers rather than re-implementing request staging.
+
+Before a full grid goes to the fleet, submit one deck first (for example
+`run_dwell_sweep.py --backend batch --smoke`) and compare it with the
+committed local log of the same deck. A runner/client mismatch or a request
+shape that does not translate then shows up after one job instead of 324.
 
 ## smoke-bias
 

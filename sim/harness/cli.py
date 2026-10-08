@@ -227,7 +227,7 @@ def run(args: argparse.Namespace) -> int:
         if backend == klt_batch.BACKEND_BATCH:
             # Batch mode never touches a local ngspice: the engine runs on the
             # fleet, so the record names klt (the only thing this host runs).
-            ngspice = f"batch via klt sim ({klt_batch.klt_version()}); ngspice runs on the fleet"
+            ngspice = f"batch via klt sim ({klt_batch.klt_version(args.klt)}); ngspice runs on the fleet"
         else:
             ngspice = runner.ngspice_version()
     except (PdkNotFound, NgspiceMissing, klt_batch.BatchError) as exc:
@@ -301,7 +301,8 @@ def run(args: argparse.Namespace) -> int:
         print(f"[{completed:>3}/{len(points)}] {flag} {result.point.corner_id:<26} {detail}")
 
     batch_cfg = (
-        klt_batch.BatchConfig(pdk=pdk, stage_root=workdir / "batch", evidence_dir=log_dir)
+        klt_batch.BatchConfig(pdk=pdk, stage_root=workdir / "batch", evidence_dir=log_dir,
+                              klt=args.klt)
         if backend == klt_batch.BACKEND_BATCH else None
     )
     wall_start = time.monotonic()

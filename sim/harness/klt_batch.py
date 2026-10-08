@@ -25,6 +25,11 @@ Invariants (all covered by ``sim/tests/test_klt_batch.py``):
   missing ``klt``, a refused submission, a malformed report, a timeout, a
   missing / duplicate corner, a non-``pass`` corner, a missing log or a
   missing measurement is an error outcome (or an exception), never an ``ok``.
+  So is a corner whose analysis aborted or that produced no measurement value
+  at all, even where an absent measurement is otherwise tolerated.
+* A report from a fleet runner whose ``klt`` is not the client's build
+  (``environment.remote.runner_compatibility`` other than ``match``) is
+  rejected, and the rest of that run is refused without being submitted.
 * ``--backend batch`` is always passed explicitly. ``klt`` otherwise steps
   back to ``local`` for a single-unit run when the backend came from
   ``$KLT_SIM_BACKEND``; the report must also carry ``environment.remote``
@@ -81,6 +86,8 @@ _CAP_REFUSAL = "exceeds BATCH_MAX_CONCURRENT_INSTANCES"
 #: a failure. Every other error diagnostic (timeout, netlist, unknown,
 #: batch_*, ...) always does.
 ABSENT_MEASUREMENT_CODES = frozenset({"measurement", "no_such_vector"})
+#: ngspice's own marker for an analysis that stopped before completing.
+_ABORTED = "simulation(s) aborted"
 
 
 class BatchError(RuntimeError):
@@ -102,6 +109,12 @@ class BatchSubmitError(BatchError):
 
 class BatchResultError(BatchError):
     """The report is valid JSON but does not account for the requested units."""
+
+
+class BatchRunnerMismatch(BatchResultError):
+    """The fleet runner's ``klt`` is not the submitting client's build, so the
+    request may have been run with options ignored (or not run at all). Fatal
+    for the whole run: later submissions would hit the same runner."""
 
 
 # --------------------------------------------------------------------------
@@ -138,6 +151,14 @@ def add_backend_argument(parser) -> None:
         help="execution backend: 'local' runs ngspice here; 'batch' submits "
         "through `klt sim --backend batch` and never falls back to local; "
         f"'auto' (default) uses ${ENV_BACKEND} if set to local/batch, else local",
+    )
+    parser.add_argument(
+        "--klt",
+        default=KLT,
+        metavar="EXE",
+        help="klt executable used for batch submission (default: %(default)s on PATH). "
+        "The fleet refuses a request whose runner klt differs from the client's, "
+        "so point this at a client matching the runner when they differ",
     )
 
 
@@ -207,6 +228,45 @@ def _inline(expr: str, lets: dict[str, str], wrap: Callable[[str], str]) -> str:
     return expr
 
 
+_BRACE_RE = re.compile(r"\{([^{}]*)\}")
+
+
+def _resolve_analysis_args(
+    args: str, params: dict[str, str], lift_params: tuple[str, ...], key: str
+) -> str:
+    """Substitute ``{name}`` tokens in an analysis line with the deck's own
+    plain-number ``.param`` value.
+
+    ``klt sim`` runs the analysis as a ``.control`` command, and ngspice does
+    not expand ``.param`` braces in control-mode commands: ``tran 2e-06
+    {stop_s}`` there is a TSTOP of zero and the analysis aborts (observed on
+    the fleet, #331). A local ``ngspice -b`` run of the same deck evaluates the
+    file-scope ``.tran`` card with the parameter, so substituting the deck's
+    own literal (text, unrounded) keeps the analysis identical. Anything that
+    is not a bare reference to such a parameter -- an expression, an unknown
+    name, a lifted per-corner parameter -- is refused before submission.
+    """
+    def sub(m: re.Match) -> str:
+        name = m.group(1).strip()
+        if name in lift_params:
+            raise BatchIncompatible(
+                f"{key}: analysis uses lifted per-corner parameter {{{name}}}; "
+                "a klt request has one analysis line for every corner"
+            )
+        if name not in params:
+            raise BatchIncompatible(
+                f"{key}: analysis argument {{{m.group(1)}}} is not a plain-number .param "
+                "of this deck; klt runs the analysis as a control command, where "
+                ".param braces are not expanded"
+            )
+        return params[name]
+
+    out = _BRACE_RE.sub(sub, args)
+    if "{" in out or "}" in out:
+        raise BatchIncompatible(f"{key}: unbalanced or nested braces in analysis: {args}")
+    return out
+
+
 def translate_deck(
     text: str,
     *,
@@ -234,6 +294,7 @@ def translate_deck(
     printed: list[str] = []
     meas: list[tuple[str, str, str]] = []
     lifted: dict[str, float] = {}
+    params: dict[str, str] = {}        # plain-number .param cards kept in the body
     in_control = False
 
     def add_meas(name: str, form: str, text_: str) -> None:
@@ -365,12 +426,20 @@ def translate_deck(
                         f"{key}: lifted .param {name} is not a plain number: {stripped}"
                     ) from exc
                 continue
+            if pm:
+                try:
+                    float(pm.group(2))
+                except ValueError:
+                    pass
+                else:
+                    params[pm.group(1)] = pm.group(2)
             body.append(stripped)
 
     if in_control:
         raise BatchIncompatible(f"{key}: .control block never closed")
     if analysis is None:
         raise BatchIncompatible(f"{key}: no analysis found (need exactly one)")
+    analysis = (analysis[0], _resolve_analysis_args(analysis[1], params, lift_params, key))
     if temp_c is None:
         raise BatchIncompatible(f"{key}: no .temp card; the temperature axis would be undefined")
     for name in printed:
@@ -428,6 +497,11 @@ class BatchConfig:
     log: Callable[[str], None] = print
     #: Where to also copy request.json / report.json (evidence), if anywhere.
     evidence_dir: Path | None = None
+    #: Set once a run-wide fatal condition (runner/client ``klt`` mismatch) is
+    #: seen; every later request in the same run is then refused without
+    #: being submitted, so a grid does not burn one fleet job per deck on a
+    #: runner that cannot run it.
+    halted: str | None = field(default=None, init=False)
 
 
 @dataclass
@@ -619,6 +693,15 @@ def _collect_group(
             "batch fleet, so it is rejected (no local result is accepted in batch mode)"
         )
     job_id = str(remote["job_id"])
+    compat = remote.get("runner_compatibility")
+    if compat is not None and compat != "match":
+        raise BatchRunnerMismatch(
+            f"fleet job {job_id}: runner_compatibility={compat!r} "
+            f"(runner klt {remote.get('runner_klt_version')!r}, client klt "
+            f"{remote.get('client_klt_version')!r}); its result is not accepted -- "
+            "submit with a klt client that matches the fleet runner (--klt), or "
+            "update the runner image"
+        )
     corners = report.get("corners")
     if not isinstance(corners, list):
         raise BatchResultError("report 'corners' is not a list")
@@ -666,6 +749,20 @@ def _judge(u: BatchUnit, c: dict, tolerate_absent: bool, job_id: str) -> UnitOut
     if not log or not Path(log).is_file():
         return fail(f"klt returned no raw log for this unit (status={status!r}"
                     f"{', ' + detail if detail else ''})")
+
+    try:
+        log_text = Path(log).read_text(errors="replace")
+    except OSError as exc:
+        return fail(f"klt raw log is unreadable: {exc}")
+    if _ABORTED in log_text:
+        return fail(f"the analysis aborted on the fleet (ngspice: '{_ABORTED}'); "
+                    f"see {log}" + (f" [{', '.join(codes)}]" if codes else ""))
+    if wanted and len(absent) == len(wanted):
+        # An absent measurement means "never happened" only when the run
+        # produced *some* result; a corner with no value at all did not run.
+        return fail(f"no requested measurement produced a value (status={status!r}"
+                    + (f" [{', '.join(codes)}]" if codes else "")
+                    + f"); the analysis most likely did not run -- see {log}")
 
     tolerated = (
         tolerate_absent
@@ -725,6 +822,8 @@ def run_units(
         members = [units[i] for i in indices]
         name = _safe(members[0].key) + (f"+{len(members) - 1}" if len(members) > 1 else "")
         try:
+            if cfg.halted:
+                raise BatchRunnerMismatch(f"not submitted: {cfg.halted}")
             req_path, request = _stage(members, cfg.pdk, cfg, name)
             n_corners = len(members) + len(request.get("exclude", []))
             poll = cfg.poll_timeout_s or (members[0].timeout_s * n_corners + 1800 + 120)
@@ -739,6 +838,10 @@ def run_units(
             outs = _collect_group(members, report, tolerate_absent, req_path.parent)
         except KltMissing:
             raise
+        except BatchRunnerMismatch as exc:
+            if not cfg.halted:
+                cfg.halted = f"an earlier request in this run was rejected: {exc}"
+            outs = [UnitOutcome(u, "error", str(exc)) for u in members]
         except BatchError as exc:
             outs = [UnitOutcome(u, "error", str(exc)) for u in members]
         for i, out in zip(indices, outs):
