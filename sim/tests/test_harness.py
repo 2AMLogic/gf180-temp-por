@@ -675,6 +675,102 @@ class RecordIdTests(unittest.TestCase):
             # the existing record was not touched
             self.assertEqual((records / f"{first}.md").read_text(), "# first\n")
 
+    def _experiment(self, tmp):
+        experiment = Path(tmp) / "an-experiment"
+        (experiment / report.RECORDS_DIR).mkdir(parents=True)
+        return experiment
+
+    def test_reserve_claims_distinct_ids_for_same_second(self):
+        when = datetime.datetime(2026, 10, 8, 12, 0, 0, tzinfo=datetime.timezone.utc)
+        git = {"short": "abcdef0"}
+        with tempfile.TemporaryDirectory() as tmp:
+            records = self._experiment(tmp) / report.RECORDS_DIR
+            first = report.allocate_record_id(SIM_DIR, records, when, git=git, reserve=True)
+            second = report.allocate_record_id(SIM_DIR, records, when, git=git, reserve=True)
+            self.assertEqual(first, "20261008-120000-abcdef0")
+            self.assertEqual(second, "20261008-120001-abcdef0")
+            self.assertTrue((records.parent / report.CORNERS_DIR / first).is_dir())
+
+    def test_reserve_is_exclusive_across_processes(self):
+        import subprocess
+        import sys
+
+        code = (
+            "import sys, datetime\n"
+            "from pathlib import Path\n"
+            f"sys.path.insert(0, {str(SIM_DIR)!r})\n"
+            "from harness import report\n"
+            "when = datetime.datetime(2026,10,8,12,0,0,tzinfo=datetime.timezone.utc)\n"
+            "while __import__('time').time() < float(sys.argv[2]): pass\n"
+            "print(report.allocate_record_id(Path('.'), Path(sys.argv[1]), when,"
+            " git={'short':'abcdef0'}, reserve=True))\n"
+        )
+        import time
+
+        with tempfile.TemporaryDirectory() as tmp:
+            records = self._experiment(tmp) / report.RECORDS_DIR
+            go = str(time.time() + 1.5)
+            procs = [
+                subprocess.Popen(
+                    [sys.executable, "-I", "-c", code, str(records), go],
+                    stdout=subprocess.PIPE, text=True,
+                )
+                for _ in range(2)
+            ]
+            ids = [p.communicate()[0].strip() for p in procs]
+            self.assertEqual(len(set(ids)), 2, ids)
+
+    def test_existing_logs_or_snapshot_without_summary_block_reuse(self):
+        when = datetime.datetime(2026, 10, 8, 12, 0, 0, tzinfo=datetime.timezone.utc)
+        git = {"short": "abcdef0"}
+        with tempfile.TemporaryDirectory() as tmp:
+            experiment = self._experiment(tmp)
+            records = experiment / report.RECORDS_DIR
+            (experiment / report.CORNERS_DIR / "20261008-120000-abcdef0").mkdir(parents=True)
+            (experiment / report.SNAPSHOT_DIR).mkdir()
+            (experiment / report.SNAPSHOT_DIR / "20261008-120001-abcdef0.spice").write_text("x")
+            got = report.allocate_record_id(SIM_DIR, records, when, git=git)
+            self.assertEqual(got, "20261008-120002-abcdef0")
+
+    def test_provision_no_write_reserves_no_evidence(self):
+        from harness import cliutil
+
+        with tempfile.TemporaryDirectory() as tmp:
+            experiment = self._experiment(tmp)
+            work = Path(tmp) / "work"
+            rid, workdir, log_dir, _, _ = cliutil.provision_record(
+                SIM_DIR, work, experiment / report.RECORDS_DIR, experiment, "an-experiment", True
+            )
+            self.assertIsNone(log_dir)
+            self.assertTrue(workdir.is_dir())
+            self.assertFalse((experiment / report.CORNERS_DIR).exists())
+
+    def test_provision_schematic_and_extracted_get_distinct_ids(self):
+        from harness import cliutil
+
+        with tempfile.TemporaryDirectory() as tmp:
+            experiment = self._experiment(tmp)
+            work = Path(tmp) / "work"
+            args = (SIM_DIR, work, experiment / report.RECORDS_DIR, experiment, "an-experiment", False)
+            a = cliutil.provision_record(*args)
+            b = cliutil.provision_record(*args)
+            self.assertNotEqual(a[0], b[0])
+            self.assertNotEqual(a[1], b[1])
+            self.assertNotEqual(a[2], b[2])
+            self.assertTrue(a[2].is_dir() and b[2].is_dir())
+
+    def test_snapshot_and_derived_writes_are_exclusive(self):
+        from harness import cliutil
+
+        with tempfile.TemporaryDirectory() as tmp:
+            existing = Path(tmp) / "r.md"
+            existing.write_bytes(b"keep\n")
+            with self.assertRaises(report.RecordExists):
+                report.write_exclusive(existing, "new")
+            with self.assertRaises(report.RecordExists):
+                cliutil.write_derived_record("new", Path(tmp), "r.md")
+            self.assertEqual(existing.read_bytes(), b"keep\n")
+
     def test_write_record_refuses_to_overwrite(self):
         with tempfile.TemporaryDirectory() as tmp:
             experiment = Path(tmp) / "an-experiment"

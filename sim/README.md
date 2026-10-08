@@ -58,6 +58,12 @@ sim/
   Re-runs simply mint a new `<record-id>`; nothing under `records/` is ever
   edited in place. The same `<record-id>` ties together the netlist snapshot,
   the raw per-corner logs, and the summary record for one run.
+  A writing run reserves its id before any simulation starts by exclusively
+  creating `corners/<record-id>/`; on a collision (concurrent run, or an
+  existing record, snapshot, or log directory from an interrupted run) the
+  timestamp advances by a second. Reservations are never reclaimed: an empty
+  `corners/<record-id>/` is an abandoned run and keeps its id occupied.
+  `--no-write` runs reserve nothing in the evidence tree.
 - **`<corner-id>`** — `<process-corner>_<temp>c_<supply>v.log`, e.g.
   `ss_-40c_2.97v.log`, `tt_27c_3.30v.log`, `ff_125c_3.63v.log`.
 - **`testbench/`** is not versioned per record — it holds the current

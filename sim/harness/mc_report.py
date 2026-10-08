@@ -39,6 +39,7 @@ from .montecarlo import BindingPoint, McPoint
 from .pdk import Pdk
 from .report import (
     CORNERS_DIR,
+    write_exclusive,
     RECORDS_DIR,
     SNAPSHOT_DIR,
     TESTBENCH_DIR,
@@ -316,9 +317,7 @@ def write_mc_record(record: dict, experiment_dir: Path) -> Path:
     out_dir = experiment_dir / RECORDS_DIR
     out_dir.mkdir(parents=True, exist_ok=True)
     path = out_dir / f"{record['record_id']}.md"
-    if path.exists():
-        raise RecordExists(
-            f"{path} already exists; records are append-only -- mint a new record-id"
-        )
-    path.write_text(render_mc_record(record, experiment_dir.name))
+    if path.exists():  # fail before rendering; write_exclusive still guards the race
+        write_exclusive(path, "")
+    write_exclusive(path, render_mc_record(record, experiment_dir.name))
     return path
