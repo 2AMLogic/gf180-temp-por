@@ -97,6 +97,9 @@ for p in procs:
                        "status": status, "runtime_s": 1.5, "measurements": meas, "diagnostics": diags,
                        "artifacts": {"log": None if mode == "no_log" else str(log), "raw": None,
                                       "waveform": None, "deck": None}}
+            if "FAKE_KLT_FIRST_VALUE" in os.environ:   # value of the first measurement
+                meas[0]["value"] = json.loads(os.environ["FAKE_KLT_FIRST_VALUE"])
+            corner.update(json.loads(os.environ.get("FAKE_KLT_CORNER_PATCH", "{}")))
             corners.append(corner)
 if mode == "drop_corner":
     corners.pop(0)
@@ -669,12 +672,193 @@ class FailureMatrixTests(BatchTestCase):
         self.assertEqual(len(slept), 1)
         self.assertEqual(len(self.calls()), 2)
 
+    def test_minimal_valid_report_still_passes_strictly(self):
+        (out,) = klt_batch.run_units([self.unit()], self.cfg(), tolerate_absent=False)
+        self.assertTrue(out.ok, out.message)
+        self.assertEqual(out.values, {"vdd_pre": 0.125, "t_praw": 0.125, "vsg_min": 0.125})
+        self.assertEqual(out.absent, [])
+
     def test_capacity_refusal_is_bounded(self):
         self.mode("cap_then_ok")
         (self.state / "capped").unlink(missing_ok=True)
         (out,) = klt_batch.run_units([self.unit()], self.cfg(max_cap_wait_s=0), tolerate_absent=True)
         self.assertEqual(out.status, "error")
         self.assertIn("CONCURRENT", out.message)
+
+
+class ResultValidationTests(BatchTestCase):
+    """A report that disagrees with itself, or carries malformed values or
+    containers, is an error outcome -- never ``ok``, never an unrelated
+    exception, never a copied log, never a local run (#335)."""
+
+    def patch(self, *, corner=None, first_value=None, mode="ok"):
+        self.mode(mode)
+        if corner is not None:
+            os.environ["FAKE_KLT_CORNER_PATCH"] = json.dumps(corner)
+        if first_value is not None:
+            os.environ["FAKE_KLT_FIRST_VALUE"] = first_value
+
+    def assertRejected(self, needle, unit_kw=None):
+        unit_kw = unit_kw or {}
+        for tolerate in (False, True):
+            with self.subTest(tolerate_absent=tolerate):
+                key = f"v{int(tolerate)}"
+                (out,) = klt_batch.run_units([self.unit(key, **unit_kw)], self.cfg(),
+                                             tolerate_absent=tolerate)
+                self.assertEqual(out.status, "error", out.message)
+                self.assertIn(needle, out.message)
+                self.assertIsNone(out.log_path)
+                self.assertFalse((self.control / "logs" / f"{key}.log").exists(),
+                                 "a rejected unit's raw log was copied as an accepted result")
+        with self.assertRaises(BatchError):
+            runner.run_deck_raw("r", self.deck(), self.control, backend="batch", batch=self.cfg())
+        self.assertFalse((self.control / "logs" / "r.log").exists())
+        self.assertNoLocalNgspice()
+
+    # -- contradictory success labels ------------------------------------
+
+    def test_pass_label_with_netlist_error_diagnostic_fails(self):
+        self.patch(corner={"diagnostics": [
+            {"severity": "error", "code": "netlist", "message": "unknown subckt"}]})
+        self.assertRejected("netlist")
+
+    def test_pass_label_with_timeout_error_diagnostic_fails(self):
+        self.patch(corner={"diagnostics": [
+            {"severity": "error", "code": "timeout", "message": "wall clock"}]})
+        self.assertRejected("timeout")
+
+    def test_pass_label_with_only_absent_measurement_error_is_contradictory(self):
+        # The absence exception is for corners klt itself labelled 'error'.
+        self.patch(corner={"diagnostics": [
+            {"severity": "error", "code": "measurement", "message": "no value"}]})
+        self.assertRejected("contradict")
+
+    def test_absence_error_without_an_absent_value_is_not_tolerated(self):
+        self.patch(corner={"status": "error", "diagnostics": [
+            {"severity": "error", "code": "measurement", "message": "no value"}]})
+        self.assertRejected("no requested measurement is absent")
+
+    def test_absence_error_mixed_with_another_error_is_not_tolerated(self):
+        self.patch(mode="missing_meas", corner={"diagnostics": [
+            {"severity": "error", "code": "measurement", "message": "no value"},
+            {"severity": "error", "code": "netlist", "message": "boom"}]})
+        self.assertRejected("netlist")
+
+    def test_warning_diagnostics_do_not_fail_a_pass(self):
+        self.patch(corner={"diagnostics": [
+            {"severity": "warning", "code": "netlist", "message": "minor"}]})
+        (out,) = klt_batch.run_units([self.unit()], self.cfg(), tolerate_absent=False)
+        self.assertTrue(out.ok, out.message)
+
+    # -- measurement values ---------------------------------------------
+
+    def test_string_value_fails(self):
+        self.patch(first_value='"1.25e-01"')
+        self.assertRejected("vdd_pre")
+
+    def test_boolean_value_fails(self):
+        self.patch(first_value="true")
+        self.assertRejected("vdd_pre")
+
+    def test_nan_value_fails(self):
+        self.patch(first_value="NaN")
+        self.assertRejected("not a finite number")
+
+    def test_infinite_values_fail(self):
+        for text in ("Infinity", "-Infinity"):
+            with self.subTest(text):
+                self.patch(first_value=text)
+                self.assertRejected("not a finite number")
+
+    def test_container_value_fails(self):
+        self.patch(first_value="[0.125]")
+        self.assertRejected("vdd_pre")
+
+    def test_finite_zero_passes(self):
+        for text in ("0", "0.0", "-0.0"):
+            with self.subTest(text):
+                self.patch(first_value=text)
+                (out,) = klt_batch.run_units([self.unit(f"z{len(text)}")], self.cfg(),
+                                             tolerate_absent=False)
+                self.assertTrue(out.ok, out.message)
+                self.assertEqual(out.values["vdd_pre"], 0.0)
+                self.assertIsInstance(out.values["vdd_pre"], float)
+                self.assertEqual(out.absent, [])
+
+    def test_tolerated_absence_keeps_its_behaviour(self):
+        self.patch(mode="missing_meas")
+        (out,) = klt_batch.run_units([self.unit()], self.cfg(), tolerate_absent=True)
+        self.assertTrue(out.ok, out.message)
+        self.assertEqual(out.absent, ["vsg_min"])
+        self.assertIsNone(out.values["vsg_min"])
+
+    def test_malformed_value_is_not_hidden_by_tolerated_absence(self):
+        self.patch(mode="missing_meas", first_value='"oops"')
+        self.assertRejected("vdd_pre")
+
+    # -- malformed containers --------------------------------------------
+
+    def test_measurements_not_a_list(self):
+        self.patch(corner={"measurements": {"vdd_pre": 0.125}})
+        self.assertRejected("measurements")
+
+    def test_measurement_entry_not_an_object(self):
+        self.patch(corner={"measurements": [["vdd_pre", 0.125]]})
+        self.assertRejected("measurements")
+
+    def test_measurement_name_not_a_string(self):
+        self.patch(corner={"measurements": [{"name": 3, "value": 0.125}]})
+        self.assertRejected("measurements")
+
+    def test_duplicate_measurement_name(self):
+        self.patch(corner={"measurements": [
+            {"name": "vdd_pre", "value": 0.125}, {"name": "vdd_pre", "value": 0.5},
+            {"name": "t_praw", "value": 0.125}, {"name": "vsg_min", "value": 0.125}]})
+        self.assertRejected("more than once")
+
+    def test_diagnostics_not_a_list(self):
+        self.patch(corner={"diagnostics": "netlist: boom"})
+        self.assertRejected("diagnostics")
+
+    def test_diagnostic_entry_not_an_object(self):
+        self.patch(corner={"diagnostics": ["error: boom"]})
+        self.assertRejected("diagnostics")
+
+    def test_artifacts_not_an_object(self):
+        self.patch(corner={"artifacts": ["run.log"]})
+        self.assertRejected("artifacts")
+
+    def test_log_path_not_a_string(self):
+        self.patch(corner={"artifacts": {"log": 7}})
+        self.assertRejected("artifacts")
+
+    def test_runtime_not_a_number(self):
+        self.patch(corner={"runtime_s": "fast"})
+        self.assertRejected("runtime_s")
+
+    def test_status_missing(self):
+        self.patch(corner={"status": None})
+        self.assertRejected("status")
+
+    def test_malformed_supply_value_is_a_batch_failure(self):
+        lift = {"lift_params": ("vdd_val",)}
+        for sv in ({"vdd_val": "abc"}, ["vdd_val"], "vdd_val"):
+            with self.subTest(sv=sv):
+                self.patch(corner={"supply_v": sv})
+                for tolerate in (False, True):
+                    (out,) = klt_batch.run_units([self.unit("s", **lift)], self.cfg(),
+                                                 tolerate_absent=tolerate)
+                    self.assertEqual(out.status, "error")
+                    self.assertIn("match no requested unit", out.message)
+                    self.assertFalse((self.control / "logs" / "s.log").exists())
+        self.assertNoLocalNgspice()
+
+    def test_boolean_temperature_does_not_match(self):
+        self.patch(corner={"temperature_c": True})
+        u = self.unit(template=CONTROL_DECK.replace(".temp -40.0", ".temp 1.0"))
+        (out,) = klt_batch.run_units([u], self.cfg(), tolerate_absent=True)
+        self.assertEqual(out.status, "error")
+        self.assertIn("match no requested unit", out.message)
 
 
 class ControlScriptWiringTests(BatchTestCase):

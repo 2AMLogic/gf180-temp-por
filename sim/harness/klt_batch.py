@@ -27,6 +27,11 @@ Invariants (all covered by ``sim/tests/test_klt_batch.py``):
   missing measurement is an error outcome (or an exception), never an ``ok``.
   So is a corner whose analysis aborted or that produced no measurement value
   at all, even where an absent measurement is otherwise tolerated.
+* A corner must agree with itself to be ``ok``: an error-level diagnostic
+  under a ``pass`` label, a requested measurement value that is not a finite
+  number (string, boolean, NaN, infinity), or a malformed ``measurements`` /
+  ``diagnostics`` / ``artifacts`` / ``runtime_s`` field is an error outcome,
+  decided before the raw log is copied.
 * A report from a fleet runner whose ``klt`` is not the client's build
   (``environment.remote.runner_compatibility`` other than ``match``) is
   rejected, and the rest of that run is refused without being submitted.
@@ -668,17 +673,30 @@ def invoke_klt(req: Path, outdir: Path, cfg: BatchConfig, timeout_s: float) -> d
         )
 
 
+def _finite(value) -> float | None:
+    """``value`` as a float if it is a finite JSON number, else ``None``.
+    Booleans (a JSON ``true`` is a Python ``int``) and strings are refused."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    value = float(value)
+    return value if math.isfinite(value) else None
+
+
 def _match(report_corners: list[dict], unit: BatchUnit) -> list[dict]:
     hits = []
     for c in report_corners:
         if unit.process_name is not None and c.get("process") != unit.process_name:
             continue
-        t = c.get("temperature_c")
-        if not isinstance(t, (int, float)) or not _same(float(t), unit.temp_c):
+        t = _finite(c.get("temperature_c"))
+        if t is None or not _same(t, unit.temp_c):
             continue
-        sv = c.get("supply_v") or {}
-        if any(k not in sv or not _same(float(sv[k]), v) for k, v in unit.supply):
-            continue
+        if unit.supply:
+            sv = c.get("supply_v")
+            if not isinstance(sv, dict):
+                continue
+            if any(_finite(sv.get(k)) is None or not _same(_finite(sv[k]), v)
+                   for k, v in unit.supply):
+                continue
         hits.append(c)
     return hits
 
@@ -731,20 +749,88 @@ def _collect_group(
     return outcomes
 
 
+def _corner_fields(c: dict) -> tuple[float, str | None, list[dict], list[dict]]:
+    """The nested fields ``_judge`` consumes, type-checked. Raises
+    :class:`BatchResultError` (with the offending field named) for a corner
+    whose containers are not the shape of a klt report, so a malformed report
+    is an error outcome rather than a ``TypeError``/``ValueError`` escaping
+    from deep inside the judgement -- or, worse, being silently skipped."""
+    runtime = c.get("runtime_s")
+    seconds = 0.0 if runtime is None else _finite(runtime)
+    if seconds is None:
+        raise BatchResultError(f"corner field runtime_s is not a finite number: {runtime!r}")
+
+    artifacts = c.get("artifacts")
+    if artifacts is None:
+        artifacts = {}
+    if not isinstance(artifacts, dict):
+        raise BatchResultError(f"corner field artifacts is not an object: {type(artifacts).__name__}")
+    log = artifacts.get("log")
+    if log is not None and not isinstance(log, str):
+        raise BatchResultError(f"corner field artifacts.log is not a path string: {log!r}")
+
+    diags = c.get("diagnostics")
+    if diags is None:
+        diags = []
+    if not isinstance(diags, list) or not all(isinstance(d, dict) for d in diags):
+        raise BatchResultError("corner field diagnostics is not a list of objects")
+
+    meas = c.get("measurements")
+    if meas is None:
+        meas = []
+    if not isinstance(meas, list) or not all(isinstance(m, dict) for m in meas):
+        raise BatchResultError("corner field measurements is not a list of objects")
+    if not all(isinstance(m.get("name"), str) and m["name"] for m in meas):
+        raise BatchResultError("corner field measurements has an entry without a string name")
+    names = [m["name"] for m in meas]
+    dup = sorted({n for n in names if names.count(n) > 1})
+    if dup:
+        raise BatchResultError(
+            f"corner field measurements names {', '.join(dup)} more than once")
+    return seconds, log or None, diags, meas
+
+
 def _judge(u: BatchUnit, c: dict, tolerate_absent: bool, job_id: str) -> UnitOutcome:
-    seconds = float(c.get("runtime_s") or 0.0)
-    log = (c.get("artifacts") or {}).get("log")
-    diags = [d for d in (c.get("diagnostics") or []) if isinstance(d, dict)]
+    """One matched corner -> ``ok`` only if every field agrees it succeeded.
+
+    Checked before the raw log is copied: the containers are well formed;
+    every requested measurement is either absent (``null``) or a finite
+    number (not a string, boolean, NaN or infinity); an error-level
+    diagnostic is never accepted under a ``pass`` label; and the
+    absent-measurement exception (``tolerate_absent``) applies only to a corner
+    klt itself labelled ``error`` whose error diagnostics are all absence
+    codes *and* that actually has an absent requested measurement.
+    """
+    try:
+        seconds, log, diags, meas = _corner_fields(c)
+    except BatchResultError as exc:
+        return UnitOutcome(u, "error", f"malformed klt result for this unit: {exc}", job_id=job_id)
     errors = [d for d in diags if d.get("severity") == "error"]
     codes = sorted({str(d.get("code", "?")) for d in errors})
     detail = "; ".join(f"{d.get('code')}: {d.get('message', '')}".strip() for d in errors)[:600]
-    values = {m.get("name"): m.get("value") for m in (c.get("measurements") or []) if isinstance(m, dict)}
+    raw_values = {m["name"]: m.get("value") for m in meas}
     wanted = [n for n, _, _ in u.measurements]
+    malformed = [f"{n}={raw_values[n]!r}" for n in wanted
+                 if raw_values.get(n) is not None and _finite(raw_values[n]) is None]
+    values: dict[str, float | None] = {
+        n: (None if v is None else _finite(v)) for n, v in raw_values.items()
+    }
     absent = [n for n in wanted if values.get(n) is None]
     status = c.get("status")
 
     def fail(msg: str) -> UnitOutcome:
         return UnitOutcome(u, "error", msg, values=values, absent=absent, seconds=seconds, job_id=job_id)
+
+    if malformed:
+        return fail("requested measurement value(s) not a finite number: "
+                    + ", ".join(malformed)[:600])
+    if status == "pass" and errors:
+        return fail(f"klt corner status 'pass' contradicts its error diagnostic(s) "
+                    f"[{', '.join(codes)}]: {detail}")
+    absence_only = bool(errors) and all(d.get("code") in ABSENT_MEASUREMENT_CODES for d in errors)
+    if status == "error" and absence_only and not absent:
+        return fail(f"klt corner status 'error' with only absent-measurement diagnostic(s) "
+                    f"[{', '.join(codes)}], but no requested measurement is absent: {detail}")
 
     if not log or not Path(log).is_file():
         return fail(f"klt returned no raw log for this unit (status={status!r}"
@@ -764,12 +850,7 @@ def _judge(u: BatchUnit, c: dict, tolerate_absent: bool, job_id: str) -> UnitOut
                     + (f" [{', '.join(codes)}]" if codes else "")
                     + f"); the analysis most likely did not run -- see {log}")
 
-    tolerated = (
-        tolerate_absent
-        and status == "error"
-        and errors
-        and all(d.get("code") in ABSENT_MEASUREMENT_CODES for d in errors)
-    )
+    tolerated = tolerate_absent and status == "error" and absence_only and bool(absent)
     if status != "pass" and not tolerated:
         return fail(f"klt corner status {status!r}" + (f" [{', '.join(codes)}]" if codes else "")
                     + (f": {detail}" if detail else "")
