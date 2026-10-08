@@ -45,10 +45,12 @@ Issues carrying `loom:curated`.
 
 - **#321**: run_net_attribution.py's 60-deck grid has no off-host execution path, so the post-#314 re-run cannot be taken from a dispatch worker *(curated)*
 - **#324**: Regenerate the deglitch dwell sweep against the star extraction: the post-layout slowest crossing moved from 20.77 to 22.34 µs *(curated)*
+- **#331**: sim/harness/runner.py: batch (klt sim) execution path so control grids can run off dispatch workers (mechanism question from #321) *(curated)*
 
 ## Proposed (Architect / Hermit)
 
-_None._
+- **#342**: signoff: move the T1 grader pin to klt 0.6.0 so the verdict of record includes item 11 *(architect)*
+- **#345**: Test entry points disagree: make check and npm test skip the signoff suite; add one make test source of truth *(architect)*
 
 ## Epics
 
@@ -64,7 +66,7 @@ _None._
 | In Progress (`loom:building`) | 0 |
 | PRs awaiting review | 0 |
 | Approved PRs awaiting merge | 0 |
-| Curated | 2 |
-| Architect / Hermit proposals | 0 |
+| Curated | 3 |
+| Architect / Hermit proposals | 2 |
 | Active epics | 0 |
 <!-- guide:plan-body:end -->
