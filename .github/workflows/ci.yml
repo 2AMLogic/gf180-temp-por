@@ -98,7 +98,7 @@ jobs:
         # It is a different pin from layout/toolchain.json's, which pins the
         # build that PRODUCED layout/reports/ -- see signoff/toolchain.json
         # for why the two cannot be the same version.
-        run: pip install "klayout-tools==0.5.0"
+        run: pip install "klayout-tools==0.6.0"
 
       - name: signoff/check.py (re-grade the T1 manifest; fail on evidence rot)
         run: python3 signoff/check.py

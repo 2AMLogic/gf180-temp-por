@@ -28,9 +28,9 @@ which invalidated every prior hand-read in the fleet at a stroke.
 prose disagree — including #145's checkboxes — the report wins, and the prose
 is the thing that is wrong.
 
-## The current verdict: `tier: null`, 3 of 10 items met
+## The current verdict: `tier: null`, 4 of 11 items met
 
-Rendered by `klt 0.5.0` against its bundled `docs/design-evidence-tiers.md`.
+Rendered by `klt 0.6.0` against its bundled `docs/design-evidence-tiers.md`.
 Block `kind` is **`analog`**: a single analog partition with no synthesized
 or placed-and-routed digital sub-block. The POR output chain is logic, but it
 is hand-captured as schematics and hand-drawn as layout — no RTL, no
@@ -49,9 +49,9 @@ artifact, and there is no partition boundary to declare.
 | 8 | Characterization report | **`met`** | `evidence/characterization-report.json`, a generic envelope wrapping `spec/target-spec.md`, pinned to `sha256:d78561ee…`. **Disclosed exceptions below.** |
 | 9 | Testbenches shipped | `unmet` / `no_evidence` | **Uncited on purpose.** Every `sim/` experiment carries a committed `testbench/`; `sim/README.md` documents cold-start invocation; the PDK is pinned in `ci.yml`. Same reason as item 1. |
 | 10 | Repo hygiene | `unmet` / `no_evidence` | **Uncited on purpose.** README, Apache-2.0 LICENSE, and CI are all present. Same reason as item 1. |
-| 11 | Power delivery (structural) | *no row yet* / a manual read now says **`met`** | Not in `klt 0.5.0`'s bundled checklist, so `klt signoff` cannot cite it yet either way — a manifest entry is committed (`block-manifest.json`'s `"11"` key) for the next time `signoff/toolchain.json`'s pin moves past the release that adds it, and `klt signoff --manifest --tiers-doc <a build past it>` already renders `met` today (verified; see `layout/README.md`'s "Item 11" section). Every condition the analog column asks for holds ([#300](https://github.com/2AMLogic/gf180-temp-por/issues/300), `ties[]` added by [#310](https://github.com/2AMLogic/gf180-temp-por/issues/310)): `layout/reports/temp_por_top/erc_supply.json` reports `erc_finding_count: 0` — zero `erc.supply_short`, zero `erc.unconnected_net`, and zero `erc.missing_tie`, with all four declared `ties[]` entries graded `checked` (none `skipped`/degenerate) — pinned to `sha256:a119a12b…` (the committed GDS) and `sha256:88b908db…` (the committed spec); and `layout/reports/temp_por_top/lvs.json` carries both supplies in `net_correspondence`. **One caveat, disclosed below**: the report was produced with an unreleased `klt` build, past even the pinned `layout/toolchain.json`'s `v0.6.0`. See `layout/README.md`'s "Item 11" section for the full account. |
+| 11 | Power delivery (structural) | **`met`** | `layout/reports/temp_por_top/erc_supply.json` (a `klt erc` supply-spec run) plus `layout/reports/temp_por_top/lvs.json`, whose `net_correspondence` carries both supplies ([#300](https://github.com/2AMLogic/gf180-temp-por/issues/300), `ties[]` added by [#310](https://github.com/2AMLogic/gf180-temp-por/issues/310)). The report has `erc_finding_count: 0` — zero `erc.supply_short`, zero `erc.unconnected_net`, and zero `erc.missing_tie`, with all four declared `ties[]` entries graded `checked` (none `skipped`/degenerate) — pinned to `sha256:a119a12b…` (the committed GDS) and `sha256:88b908db…` (the committed spec). The grader reports all four ties as caller-asserted (`ties_checked_by_assertion`), three of them resting on an asserted well (`ties_checked_by_well_assertion`) — this is provenance, not a weaker bar; see `layout/README.md`'s "Item 11" section. **One caveat, disclosed below**: the report was produced with an unreleased `klt` build, past the `v0.6.0` release that now grades it. |
 
-**3 of 10 is a lower number than #145's 10/10, and both are honest reads of
+**4 of 11 is a lower number than #145's 10/10, and both are honest reads of
 different questions.** #145 asked "does this repo contain the artifact the
 item describes?" and largely, it does. This report asks "is there a passing,
 fresh, machine-readable envelope of the kind this item accepts?" and for 7
@@ -63,24 +63,30 @@ block can actually verify without taking our word for it.
 
 A `met` verdict is not a statement that the check had no blind spots. The
 checklist requires the blind spots to be enumerated in the claim, and `klt
-0.5.0`'s report does not carry them (the grader only started quoting a DRC
-envelope's `coverage` block into the citation in klayout-tools#2002, which
-postdates 0.5.0). So they are stated here.
+0.6.0`'s report quotes the DRC envelope's `coverage` block into item 3's
+citation (klayout-tools#2002), but quoting is not grading — `klt signoff`
+grades item 3 on `status: "clean"` alone. So they are stated here, and must
+agree with that quoted block.
 
 ### Item 3 — DRC coverage gaps
 
 From `layout/reports/temp_por_top/drc.json`'s own `coverage` block:
 
-- **`rules_skipped`**: `metaltop.space.1`, `metaltop.width.1`. Top-metal
-  spacing and width are **not checked** by this deck run.
-- **1 deck layer drawn but unchecked**: `53/0` is in `deck_layers` but not in
-  `layers_checked`.
-- **12 layers present in the stream with no rules at all**
-  (`layers_in_stream_without_rules`): `31/0`, `32/0`, `34/10`, `35/0`,
-  `36/10`, `38/0`, `40/0`, `49/0`, `62/0`, `110/5`, `117/5`, `117/10`.
+- **`rules_skipped`**: `comp.space.mv.1`, `comp.width.mv.1`,
+  `metaltop.space.1`, `metaltop.width.1`, `pad.enclosing.metal5.1`. MV
+  comp spacing/width, top-metal spacing/width and pad-to-metal5 enclosure are
+  **not checked** by this deck run.
+- **3 deck layers drawn but unchecked**: `37/0`, `53/0` and `55/0` are in
+  `deck_layers` but not in `layers_checked`.
+- **9 layers present in the stream with no rules at all**
+  (`layers_in_stream_without_rules`): `31/0`, `32/0`, `34/10`, `36/10`,
+  `49/0`, `62/0`, `110/5`, `117/5`, `117/10`.
+- **`deck_scope`** (the only DRM chapters the deck transcribes): 7.4 Nwell,
+  7.5 Comp, 7.7 Poly2, 7.12 Contact, 7.13 Metaln, 7.14 Vian, 7.15 MetalTop,
+  9.1 Bond Pad, 10.4.2 MIM Option B, 10.7 DRC_BJT Mark Layer.
 
 `status: clean` means "no violation of the rules this deck actually ran".
-It does not mean the geometry on those 13 layers is correct.
+It does not mean the geometry on those unchecked layers, or under those skipped rules, is correct.
 
 ### Item 4 — warnings-only mismatches, and a freshness gap the grader cannot close
 
@@ -93,22 +99,19 @@ It does not mean the geometry on those 13 layers is correct.
   verified** by this compare.
 - Single engine only. No second independent engine's concurring verdict
   (which the checklist marks as strengthening, not required).
-- **The citation carries no `content_hash` pin, and this is deliberate.**
-  `klt lvs` populates no `provenance.input` block — still true in 0.5.0, the
-  latest release; the layout hash lives in the verb's own
-  `environment.layout_sha256` instead, which the grader's staleness gate does
-  not read. Pinning a hash here would render `unmet`/`stale_evidence`, which
-  would be a **false** statement: the report's
-  `environment.layout_sha256` is `a119a12b…`, byte-identical to the committed
-  `layout/cells/temp_por_top.gds`. Rather than assert a falsehood or leave the
-  hole open, `check.py` closes it with a repo-side gate —
-  `layout/lvs_reference.py --check-gds-hash` — that re-hashes the committed
+- **The citation now carries a `content_hash` pin.** Through `klt 0.5.0`,
+  `klt lvs` populated no `provenance.input` block, so item 4 could not be
+  pinned and the layout hash lived only in `environment.layout_sha256`, which
+  the grader's staleness gate does not read
+  ([klayout-tools#1969](https://github.com/2AMLogic/klayout-tools/issues/1969)).
+  The committed `lvs.json` was produced by `klt 0.6.0`, whose
+  `provenance.input.content_hash` is `a119a12b…` — byte-identical to the
+  committed `layout/cells/temp_por_top.gds` — and the `0.6.0` grader now
+  quotes it in item 4's citation. The grader still reports
+  `input_verified: null` for it, so it does not itself re-hash the GDS;
+  `check.py` keeps the repo-side gate
+  (`layout/lvs_reference.py --check-gds-hash`) that re-hashes the committed
   GDS against every committed report on every CI run.
-  [klayout-tools#1969](https://github.com/2AMLogic/klayout-tools/issues/1969)
-  fixed this upstream on 2026-09-17; it is not in any release yet, so the
-  repo-side gate stands until one ships
-  ([klayout-tools#2173](https://github.com/2AMLogic/klayout-tools/issues/2173),
-  commented with this block's data).
 
 ### Item 8 — what the generic envelope does and does not assert
 
@@ -153,35 +156,21 @@ Consequence worth naming: because item 1 is the first unmet row, the fleet
 roll-up ([2AMLogic/2am#956](https://github.com/2AMLogic/2am/issues/956))
 reports this block's `blocking_item` as item 1 — the least informative of the
 four. The items that actually block T1 here are 5, 6 and 7. (Item 11 was a
-fourth until #300's second pass; a manual read of it is now `met`, but the
-grader still cannot see the row at all — see below.) Filed upstream as
+fourth until #300's second pass; it is graded `met`
+since the grader moved to `klt 0.6.0` — see below.) Filed upstream as
 [klayout-tools#2178](https://github.com/2AMLogic/klayout-tools/issues/2178).
 
-## Item 11 — the evidence now exists and is clean; the grader still can't see it
+## Item 11 — graded `met` since the grader moved to klt 0.6.0
 
 [klayout-tools#2025/#2057](https://github.com/2AMLogic/klayout-tools/issues/2025)
-added T1 item 11, "Power delivery (structural)", on 2026-09-19. That commit is
-on klayout-tools `main` but is **not in any published release** — 0.5.0 is the
-latest on PyPI and its bundled tiers doc stops at item 10. So `tier-report.json`
-renders `t1_item_count: 10`.
-
-The item list is parsed from the tiers doc, and an item with no `evidence`
-entry renders `unmet` / `no_evidence` automatically — so **item 11 gets its
-row the moment the grader is upgraded, with `block-manifest.json` untouched.**
-Verified against klayout-tools `main`'s doc:
-
-```bash
-klt signoff --manifest signoff/block-manifest.json \
-    --tiers-doc /path/to/klayout-tools/docs/design-evidence-tiers.md \
-    --format json
-# t1_item_count: 10 -> 11; item 11: met (since #310 added the `ties[]`
-# declaration below -- before that, this rendered unmet / no_evidence)
-```
-
-`check.py` treats that new row as **drift and fails**, with a message naming
-the new row and telling you to regenerate — which is the correct behaviour:
-a checklist that grew an item invalidates the committed verdict, and the
-repo should have to look at it.
+added T1 item 11, "Power delivery (structural)", on 2026-09-19. It first
+shipped in a published release in `klt 0.6.0`. Until [#342](https://github.com/2AMLogic/gf180-temp-por/issues/342)
+moved the grader pin there, the pinned `klt 0.5.0` bundled a tiers doc that
+stopped at item 10, so `tier-report.json` rendered `t1_item_count: 10` and
+this item had no row at all. Moving the pin re-graded existing evidence and
+produced none: `block-manifest.json` is unchanged, and items 3, 4 and 8 stay
+`met` (item 3's citation now also quotes the DRC `coverage` block, which
+changes no verdict).
 
 For an analog block, item 11 wants a `klt erc` supply-spec run (every declared
 supply resolving to exactly one electrical island, zero `erc.missing_tie`)
@@ -199,8 +188,9 @@ plus an LVS report whose reference carried the supply nets.
   committed GDS and `provenance.spec.content_hash` matching the committed
   spec.
 
-**Freshness is gated repo-side.** Because the pinned grader does not render
-item 11, `signoff/check.py` (`check_erc_supply_freshness`) re-hashes the GDS and
+**Freshness is gated repo-side.** The `0.6.0` grader reports
+`input_verified: true` for the GDS, but does not check the supply spec's hash
+against the report, so `signoff/check.py` (`check_erc_supply_freshness`) re-hashes the GDS and
 the supply spec the report names and requires them to equal
 `provenance.input.content_hash` / `provenance.spec.content_hash`. A missing or
 unreadable report, input or recorded hash is a failure, not a skip. It needs no
@@ -272,7 +262,7 @@ independently — but it is why they had to be.
 ```bash
 # Install the pinned grader (separate from layout/toolchain.json's pin --
 # see toolchain.json for why)
-uv tool install --force klayout-tools==0.5.0
+uv tool install --force klayout-tools==0.6.0
 
 # The gate CI runs: re-grade the tree, fail on any drift from the committed verdict
 python3 signoff/check.py
