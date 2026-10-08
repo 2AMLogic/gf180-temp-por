@@ -19,7 +19,8 @@ _None._
 
 Human-approved issues ready for implementation (`loom:issue`).
 
-_None._
+- **#342**: signoff: move the T1 grader pin to klt 0.6.0 so the verdict of record includes item 11
+- **#345**: Test entry points disagree: make check and npm test skip the signoff suite; add one make test source of truth
 
 ## In Progress
 
@@ -49,8 +50,7 @@ Issues carrying `loom:curated`.
 
 ## Proposed (Architect / Hermit)
 
-- **#342**: signoff: move the T1 grader pin to klt 0.6.0 so the verdict of record includes item 11 *(architect)*
-- **#345**: Test entry points disagree: make check and npm test skip the signoff suite; add one make test source of truth *(architect)*
+_None._
 
 ## Epics
 
@@ -62,11 +62,11 @@ _None._
 |------|-------|
 | Operator merge-risk holds | 0 |
 | Operator priority | 0 |
-| Ready (`loom:issue`) | 0 |
+| Ready (`loom:issue`) | 2 |
 | In Progress (`loom:building`) | 0 |
 | PRs awaiting review | 0 |
 | Approved PRs awaiting merge | 0 |
 | Curated | 3 |
-| Architect / Hermit proposals | 2 |
+| Architect / Hermit proposals | 0 |
 | Active epics | 0 |
 <!-- guide:plan-body:end -->
