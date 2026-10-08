@@ -2,6 +2,20 @@
 
 Merged PRs and closed issues from the initial 30-day snapshot (2026-09-07 onward).
 
+### 2026-10-08
+
+- **PR #332**: sim/harness: fail-closed klt sim batch backend (#331)
+- **PR #337**: fix(sim/harness): close fail-open klt batch paths found on the live fleet (#331)
+- **PR #340**: characterize: return failure when an experiment is killed by a signal
+- **PR #341**: signoff: verify supply ERC evidence hashes against current GDS and spec
+- **PR #343**: sim harness: reserve evidence record IDs before runs
+- **PR #344**: fix: reject contradictory or malformed klt batch corner results
+
+- **Issue #339** (closed): sim harness: reserve evidence record IDs before runs to prevent log collisions
+- **Issue #335** (closed): batch results: reject contradictory success labels and malformed measurement values
+- **Issue #334** (closed): signoff: verify supply ERC evidence hashes against the current GDS and spec
+- **Issue #333** (closed): characterize: return failure when an experiment subprocess is killed by a signal
+
 ### 2026-10-07
 
 - **PR #329**: docs: align README with current extraction and ERC evidence
