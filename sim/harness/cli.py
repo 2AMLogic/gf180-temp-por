@@ -8,7 +8,7 @@ import sys
 import time
 from pathlib import Path
 
-from . import HARNESS_VERSION, cliutil, corners as corners_mod, report, runner, testbench as tb_mod
+from . import HARNESS_VERSION, cliutil, corners as corners_mod, klt_batch, report, runner, testbench as tb_mod
 from .pdk import PdkNotFound, find_pdk
 from .runner import NgspiceMissing
 
@@ -127,6 +127,7 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="run but do not record evidence (debugging only)",
     )
+    klt_batch.add_backend_argument(parser)
     parser.add_argument("--quiet", action="store_true", help="only print the summary")
     parser.add_argument(
         "--version", action="version", version=f"gf180-temp-por harness {HARNESS_VERSION}"
@@ -221,9 +222,15 @@ def run(args: argparse.Namespace) -> int:
     tb = tb_mod.load(tb_path)
 
     try:
+        backend = klt_batch.resolve_backend(args.backend)
         pdk = find_pdk()
-        ngspice = runner.ngspice_version()
-    except (PdkNotFound, NgspiceMissing) as exc:
+        if backend == klt_batch.BACKEND_BATCH:
+            # Batch mode never touches a local ngspice: the engine runs on the
+            # fleet, so the record names klt (the only thing this host runs).
+            ngspice = f"batch via klt sim ({klt_batch.klt_version()}); ngspice runs on the fleet"
+        else:
+            ngspice = runner.ngspice_version()
+    except (PdkNotFound, NgspiceMissing, klt_batch.BatchError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return EXIT_ENVIRONMENT
 
@@ -265,6 +272,7 @@ def run(args: argparse.Namespace) -> int:
         print(f"experiment: {tb.experiment}"
               + (f"  ({tb.description})" if tb.description else ""))
         print(f"pdk       : {pdk.variant} @ {pdk.version}  ({pdk.path})")
+        print(f"backend   : {backend}")
         print(f"ngspice   : {ngspice}")
         print(f"corners   : {', '.join(c.name for c in corner_list)}")
         print(f"temps (C) : {', '.join(_fmt(t) for t in temperatures)}")
@@ -292,6 +300,10 @@ def run(args: argparse.Namespace) -> int:
             detail = result.message
         print(f"[{completed:>3}/{len(points)}] {flag} {result.point.corner_id:<26} {detail}")
 
+    batch_cfg = (
+        klt_batch.BatchConfig(pdk=pdk, stage_root=workdir / "batch", evidence_dir=log_dir)
+        if backend == klt_batch.BACKEND_BATCH else None
+    )
     wall_start = time.monotonic()
     try:
         results = runner.run_grid(
@@ -303,8 +315,10 @@ def run(args: argparse.Namespace) -> int:
             timeout_s=args.timeout,
             on_result=progress,
             log_dir=log_dir,
+            # local mode keeps the exact pre-batch call signature
+            **({"backend": backend, "batch": batch_cfg} if batch_cfg else {}),
         )
-    except NgspiceMissing as exc:
+    except (NgspiceMissing, klt_batch.BatchError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return EXIT_ENVIRONMENT
     wall = time.monotonic() - wall_start

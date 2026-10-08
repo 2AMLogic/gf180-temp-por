@@ -93,7 +93,7 @@ REPO_ROOT = CONTROL_DIR.parents[2]
 
 sys.path.insert(0, str(REPO_ROOT / "sim"))
 
-from harness import HARNESS_VERSION, corners as corners_mod, runner  # noqa: E402
+from harness import HARNESS_VERSION, corners as corners_mod, klt_batch, runner  # noqa: E402
 from harness.pdk import PdkNotFound, find_pdk  # noqa: E402
 
 FRAGMENT = CONTROL_DIR / "dwell_sweep.spice"
@@ -212,12 +212,23 @@ def compose_deck(
     return "\n".join(lines)
 
 
-def run_all(jobs: list[tuple[str, str]], workers: int) -> dict[str, dict[str, float]]:
+def run_all(
+    jobs: list[tuple[str, str]],
+    workers: int,
+    backend: str = klt_batch.BACKEND_LOCAL,
+    batch: "klt_batch.BatchConfig | None" = None,
+) -> dict[str, dict[str, float]]:
+    """Run every deck; in batch mode each goes through ``klt sim --backend
+    batch`` (decks, measurements and parsing unchanged) and any failure other
+    than an absent measurement aborts the run -- no local fallback."""
     with ThreadPoolExecutor(max_workers=max(1, min(workers, len(jobs)))) as pool:
         return dict(
             zip(
                 [name for name, _ in jobs],
-                pool.map(lambda job: runner.run_deck(*job, CONTROL_DIR), jobs),
+                pool.map(
+                    lambda job: runner.run_deck(*job, CONTROL_DIR, backend=backend, batch=batch),
+                    jobs,
+                ),
             )
         )
 
@@ -226,21 +237,32 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "-j", "--jobs", type=int, default=max(1, (os.cpu_count() or 2) // 2),
-        help="parallel ngspice runs (default: half the host's logical cores)",
+        help="parallel ngspice runs, or concurrent klt submissions in batch mode (default: half the host's logical cores)",
     )
     parser.add_argument(
         "--smoke", action="store_true",
         help="two PVT points and the schematic netlist only -- for checking the "
              "deck composes and runs, NOT for pinning a value",
     )
+    klt_batch.add_backend_argument(parser)
     args = parser.parse_args()
 
     try:
+        backend = klt_batch.resolve_backend(args.backend)
         pdk = find_pdk()
-        ngspice_version = runner.ngspice_version()
-    except (PdkNotFound, runner.NgspiceMissing) as exc:
+        if backend == klt_batch.BACKEND_BATCH:
+            ngspice_version = (
+                f"batch via klt sim ({klt_batch.klt_version()}); ngspice runs on the fleet"
+            )
+        else:
+            ngspice_version = runner.ngspice_version()
+    except (PdkNotFound, runner.NgspiceMissing, klt_batch.BatchError) as exc:
         print(exc, file=sys.stderr)
         return 3
+    batch = (
+        klt_batch.BatchConfig(pdk=pdk, stage_root=CONTROL_DIR / "batch")
+        if backend == klt_batch.BACKEND_BATCH else None
+    )
 
     assert T_DIP_S - 300.1e-6 >= SETTLE_MIN_S, "dip starts before the filter can settle"
 
@@ -275,7 +297,7 @@ def main() -> int:
                                  PROBE_DIP_S, options, deck_dir),
                 ))
     print(f"Part A: {len(jobs)} decks ({PROBE_DIP_S * 1e6:g} us probe dip) ...")
-    probe = run_all(jobs, args.jobs)
+    probe = run_all(jobs, args.jobs, backend, batch)
 
     def crossing_us(variant: str, bias_label: str, point_id: str) -> float | None:
         meas = probe.get(f"d_{variant}__{bias_label}__{point_id}", {})
@@ -320,7 +342,7 @@ def main() -> int:
                              width_us * 1e-6, options, deck_dir),
             ))
     print(f"Part B: {len(jobs)} decks (finite-width ladder) ...")
-    ladder = run_all(jobs, args.jobs)
+    ladder = run_all(jobs, args.jobs, backend, batch)
 
     write_results(pdk, ngspice_version, variants, points, probe, ladder,
                   ladder_points, worst_us, tdip_us, never, args.smoke)

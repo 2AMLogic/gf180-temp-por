@@ -12,6 +12,7 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from . import klt_batch
 from .corners import Corner, PvtPoint
 from .pdk import Pdk
 from .testbench import Testbench
@@ -336,8 +337,27 @@ def parse_bare_measurements(text: str) -> dict[str, float]:
     return found
 
 
+def _require_batch(backend: str, batch: "klt_batch.BatchConfig | None") -> bool:
+    """True for batch mode. Anything but local/batch, or batch without a
+    config, is an error -- never a quiet local run."""
+    if backend == klt_batch.BACKEND_LOCAL:
+        return False
+    if backend != klt_batch.BACKEND_BATCH:
+        raise klt_batch.BatchError(f"unsupported sim backend {backend!r}")
+    if batch is None:
+        raise klt_batch.BatchError(
+            "backend='batch' needs a klt_batch.BatchConfig; refusing to run ngspice locally"
+        )
+    return True
+
+
 def run_deck_raw(
-    name: str, text: str, control_dir: Path, timeout_s: int | None = None
+    name: str,
+    text: str,
+    control_dir: Path,
+    timeout_s: int | None = None,
+    backend: str = klt_batch.BACKEND_LOCAL,
+    batch: "klt_batch.BatchConfig | None" = None,
 ) -> str:
     """Write ``text`` as ``<control_dir>/decks/<name>.spice``, run ngspice on
     it, log the raw output to ``<control_dir>/logs/<name>.log``, and return
@@ -350,13 +370,33 @@ def run_deck_raw(
 
     ``timeout_s`` is passed to ``subprocess.run`` (default ``None``: no
     timeout); expiry raises ``subprocess.TimeoutExpired``.
+
+    ``backend="batch"`` (with a ``klt_batch.BatchConfig``) submits the deck
+    through ``klt sim --backend batch`` instead (#331): the returned text is
+    the byte-exact klt-returned ngspice log, copied to the same
+    ``logs/<name>.log``. Any batch failure raises ``klt_batch.BatchError``;
+    the local ``subprocess.run`` below is never reached in batch mode. A
+    measurement that is merely absent from the log stays absent (the contract
+    of ``parse_bare_measurements`` callers); every other klt failure raises.
     """
+    use_batch = _require_batch(backend, batch)
     deck_dir = control_dir / "decks"
     log_dir = control_dir / "logs"
     deck_dir.mkdir(exist_ok=True)
     log_dir.mkdir(exist_ok=True)
     deck_path = deck_dir / f"{name}.spice"
     deck_path.write_text(text)
+    if use_batch:
+        unit = klt_batch.translate_deck(
+            text,
+            key=name,
+            log_path=log_dir / f"{name}.log",
+            pdk=batch.pdk,
+            deck_dir=deck_dir,
+            extra_init=klt_batch.compat_init_lines(),
+            **({"timeout_s": timeout_s} if timeout_s else {}),
+        )
+        return klt_batch.run_single(unit, batch, tolerate_absent=True).text()
     proc = subprocess.run(
         [NGSPICE, "-b", deck_path.name],
         capture_output=True,
@@ -370,7 +410,13 @@ def run_deck_raw(
     return output
 
 
-def run_deck(name: str, text: str, control_dir: Path) -> dict[str, float]:
+def run_deck(
+    name: str,
+    text: str,
+    control_dir: Path,
+    backend: str = klt_batch.BACKEND_LOCAL,
+    batch: "klt_batch.BatchConfig | None" = None,
+) -> dict[str, float]:
     """Write ``text`` as ``<control_dir>/decks/<name>.spice``, run ngspice on
     it, log the raw output to ``<control_dir>/logs/<name>.log``, and return
     its bare-name measurements (``parse_bare_measurements`` above).
@@ -381,7 +427,9 @@ def run_deck(name: str, text: str, control_dir: Path) -> dict[str, float]:
     sim/por-brownout/control/run_dip_rootcause.py and
     sim/por-brownout-slew/control/run_band_mechanism.py.
     """
-    return parse_bare_measurements(run_deck_raw(name, text, control_dir))
+    return parse_bare_measurements(
+        run_deck_raw(name, text, control_dir, backend=backend, batch=batch)
+    )
 
 
 def find_crossings(
@@ -608,8 +656,20 @@ def run_grid(
     timeout_s: int = DEFAULT_TIMEOUT_S,
     on_result=None,
     log_dir: Path | None = None,
+    backend: str = klt_batch.BACKEND_LOCAL,
+    batch: "klt_batch.BatchConfig | None" = None,
 ) -> list[PointResult]:
-    """Run every PVT point; results come back in grid order regardless of jobs."""
+    """Run every PVT point; results come back in grid order regardless of jobs.
+
+    ``backend="batch"`` (with a ``klt_batch.BatchConfig``) sends the grid
+    through ``klt sim --backend batch`` -- see :func:`run_grid_batch`. It
+    never falls through to the local loop below.
+    """
+    if _require_batch(backend, batch):
+        return run_grid_batch(
+            tb, pdk, points, workdir, batch, jobs=jobs, timeout_s=timeout_s,
+            on_result=on_result, log_dir=log_dir,
+        )
     results: list[PointResult | None] = [None] * len(points)
 
     def _one(index_point):
@@ -627,4 +687,89 @@ def run_grid(
         with ThreadPoolExecutor(max_workers=jobs) as pool:
             list(pool.map(_one, enumerate(points)))
 
+    return [r for r in results if r is not None]
+
+
+def run_grid_batch(
+    tb: Testbench,
+    pdk: Pdk,
+    points: list[PvtPoint],
+    workdir: Path,
+    batch: "klt_batch.BatchConfig",
+    jobs: int = 1,
+    timeout_s: int = DEFAULT_TIMEOUT_S,
+    on_result=None,
+    log_dir: Path | None = None,
+) -> list[PointResult]:
+    """``run_grid`` through ``klt sim --backend batch`` (#331).
+
+    Same contract as the local grid: results in grid order, ``ok`` only when
+    every ``tb.measure`` name parsed out of the returned raw log, and every
+    point that klt did not return as a clean ``pass`` is an ``error`` --
+    never an ``ok``. Points differing only in supply share one request
+    (``vdd_val`` rides klt's supply axis); ``jobs`` bounds concurrent requests.
+    """
+    workdir.mkdir(parents=True, exist_ok=True)
+    log_dir = workdir if log_dir is None else log_dir
+    log_dir.mkdir(parents=True, exist_ok=True)
+    init = klt_batch.compat_init_lines()
+    results: list[PointResult | None] = [None] * len(points)
+    index_of: dict[str, int] = {}
+    units: list[klt_batch.BatchUnit] = []
+
+    def finish(i: int, result: PointResult) -> None:
+        results[i] = result
+        if on_result is not None:
+            on_result(result)
+
+    for i, point in enumerate(points):
+        deck_path = workdir / f"{point.corner_id}.spice"
+        log_path = log_dir / f"{point.corner_id}.log"
+        text = compose_deck(tb, pdk, point)
+        deck_path.write_text(text)
+        try:
+            unit = klt_batch.translate_deck(
+                text, key=point.corner_id, log_path=log_path, pdk=pdk, deck_dir=workdir,
+                lift_params=("vdd_val",), extra_init=init, timeout_s=timeout_s,
+            )
+        except klt_batch.BatchIncompatible as exc:
+            finish(i, PointResult(point=point, status="error", deck=deck_path.name,
+                                  message=f"not expressible as a klt sim request: {exc}"))
+            continue
+        index_of[point.corner_id] = i
+        units.append(unit)
+
+    if batch.evidence_dir is None:
+        batch.evidence_dir = log_dir
+
+    def on_outcome(out: klt_batch.UnitOutcome) -> None:
+        i = index_of[out.unit.key]
+        point = points[i]
+        deck_name = f"{point.corner_id}.spice"
+        if not out.ok:
+            finish(i, PointResult(point=point, status="error", seconds=out.seconds,
+                                  deck=deck_name, message=out.message))
+            return
+        output = out.text()
+        measurements = parse_measurements(output)
+        missing = [name for name in tb.measure if name not in measurements]
+        base = dict(point=point, measurements=measurements, seconds=out.seconds,
+                    deck=deck_name, log=out.log_path.name)
+        if missing:
+            first_error = next(
+                (ln.strip() for ln in output.splitlines() if _ERROR_RE.match(ln)), ""
+            )
+            finish(i, PointResult(status="failed", missing=missing,
+                                  message=first_error or "no measurements parsed from the returned log",
+                                  **base))
+        else:
+            finish(i, PointResult(status="ok", **base))
+
+    if units:
+        klt_batch.run_units(units, batch, tolerate_absent=False, jobs=jobs, on_outcome=on_outcome)
+        for unit in units:   # a unit the batch layer never reported on can never be ok
+            i = index_of[unit.key]
+            if results[i] is None:
+                finish(i, PointResult(point=points[i], status="error",
+                                      message="batch run returned no outcome for this point"))
     return [r for r in results if r is not None]
