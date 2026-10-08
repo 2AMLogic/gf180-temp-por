@@ -523,7 +523,7 @@ def main(argv: list[str] | None = None) -> int:
         print(exc, file=sys.stderr)
         return 1
     batch = (
-        klt_batch.BatchConfig(pdk=pdk, stage_root=CONTROL_DIR / "batch")
+        klt_batch.BatchConfig(pdk=pdk, stage_root=CONTROL_DIR / "batch", klt=args.klt)
         if backend == klt_batch.BACKEND_BATCH and not report_only else None
     )
 

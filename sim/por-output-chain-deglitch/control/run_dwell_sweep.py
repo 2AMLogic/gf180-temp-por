@@ -252,7 +252,7 @@ def main() -> int:
         pdk = find_pdk()
         if backend == klt_batch.BACKEND_BATCH:
             ngspice_version = (
-                f"batch via klt sim ({klt_batch.klt_version()}); ngspice runs on the fleet"
+                f"batch via klt sim ({klt_batch.klt_version(args.klt)}); ngspice runs on the fleet"
             )
         else:
             ngspice_version = runner.ngspice_version()
@@ -260,7 +260,7 @@ def main() -> int:
         print(exc, file=sys.stderr)
         return 3
     batch = (
-        klt_batch.BatchConfig(pdk=pdk, stage_root=CONTROL_DIR / "batch")
+        klt_batch.BatchConfig(pdk=pdk, stage_root=CONTROL_DIR / "batch", klt=args.klt)
         if backend == klt_batch.BACKEND_BATCH else None
     )
 

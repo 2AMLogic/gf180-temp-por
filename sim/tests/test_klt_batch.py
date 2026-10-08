@@ -73,19 +73,22 @@ for p in procs:
             meas = []
             for m in req["measurements"]:
                 name = m["name"]
-                absent = mode == "absent_meas" and name == "t_trip"
+                absent = (mode == "absent_meas" and name == "t_trip") or mode in ("aborted", "all_absent")
                 if mode == "missing_meas" and m is req["measurements"][-1]:
                     absent = True
                 val = None if absent else 0.125
                 if not absent:
                     lines.append(f"{name} = 1.2500000000e-01")
                 meas.append({"name": name, "value": val, "status": "pass" if val is not None else "error"})
+            if mode == "aborted":   # the shape the fleet returned for a TSTOP of zero
+                lines += ["Error: TSTOP is invalid, must be greater than zero.",
+                          "tran simulation(s) aborted"]
             log = d / "run.log"
             log.write_bytes(("\n".join(lines) + "\n\xb5 raw \r\n").encode("latin-1"))
             status, diags = "pass", []
             if mode == "failed_corner":
                 status, diags = "error", [{"severity": "error", "code": "netlist", "message": "boom"}]
-            if mode in ("missing_meas", "absent_meas") and any(x["value"] is None for x in meas):
+            if mode in ("missing_meas", "absent_meas", "aborted", "all_absent") and any(x["value"] is None for x in meas):
                 status = "error"
                 diags = [{"severity": "error", "code": "measurement", "message": "no value"}]
             if mode == "timeout_corner":
@@ -103,7 +106,13 @@ if mode == "extra_corner":
     extra = dict(corners[0]); extra["temperature_c"] = 999; corners.append(extra)
 env = {"engine": "ngspice"}
 if mode != "no_remote":
-    env["remote"] = {"provider": "aws-batch-fleet", "job_id": "klt-sim-fake"}
+    env["remote"] = {"provider": "aws-batch-fleet", "job_id": "klt-sim-fake",
+                     "runner_compatibility": "match"}
+    if mode == "mismatch":
+        env["remote"].update(runner_compatibility="mismatch", runner_klt_version="0.0.1",
+                             client_klt_version="0.0.0+fake")
+    if mode == "legacy_remote":   # an older client that does not report the comparison
+        del env["remote"]["runner_compatibility"]
 print(json.dumps({"schema_version": 3, "status": "pass", "corner_count": len(corners),
                    "environment": env, "corners": corners}))
 '''
@@ -148,6 +157,7 @@ FILE_SCOPE_DECK = textwrap.dedent(
     .include "{design}"
     .lib "{lib}" tt
     .temp 27.0
+    .param stop_s=0.0026200999999999998
     .tran 2e-06 {{stop_s}}
     .meas tran t_trip when v(xdut.pgdg)=1.1 fall=1 td=1e-05
     .meas tran pgdg_end find v(xdut.pgdg) at=2e-05
@@ -269,7 +279,11 @@ class TranslationTests(BatchTestCase):
 
     def test_file_scope_deck(self):
         u = self.unit(template=FILE_SCOPE_DECK)
-        self.assertEqual(u.analysis, ("tran", "2e-06 {stop_s}"))
+        # klt runs the analysis as a control command, where .param braces are
+        # not expanded (a live fleet run aborted on `tran 2e-06 {stop_s}`), so
+        # the deck's own literal is substituted, unrounded
+        self.assertEqual(u.analysis, ("tran", "2e-06 0.0026200999999999998"))
+        self.assertIn(".param stop_s=0.0026200999999999998", u.body)
         self.assertEqual([m[0] for m in u.measurements], ["t_trip", "pgdg_end"])
         self.assertTrue(all(m[1] == "spice" for m in u.measurements))
 
@@ -308,12 +322,22 @@ class TranslationTests(BatchTestCase):
             "dup measurement": CONTROL_DECK.replace("t_praw", "vdd_pre"),
             "unclosed control": CONTROL_DECK.replace(".endc\n", ""),
             "print of non-let": CONTROL_DECK.replace(".endc", "print nothing\n.endc"),
+            "unknown analysis param": FILE_SCOPE_DECK.replace("{{stop_s}}", "{{nope}}"),
+            "analysis expression": FILE_SCOPE_DECK.replace("{{stop_s}}", "{{stop_s*2}}"),
+            "non-numeric analysis param": FILE_SCOPE_DECK.replace(
+                ".param stop_s=0.0026200999999999998", ".param stop_s={{t0+1m}}"),
         }
         for label, template in cases.items():
             with self.subTest(label):
                 with self.assertRaises(klt_batch.BatchIncompatible):
                     self.unit(template=template)
         self.assertEqual(self.calls(), [])
+
+    def test_lifted_param_in_analysis_is_rejected(self):
+        with self.assertRaises(klt_batch.BatchIncompatible) as cm:
+            self.unit(template=FILE_SCOPE_DECK.replace("{{stop_s}}", "{{vdd_val}}"),
+                      lift_params=("vdd_val",))
+        self.assertIn("lifted", str(cm.exception))
 
     def test_unresolved_include_is_rejected(self):
         with self.assertRaises(klt_batch.BatchIncompatible) as cm:
@@ -577,6 +601,46 @@ class FailureMatrixTests(BatchTestCase):
 
     def test_not_executed_on_the_fleet(self):
         self.assertFails("no_remote", "not executed on the")
+
+    def test_aborted_analysis_is_never_an_absent_measurement(self):
+        # Observed live: the fleet returned status 'error' with only
+        # `measurement` diagnostics for a run whose transient aborted. That
+        # must not be read as "every event simply never happened".
+        self.assertFails("aborted", "aborted")
+
+    def test_no_measurement_value_at_all_is_an_error_even_when_absence_is_tolerated(self):
+        self.assertFails("all_absent", "no requested measurement produced a value")
+
+    def test_runner_client_mismatch_is_rejected_and_halts_the_run(self):
+        self.mode("mismatch")
+        units = [self.unit("a"), self.unit("b", template=CONTROL_DECK.replace("0.02", "0.03", 1))]
+        cfg = self.cfg()
+        outs = klt_batch.run_units(units, cfg, tolerate_absent=True)
+        self.assertEqual([o.status for o in outs], ["error", "error"])
+        self.assertIn("runner_compatibility='mismatch'", outs[0].message)
+        self.assertIn("not submitted", outs[1].message)
+        self.assertEqual(len(self.calls()), 1)              # the second request never left
+        self.assertFalse((self.control / "logs" / "a.log").exists())
+        with self.assertRaises(BatchError):                  # same config, later deck
+            runner.run_deck_raw("r", self.deck(), self.control, backend="batch", batch=cfg)
+        self.assertEqual(len(self.calls()), 1)
+        self.assertNoLocalNgspice()
+
+    def test_report_without_a_runner_comparison_is_still_accepted(self):
+        self.mode("legacy_remote")
+        (out,) = klt_batch.run_units([self.unit()], self.cfg(), tolerate_absent=True)
+        self.assertTrue(out.ok, out.message)
+
+    def test_klt_client_is_selectable(self):
+        other = self.bin / "klt-runner-build"
+        (self.bin / "klt").rename(other)
+        (out,) = klt_batch.run_units([self.unit()], self.cfg(klt=str(other)), tolerate_absent=True)
+        self.assertTrue(out.ok, out.message)
+        import argparse
+        parser = argparse.ArgumentParser()
+        klt_batch.add_backend_argument(parser)
+        self.assertEqual(parser.parse_args([]).klt, "klt")
+        self.assertEqual(parser.parse_args(["--klt", str(other)]).klt, str(other))
 
     def test_missing_measurement_is_an_error_unless_the_caller_tolerates_absence(self):
         self.mode("missing_meas")
