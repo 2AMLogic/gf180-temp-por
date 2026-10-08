@@ -151,6 +151,7 @@ Stdlib only, no virtualenv required.
 
 from __future__ import annotations
 
+import argparse
 import importlib.util
 import re
 import sys
@@ -164,7 +165,7 @@ REPO_ROOT = CONTROL_DIR.parents[2]
 
 sys.path.insert(0, str(REPO_ROOT / "sim"))
 
-from harness import HARNESS_VERSION, cliutil, runner  # noqa: E402
+from harness import HARNESS_VERSION, cliutil, klt_batch, runner  # noqa: E402
 from harness.pdk import PdkNotFound, find_pdk  # noqa: E402
 
 # The extracted-netlist parser, imported rather than re-derived:
@@ -508,13 +509,23 @@ def read_logs() -> dict[str, dict[str, float]]:
 
 def main(argv: list[str] | None = None) -> int:
     argv = sys.argv[1:] if argv is None else argv
-    report_only = "--report-only" in argv
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument("--report-only", action="store_true",
+                        help="re-derive results.md from the logs already on disk")
+    klt_batch.add_backend_argument(parser)
+    args = parser.parse_args(argv)
+    report_only = args.report_only
 
     try:
+        backend = klt_batch.resolve_backend(args.backend)
         pdk = find_pdk()
-    except PdkNotFound as exc:
+    except (PdkNotFound, klt_batch.BatchError) as exc:
         print(exc, file=sys.stderr)
         return 1
+    batch = (
+        klt_batch.BatchConfig(pdk=pdk, stage_root=CONTROL_DIR / "batch")
+        if backend == klt_batch.BACKEND_BATCH and not report_only else None
+    )
 
     manifest = cliutil.load_manifest(band.MANIFEST)
     options = manifest["options"]
@@ -554,7 +565,14 @@ def main(argv: list[str] | None = None) -> int:
             results = dict(
                 zip(
                     [name for name, _ in jobs],
-                    pool.map(lambda job: runner.run_deck(*job, CONTROL_DIR), jobs),
+                    pool.map(
+                        lambda job: runner.run_deck(
+                            *job, CONTROL_DIR,
+                            backend=klt_batch.BACKEND_BATCH if batch else klt_batch.BACKEND_LOCAL,
+                            batch=batch,
+                        ),
+                        jobs,
+                    ),
                 )
             )
 

@@ -113,3 +113,7 @@ sim/pdk.local.json
 
 # Repo Skills machine-local install metadata (absolute source path + timestamp)
 .claude/skills/repo/.install-local.json
+
+# `klt sim --backend batch` scratch (staged bodies, requests, klt artifacts): disposable;
+# the evidence copies live in logs/ and corners/.
+sim/*/control/batch/

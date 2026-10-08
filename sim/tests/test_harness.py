@@ -1033,6 +1033,9 @@ class CliTotalFailureRefusalTests(unittest.TestCase):
                 "--temps", "27",
                 "--supply-tol", "0",
                 "--subset-reason", "cli guard test -- not evidence",
+                # pinned: a host exporting KLT_SIM_BACKEND=batch must not
+                # turn these local-path guard tests into batch runs (#331)
+                "--backend", "local",
                 *extra_args,
             ]
         )

@@ -385,6 +385,54 @@ under `corners/<record-id>/<label>_<corner>_<temp>c_<vdd>v_s<NNNN>.log`, so a
 2000-sample distribution is reproducible from the repository rather than
 transcribed into a summary table.
 
+## Batch backend (`--backend batch`)
+
+Local `ngspice -b` stays the default. `klt_batch.py` adds an explicit, fail-closed
+path that submits decks through `klt sim --backend batch` (the Spot batch fleet)
+instead, for hosts that must not run SPICE grids themselves.
+
+```bash
+python3 sim/run_corners.py <testbench> --backend batch
+python3 sim/por-brownout-slew/control/run_net_attribution.py --backend batch
+python3 sim/por-output-chain-deglitch/control/run_dwell_sweep.py --backend batch
+```
+
+* Selection: `--backend local|batch|auto`. `auto` (the default) reads
+  `$KLT_SIM_BACKEND` (`local` or `batch`; anything else is an error) and
+  otherwise means local. Library calls (`runner.run_grid`, `run_deck`,
+  `run_deck_raw`) are local unless called with `backend="batch"` and a
+  `klt_batch.BatchConfig`, so importing the harness never changes a caller.
+* Once batch is selected there is no local fallback: a missing `klt`, refused
+  submission, invalid report, timeout, missing/duplicate/unrequested corner,
+  non-`pass` corner, missing log or missing measurement is an `error` result
+  (or an exception for `run_deck*`), never `ok`. A report without
+  `environment.remote.job_id` is rejected as "not executed on the fleet".
+* Raw logs: each returned ngspice log is copied byte-for-byte to the path the
+  local run would have written (`corners/<record>/<corner>.log`,
+  `control/logs/<deck>.log`) and parsed by the existing parsers.
+* `klt sim` owns the `.control` block, `.lib`/`.temp` and the analysis, so a
+  composed deck is taken apart by `klt_batch.translate_deck()`: the design
+  include is inlined, `.lib` sections become a process bundle, `.temp` the
+  temperature axis, the analysis and `.meas`/`let`/`print` become the request's
+  analysis and measurements (a `let` vector used by a `meas` command is inlined
+  as `par('...')`). Anything else in a `.control` block (`write`, `wrdata`,
+  `alter`, ...), an include that does not resolve on the host, or a foreign
+  `.lib` is rejected before submission.
+* The control scripts treat an absent measurement as "never happened" (for
+  example `t_trip`), so for `run_deck*` a corner whose only error diagnostics
+  are `measurement`/`no_such_vector` stays `ok` with the value absent;
+  `run_grid` is strict and requires every measurement.
+* Scratch (staged body, `request.json`, klt artifacts) goes under
+  `control/batch/` (git-ignored) or `<workdir>/batch/`; `run_grid` also copies
+  `klt-*.request.json` / `klt-*.report.json` next to the record's logs.
+* Each control deck is its own request (their measurement cards differ), so a
+  60- or 324-deck control is that many fleet submissions, bounded by `--jobs`
+  / the script's worker count; a fleet concurrency-cap refusal is retried with
+  bounded jittered backoff.
+
+Reuse `klt_batch.translate_deck()` / `run_units()` for other `run_deck*`
+callers rather than re-implementing request staging.
+
 ## smoke-bias
 
 `sim/smoke-bias/` is the harness acceptance test, not a circuit deliverable and
