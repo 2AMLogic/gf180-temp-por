@@ -199,6 +199,15 @@ plus an LVS report whose reference carried the supply nets.
   committed GDS and `provenance.spec.content_hash` matching the committed
   spec.
 
+**Freshness is gated repo-side.** Because the pinned grader does not render
+item 11, `signoff/check.py` (`check_erc_supply_freshness`) re-hashes the GDS and
+the supply spec the report names and requires them to equal
+`provenance.input.content_hash` / `provenance.spec.content_hash`. A missing or
+unreadable report, input or recorded hash is a failure, not a skip. It needs no
+PDK and runs no `klt erc`; on failure, re-run the ERC and commit the
+regenerated report rather than editing hashes. Unit tests:
+`python3 -m unittest discover -s signoff/tests -t signoff/tests`.
+
 It took two passes to get there, and the first one is the more useful
 record. #300's first pass (PR #303) reported one `erc.supply_short` naming
 `VDD`/`VSS`, root-caused to `klt erc`'s connectivity model registering no
