@@ -4,6 +4,8 @@ Merged PRs and closed issues from the initial 30-day snapshot (2026-09-07 onward
 
 ### 2026-10-08
 
+- **PR #355**: ci: test the documented Python 3.9 floor
+- **PR #352**: Add make test as single source of truth for unit-test suites
 - **PR #332**: sim/harness: fail-closed klt sim batch backend (#331)
 - **PR #337**: fix(sim/harness): close fail-open klt batch paths found on the live fleet (#331)
 - **PR #340**: characterize: return failure when an experiment is killed by a signal
@@ -11,6 +13,8 @@ Merged PRs and closed issues from the initial 30-day snapshot (2026-09-07 onward
 - **PR #343**: sim harness: reserve evidence record IDs before runs
 - **PR #344**: fix: reject contradictory or malformed klt batch corner results
 
+- **Issue #354** (closed): CI: test the documented Python 3.9 floor (or raise the documented floor)
+- **Issue #345** (closed): Test entry points disagree: make check and npm test skip the signoff suite; add one make test source of truth
 - **Issue #339** (closed): sim harness: reserve evidence record IDs before runs to prevent log collisions
 - **Issue #335** (closed): batch results: reject contradictory success labels and malformed measurement values
 - **Issue #334** (closed): signoff: verify supply ERC evidence hashes against the current GDS and spec
