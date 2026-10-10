@@ -25,10 +25,10 @@ of them (see signoff/README.md, "What the grader cannot check"):
    re-hashes the file the envelope's `source` names and requires it to match.
 2. **Committed DRC/LVS reports still describe the committed GDS.** Delegated
    to `layout/lvs_reference.py --check-gds-hash`, which already does exactly
-   this. It matters most for item 4: `klt lvs` (through 0.5.0, the latest
-   release) populates no `provenance.input` block, so item 4's citation
-   cannot carry a `content_hash` pin at all and `klt signoff` has no
-   freshness gate for it. This check is that gate.
+   this. It matters most for item 4: `klt lvs` populates `provenance.input`
+   only from 0.6.0, and the 0.6.0 grader reports `input_verified: null` for
+   item 4, so `klt signoff` does not itself re-hash the GDS for it. This
+   check is that gate.
 3. **The grader itself runs clean.** Exit 0 (`tier: "T1"`) or 3 (`tier:
    null`, at least one item unmet) are both fine -- an all-`unmet` report is
    a correct result. Exit 1/2 mean the manifest or the tiers doc is
@@ -40,8 +40,8 @@ of them (see signoff/README.md, "What the grader cannot check"):
    an item all do.
 
 5. **Cited supply-ERC evidence still describes its inputs.** The pinned
-   grader does not render item 11, so nothing else re-hashes the GDS and
-   supply spec an `erc_supply.json` cited by the manifest was run against.
+   grader checks the GDS but not the supply spec's hash, so nothing else
+   re-hashes the supply spec an `erc_supply.json` cited by the manifest was run against.
    `check_erc_supply_freshness` does, with no klt ERC invocation.
 
 Pure stdlib; no PDK, no xschem, no ngspice. Only `klt` on PATH.
@@ -405,7 +405,7 @@ def main(argv: list[str] | None = None) -> int:
     if shutil.which("klt") is None:
         fail(
             "klt is not on PATH. Install the pinned grader:\n"
-            "       uv tool install --force klayout-tools==0.5.0\n"
+            "       uv tool install --force klayout-tools==0.6.0\n"
             "     (see signoff/toolchain.json for why this pin is separate "
             "from layout/toolchain.json's)"
         )

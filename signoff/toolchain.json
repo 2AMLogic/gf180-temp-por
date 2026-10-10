@@ -11,7 +11,7 @@
     "                                    this pin means re-running DRC/LVS and",
     "                                    re-committing evidence (deck hash",
     "                                    changes across klt releases).",
-    "  signoff/toolchain.json klt 0.5.0  reads those envelopes and renders the",
+    "  signoff/toolchain.json klt 0.6.0  reads those envelopes and renders the",
     "                                    tier report. Moving this pin re-grades",
     "                                    existing evidence and produces no new",
     "                                    evidence at all.",
@@ -25,32 +25,16 @@
     "what turns that into a loud, actionable failure."
   ],
   "klt": {
-    "version": "klt 0.5.0",
-    "install": "uv tool install --force klayout-tools==0.5.0",
+    "version": "klt 0.6.0",
+    "install": "uv tool install --force klayout-tools==0.6.0",
     "release": {
-      "package_version": "0.5.0",
-      "git_tag": "v0.5.0"
+      "package_version": "0.6.0",
+      "git_tag": "v0.6.0"
     }
   },
   "tiers_doc": {
     "source": "klayout_tools/data/design-evidence-tiers.md (bundled in the wheel)",
     "reports_as": "docs/design-evidence-tiers.md",
-    "t1_item_count": 10,
-    "known_gap": [
-      "klayout-tools#2025/#2057 added T1 item 11, 'Power delivery (structural)',",
-      "to docs/design-evidence-tiers.md on 2026-09-19. That commit is on",
-      "klayout-tools main but is NOT in any published release -- 0.5.0 is the",
-      "latest on PyPI and its bundled tiers doc stops at item 10. So the",
-      "committed tier report renders 10 items, not 11.",
-      "",
-      "No manifest change is needed to pick item 11 up. The item list is parsed",
-      "from the tiers doc, and an item with no evidence entry renders",
-      "unmet/no_evidence automatically. Verified against klayout-tools main's",
-      "doc via --tiers-doc: t1_item_count goes 10 -> 11 and item 11 renders",
-      "unmet/no_evidence, with signoff/block-manifest.json untouched.",
-      "",
-      "This repo's item-11 evidence gap (no klt erc supply spec or report) is",
-      "tracked as issue #300."
-    ]
+    "t1_item_count": 11
   }
 }
