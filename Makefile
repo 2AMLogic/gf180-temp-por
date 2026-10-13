@@ -8,11 +8,12 @@
 # (Chipalooza)" section for prerequisites, expected wall-clock, and how
 # these targets map onto the evidence sim/ produces.
 #
-# All three targets are thin wrappers over the existing sim/ harness
+# All four targets are thin wrappers over the existing sim/ harness
 # (sim/README.md, sim/harness/README.md are the authoritative conventions;
 # nothing here reinvents them) and exit non-zero on any failure -- standard
 # `make` behavior: a recipe line's non-zero exit aborts the target.
 #
+#   make test          all unit-test suites: sim, layout, signoff (headless, seconds)
 #   make check         unit tests + environment/PDK check (headless, seconds)
 #   make smoke         fast end-to-end proof the toolchain works (seconds)
 #   make characterize  full PVT/Monte-Carlo campaign, writes sim/ evidence
@@ -20,11 +21,12 @@
 # Run from the repository root.
 
 .DEFAULT_GOAL := help
-.PHONY: help check smoke characterize
+.PHONY: help test check smoke characterize
 
 help:
 	@echo "gf180-temp-por -- make targets:"
 	@echo ""
+	@echo "  make test          all unit-test suites: sim, layout, signoff (headless, seconds)"
 	@echo "  make check         unit tests + environment/PDK check (headless, seconds)"
 	@echo "  make smoke         fast end-to-end proof the toolchain works (seconds)"
 	@echo "  make characterize  full PVT/Monte-Carlo campaign -> sim/*/records/ (dozens of minutes, host-dependent)"
@@ -32,7 +34,20 @@ help:
 	@echo "See README.md's 'Independent verification (Chipalooza)' section for"
 	@echo "prerequisites and what each target actually runs."
 
-# Unit tests + a staleness check + an explicit environment/PDK report.
+# Single source of truth for the unit-test suites (also used by `make check`
+# and `npm test`). CI runs the same suites as separate steps; keep them in
+# sync with this list. Add any new */tests directory here.
+test:
+	@echo "== sim/tests (harness unit tests, no PDK required) =="
+	python3 -m unittest discover -s sim/tests -t sim/tests
+	@echo
+	@echo "== layout/tests (layout-tooling unit tests, no PDK/klt required) =="
+	python3 -m unittest discover -s layout/tests -t layout/tests
+	@echo
+	@echo "== signoff/tests (ERC freshness gate unit tests, no PDK/klt required) =="
+	python3 -m unittest discover -s signoff/tests -t signoff/tests
+
+# Unit tests (via `make test`) + a staleness check + an explicit environment/PDK report.
 # Nothing here needs ngspice or the PDK except the last step, which reports
 # (and fails loudly on) their absence rather than letting `make smoke` or
 # `make characterize` fail later with a less specific error.
@@ -40,11 +55,7 @@ check:
 	@echo "== sim/build_tb.py --check (testbench fragments match design/netlist/ exports) =="
 	python3 sim/build_tb.py --check
 	@echo
-	@echo "== sim/tests (harness unit tests, no PDK required) =="
-	python3 -m unittest discover -s sim/tests -t sim/tests
-	@echo
-	@echo "== layout/tests (layout-tooling unit tests, no PDK/klt required) =="
-	python3 -m unittest discover -s layout/tests -t layout/tests
+	@$(MAKE) --no-print-directory test
 	@echo
 	@echo "== environment / PDK check =="
 	python3 sim/run_corners.py --check-env
