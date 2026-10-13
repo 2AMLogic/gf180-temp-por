@@ -26,7 +26,8 @@ of them (see signoff/README.md, "What the grader cannot check"):
 2. **Committed DRC/LVS reports still describe the committed GDS.** Delegated
    to `layout/lvs_reference.py --check-gds-hash`, which already does exactly
    this. It matters most for item 4: `klt lvs` populates `provenance.input`
-   only from 0.6.0, and the 0.6.0 grader reports `input_verified: null` for
+   only from 0.6.0 (the release that produced the committed `lvs.json`), and
+   the grader reports `input_verified: null` for
    item 4, so `klt signoff` does not itself re-hash the GDS for it. This
    check is that gate.
 3. **The grader itself runs clean.** Exit 0 (`tier: "T1"`) or 3 (`tier:
@@ -405,7 +406,7 @@ def main(argv: list[str] | None = None) -> int:
     if shutil.which("klt") is None:
         fail(
             "klt is not on PATH. Install the pinned grader:\n"
-            "       uv tool install --force klayout-tools==0.6.0\n"
+            "       uv tool install --force klayout-tools==0.7.0\n"
             "     (see signoff/toolchain.json for why this pin is separate "
             "from layout/toolchain.json's)"
         )

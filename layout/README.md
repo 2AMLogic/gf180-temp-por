@@ -439,6 +439,9 @@ layout/
     <cell>.reference.spice       generated -- do not edit
     <cell>.lvs.json              the klt lvs request document
     temp_por_top.erc-supply-spec.json  T1 item 11's klt erc supply spec (#300)
+    temp_por_top.erc-supply-spec-NOTES.md  the spec's field-justification block
+                                  (moved out of the spec itself: klt 0.7.0
+                                  rejects unknown spec keys, #2243)
   postlayout/
     <cell>.spice                 the simulatable post-layout netlist
     audit.json / AUDIT.md        what is the layout's and what is not
@@ -1914,21 +1917,27 @@ island, using a `klt erc` **supply spec** run
 This repo had neither the spec nor the report until #300; both now exist —
 
 - [`layout/cells/temp_por_top.erc-supply-spec.json`](cells/temp_por_top.erc-supply-spec.json)
-  — the spec, with an inline `_comment` block justifying every `stackup`
-  entry, every `label_layer` and the `devices[]` carve-out (cross-checked
-  against this block's own merged GDS with `klt layers --flattened
-  --include-text`, and against the installed PDK's own
+  — the spec. It carried an inline top-level `_comment` block justifying
+  every `stackup` entry, every `label_layer` and the `devices[]` carve-out
+  (cross-checked against this block's own merged GDS with `klt layers
+  --flattened --include-text`, and against the installed PDK's own
   `libs.tech/klayout/tech/gf180mcu.lyp`, not assumed from another block's
-  spec).
+  spec); `klt 0.7.0` rejects any key outside the erc spec schema
+  ([klayout-tools#2243](https://github.com/2AMLogic/klayout-tools/issues/2243))
+  and has no comment convention, so that block moved verbatim to the sidecar
+  [`layout/cells/temp_por_top.erc-supply-spec-NOTES.md`](cells/temp_por_top.erc-supply-spec-NOTES.md)
+  when the report was regenerated on the released tool (see the second
+  toolchain note below).
 - [`layout/reports/temp_por_top/erc_supply.json`](reports/temp_por_top/erc_supply.json)
   — the committed run, `provenance.input.content_hash ==
   sha256:a119a12b1fa2daff64772a4a804a0ea14f17c68dc9357fe167dfd287df0628fd`,
   matching the committed `layout/cells/temp_por_top.gds` (`shasum -a 256`),
   and `provenance.spec.content_hash ==
-  sha256:88b908db25b01130c2ea30ca698ca8c742220316209c5f8fcf8067ed80699d7a`,
-  matching the committed spec (re-run for #310, which added `ties[]` — see
-  "`erc.missing_tie`: now computed" below for what changed and why the hash
-  moved).
+  sha256:773047b13bc8e858ee6a284d0f6e00843a727bd0bb177267ca8bca24d616b170`,
+  matching the committed spec (first recorded for #300, moved by #310's
+  `ties[]` additions, and moved again by the `_comment` removal above — see
+  "`erc.missing_tie`: now computed" below for what #310 changed and why the
+  hash moved then).
 
 **The run is clean: `erc_finding_count: 0`.** Both declared supplies —
 `VDD` and `VSS`, each `"kind": "supply"` — resolve to exactly one
@@ -2017,6 +2026,28 @@ names no deck at all), and `layout/lvs_reference.py`'s `GDS_HASH_FIELDS` does
 not list `erc_supply.json`, so neither gate is affected by this report
 answering to a different build than the one that produced the DRC/LVS
 evidence beside it.
+
+### Update (PR #351): the report now answers to the released `klt 0.7.0`
+
+The `af8d6c54312e` build above was the last `klt` that could grade this
+spec's `ties[]` declarations when they were written. `klt 0.7.0` has since
+been released carrying both selector families (#2339 and #2540), and the
+operator ruling on
+[PR #351](https://github.com/2AMLogic/gf180-temp-por/pull/351) declined to
+keep item 11 graded on an unreleased build: the report was regenerated with
+the released `klt 0.7.0` (`provenance.klt_version: "0.7.0"`, no build
+suffix). The verdict is unchanged — zero findings, all four ties `checked`,
+same GDS pin — and the two notes above stand as the record of why the runs
+before this one answered to `main` builds. The regeneration did move the
+spec's content hash once more: `klt 0.7.0` enforces strict spec-key
+validation ([klayout-tools#2243](https://github.com/2AMLogic/klayout-tools/issues/2243))
+and the spec schema has no comment convention, so the inline `_comment`
+justification block moved verbatim to the sidecar
+[`temp_por_top.erc-supply-spec-NOTES.md`](cells/temp_por_top.erc-supply-spec-NOTES.md)
+(`provenance.spec.content_hash` is now `sha256:773047b1…`). `signoff/README.md`'s
+item 11 section carries the claim-side half of this account, including the
+spec-declaration coverage disclosure (`layers_in_stream_without_declaration`)
+that the `klt 0.7.0` tiers doc asks a `met` claim to quote.
 
 **A methodology note worth recording alongside the toolchain one.** Every
 `tap_boxes` entry in the committed spec is a narrow, independently-verified

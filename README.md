@@ -185,7 +185,7 @@ T1, "sim-validated", has an eleven-item checklist. **This repo's answer to
 "how far along is it?" is graded mechanically, not written by hand:**
 
 ```bash
-uv tool install --force klayout-tools==0.6.0   # the pinned grader
+uv tool install --force klayout-tools==0.7.0   # the pinned grader
 python3 signoff/check.py                        # re-grade; fails on evidence rot
 ```
 

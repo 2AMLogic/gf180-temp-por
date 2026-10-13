@@ -30,7 +30,7 @@ is the thing that is wrong.
 
 ## The current verdict: `tier: null`, 4 of 11 items met
 
-Rendered by `klt 0.6.0` against its bundled `docs/design-evidence-tiers.md`.
+Rendered by `klt 0.7.0` against its bundled `docs/design-evidence-tiers.md`.
 Block `kind` is **`analog`**: a single analog partition with no synthesized
 or placed-and-routed digital sub-block. The POR output chain is logic, but it
 is hand-captured as schematics and hand-drawn as layout — no RTL, no
@@ -49,7 +49,7 @@ artifact, and there is no partition boundary to declare.
 | 8 | Characterization report | **`met`** | `evidence/characterization-report.json`, a generic envelope wrapping `spec/target-spec.md`, pinned to `sha256:d78561ee…`. **Disclosed exceptions below.** |
 | 9 | Testbenches shipped | `unmet` / `no_evidence` | **Uncited on purpose.** Every `sim/` experiment carries a committed `testbench/`; `sim/README.md` documents cold-start invocation; the PDK is pinned in `ci.yml`. Same reason as item 1. |
 | 10 | Repo hygiene | `unmet` / `no_evidence` | **Uncited on purpose.** README, Apache-2.0 LICENSE, and CI are all present. Same reason as item 1. |
-| 11 | Power delivery (structural) | **`met`** | `layout/reports/temp_por_top/erc_supply.json` (a `klt erc` supply-spec run) plus `layout/reports/temp_por_top/lvs.json`, whose `net_correspondence` carries both supplies ([#300](https://github.com/2AMLogic/gf180-temp-por/issues/300), `ties[]` added by [#310](https://github.com/2AMLogic/gf180-temp-por/issues/310)). The report has `erc_finding_count: 0` — zero `erc.supply_short`, zero `erc.unconnected_net`, and zero `erc.missing_tie`, with all four declared `ties[]` entries graded `checked` (none `skipped`/degenerate) — pinned to `sha256:a119a12b…` (the committed GDS) and `sha256:88b908db…` (the committed spec). The grader reports all four ties as caller-asserted (`ties_checked_by_assertion`), three of them resting on an asserted well (`ties_checked_by_well_assertion`) — this is provenance, not a weaker bar; see `layout/README.md`'s "Item 11" section. **One caveat, disclosed below**: the report was produced with an unreleased `klt` build, past the `v0.6.0` release that now grades it. |
+| 11 | Power delivery (structural) | **`met`** | `layout/reports/temp_por_top/erc_supply.json` (a `klt erc` supply-spec run) plus `layout/reports/temp_por_top/lvs.json`, whose `net_correspondence` carries both supplies ([#300](https://github.com/2AMLogic/gf180-temp-por/issues/300), `ties[]` added by [#310](https://github.com/2AMLogic/gf180-temp-por/issues/310)). The report has `erc_finding_count: 0` — zero `erc.supply_short`, zero `erc.unconnected_net`, and zero `erc.missing_tie`, with all four declared `ties[]` entries graded `checked` (none `skipped`/degenerate) — pinned to `sha256:a119a12b…` (the committed GDS) and `sha256:773047b1…` (the committed spec). The grader reports all four ties as caller-asserted (`ties_checked_by_assertion`), three of them resting on an asserted well (`ties_checked_by_well_assertion`) — this is provenance, not a weaker bar; see `layout/README.md`'s "Item 11" section. **Produced with the released `klt 0.7.0`** (PR #351's operator ruling declined to grade item 11 on an earlier unreleased-build run; the report was regenerated on the released tool and the caveat retired — see below), with the spec's own declared coverage disclosed below. |
 
 **4 of 11 is a lower number than #145's 10/10, and both are honest reads of
 different questions.** #145 asked "does this repo contain the artifact the
@@ -63,7 +63,7 @@ block can actually verify without taking our word for it.
 
 A `met` verdict is not a statement that the check had no blind spots. The
 checklist requires the blind spots to be enumerated in the claim, and `klt
-0.6.0`'s report quotes the DRC envelope's `coverage` block into item 3's
+0.7.0`'s report quotes the DRC envelope's `coverage` block into item 3's
 citation (klayout-tools#2002), but quoting is not grading — `klt signoff`
 grades item 3 on `status: "clean"` alone. So they are stated here, and must
 agree with that quoted block.
@@ -106,7 +106,7 @@ It does not mean the geometry on those unchecked layers, or under those skipped 
   ([klayout-tools#1969](https://github.com/2AMLogic/klayout-tools/issues/1969)).
   The committed `lvs.json` was produced by `klt 0.6.0`, whose
   `provenance.input.content_hash` is `a119a12b…` — byte-identical to the
-  committed `layout/cells/temp_por_top.gds` — and the `0.6.0` grader now
+  committed `layout/cells/temp_por_top.gds` — and the grader now
   quotes it in item 4's citation. The grader still reports
   `input_verified: null` for it, so it does not itself re-hash the GDS;
   `check.py` keeps the repo-side gate
@@ -156,11 +156,11 @@ Consequence worth naming: because item 1 is the first unmet row, the fleet
 roll-up ([2AMLogic/2am#956](https://github.com/2AMLogic/2am/issues/956))
 reports this block's `blocking_item` as item 1 — the least informative of the
 four. The items that actually block T1 here are 5, 6 and 7. (Item 11 was a
-fourth until #300's second pass; it is graded `met`
-since the grader moved to `klt 0.6.0` — see below.) Filed upstream as
+fourth until #300's second pass; it is graded `met` — see below.) Filed
+upstream as
 [klayout-tools#2178](https://github.com/2AMLogic/klayout-tools/issues/2178).
 
-## Item 11 — graded `met` since the grader moved to klt 0.6.0
+## Item 11 — graded `met` on released-tool evidence (`klt 0.7.0`)
 
 [klayout-tools#2025/#2057](https://github.com/2AMLogic/klayout-tools/issues/2025)
 added T1 item 11, "Power delivery (structural)", on 2026-09-19. It first
@@ -172,6 +172,15 @@ produced none: `block-manifest.json` is unchanged, and items 3, 4 and 8 stay
 `met` (item 3's citation now also quotes the DRC `coverage` block, which
 changes no verdict).
 
+The pin has since moved again, to `klt 0.7.0`. The operator ruling on
+[PR #351](https://github.com/2AMLogic/gf180-temp-por/pull/351) declined to
+accept item 11 as `met` on evidence produced by an unreleased build — the
+one report under `layout/reports/` that answered to a `main` build rather
+than a release — so the report was regenerated with the released `klt 0.7.0`
+(which carries every `klt erc` capability the spec's `ties[]` declarations
+need; see below) and the verdict re-graded: unchanged. `block-manifest.json`
+is still unchanged, and items 3, 4 and 8 still grade `met`.
+
 For an analog block, item 11 wants a `klt erc` supply-spec run (every declared
 supply resolving to exactly one electrical island, zero `erc.missing_tie`)
 plus an LVS report whose reference carried the supply nets.
@@ -181,14 +190,15 @@ plus an LVS report whose reference carried the supply nets.
 - `layout/reports/temp_por_top/lvs.json` is a SPICE-reference compare
   (`status: match`) with `VDD`/`VSS` both present in `net_correspondence`,
   which is what item 11's analog column asks for by construction.
-- `layout/reports/temp_por_top/erc_supply.json` reports
+- `layout/reports/temp_por_top/erc_supply.json` (regenerated with the
+  released `klt 0.7.0`) reports
   `erc_finding_count: 0` — zero `erc.supply_short` and zero
   `erc.unconnected_net`, so each declared supply resolves to exactly one
   electrical island — with `provenance.input.content_hash` matching the
   committed GDS and `provenance.spec.content_hash` matching the committed
   spec.
 
-**Freshness is gated repo-side.** The `0.6.0` grader reports
+**Freshness is gated repo-side.** The grader reports
 `input_verified: true` for the GDS, but does not check the supply spec's hash
 against the report, so `signoff/check.py` (`check_erc_supply_freshness`) re-hashes the GDS and
 the supply spec the report names and requires them to equal
@@ -218,23 +228,48 @@ section has the full account, including why `RES_MK` and not the `Resistor`
 `62/0` ID layer, and the measured over-coverage cross-check showing the
 carve-out removes no gate region.
 
-**One caveat keeps this from being a no-questions `met`** (a second, about
-`erc.missing_tie` not being computed at all, was resolved by #310 — see
-below), and it is recorded in the spec and in `layout/README.md` rather than
+**The unreleased-build caveat is retired; the spec-declaration gap it hid
+behind is now disclosed in its place.** The #310 caveat — that the report
+was produced by a `main` build (`klt 0.6.0+gaf8d6c54312e`) because the
+released `v0.6.0` lacked `well_requires`/`well_excludes`
+([klayout-tools#2339](https://github.com/2AMLogic/klayout-tools/issues/2339))
+and `well_requires_boxes`/`well_excludes_boxes`
+([klayout-tools#2540](https://github.com/2AMLogic/klayout-tools/issues/2540))
+— no longer applies: `klt 0.7.0` ships both, and the committed report names
+`provenance.klt_version: "0.7.0"` with no build suffix. Per PR #351's
+operator ruling, item 11 counts as `met` only on this released-tool
+evidence, and it passes on it: same zero findings, same four `checked` ties,
+same `input`/`spec` hash pins as the run it replaces (the grader's rendered
+verdict is byte-for-byte the same verdict modulo the checklist text and
+`build` block).
+
+Two things did change with the regeneration, both recorded here rather than
 papered over:
 
-- **The report was produced with an unreleased `klt`.** #310's `ties[]`
-  declaration needs `well_requires`/`well_excludes`
-  ([klayout-tools#2339](https://github.com/2AMLogic/klayout-tools/issues/2339))
-  and `well_requires_boxes`/`well_excludes_boxes`
-  ([klayout-tools#2540](https://github.com/2AMLogic/klayout-tools/issues/2540)),
-  both of which postdate even the `v0.6.0` *tag* `layout/toolchain.json` now
-  pins — confirmed by reading `klt erc`'s source directly at that tag. So the
-  run used a `main` build at commit `af8d6c54312e`
-  (`klt 0.6.0+gaf8d6c54312e`). No other report under `layout/reports/` was
-  regenerated against it, and this one names no deck (`provenance.deck:
-  null`), so the deck-hash pins that protect the DRC/LVS evidence are
-  untouched.
+- **The spec file lost its inline `_comment` block.** `klt 0.7.0` enforces
+  strict spec-key validation
+  ([klayout-tools#2243](https://github.com/2AMLogic/klayout-tools/issues/2243)):
+  any key outside the erc spec schema is a hard error, and the schema has no
+  comment convention, so the 291-line justification block that used to travel
+  inside the spec as a top-level `_comment` key moved verbatim to
+  [`layout/cells/temp_por_top.erc-supply-spec-NOTES.md`](../layout/cells/temp_por_top.erc-supply-spec-NOTES.md).
+  The spec's content hash moved with it — `provenance.spec.content_hash` is
+  now `sha256:773047b1…` (was `sha256:88b908db…`) — and `check.py`'s
+  freshness gate re-derives the pair on every run.
+- **The spec declares seven layers the stream draws and it declares
+  nowhere** — `erc_coverage.layers_in_stream_without_declaration` is
+  non-empty, and the tiers doc `klt 0.7.0` bundles
+  ([klayout-tools#2389](https://github.com/2AMLogic/klayout-tools/issues/2389))
+  makes quoting it part of the claim: `31/0`, `32/0`, `49/0`, `62/0`, `75/0`,
+  `117/5`, `117/10`. Named from the curated `gf180mcu` deck's own layer
+  table (which cites the PDK's LVS deck): Pplus (31/0), Nplus (32/0), SAB
+  salicide block (49/0), the `Resistor` high-sheet-rho poly mark (62/0),
+  FuseTop (75/0), CAP_MK (117/5) and MIM_L_MK (117/10) — every one an
+  implant, marker or ID layer. None is a conductor level the supply could
+  route on: this block's entire drawn interconnect stack (Poly2, Comp,
+  Metal1–Metal5, Contact, Via1–Via4) plus both label layers is declared in
+  the spec's `stackup`/`label_layer`, so a rail that moved or grew on any
+  routable level would still be inside the model the clean read ran on.
 
 **`erc.missing_tie` is now computed, resolved by #310.** The spec declared no
 `ties[]` until then, because on every `klt` build this repo could reach at
@@ -262,7 +297,7 @@ independently — but it is why they had to be.
 ```bash
 # Install the pinned grader (separate from layout/toolchain.json's pin --
 # see toolchain.json for why)
-uv tool install --force klayout-tools==0.6.0
+uv tool install --force klayout-tools==0.7.0
 
 # The gate CI runs: re-grade the tree, fail on any drift from the committed verdict
 python3 signoff/check.py
