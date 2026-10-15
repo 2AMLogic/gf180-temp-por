@@ -4,9 +4,11 @@ Merged PRs and closed issues from the initial 30-day snapshot (2026-09-07 onward
 
 ### 2026-10-15
 
+- **PR #361**: feat(signoff): cite audited hash-bound evidence for T1 items 1, 2, 9, 10
 - **PR #359**: Bump Repo Skills 0.19.5 -> 0.24.1
 - **PR #351**: signoff: move the T1 grader pin to klt 0.6.0 so the verdict of record includes item 11
 
+- **Issue #348** (closed): T1 items 1, 2, 9, 10: cite artifact-anchored evidence now that klt signoff can bind it
 - **Issue #342** (closed): signoff: move the T1 grader pin to klt 0.6.0 so the verdict of record includes item 11
 
 ### 2026-10-08
