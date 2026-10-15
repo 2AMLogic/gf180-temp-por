@@ -160,7 +160,8 @@ def add_backend_argument(parser) -> None:
         "through `klt sim --backend batch` and never falls back to local; "
         f"'auto' (default) uses ${ENV_BACKEND} if set to local/batch, else local",
     )
-    parser.add_argument(
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument(
         "--klt",
         default=KLT,
         metavar="EXE",
@@ -168,7 +169,7 @@ def add_backend_argument(parser) -> None:
         "The fleet refuses a request whose runner klt differs from the client's, "
         "so point this at a client matching the runner when they differ",
     )
-    parser.add_argument(
+    group.add_argument(
         "--klt-pin",
         action=_PinAction,
         default=None,
@@ -204,11 +205,10 @@ def pinned_klt(version: str, directory: Path | None = None) -> str:
 
 class _PinAction(argparse.Action):
     """``--klt-pin VER``: set ``klt`` to a pinned-version wrapper (see
-    :func:`pinned_klt`). Mutually exclusive with ``--klt``."""
+    :func:`pinned_klt`). Exclusion with ``--klt`` is enforced by the argparse
+    group in :func:`add_backend_argument`, so it holds in either order."""
 
     def __call__(self, parser, namespace, values, option_string=None):
-        if namespace.klt != KLT:
-            parser.error("--klt-pin and --klt are mutually exclusive")
         try:
             namespace.klt = pinned_klt(values)
         except BatchError as exc:

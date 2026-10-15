@@ -672,6 +672,8 @@ class FailureMatrixTests(BatchTestCase):
         klt_batch.add_backend_argument(parser)
         with mock.patch("sys.stderr"), self.assertRaises(SystemExit):
             parser.parse_args(["--klt", "/x/klt", "--klt-pin", "0.5.0"])
+        with mock.patch("sys.stderr"), self.assertRaises(SystemExit):
+            parser.parse_args(["--klt-pin", "0.5.0", "--klt", "/x/klt"])
 
     def test_pinned_client_matching_the_runner_is_accepted_and_mismatch_still_refused(self):
         pin = self.bin / "klt-pinned"
