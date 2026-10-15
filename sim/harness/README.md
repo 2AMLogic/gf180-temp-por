@@ -412,7 +412,13 @@ python3 sim/por-output-chain-deglitch/control/run_dwell_sweep.py --backend batch
   is refused without being submitted, so a grid does not burn one fleet job
   per deck on a runner that cannot run it. `--klt EXE` selects the `klt`
   client used for submission (default `klt` on `PATH`); point it at a client
-  that matches the fleet runner when they differ.
+  that matches the fleet runner when they differ. `--klt-pin VERSION` does it
+  without any install: it submits with `uvx --from klayout-tools==VERSION klt`
+  (a throwaway environment; the host's `klt` is untouched) and is exclusive
+  with `--klt`. `sim/selftest.sh` forwards both, e.g.
+  `bash sim/selftest.sh --klt-pin 0.5.0` on a `KLT_SIM_BACKEND=batch` host
+  whose runner is on 0.5.0. A pin that still disagrees with the runner is
+  refused exactly as before; the full PVT smoke grid is unchanged.
 * An aborted analysis is never an absent measurement: a corner whose raw log
   carries ngspice's `simulation(s) aborted` trailer, or for which no requested
   measurement produced a value at all, is an `error` even where an absent

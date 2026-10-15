@@ -6,6 +6,9 @@
 #   sim/selftest.sh --record     also mint an evidence record under sim/smoke-bias/
 #   sim/selftest.sh --quick      unit tests + a single tt/27C/nominal point
 #   sim/selftest.sh --require-pdk  fail (instead of skipping) if the PDK is absent
+#   sim/selftest.sh --klt-pin 0.5.0  batch backend: submit with klayout-tools==0.5.0
+#                                    from a throwaway uvx env (match the fleet runner)
+#   sim/selftest.sh --klt EXE        batch backend: submit with this klt executable
 #
 # Exit codes: 0 pass (or skipped sim stage), 1 something failed.
 
@@ -17,12 +20,17 @@ REPO_ROOT="$(cd "${SIM_DIR}/.." && pwd)"
 RECORD=0
 QUICK=0
 REQUIRE_PDK=0
-for arg in "$@"; do
+KLT_ARGS=()
+while [ $# -gt 0 ]; do
+  arg="$1"; shift
   case "${arg}" in
+    --klt|--klt-pin)
+      if [ $# -eq 0 ]; then echo "${arg} needs a value" >&2; exit 1; fi
+      KLT_ARGS+=("${arg}" "$1"); shift ;;
     --record) RECORD=1 ;;
     --quick) QUICK=1 ;;
     --require-pdk) REQUIRE_PDK=1 ;;
-    -h|--help) sed -n '2,12p' "${BASH_SOURCE[0]}"; exit 0 ;;
+    -h|--help) sed -n '2,13p' "${BASH_SOURCE[0]}"; exit 0 ;;
     *) echo "unknown option: ${arg}" >&2; exit 1 ;;
   esac
 done
@@ -49,7 +57,7 @@ fi
 
 echo
 echo "== 3/3 end-to-end PVT smoke run =="
-args=(smoke-bias)
+args=(smoke-bias ${KLT_ARGS[@]+"${KLT_ARGS[@]}"})
 [ "${QUICK}" -eq 1 ] && args+=(--corners tt --temps 27 --supply-tol 0)
 [ "${RECORD}" -eq 1 ] || args+=(--no-write)
 # --quick is deliberately a PVT subset; sim/README.md demands a written reason

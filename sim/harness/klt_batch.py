@@ -59,6 +59,8 @@ control command (``write``, ``wrdata``, ``alter`` ...) is rejected.
 
 from __future__ import annotations
 
+import argparse
+import atexit
 import hashlib
 import json
 import math
@@ -67,6 +69,7 @@ import random
 import re
 import shutil
 import subprocess
+import tempfile
 import time
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
@@ -165,6 +168,52 @@ def add_backend_argument(parser) -> None:
         "The fleet refuses a request whose runner klt differs from the client's, "
         "so point this at a client matching the runner when they differ",
     )
+    parser.add_argument(
+        "--klt-pin",
+        action=_PinAction,
+        default=None,
+        metavar="VERSION",
+        help="submit with klayout-tools==VERSION from a throwaway `uvx` environment "
+        "(for when the fleet runner's klt differs from the host's); the host's klt "
+        "is not touched. Mutually exclusive with --klt",
+    )
+
+
+_PIN_RE = re.compile(r"^[0-9]+(\.[0-9]+)*([.+-]?[0-9A-Za-z.]+)?$")
+
+
+def pinned_klt(version: str, directory: Path | None = None) -> str:
+    """Path of a wrapper that runs ``klt`` at exactly ``version``.
+
+    The wrapper is ``uvx --from klayout-tools==<version> klt``: a throwaway
+    environment resolved by uv's cache, so the host's installed ``klt`` is
+    neither read nor modified. The path is usable anywhere a ``--klt`` value is.
+    """
+    if not _PIN_RE.match(version):
+        raise BatchError(f"--klt-pin {version!r} is not a plain klayout-tools version (e.g. 0.5.0)")
+    base = Path(directory) if directory else Path(tempfile.mkdtemp(prefix="klt-pin-"))
+    if directory is None:
+        atexit.register(shutil.rmtree, base, ignore_errors=True)
+    wrapper = base / "klt"
+    wrapper.write_text(
+        f'#!/bin/sh\nexec uvx --from "klayout-tools=={version}" klt "$@"\n'
+    )
+    wrapper.chmod(0o755)
+    return str(wrapper)
+
+
+class _PinAction(argparse.Action):
+    """``--klt-pin VER``: set ``klt`` to a pinned-version wrapper (see
+    :func:`pinned_klt`). Mutually exclusive with ``--klt``."""
+
+    def __call__(self, parser, namespace, values, option_string=None):
+        if namespace.klt != KLT:
+            parser.error("--klt-pin and --klt are mutually exclusive")
+        try:
+            namespace.klt = pinned_klt(values)
+        except BatchError as exc:
+            parser.error(str(exc))
+        namespace.klt_pin = values
 
 
 def klt_version(klt: str = KLT) -> str:
