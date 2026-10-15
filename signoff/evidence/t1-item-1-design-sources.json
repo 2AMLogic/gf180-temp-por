@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "kind": "generic",
+  "t1_item": 1,
+  "status": "pass",
+  "summary": "Audited inventory for T1 item 1 (Design sources): 5 xschem schematics and 5 derived netlists, regeneration gate 'python3 design/netlist.py --check'. Every member file is listed with its sha256 and signoff/check.py re-derives the inventory from the live tree, so the bound hash proves the inventory is current and the member hashes prove the files it describes are. It does not run a simulation or re-derive any measured value.",
+  "source": "signoff/evidence/inventory-design-sources.json",
+  "provenance": {
+    "klt_version": null,
+    "klayout_version": null,
+    "pdk": null,
+    "deck": null,
+    "input": {
+      "path": {
+        "path": "signoff/evidence/inventory-design-sources.json",
+        "scope": "repo"
+      },
+      "content_hash": "sha256:ab0fdeb3edc95c6c884a23f7af8aae6e5c5504ef55f4bb7a692e58ce78aa9436"
+    }
+  }
+}

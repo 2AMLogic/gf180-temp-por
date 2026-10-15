@@ -5,7 +5,7 @@
   "tier": null,
   "t1_item_count": 11,
   "build_t1_item_count": 11,
-  "t1_met_count": 4,
+  "t1_met_count": 8,
   "source_doc": "docs/design-evidence-tiers.md",
   "source_doc_content_hash": "sha256:4c67ffc59128482d00f7d87cf446b6a96b9ab0c41ae5234098244e3052033335",
   "build": {
@@ -25,10 +25,29 @@
       "partition": null,
       "text": "committed schematic sources (or generator) plus the netlist derived from them, regenerated on design change.",
       "notes": [],
-      "status": "unmet",
-      "reason": "no_evidence",
+      "status": "met",
+      "reason": null,
       "graded_by_build": true,
-      "citation": null
+      "citation": {
+        "file": "signoff/evidence/t1-item-1-design-sources.json",
+        "command": null,
+        "kind": "generic",
+        "check_status": "pass",
+        "content_hash": "sha256:ab0fdeb3edc95c6c884a23f7af8aae6e5c5504ef55f4bb7a692e58ce78aa9436",
+        "input_verified": true,
+        "exit_status": 0,
+        "artifact_binding": {
+          "t1_item": 1,
+          "path": {
+            "path": "signoff/evidence/inventory-design-sources.json",
+            "scope": "repo"
+          },
+          "content_hash": "sha256:ab0fdeb3edc95c6c884a23f7af8aae6e5c5504ef55f4bb7a692e58ce78aa9436",
+          "input_verified": true,
+          "summary": "Audited inventory for T1 item 1 (Design sources): 5 xschem schematics and 5 derived netlists, regeneration gate 'python3 design/netlist.py --check'. Every member file is listed with its sha256 and signoff/check.py re-derives the inventory from the live tree, so the bound hash proves the inventory is current and the member hashes prove the files it describes are. It does not run a simulation or re-derive any measured value.",
+          "source": "signoff/evidence/inventory-design-sources.json"
+        }
+      }
     },
     {
       "tier": "T1",
@@ -37,10 +56,29 @@
       "partition": null,
       "text": "committed GDS/OASIS, reproducibly generated or with documented provenance.",
       "notes": [],
-      "status": "unmet",
-      "reason": "no_evidence",
+      "status": "met",
+      "reason": null,
       "graded_by_build": true,
-      "citation": null
+      "citation": {
+        "file": "signoff/evidence/t1-item-2-layout.json",
+        "command": null,
+        "kind": "generic",
+        "check_status": "pass",
+        "content_hash": "sha256:a119a12b1fa2daff64772a4a804a0ea14f17c68dc9357fe167dfd287df0628fd",
+        "input_verified": true,
+        "exit_status": 0,
+        "artifact_binding": {
+          "t1_item": 2,
+          "path": {
+            "path": "layout/cells/temp_por_top.gds",
+            "scope": "repo"
+          },
+          "content_hash": "sha256:a119a12b1fa2daff64772a4a804a0ea14f17c68dc9357fe167dfd287df0628fd",
+          "input_verified": true,
+          "summary": "Layout for gf180-temp-por: the assembled top cell layout/cells/temp_por_top.gds (bound by hash; the same hash T1 items 3, 4 and 11 pin) plus the other cell layouts layout/cells/bias_core.gds, layout/cells/por_comparator.gds, layout/cells/por_comparator_bias_okb_inv.gds, layout/cells/por_output_chain.gds, layout/cells/temp_core.gds. Reproducibility gate: python3 layout/build_cells.py --check. This asserts the layout artifact exists and is the one the DRC, LVS and supply-ERC reports describe; it does not assert that the layout meets the area budget.",
+          "source": "layout/cells/temp_por_top.gds"
+        }
+      }
     },
     {
       "tier": "T1",
@@ -181,10 +219,29 @@
       "partition": null,
       "text": "every claimed measurement's testbench committed, with a documented cold-start invocation a third party can run; pinned PDK revision.",
       "notes": [],
-      "status": "unmet",
-      "reason": "no_evidence",
+      "status": "met",
+      "reason": null,
       "graded_by_build": true,
-      "citation": null
+      "citation": {
+        "file": "signoff/evidence/t1-item-9-testbenches.json",
+        "command": null,
+        "kind": "generic",
+        "check_status": "pass",
+        "content_hash": "sha256:060175f4d8f11c8cf02b54ca0bf5a21ed7ed7a2dec8678143764d2b09b5e6035",
+        "input_verified": true,
+        "exit_status": 0,
+        "artifact_binding": {
+          "t1_item": 9,
+          "path": {
+            "path": "signoff/evidence/inventory-testbenches.json",
+            "scope": "repo"
+          },
+          "content_hash": "sha256:060175f4d8f11c8cf02b54ca0bf5a21ed7ed7a2dec8678143764d2b09b5e6035",
+          "input_verified": true,
+          "summary": "Audited inventory for T1 item 9 (Testbenches shipped): the committed testbench files of 22 sim/ experiments mapped to all 29 spec rows, the cold-start invocation and the pinned PDK revision. Every member file is listed with its sha256 and signoff/check.py re-derives the inventory from the live tree, so the bound hash proves the inventory is current and the member hashes prove the files it describes are. It does not run a simulation or re-derive any measured value.",
+          "source": "signoff/evidence/inventory-testbenches.json"
+        }
+      }
     },
     {
       "tier": "T1",
@@ -193,10 +250,29 @@
       "partition": null,
       "text": "a README stating what the block is, its spec table, and how to reproduce every result; a license; CI that at minimum keeps the harness and evidence formats valid.",
       "notes": [],
-      "status": "unmet",
-      "reason": "no_evidence",
+      "status": "met",
+      "reason": null,
       "graded_by_build": true,
-      "citation": null
+      "citation": {
+        "file": "signoff/evidence/t1-item-10-repo-hygiene.json",
+        "command": null,
+        "kind": "generic",
+        "check_status": "pass",
+        "content_hash": "sha256:ee7720488f5e3edd3b9da060779f73cb999a49f81799b50e21ee9e0e117b2e63",
+        "input_verified": true,
+        "exit_status": 0,
+        "artifact_binding": {
+          "t1_item": 10,
+          "path": {
+            "path": "signoff/evidence/inventory-repo-hygiene.json",
+            "scope": "repo"
+          },
+          "content_hash": "sha256:ee7720488f5e3edd3b9da060779f73cb999a49f81799b50e21ee9e0e117b2e63",
+          "input_verified": true,
+          "summary": "Audited inventory for T1 item 10 (Repo hygiene): .github/workflows/ci.yml, LICENSE, README.md, spec/target-spec.md with the stated assertions. Every member file is listed with its sha256 and signoff/check.py re-derives the inventory from the live tree, so the bound hash proves the inventory is current and the member hashes prove the files it describes are. It does not run a simulation or re-derive any measured value.",
+          "source": "signoff/evidence/inventory-repo-hygiene.json"
+        }
+      }
     },
     {
       "tier": "T1",

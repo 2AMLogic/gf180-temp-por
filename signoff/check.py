@@ -2,7 +2,7 @@
 """Re-grade this block against the klayout-tools T1 checklist, and fail on rot.
 
     python3 signoff/check.py            # the gate CI runs
-    python3 signoff/check.py --regen    # rewrite signoff/tier-report.json
+    python3 signoff/check.py --regen    # rebuild inventories + rewrite tier-report.json
 
 `signoff/block-manifest.json` is this block's machine-readable T1 claim and
 `signoff/tier-report.json` is the verdict `klt signoff --manifest` rendered
@@ -14,7 +14,7 @@ no longer exists.
 
 This script is what stops that. It re-runs the grader and refuses to pass on
 any drift between what is committed and what the current tree actually
-grades to. Five distinct checks, because `klt signoff` alone cannot cover all
+grades to. Six distinct checks, because `klt signoff` alone cannot cover all
 of them (see signoff/README.md, "What the grader cannot check"):
 
 1. **Hand-rolled evidence is self-consistent.** A generic evidence envelope
@@ -45,18 +45,28 @@ of them (see signoff/README.md, "What the grader cannot check"):
    re-hashes the supply spec an `erc_supply.json` cited by the manifest was run against.
    `check_erc_supply_freshness` does, with no klt ERC invocation.
 
+6. **Items 1, 2, 9 and 10 cite audited, hash-bound artifacts.** The grader
+   proves the bound artifact's *bytes* are fresh; it cannot tell whether the
+   inventory is complete or whether a file it describes has since changed.
+   `signoff/inventories.py` rebuilds each inventory from the live tree and
+   `check_anchored_evidence` fails on any changed, missing or newly added
+   member, and on a manifest/envelope/artifact disagreement.
+
 Pure stdlib; no PDK, no xschem, no ngspice. Only `klt` on PATH.
 """
 
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import shutil
 import subprocess
 import sys
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+import inventories  # noqa: E402
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 SIGNOFF_DIR = REPO_ROOT / "signoff"
@@ -75,12 +85,7 @@ def fail(msg: str) -> None:
     print(f"FAIL {msg}", file=sys.stderr)
 
 
-def sha256_file(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as handle:
-        for chunk in iter(lambda: handle.read(1 << 20), b""):
-            digest.update(chunk)
-    return "sha256:" + digest.hexdigest()
+sha256_file = inventories.sha256_file
 
 
 def check_generic_envelopes() -> bool:
@@ -236,6 +241,61 @@ def check_erc_supply_freshness(
                 continue
             print(f"ok   {rel}: {field} matches {name}")
     return ok
+
+
+def check_anchored_evidence(
+    root: Path = REPO_ROOT, manifest_path: Path | None = None
+) -> bool:
+    """Items 1, 2, 9 and 10 cite hash-bound generic envelopes that are still true."""
+    manifest_path = manifest_path or root / "signoff" / "block-manifest.json"
+    try:
+        manifest = json.loads(manifest_path.read_text())
+    except (OSError, ValueError) as exc:
+        fail(f"{manifest_path}: unreadable manifest ({exc})")
+        return False
+    ok = True
+    for item in inventories.ITEM_ENVELOPES:
+        problems = inventories.verify_item(root, item, manifest)
+        for problem in problems:
+            fail(problem)
+        if problems:
+            ok = False
+            print(
+                f"     T1 item {item}: if the change is intended, review it and run "
+                "python3 signoff/check.py --regen",
+                file=sys.stderr,
+            )
+        else:
+            print(
+                f"ok   T1 item {item}: {inventories.ITEM_ARTIFACTS[item]} is bound and "
+                "describes the current tree"
+            )
+    return ok
+
+
+def regen_anchored_evidence(
+    root: Path = REPO_ROOT, manifest_path: Path | None = None
+) -> bool:
+    """Rebuild the inventories/envelopes and re-pin their manifest citations.
+
+    Refuses (writes nothing) when the audit fails: no `pass` envelope is ever
+    written over a claim the tree does not support.
+    """
+    manifest_path = manifest_path or root / "signoff" / "block-manifest.json"
+    try:
+        pins = inventories.write_all(root)
+    except inventories.AuditError as exc:
+        fail(f"audit failed, nothing written: {exc}")
+        return False
+    manifest = json.loads(manifest_path.read_text())
+    for item, content_hash in pins.items():
+        manifest["evidence"][str(item)] = {
+            "file": inventories.ITEM_ENVELOPES[item],
+            "content_hash": content_hash,
+        }
+    manifest_path.write_text(json.dumps(manifest, indent=2) + "\n")
+    print("wrote inventories, envelopes and manifest pins for T1 items 1, 2, 9, 10")
+    return True
 
 
 def check_toolchain_pin() -> None:
@@ -397,7 +457,7 @@ def main(argv: list[str] | None = None) -> int:
         "--regen",
         action="store_true",
         help=(
-            "rewrite signoff/tier-report.json from the current tree instead of "
+            "rebuild the item 1/2/9/10 inventories and rewrite signoff/tier-report.json from the current tree instead of "
             "comparing against it"
         ),
     )
@@ -414,7 +474,11 @@ def main(argv: list[str] | None = None) -> int:
 
     check_toolchain_pin()
 
+    if args.regen and not regen_anchored_evidence():
+        return 1
+
     ok = check_generic_envelopes()
+    ok = check_anchored_evidence() and ok
     ok = check_committed_report_hashes() and ok
     ok = check_erc_supply_freshness() and ok
 

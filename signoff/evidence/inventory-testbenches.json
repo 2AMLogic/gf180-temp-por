@@ -1,0 +1,1083 @@
+{
+  "inventory": "testbenches",
+  "t1_item": 9,
+  "pdk": {
+    "variant": "gf180mcuD",
+    "variant_file": {
+      "path": "sim/pdk.json",
+      "sha256": "sha256:ac953614c421e8c3d3490a0a9cea0109113ee795f7c9bef7482de9a29a72e6cf"
+    },
+    "volare_pdk": "gf180mcu",
+    "volare_commit": "c6d73a35f524070e85faff4a6a9eef49553ebc2b",
+    "pinned_in": ".github/workflows/ci.yml"
+  },
+  "pvt_grid": "spec/target-spec.md#corner-grid",
+  "cold_start": [
+    {
+      "command": "python3 sim/run_corners.py --check-env",
+      "documented_in": "sim/harness/README.md"
+    },
+    {
+      "command": "python3 sim/run_corners.py <experiment>",
+      "documented_in": "sim/harness/README.md"
+    },
+    {
+      "command": "python3 sim/run_mc.py",
+      "documented_in": "sim/harness/README.md"
+    },
+    {
+      "command": "bash sim/selftest.sh --require-pdk",
+      "documented_in": ".github/workflows/ci.yml"
+    }
+  ],
+  "cold_start_docs": [
+    {
+      "path": "sim/harness/README.md",
+      "sha256": "sha256:5a7149f37e926466eefb8aa6bd4e0212fb8c8953c59a1f4cec2ac7312d9b1920"
+    }
+  ],
+  "rows": {
+    "accuracy-window": {
+      "kind": "condition"
+    },
+    "area": {
+      "kind": "layout-stat",
+      "evidence_file": "layout/reports/temp_por_top/stats.json"
+    },
+    "corner-grid": {
+      "kind": "condition"
+    },
+    "iq-total": {
+      "kind": "derived",
+      "experiments": [
+        "temp-accuracy-vt"
+      ],
+      "derivation": "sim/por-iq/analyze_por_iq.py"
+    },
+    "operating-temperature": {
+      "kind": "condition"
+    },
+    "pinout": {
+      "kind": "design-gate",
+      "gate": "python3 design/netlist.py --check"
+    },
+    "por-brownout": {
+      "kind": "measured",
+      "experiments": [
+        "por-brownout",
+        "por-brownout-slew",
+        "por-brownout-spurious",
+        "por-glitch",
+        "por-output-chain-deglitch"
+      ]
+    },
+    "por-digital-min-vdd": {
+      "kind": "tbd",
+      "basis": "integrator-supplied; no value claimed"
+    },
+    "por-drive": {
+      "kind": "decision",
+      "basis": "DR-004"
+    },
+    "por-hysteresis": {
+      "kind": "measured",
+      "experiments": [
+        "por-vth",
+        "por-threshold-mc"
+      ]
+    },
+    "por-iq": {
+      "kind": "derived",
+      "experiments": [
+        "temp-accuracy-vt",
+        "temp-por-top-release"
+      ],
+      "derivation": "sim/por-iq/analyze_por_iq.py"
+    },
+    "por-polarity": {
+      "kind": "decision",
+      "basis": "DR-004"
+    },
+    "por-ramp-rate": {
+      "kind": "measured",
+      "experiments": [
+        "por-ramp-rate"
+      ]
+    },
+    "por-reset-pulse": {
+      "kind": "measured",
+      "experiments": [
+        "por-brownout",
+        "por-output-chain-pulse"
+      ]
+    },
+    "por-reset-valid-floor": {
+      "kind": "measured",
+      "experiments": [
+        "por-brownout",
+        "por-output-chain-floor"
+      ]
+    },
+    "por-vth-fall": {
+      "kind": "measured",
+      "experiments": [
+        "por-vth",
+        "por-threshold-mc"
+      ]
+    },
+    "por-vth-rise": {
+      "kind": "measured",
+      "experiments": [
+        "por-vth",
+        "por-threshold-mc"
+      ]
+    },
+    "self-heating": {
+      "kind": "analytic",
+      "basis": "alias of temp-self-heating"
+    },
+    "supply-voltage": {
+      "kind": "condition"
+    },
+    "temp-accuracy-trimmed": {
+      "kind": "derived",
+      "experiments": [
+        "temp-accuracy-vt",
+        "temp-accuracy-mc"
+      ],
+      "derivation": "sim/temp-accuracy-vt/analyze_derived.py"
+    },
+    "temp-accuracy-untrimmed": {
+      "kind": "measured",
+      "experiments": [
+        "temp-accuracy-vt",
+        "temp-accuracy-mc"
+      ]
+    },
+    "temp-interface": {
+      "kind": "decision",
+      "basis": "DR-002"
+    },
+    "temp-iq": {
+      "kind": "measured",
+      "experiments": [
+        "temp-accuracy-vt"
+      ]
+    },
+    "temp-range": {
+      "kind": "condition"
+    },
+    "temp-resolution-rate": {
+      "kind": "decision",
+      "basis": "continuous analog output"
+    },
+    "temp-self-heating": {
+      "kind": "analytic",
+      "basis": "iq-total x 3.63 V power budget"
+    },
+    "temp-supply-sensitivity": {
+      "kind": "measured",
+      "experiments": [
+        "temp-accuracy-vt"
+      ]
+    },
+    "temp-trim-strategy": {
+      "kind": "measured",
+      "experiments": [
+        "temp-core-designer-check"
+      ]
+    },
+    "temp-vt-transfer": {
+      "kind": "measured",
+      "experiments": [
+        "temp-accuracy-vt",
+        "temp-core-designer-check"
+      ]
+    }
+  },
+  "experiments": {
+    "bias-core-designer-check": {
+      "testbench_dirs": [
+        "testbench",
+        "testbench-postlayout"
+      ],
+      "pvt": {
+        "corners": [
+          "full"
+        ],
+        "temperatures_c": [
+          -40,
+          27,
+          125
+        ],
+        "nominal_supply_v": 3.3,
+        "supply_tolerance": 0.1
+      },
+      "files": [
+        {
+          "path": "sim/bias-core-designer-check/testbench-postlayout/tb.json",
+          "sha256": "sha256:3d57ecbba7f63aa0b057666bee6eaf0d86634ea5d16590767a963eeb196d43fe"
+        },
+        {
+          "path": "sim/bias-core-designer-check/testbench-postlayout/tb_bias_core.spice",
+          "sha256": "sha256:03990dbd05815391dba271f09844812cf74b6564acc92af4b00a9bbc53a60129"
+        },
+        {
+          "path": "sim/bias-core-designer-check/testbench/stimulus.spice",
+          "sha256": "sha256:b19126a654e1561a171761aed42bd67c9f6c3a3f0ebc9b01a0451b89d5ec36a6"
+        },
+        {
+          "path": "sim/bias-core-designer-check/testbench/tb.json",
+          "sha256": "sha256:7364bd142b620cf9ea70009a458d53e46a82beeab591fa63322a3b1ab10fecaf"
+        },
+        {
+          "path": "sim/bias-core-designer-check/testbench/tb_bias_core.spice",
+          "sha256": "sha256:906de9cae62e8d5cb3970373bbd51141c447659526b74d85e0f94ad939613f28"
+        }
+      ]
+    },
+    "bias-core-ibias-sharing": {
+      "testbench_dirs": [
+        "testbench",
+        "testbench-postlayout"
+      ],
+      "pvt": {
+        "corners": [
+          "full"
+        ],
+        "temperatures_c": [
+          -40,
+          27,
+          125
+        ],
+        "nominal_supply_v": 3.3,
+        "supply_tolerance": 0.1
+      },
+      "files": [
+        {
+          "path": "sim/bias-core-ibias-sharing/testbench-postlayout/tb.json",
+          "sha256": "sha256:06bd10e9397f9a5429f280a4975ab0d95aafe0f5bf2781dca0fddadfea31783d"
+        },
+        {
+          "path": "sim/bias-core-ibias-sharing/testbench-postlayout/tb_ibias_sharing.spice",
+          "sha256": "sha256:6702a17540e822c71379f79980d6b5e92a543929d1899430f53e99c37b8ace62"
+        },
+        {
+          "path": "sim/bias-core-ibias-sharing/testbench/stimulus.spice",
+          "sha256": "sha256:1a32377c57c715239d4c1722e08690efadbc178db0d18c95d35e918874758010"
+        },
+        {
+          "path": "sim/bias-core-ibias-sharing/testbench/tb.json",
+          "sha256": "sha256:985dbbf6e66c46729e27973934b1fa36ffc0902e0ab1acab956f02c9306ae96c"
+        },
+        {
+          "path": "sim/bias-core-ibias-sharing/testbench/tb_ibias_sharing.spice",
+          "sha256": "sha256:072b8fc4238626fc38f0209d4acca511857ba8329aa8eae915cbe603822c6ecd"
+        }
+      ]
+    },
+    "bias-core-startup": {
+      "testbench_dirs": [
+        "testbench",
+        "testbench-postlayout"
+      ],
+      "pvt": {
+        "corners": [
+          "full"
+        ],
+        "temperatures_c": [
+          -40,
+          27,
+          125
+        ],
+        "nominal_supply_v": 3.3,
+        "supply_tolerance": 0.1
+      },
+      "files": [
+        {
+          "path": "sim/bias-core-startup/testbench-postlayout/tb.json",
+          "sha256": "sha256:60db99af7e5940281f9df9bca6492e912ea831e0ea2d874fa688f164efb3d625"
+        },
+        {
+          "path": "sim/bias-core-startup/testbench-postlayout/tb_bias_core_startup.spice",
+          "sha256": "sha256:1f9e5003a498fce11b608cd259c768e3f14c2cd4b608d62dc2474de3238453bd"
+        },
+        {
+          "path": "sim/bias-core-startup/testbench/stimulus.spice",
+          "sha256": "sha256:b1ae41ed5a2698daebcabbee07c2abd87b08a460d6ef86e7c7e70d4c100d0a77"
+        },
+        {
+          "path": "sim/bias-core-startup/testbench/tb.json",
+          "sha256": "sha256:b38267e91ee5ca6480ef5d4b50ba3445dd580cd9796c56523d2e6405a3b7a003"
+        },
+        {
+          "path": "sim/bias-core-startup/testbench/tb_bias_core_startup.spice",
+          "sha256": "sha256:4059eb055b7e0a1619ea858219ad4c4786884ef40e0206e53f7cf63962c47fe6"
+        }
+      ]
+    },
+    "por-brownout": {
+      "testbench_dirs": [
+        "testbench",
+        "testbench-postlayout"
+      ],
+      "pvt": {
+        "corners": [
+          "full"
+        ],
+        "temperatures_c": [
+          -40,
+          27,
+          125
+        ],
+        "nominal_supply_v": 3.3,
+        "supply_tolerance": 0.1
+      },
+      "files": [
+        {
+          "path": "sim/por-brownout/testbench-postlayout/tb.json",
+          "sha256": "sha256:cf5a301512cafb6b86dae3b8d573e8bc55c9f290c95ed6c6ddfed650d3e2e43c"
+        },
+        {
+          "path": "sim/por-brownout/testbench-postlayout/tb_por_brownout_postlayout.spice",
+          "sha256": "sha256:12676ca7b69245938ab3795fb0862fa9f105ede3da4ca1ccd6bafc4e741c6555"
+        },
+        {
+          "path": "sim/por-brownout/testbench/stimulus.spice",
+          "sha256": "sha256:25652469aafef5c3508eef836486705d60751d9f77f696d5035f3bfbac87a0d9"
+        },
+        {
+          "path": "sim/por-brownout/testbench/tb.json",
+          "sha256": "sha256:8d8280009c3ff5494897444c266c26fdaeb82e10dfa9813982ea706a6d408c2b"
+        },
+        {
+          "path": "sim/por-brownout/testbench/tb_por_brownout.spice",
+          "sha256": "sha256:daba87df3a6b6e4fa80e597084dd2f6c97fb377de02ac529dfbf63d2d00b803c"
+        }
+      ]
+    },
+    "por-brownout-slew": {
+      "testbench_dirs": [
+        "testbench",
+        "testbench-postlayout"
+      ],
+      "pvt": {
+        "corners": [
+          "full"
+        ],
+        "temperatures_c": [
+          -40,
+          27,
+          125
+        ],
+        "nominal_supply_v": 3.3,
+        "supply_tolerance": 0.1
+      },
+      "files": [
+        {
+          "path": "sim/por-brownout-slew/testbench-postlayout/tb.json",
+          "sha256": "sha256:ad3aa6fbe248de36a52859bb624ea1876b0e3ea2e91ae6bac099c12e3681f36f"
+        },
+        {
+          "path": "sim/por-brownout-slew/testbench-postlayout/tb_por_brownout_slew_postlayout.spice",
+          "sha256": "sha256:12b72c4762f20e7dc23466bf6ba9ffd64e969bbbe5eab5fa0b2b2ce7dab47249"
+        },
+        {
+          "path": "sim/por-brownout-slew/testbench/README.md",
+          "sha256": "sha256:772da5c23422c7aa4aa1792fad5082c927e367d61f25a2de19c93805da2d79d0"
+        },
+        {
+          "path": "sim/por-brownout-slew/testbench/gen_rung.py",
+          "sha256": "sha256:e6757eeea3243d6c8b4c517fdaa8974f317a62d490ab58d9f691b539a2f88ef1"
+        },
+        {
+          "path": "sim/por-brownout-slew/testbench/stimulus.spice",
+          "sha256": "sha256:fa41c4f66964fd4683ff6d2327f1f34f5220d9720ab6ac8226143fa8fdd36327"
+        },
+        {
+          "path": "sim/por-brownout-slew/testbench/tb.json",
+          "sha256": "sha256:cdf3aeadef2aa0842d9c7db1b4efb19ced243be5c795f79e8f56c3a191dc7c38"
+        },
+        {
+          "path": "sim/por-brownout-slew/testbench/tb_por_brownout_slew.spice",
+          "sha256": "sha256:a35770d98394fa0b789052575861fb4e00eca78d269256e56ec770ec1e6d3050"
+        }
+      ]
+    },
+    "por-brownout-spurious": {
+      "testbench_dirs": [
+        "testbench",
+        "testbench-postlayout"
+      ],
+      "pvt": {
+        "corners": [
+          "full"
+        ],
+        "temperatures_c": [
+          -40,
+          27,
+          125
+        ],
+        "nominal_supply_v": 3.3,
+        "supply_tolerance": 0.1
+      },
+      "files": [
+        {
+          "path": "sim/por-brownout-spurious/testbench-postlayout/tb.json",
+          "sha256": "sha256:05d817df173af53b82b6fd87f9cb1818e68f45e5466a2fbb17bb6955687e6277"
+        },
+        {
+          "path": "sim/por-brownout-spurious/testbench-postlayout/tb_por_brownout_spurious_postlayout.spice",
+          "sha256": "sha256:9e4cb6ebb2bad9c6ce19d3f6ff21814f9f001af5ad46f3659ed00d860af3fe88"
+        },
+        {
+          "path": "sim/por-brownout-spurious/testbench/stimulus.spice",
+          "sha256": "sha256:bec238ba4a73663605e0a69bea39809fedded1bce9e9ff11a290077dbce6dd19"
+        },
+        {
+          "path": "sim/por-brownout-spurious/testbench/tb.json",
+          "sha256": "sha256:072ef2a3c5533f295699561479a4eccb343af69b68a2f4532ce1e00230831024"
+        },
+        {
+          "path": "sim/por-brownout-spurious/testbench/tb_por_brownout_spurious.spice",
+          "sha256": "sha256:6402642b26b00addecd9ff36abd4da1e1c99b1d40cec6b98f7d7b7ab3724b713"
+        }
+      ]
+    },
+    "por-comparator-designer-check": {
+      "testbench_dirs": [
+        "testbench",
+        "testbench-postlayout"
+      ],
+      "pvt": {
+        "corners": [
+          "full"
+        ],
+        "temperatures_c": [
+          -40,
+          27,
+          125
+        ],
+        "nominal_supply_v": 3.3,
+        "supply_tolerance": 0.1
+      },
+      "files": [
+        {
+          "path": "sim/por-comparator-designer-check/testbench-postlayout/tb.json",
+          "sha256": "sha256:7c638c76e17161c85c244251dcbfcd4a59fc3969c9daffa7bb55f5a87add77f2"
+        },
+        {
+          "path": "sim/por-comparator-designer-check/testbench-postlayout/tb_por_comparator_postlayout.spice",
+          "sha256": "sha256:9a858c24d64e6528438122d014af42c180497a8769ad856b4d49b150b0237708"
+        },
+        {
+          "path": "sim/por-comparator-designer-check/testbench/stimulus.spice",
+          "sha256": "sha256:77c40cc735bb906475d3ee9b6c1f5ea2201197e46d0d1b3229ea5dfecb8cfc74"
+        },
+        {
+          "path": "sim/por-comparator-designer-check/testbench/tb.json",
+          "sha256": "sha256:630a45c93a7dd753ca0be57585de4029556ea4c963bdb4854ac9bc08e9ace12f"
+        },
+        {
+          "path": "sim/por-comparator-designer-check/testbench/tb_por_comparator.spice",
+          "sha256": "sha256:fed622553b93a1514b5ae042beb811ed80f6bdbc620cccae08c9233854e7d9a0"
+        }
+      ]
+    },
+    "por-glitch": {
+      "testbench_dirs": [
+        "testbench",
+        "testbench-postlayout"
+      ],
+      "pvt": {
+        "corners": [
+          "full"
+        ],
+        "temperatures_c": [
+          -40,
+          27,
+          125
+        ],
+        "nominal_supply_v": 3.3,
+        "supply_tolerance": 0.1
+      },
+      "files": [
+        {
+          "path": "sim/por-glitch/testbench-postlayout/tb.json",
+          "sha256": "sha256:8c449c88a9a176933ced76177b37e4363f7f02cd3b5ca9633c98f9b3bc1700b9"
+        },
+        {
+          "path": "sim/por-glitch/testbench-postlayout/tb_por_glitch_postlayout.spice",
+          "sha256": "sha256:159696d6d6c66e5e92e8b1c7884759066aa7db99fd1add29c3cfe9ea024992eb"
+        },
+        {
+          "path": "sim/por-glitch/testbench/stimulus.spice",
+          "sha256": "sha256:380dcbffc46fc9f0613a23c2c7c7728cf9cc7e2df9c7656326130f4b125f49d9"
+        },
+        {
+          "path": "sim/por-glitch/testbench/tb.json",
+          "sha256": "sha256:005ba7f3fabbfb189ea96eb57bb7f55b90eb633854f7741839ba895947630246"
+        },
+        {
+          "path": "sim/por-glitch/testbench/tb_por_glitch.spice",
+          "sha256": "sha256:cecf13a5b50f2bebf1cffb4fa1d28f03074aee6afec343a27b33a34b4af471e2"
+        }
+      ]
+    },
+    "por-output-chain-deglitch": {
+      "testbench_dirs": [
+        "testbench",
+        "testbench-postlayout"
+      ],
+      "pvt": {
+        "corners": [
+          "full"
+        ],
+        "temperatures_c": [
+          -40,
+          27,
+          125
+        ],
+        "nominal_supply_v": 3.3,
+        "supply_tolerance": 0.1
+      },
+      "files": [
+        {
+          "path": "sim/por-output-chain-deglitch/testbench-postlayout/tb.json",
+          "sha256": "sha256:5340990895c1512b3ddf71909a2d9aac40addffda6d598833a404bca178a87b9"
+        },
+        {
+          "path": "sim/por-output-chain-deglitch/testbench-postlayout/tb_por_deglitch_postlayout.spice",
+          "sha256": "sha256:39c1f898f3b134be9ba63d2b3dda01be3988e5cb5f95d783eeaa9b74a6223626"
+        },
+        {
+          "path": "sim/por-output-chain-deglitch/testbench/stimulus.spice",
+          "sha256": "sha256:581fba043901dc1ed2d73600114f28018ec25cf93ca46b7c03fabc610c06b763"
+        },
+        {
+          "path": "sim/por-output-chain-deglitch/testbench/tb.json",
+          "sha256": "sha256:7722594bb5eee79ea07728d417b125481f338e5d5d52cffb1ee431d6ad3240a2"
+        },
+        {
+          "path": "sim/por-output-chain-deglitch/testbench/tb_por_deglitch.spice",
+          "sha256": "sha256:1586b408f87fd7578f8dd9449bf20a5b2443eee42d2461559071447333841795"
+        }
+      ]
+    },
+    "por-output-chain-floor": {
+      "testbench_dirs": [
+        "testbench",
+        "testbench-postlayout"
+      ],
+      "pvt": {
+        "corners": [
+          "full"
+        ],
+        "temperatures_c": [
+          -40,
+          27,
+          125
+        ],
+        "nominal_supply_v": 3.3,
+        "supply_tolerance": 0.1
+      },
+      "files": [
+        {
+          "path": "sim/por-output-chain-floor/testbench-postlayout/tb.json",
+          "sha256": "sha256:7d4f7b8352993870634e48605a15372762895f8b92a955705f81352967588c50"
+        },
+        {
+          "path": "sim/por-output-chain-floor/testbench-postlayout/tb_por_floor_postlayout.spice",
+          "sha256": "sha256:f3d04a90fbefdf3ff9a3047cdc201e89368d95aa10411592f41375734c97e25f"
+        },
+        {
+          "path": "sim/por-output-chain-floor/testbench/stimulus.spice",
+          "sha256": "sha256:5cdf5033d47c84029171b3a056e718489f3b5d8f9b0d0a23aec10bc2ef92c78c"
+        },
+        {
+          "path": "sim/por-output-chain-floor/testbench/tb.json",
+          "sha256": "sha256:c212a63fdde2cc132abbae32b98f20b87f56585f2df0bf63e9bf8fef17c2a4d6"
+        },
+        {
+          "path": "sim/por-output-chain-floor/testbench/tb_por_floor.spice",
+          "sha256": "sha256:7c85cf2922a23e938659b01f8343692733fa101b6298df7c3b5420ef19647394"
+        }
+      ]
+    },
+    "por-output-chain-ibias-sharing": {
+      "testbench_dirs": [
+        "testbench",
+        "testbench-postlayout"
+      ],
+      "pvt": {
+        "corners": [
+          "full"
+        ],
+        "temperatures_c": [
+          -40,
+          27,
+          125
+        ],
+        "nominal_supply_v": 3.3,
+        "supply_tolerance": 0.1
+      },
+      "files": [
+        {
+          "path": "sim/por-output-chain-ibias-sharing/testbench-postlayout/tb.json",
+          "sha256": "sha256:e3233eee88217c433b7060497760584a9d3e087accbe0259599289f04ff71cde"
+        },
+        {
+          "path": "sim/por-output-chain-ibias-sharing/testbench-postlayout/tb_por_ibias_sharing.spice",
+          "sha256": "sha256:387f12b630ef74f44499f1c1da6a9bcd0421aa1e08b767848c0d415adda01dfb"
+        },
+        {
+          "path": "sim/por-output-chain-ibias-sharing/testbench/stimulus.spice",
+          "sha256": "sha256:8b1c4a91737ac419ad4e3fa5e172ec06c8b9f39211fbef86dba20d20936a5291"
+        },
+        {
+          "path": "sim/por-output-chain-ibias-sharing/testbench/tb.json",
+          "sha256": "sha256:453769c8d33d9d20be7e02fa1beaa4fcc05ede7c936a7cc01c6dbfe1d059fc4d"
+        },
+        {
+          "path": "sim/por-output-chain-ibias-sharing/testbench/tb_por_ibias_sharing.spice",
+          "sha256": "sha256:bf1cae9105cad7d63787b7dad3343fe44948e8aa7ebe428295013ab7420c315a"
+        }
+      ]
+    },
+    "por-output-chain-pulse": {
+      "testbench_dirs": [
+        "testbench",
+        "testbench-postlayout"
+      ],
+      "pvt": {
+        "corners": [
+          "full"
+        ],
+        "temperatures_c": [
+          -40,
+          27,
+          125
+        ],
+        "nominal_supply_v": 3.3,
+        "supply_tolerance": 0.1
+      },
+      "files": [
+        {
+          "path": "sim/por-output-chain-pulse/testbench-postlayout/tb.json",
+          "sha256": "sha256:83a59157125288ddfed83cc8ba0beeec9c76b2cff2f5383a7494b5f195d89278"
+        },
+        {
+          "path": "sim/por-output-chain-pulse/testbench-postlayout/tb_por_pulse_postlayout.spice",
+          "sha256": "sha256:15c72fc3ae7771e59ba707bd4dadda1b0e10676ae653e3696e72fc647cbc1263"
+        },
+        {
+          "path": "sim/por-output-chain-pulse/testbench/stimulus.spice",
+          "sha256": "sha256:60317f4b18bf044cc869c99696b0615818807afee4a1568b2a5d7ec8e26c8ead"
+        },
+        {
+          "path": "sim/por-output-chain-pulse/testbench/tb.json",
+          "sha256": "sha256:0d1e5dccd0131b896689b607fd22efc1f49b20e5872ba59c517ef0090430c5d7"
+        },
+        {
+          "path": "sim/por-output-chain-pulse/testbench/tb_por_pulse.spice",
+          "sha256": "sha256:f136f116c1a53f19722e6f77e38829f0734502cc00c399df1b52227954d8c471"
+        }
+      ]
+    },
+    "por-ramp-rate": {
+      "testbench_dirs": [
+        "testbench",
+        "testbench-postlayout"
+      ],
+      "pvt": {
+        "corners": [
+          "full"
+        ],
+        "temperatures_c": [
+          -40,
+          27,
+          125
+        ],
+        "nominal_supply_v": 3.3,
+        "supply_tolerance": 0.1
+      },
+      "files": [
+        {
+          "path": "sim/por-ramp-rate/testbench-postlayout/tb.json",
+          "sha256": "sha256:919e520050d725210a9e4d5a86d109fb78511c7b0f63fcaf13faa82d3797b15a"
+        },
+        {
+          "path": "sim/por-ramp-rate/testbench-postlayout/tb_por_ramp_rate_postlayout.spice",
+          "sha256": "sha256:14be8601f667125daba87a42c1bf7fe7feaed78dd8caaeb441f098f1c8bc020f"
+        },
+        {
+          "path": "sim/por-ramp-rate/testbench/stimulus.spice",
+          "sha256": "sha256:ab4ac397e3c312a33e283967eee433407e6fcc0235fec2060095c972dd22936c"
+        },
+        {
+          "path": "sim/por-ramp-rate/testbench/tb.json",
+          "sha256": "sha256:b90930f77f0bcd57d5a4fb40caeaf02661772eec9cb89f702cdb6d4efc615f68"
+        },
+        {
+          "path": "sim/por-ramp-rate/testbench/tb_por_ramp_rate.spice",
+          "sha256": "sha256:957de69099bce5f5a4c8f8471626bbd845838a134543c0cd0ed5f18792d27e16"
+        }
+      ]
+    },
+    "por-threshold-mc": {
+      "testbench_dirs": [
+        "testbench",
+        "testbench-postlayout"
+      ],
+      "pvt": {
+        "corners": [
+          "full"
+        ],
+        "temperatures_c": [
+          -40,
+          27,
+          125
+        ],
+        "nominal_supply_v": 3.3,
+        "supply_tolerance": 0.1
+      },
+      "files": [
+        {
+          "path": "sim/por-threshold-mc/testbench-postlayout/tb.json",
+          "sha256": "sha256:1b236f19565d413c9320f1d90171d931827ead83e113973c263902d998ff3b8d"
+        },
+        {
+          "path": "sim/por-threshold-mc/testbench-postlayout/tb_por_threshold_mc_postlayout.spice",
+          "sha256": "sha256:957641112f9c89f0a062f9fc6f080041ff8e68dcd83f92d4c1e3938d533d6230"
+        },
+        {
+          "path": "sim/por-threshold-mc/testbench/stimulus.spice",
+          "sha256": "sha256:1993f325cdaee12b1fbef37a5f2cbe41af756b4e874c9c3a4ce57c46590b3d20"
+        },
+        {
+          "path": "sim/por-threshold-mc/testbench/tb.json",
+          "sha256": "sha256:b241ccc5ebedba609ff6e4605e8ceeee3437899332068eafa39f0bedca1768a3"
+        },
+        {
+          "path": "sim/por-threshold-mc/testbench/tb_por_threshold_mc.spice",
+          "sha256": "sha256:3a1f4cb49172fd1d2f88f8da39e4061592a8d4f314a8b604b6aef6ba724434fd"
+        }
+      ]
+    },
+    "por-vth": {
+      "testbench_dirs": [
+        "testbench",
+        "testbench-postlayout"
+      ],
+      "pvt": {
+        "corners": [
+          "full"
+        ],
+        "temperatures_c": [
+          -40,
+          27,
+          125
+        ],
+        "nominal_supply_v": 3.3,
+        "supply_tolerance": 0.1
+      },
+      "files": [
+        {
+          "path": "sim/por-vth/testbench-postlayout/tb.json",
+          "sha256": "sha256:043779cc00263cd09343abcae7118410063dac522b720655e0685822ba4c3bca"
+        },
+        {
+          "path": "sim/por-vth/testbench-postlayout/tb_por_vth_postlayout.spice",
+          "sha256": "sha256:c55ce72947fa9d7c201e9bba4dc7d0be72adee1a34fc0d839dc10e1dfe85c20b"
+        },
+        {
+          "path": "sim/por-vth/testbench/stimulus.spice",
+          "sha256": "sha256:53961cf0003c30f4a76647569a2a4df7f87b1749d162b414fe2c7ce3db4c3cc2"
+        },
+        {
+          "path": "sim/por-vth/testbench/tb.json",
+          "sha256": "sha256:767aa4718b14660f84a88ab8df34dcec7e86dd6f0d25539a175a70492dc8c04f"
+        },
+        {
+          "path": "sim/por-vth/testbench/tb_por_vth.spice",
+          "sha256": "sha256:d2ead2e07159de6a2cbcfca5065285b494a3c51fddb3a223936211b96c47e6cf"
+        }
+      ]
+    },
+    "smoke-bias": {
+      "testbench_dirs": [
+        "testbench"
+      ],
+      "pvt": {
+        "corners": [
+          "full"
+        ],
+        "temperatures_c": [
+          -40,
+          27,
+          125
+        ],
+        "nominal_supply_v": 3.3,
+        "supply_tolerance": 0.1
+      },
+      "files": [
+        {
+          "path": "sim/smoke-bias/testbench/smoke_bias.spice",
+          "sha256": "sha256:def6c4616d47f1d2b45c5c3cf045c450504cc6bcfe07ade2e4b5e6925f5211cd"
+        },
+        {
+          "path": "sim/smoke-bias/testbench/tb.json",
+          "sha256": "sha256:4721a284032207a08775016c889ed253d36ce2baff36827c8a025f04613736fd"
+        }
+      ]
+    },
+    "temp-accuracy-mc": {
+      "testbench_dirs": [
+        "testbench",
+        "testbench-postlayout"
+      ],
+      "pvt": {
+        "corners": [
+          "full"
+        ],
+        "temperatures_c": [
+          -40,
+          27,
+          125
+        ],
+        "nominal_supply_v": 3.3,
+        "supply_tolerance": 0.1
+      },
+      "files": [
+        {
+          "path": "sim/temp-accuracy-mc/testbench-postlayout/tb.json",
+          "sha256": "sha256:f59ef303dfd3804341f9a850a213acac5a3a758ed641a9132d2b8bbbac95827b"
+        },
+        {
+          "path": "sim/temp-accuracy-mc/testbench-postlayout/tb_temp_accuracy_mc_postlayout.spice",
+          "sha256": "sha256:563f6c66e02a6999b24e69afb293fa493ef4de9e2a67c64aa366c4e1a6df2e32"
+        },
+        {
+          "path": "sim/temp-accuracy-mc/testbench/stimulus.spice",
+          "sha256": "sha256:5674d3ba5ea7bf63351856afae01403d6052999095ff92d003f30ebb2b7b308a"
+        },
+        {
+          "path": "sim/temp-accuracy-mc/testbench/tb.json",
+          "sha256": "sha256:985adb9d4178ec5e980e7002b113bee0c2c8640a4a2352e1f1f0972a9dc91626"
+        },
+        {
+          "path": "sim/temp-accuracy-mc/testbench/tb_temp_accuracy_mc.spice",
+          "sha256": "sha256:4d6c901b124e2186c2057c884e4c25d68f76c4e1631b176709af4179e7b93d0f"
+        }
+      ]
+    },
+    "temp-accuracy-vt": {
+      "testbench_dirs": [
+        "testbench",
+        "testbench-postlayout"
+      ],
+      "pvt": {
+        "corners": [
+          "full"
+        ],
+        "temperatures_c": [
+          -40,
+          25,
+          27,
+          125
+        ],
+        "nominal_supply_v": 3.3,
+        "supply_tolerance": 0.1
+      },
+      "files": [
+        {
+          "path": "sim/temp-accuracy-vt/testbench-postlayout/tb.json",
+          "sha256": "sha256:424540b7e6e71c16cb4d5a67ffe7cb3757d41f5375bb95f406d79627a9eb3949"
+        },
+        {
+          "path": "sim/temp-accuracy-vt/testbench-postlayout/tb_temp_accuracy_vt_postlayout.spice",
+          "sha256": "sha256:368eb36722a4515d2a777f3a9af6c91868fc212faa26f8d68798414343cfb5e9"
+        },
+        {
+          "path": "sim/temp-accuracy-vt/testbench/stimulus.spice",
+          "sha256": "sha256:434d1434f33ef4fd4353b5bc991a539885fe5aae4c0e3bfed7c57f09686f5036"
+        },
+        {
+          "path": "sim/temp-accuracy-vt/testbench/tb.json",
+          "sha256": "sha256:b1435442238eecc81d2085d9e1a220f80f1f99fa572fa9e33d512529872a80ef"
+        },
+        {
+          "path": "sim/temp-accuracy-vt/testbench/tb_temp_accuracy_vt.spice",
+          "sha256": "sha256:9ba0a64c86b865706e0ac2657e68f64c27c0ed81d89cb30e698528d4ae08c5f9"
+        }
+      ]
+    },
+    "temp-core-designer-check": {
+      "testbench_dirs": [
+        "testbench",
+        "testbench-postlayout"
+      ],
+      "pvt": {
+        "corners": [
+          "full"
+        ],
+        "temperatures_c": [
+          -40,
+          -15,
+          10,
+          25,
+          27,
+          60,
+          90,
+          125
+        ],
+        "nominal_supply_v": 3.3,
+        "supply_tolerance": 0.1
+      },
+      "files": [
+        {
+          "path": "sim/temp-core-designer-check/testbench-postlayout/tb.json",
+          "sha256": "sha256:165cb9c3d765d93e72445f9b90cbfd48ad6f3515a005198f3af07f58a2b5d295"
+        },
+        {
+          "path": "sim/temp-core-designer-check/testbench-postlayout/tb_temp_core_postlayout.spice",
+          "sha256": "sha256:b5b2eedd2b85b598c727d762795e0edd73a75868247c392db49597b2df170122"
+        },
+        {
+          "path": "sim/temp-core-designer-check/testbench/stimulus.spice",
+          "sha256": "sha256:fab900688d7f7221765a9d5a09deec4055f7f8566fe4482ba1fce8ce3aa14735"
+        },
+        {
+          "path": "sim/temp-core-designer-check/testbench/tb.json",
+          "sha256": "sha256:8c529dfecf807e58d309d77cbddade710a0e74c1fa1e1cf98ba3bf6912fee30e"
+        },
+        {
+          "path": "sim/temp-core-designer-check/testbench/tb_temp_core.spice",
+          "sha256": "sha256:a687e757dc89583eb6f37953587f084c4a67064dbe94d084979ca3d7e2918dcc"
+        }
+      ]
+    },
+    "temp-core-loop-stability": {
+      "testbench_dirs": [
+        "testbench",
+        "testbench-postlayout"
+      ],
+      "pvt": {
+        "corners": [
+          "full"
+        ],
+        "temperatures_c": [
+          -40,
+          27,
+          125
+        ],
+        "nominal_supply_v": 3.3,
+        "supply_tolerance": 0.1
+      },
+      "files": [
+        {
+          "path": "sim/temp-core-loop-stability/testbench-postlayout/tb.json",
+          "sha256": "sha256:e3ac1b6978d4742268bd4378c57c01423e839d0158d28366e1447d7d191a003a"
+        },
+        {
+          "path": "sim/temp-core-loop-stability/testbench-postlayout/tb_temp_core_loop_stability_postlayout.spice",
+          "sha256": "sha256:a310f9193b5733ae6c9613eae33f14c565f22aed56fa058f54f972b67d647317"
+        },
+        {
+          "path": "sim/temp-core-loop-stability/testbench/tb.json",
+          "sha256": "sha256:52114bdb3a2fa74c9ef1f55231e1d766f1daa898fd5608dfdc39c26543a36154"
+        },
+        {
+          "path": "sim/temp-core-loop-stability/testbench/tb_temp_core_loop_stability.spice",
+          "sha256": "sha256:2b29e635e963dec68fe960c0144710bba5500b27efd6b8c530528d02f3822197"
+        }
+      ]
+    },
+    "temp-core-startup": {
+      "testbench_dirs": [
+        "testbench",
+        "testbench-postlayout"
+      ],
+      "pvt": {
+        "corners": [
+          "full"
+        ],
+        "temperatures_c": [
+          -40,
+          27,
+          125
+        ],
+        "nominal_supply_v": 3.3,
+        "supply_tolerance": 0.1
+      },
+      "files": [
+        {
+          "path": "sim/temp-core-startup/testbench-postlayout/tb.json",
+          "sha256": "sha256:7cf1ab21addac39e8683227c24693ad430ce9aadec321aa477ffb50443299391"
+        },
+        {
+          "path": "sim/temp-core-startup/testbench-postlayout/tb_temp_core_startup_postlayout.spice",
+          "sha256": "sha256:a24ea4189138331450bf7718da5fe022a39904c5b90de2c11272096aa7c94199"
+        },
+        {
+          "path": "sim/temp-core-startup/testbench/stimulus.spice",
+          "sha256": "sha256:3ef407379c9cf70649fe62f5a55503b9bec69aaf104316c6966aaa4ebbcf2de5"
+        },
+        {
+          "path": "sim/temp-core-startup/testbench/tb.json",
+          "sha256": "sha256:77d97f24625e9d2c305c2fcb791eecb317d74a11424b8973089d4f90c3319898"
+        },
+        {
+          "path": "sim/temp-core-startup/testbench/tb_temp_core_startup.spice",
+          "sha256": "sha256:72e223383f9a35d153e2fac290a0919d6542b92277ac41aee34ca62eb49cdf30"
+        }
+      ]
+    },
+    "temp-por-top-release": {
+      "testbench_dirs": [
+        "testbench",
+        "testbench-postlayout"
+      ],
+      "pvt": {
+        "corners": [
+          "full"
+        ],
+        "temperatures_c": [
+          -40,
+          27,
+          125
+        ],
+        "nominal_supply_v": 3.3,
+        "supply_tolerance": 0.1
+      },
+      "files": [
+        {
+          "path": "sim/temp-por-top-release/testbench-postlayout/tb.json",
+          "sha256": "sha256:86b0ad3fc87bfc2a45f848eb080473fd9adc8d5a80909714db0a6f49026db1fb"
+        },
+        {
+          "path": "sim/temp-por-top-release/testbench-postlayout/tb_temp_por_top_postlayout.spice",
+          "sha256": "sha256:1d1c3f0185f07bbf328df8ea4dbb8f9b9df562fb90dd0fb2bb58f21493022625"
+        },
+        {
+          "path": "sim/temp-por-top-release/testbench/stimulus.spice",
+          "sha256": "sha256:59e7c97ea3e7cb6c0c741806b2bb957462f5b17c5231f28c72bdd0cc26dde239"
+        },
+        {
+          "path": "sim/temp-por-top-release/testbench/tb.json",
+          "sha256": "sha256:712b297813392ae820cf1f85cc1b2ffef7cddf92332870f30e070a1a0e83cdc8"
+        },
+        {
+          "path": "sim/temp-por-top-release/testbench/tb_temp_por_top.spice",
+          "sha256": "sha256:4262356d6c14ec0a4093d8548b24d19e5abd073d1239fcfa3ce240e5e92e70f0"
+        }
+      ]
+    }
+  },
+  "dirs_without_testbench": {
+    "devchar": "device characterization decks and results; cited by the spec only as an informative physics anchor, no spec row's number is measured here",
+    "harness": "shared corner-runner support code, not an experiment",
+    "por-iq": "derivation only (analyze_por_iq.py) over the temp-accuracy-vt testbench's raw logs; por-iq and iq-total list that testbench as their basis",
+    "tests": "harness unit tests, not an experiment"
+  }
+}
