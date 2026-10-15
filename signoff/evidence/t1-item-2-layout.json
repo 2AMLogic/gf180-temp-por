@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "kind": "generic",
+  "t1_item": 2,
+  "status": "pass",
+  "summary": "Layout for gf180-temp-por: the assembled top cell layout/cells/temp_por_top.gds (bound by hash; the same hash T1 items 3, 4 and 11 pin) plus the other cell layouts layout/cells/bias_core.gds, layout/cells/por_comparator.gds, layout/cells/por_comparator_bias_okb_inv.gds, layout/cells/por_output_chain.gds, layout/cells/temp_core.gds. Reproducibility gate: python3 layout/build_cells.py --check. This asserts the layout artifact exists and is the one the DRC, LVS and supply-ERC reports describe; it does not assert that the layout meets the area budget.",
+  "source": "layout/cells/temp_por_top.gds",
+  "provenance": {
+    "klt_version": null,
+    "klayout_version": null,
+    "pdk": null,
+    "deck": null,
+    "input": {
+      "path": {
+        "path": "layout/cells/temp_por_top.gds",
+        "scope": "repo"
+      },
+      "content_hash": "sha256:a119a12b1fa2daff64772a4a804a0ea14f17c68dc9357fe167dfd287df0628fd"
+    }
+  }
+}

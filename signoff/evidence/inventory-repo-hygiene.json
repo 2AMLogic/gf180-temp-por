@@ -1,0 +1,28 @@
+{
+  "inventory": "repo-hygiene",
+  "t1_item": 10,
+  "assertions": [
+    "LICENSE contains the Apache License text",
+    "README.md states what the block is, links the spec, documents how to reproduce results (## Simulation) and has a License section",
+    "spec/target-spec.md carries anchored spec rows",
+    ".github/workflows/ci.yml runs signoff/check.py"
+  ],
+  "files": [
+    {
+      "path": ".github/workflows/ci.yml",
+      "sha256": "sha256:f42dbd9f3ee62352dfc1e03df04cbba523cf5319933121e6666d4f48ff2255a7"
+    },
+    {
+      "path": "LICENSE",
+      "sha256": "sha256:cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+    },
+    {
+      "path": "README.md",
+      "sha256": "sha256:68e2629f3b777089ac1f99104cd9f9148daf1a4fcb3477d1606db8062100273e"
+    },
+    {
+      "path": "spec/target-spec.md",
+      "sha256": "sha256:d78561eeb7c7710fa87699e5499434884afe47821c71d2249be4760d6a2e84ed"
+    }
+  ]
+}

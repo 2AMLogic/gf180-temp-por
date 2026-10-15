@@ -19,6 +19,22 @@
     "8": {
       "file": "signoff/evidence/characterization-report.json",
       "content_hash": "sha256:d78561eeb7c7710fa87699e5499434884afe47821c71d2249be4760d6a2e84ed"
+    },
+    "1": {
+      "file": "signoff/evidence/t1-item-1-design-sources.json",
+      "content_hash": "sha256:ab0fdeb3edc95c6c884a23f7af8aae6e5c5504ef55f4bb7a692e58ce78aa9436"
+    },
+    "2": {
+      "file": "signoff/evidence/t1-item-2-layout.json",
+      "content_hash": "sha256:a119a12b1fa2daff64772a4a804a0ea14f17c68dc9357fe167dfd287df0628fd"
+    },
+    "9": {
+      "file": "signoff/evidence/t1-item-9-testbenches.json",
+      "content_hash": "sha256:060175f4d8f11c8cf02b54ca0bf5a21ed7ed7a2dec8678143764d2b09b5e6035"
+    },
+    "10": {
+      "file": "signoff/evidence/t1-item-10-repo-hygiene.json",
+      "content_hash": "sha256:ee7720488f5e3edd3b9da060779f73cb999a49f81799b50e21ee9e0e117b2e63"
     }
   }
 }
