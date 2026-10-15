@@ -645,6 +645,46 @@ class FailureMatrixTests(BatchTestCase):
         self.assertEqual(parser.parse_args([]).klt, "klt")
         self.assertEqual(parser.parse_args(["--klt", str(other)]).klt, str(other))
 
+    def test_klt_pin_builds_a_uvx_wrapper_without_touching_host_klt(self):
+        import argparse
+        import subprocess
+        parser = argparse.ArgumentParser()
+        klt_batch.add_backend_argument(parser)
+        args = parser.parse_args(["--klt-pin", "0.5.0"])
+        self.assertEqual(args.klt_pin, "0.5.0")
+        self.assertNotEqual(args.klt, "klt")
+        self.assertIsNone(parser.parse_args([]).klt_pin)
+        # the wrapper runs `uvx --from klayout-tools==0.5.0 klt <args>`
+        uvx = self.bin / "uvx"
+        uvx.write_text("#!/bin/sh\necho \"$*\" > \"$FAKE_KLT_STATE/uvx.txt\"\n")
+        uvx.chmod(0o755)
+        subprocess.run([args.klt, "sim", "x"], check=True)
+        self.assertEqual((self.state / "uvx.txt").read_text().strip(),
+                         "--from klayout-tools==0.5.0 klt sim x")
+        self.assertEqual(self.calls(), [])                  # host klt never ran
+        for bad in ("0.5.0; true", "", "$(x)", "0.5 0"):
+            with self.assertRaises(BatchError):
+                klt_batch.pinned_klt(bad)
+
+    def test_klt_pin_and_klt_are_mutually_exclusive(self):
+        import argparse
+        parser = argparse.ArgumentParser()
+        klt_batch.add_backend_argument(parser)
+        with mock.patch("sys.stderr"), self.assertRaises(SystemExit):
+            parser.parse_args(["--klt", "/x/klt", "--klt-pin", "0.5.0"])
+        with mock.patch("sys.stderr"), self.assertRaises(SystemExit):
+            parser.parse_args(["--klt-pin", "0.5.0", "--klt", "/x/klt"])
+
+    def test_pinned_client_matching_the_runner_is_accepted_and_mismatch_still_refused(self):
+        pin = self.bin / "klt-pinned"
+        (self.bin / "klt").rename(pin)
+        (out,) = klt_batch.run_units([self.unit()], self.cfg(klt=str(pin)), tolerate_absent=True)
+        self.assertTrue(out.ok, out.message)
+        self.mode("mismatch")                              # a pin that still disagrees
+        (bad,) = klt_batch.run_units([self.unit("b")], self.cfg(klt=str(pin)), tolerate_absent=True)
+        self.assertEqual(bad.status, "error")
+        self.assertIn("runner_compatibility='mismatch'", bad.message)
+
     def test_missing_measurement_is_an_error_unless_the_caller_tolerates_absence(self):
         self.mode("missing_meas")
         (strict,) = klt_batch.run_units([self.unit()], self.cfg(), tolerate_absent=False)
