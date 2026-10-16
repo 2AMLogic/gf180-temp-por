@@ -2,6 +2,10 @@
 
 Merged PRs and closed issues from the initial 30-day snapshot (2026-09-07 onward).
 
+### 2026-10-16
+
+- **PR #365**: Bump Repo Skills 0.24.1 -> 0.24.3
+
 ### 2026-10-15
 
 - **PR #363**: feat(sim): add --klt-pin to pin the batch client to the runner's klt version
