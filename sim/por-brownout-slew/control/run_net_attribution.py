@@ -494,19 +494,6 @@ def variant_name(key: str, vdd: float, slew_mvus: float) -> str:
     return f"na-{key}-{slew_mvus:g}mvus-{vdd:.2f}v"
 
 
-def read_logs() -> dict[str, dict[str, float]]:
-    """Re-derive this control's variants from the logs already on disk.
-
-    Scoped to the ``na-`` prefix so ``--report-only`` reads only this script's
-    own runs and never its two siblings'.
-    """
-    log_dir = CONTROL_DIR / "logs"
-    return {
-        path.stem: runner.parse_bare_measurements(path.read_text())
-        for path in sorted(log_dir.glob("na-*.log"))
-    }
-
-
 def main(argv: list[str] | None = None) -> int:
     argv = sys.argv[1:] if argv is None else argv
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
@@ -533,7 +520,7 @@ def main(argv: list[str] | None = None) -> int:
     variants = build_variants(parasitics)
 
     if report_only:
-        results = read_logs()
+        results = runner.read_bare_logs(CONTROL_DIR, "na-*.log")
         if not results:
             print("no na-* logs to report from -- run without --report-only first",
                   file=sys.stderr)

@@ -277,21 +277,6 @@ def deck(pdk, options: list[str], vdd: float, slew_mvus: float,
     return "\n".join(lines)
 
 
-def read_logs() -> dict[str, dict[str, float]]:
-    """Re-derive every variant's measurements from the logs already on disk.
-
-    Used by ``--report-only``, which regenerates ``results.md`` /
-    ``results.json`` from the raw ngspice output of the previous run without
-    re-simulating. The logs are the verbatim record of that run, so this is a
-    re-read of the same evidence, not a second measurement.
-    """
-    log_dir = CONTROL_DIR / "logs"
-    return {
-        path.stem: runner.parse_bare_measurements(path.read_text())
-        for path in sorted(log_dir.glob("*.log"))
-    }
-
-
 def variant_name(vdd: float, slew_mvus: float, part: str) -> str:
     return f"{part}-{slew_mvus:g}mvus-{vdd:.2f}v"
 
@@ -310,7 +295,7 @@ def main(argv: list[str] | None = None) -> int:
     options = manifest["options"]
 
     if report_only:
-        results = read_logs()
+        results = runner.read_bare_logs(CONTROL_DIR)
         if not results:
             print("no logs to report from -- run without --report-only first",
                   file=sys.stderr)

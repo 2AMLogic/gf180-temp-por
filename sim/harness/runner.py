@@ -337,6 +337,25 @@ def parse_bare_measurements(text: str) -> dict[str, float]:
     return found
 
 
+def read_bare_logs(
+    control_dir: Path, pattern: str = "*.log"
+) -> dict[str, dict[str, float]]:
+    """Re-derive per-variant measurements from the ngspice logs already on disk.
+
+    Reads ``<control_dir>/logs/<pattern>`` (sorted) and parses each with
+    ``parse_bare_measurements``, keyed by log stem. ``pattern`` scopes the read
+    to one control's own filename prefix (e.g. ``"na-*.log"``) so
+    ``--report-only`` never picks up a sibling control's logs.
+
+    Shared home for the identical ``read_logs()`` copies that used to be
+    redefined in the four sim/por-brownout-slew/control/run_*.py scripts.
+    """
+    return {
+        path.stem: parse_bare_measurements(path.read_text())
+        for path in sorted((control_dir / "logs").glob(pattern))
+    }
+
+
 def _require_batch(backend: str, batch: "klt_batch.BatchConfig | None") -> bool:
     """True for batch mode. Anything but local/batch, or batch without a
     config, is an error -- never a quiet local run."""
