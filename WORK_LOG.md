@@ -4,6 +4,8 @@ Merged PRs and closed issues from the initial 30-day snapshot (2026-09-07 onward
 
 ### 2026-10-17
 
+- **PR #372**: refactor(sim): share toolchain-locating preamble across control scripts
+- **Issue #371** (closed): Dedupe the PDK/ngspice environment preamble across the 20 sim control scripts (and unify its exit code)
 - **PR #368**: refactor(sim): share read_bare_logs() across the por-brownout-slew controls
 - **Issue #367** (closed): Dedupe four read_logs() copies in por-brownout-slew controls into sim/harness
 
