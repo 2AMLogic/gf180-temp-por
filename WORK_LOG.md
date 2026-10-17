@@ -2,6 +2,11 @@
 
 Merged PRs and closed issues from the initial 30-day snapshot (2026-09-07 onward).
 
+### 2026-10-17
+
+- **PR #368**: refactor(sim): share read_bare_logs() across the por-brownout-slew controls
+- **Issue #367** (closed): Dedupe four read_logs() copies in por-brownout-slew controls into sim/harness
+
 ### 2026-10-16
 
 - **PR #365**: Bump Repo Skills 0.24.1 -> 0.24.3
