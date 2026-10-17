@@ -487,6 +487,25 @@ class ParseBareMeasurementsTests(unittest.TestCase):
         self.assertEqual(runner.parse_bare_measurements(""), {})
 
 
+class ReadBareLogsTests(unittest.TestCase):
+    def test_reads_sorted_logs_scoped_by_pattern(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            control = Path(tmp)
+            logs = control / "logs"
+            logs.mkdir()
+            (logs / "na-b.log").write_text("t_rst = 2.0e-03\n")
+            (logs / "na-a.log").write_text("t_rst = 1.0e-03\n")
+            (logs / "edge-x.log").write_text("t_rst = 9.0e-03\n")
+            scoped = runner.read_bare_logs(control, "na-*.log")
+            self.assertEqual(list(scoped), ["na-a", "na-b"])
+            self.assertEqual(scoped["na-a"], {"t_rst": 1.0e-03})
+            self.assertEqual(len(runner.read_bare_logs(control)), 3)
+
+    def test_missing_or_empty_log_dir_yields_nothing(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            self.assertEqual(runner.read_bare_logs(Path(tmp)), {})
+
+
 class FindCrossingsTests(unittest.TestCase):
     ROWS = [
         (0.0, 0.0),

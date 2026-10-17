@@ -119,19 +119,6 @@ def variant_name(arm: str, vdd: float, slew_mvus: float) -> str:
     return f"pl-{arm}-{slew_mvus:g}mvus-{vdd:.2f}v"
 
 
-def read_logs() -> dict[str, dict[str, float]]:
-    """Re-derive this control's variants from the logs already on disk.
-
-    Scoped to the ``pl-`` prefix so ``--report-only`` reads only this
-    script's own runs and never `run_band_mechanism.py`'s.
-    """
-    log_dir = CONTROL_DIR / "logs"
-    return {
-        path.stem: runner.parse_bare_measurements(path.read_text())
-        for path in sorted(log_dir.glob("pl-*.log"))
-    }
-
-
 def main(argv: list[str] | None = None) -> int:
     argv = sys.argv[1:] if argv is None else argv
     report_only = "--report-only" in argv
@@ -145,7 +132,7 @@ def main(argv: list[str] | None = None) -> int:
     options = cliutil.load_manifest(band.MANIFEST)["options"]
 
     if report_only:
-        results = read_logs()
+        results = runner.read_bare_logs(CONTROL_DIR, "pl-*.log")
         if not results:
             print("no pl-* logs to report from -- run without --report-only first",
                   file=sys.stderr)

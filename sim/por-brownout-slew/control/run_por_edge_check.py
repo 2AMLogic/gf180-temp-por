@@ -167,19 +167,6 @@ def variant_name(arm: str, slew_mvus: float) -> str:
     return f"edge-{arm}-{slew_mvus:g}mvus-{VDD_V:.2f}v"
 
 
-def read_logs() -> dict[str, dict[str, float]]:
-    """Re-derive this control's variants from the logs already on disk.
-
-    Scoped to the ``edge-`` prefix so ``--report-only`` reads only this
-    script's own runs and never its three siblings'.
-    """
-    log_dir = CONTROL_DIR / "logs"
-    return {
-        path.stem: runner.parse_bare_measurements(path.read_text())
-        for path in sorted(log_dir.glob("edge-*.log"))
-    }
-
-
 def main(argv: list[str] | None = None) -> int:
     argv = sys.argv[1:] if argv is None else argv
     report_only = "--report-only" in argv
@@ -202,7 +189,7 @@ def main(argv: list[str] | None = None) -> int:
     options = cliutil.load_manifest(band.MANIFEST)["options"]
 
     if report_only:
-        results = read_logs()
+        results = runner.read_bare_logs(CONTROL_DIR, "edge-*.log")
         if not results:
             print(
                 "no edge-* logs to report from -- run without --report-only "
