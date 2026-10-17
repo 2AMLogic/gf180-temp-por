@@ -31,13 +31,13 @@ _None._
 
 Issues currently being built (`loom:building`).
 
-_None._
+- **#371**: Dedupe the PDK/ngspice environment preamble across the 20 sim control scripts (and unify its exit code)
 
 ## PRs Awaiting Review
 
 PRs waiting on Judge (`loom:review-requested`).
 
-_None._
+- **#372**: refactor(sim): share toolchain-locating preamble across control scripts
 
 ## Approved (Awaiting Merge)
 
@@ -69,8 +69,8 @@ _None._
 | Very important | 0 |
 | Important | 0 |
 | Ready (`loom:issue`) | 0 |
-| In Progress (`loom:building`) | 0 |
-| PRs awaiting review | 0 |
+| In Progress (`loom:building`) | 1 |
+| PRs awaiting review | 1 |
 | Approved PRs awaiting merge | 0 |
 | Curated | 3 |
 | Architect / Hermit proposals | 1 |
