@@ -72,7 +72,6 @@ REPO_ROOT = CONTROL_DIR.parents[2]
 sys.path.insert(0, str(REPO_ROOT / "sim"))
 
 from harness import HARNESS_VERSION, cliutil, corners as corners_mod, runner  # noqa: E402
-from harness.pdk import PdkNotFound, find_pdk  # noqa: E402
 
 # The one PVT point the control is taken at. tt / 27 C / 3.30 V is the
 # nominal point of the parent grid, and the parent record's failure has
@@ -301,11 +300,10 @@ def fmt(value, digits=4, unit="", missing="—"):
 
 
 def main() -> int:
-    try:
-        pdk = find_pdk()
-    except PdkNotFound as exc:
-        print(exc, file=sys.stderr)
-        return 1
+    toolchain = cliutil.locate_toolchain(need_ngspice=False)
+    if toolchain is None:
+        return cliutil.EXIT_ENVIRONMENT
+    pdk, _ = toolchain
 
     manifest = cliutil.load_manifest(MANIFEST)
     options = manifest["options"]

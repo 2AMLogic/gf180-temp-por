@@ -93,7 +93,7 @@ REPO_ROOT = CONTROL_DIR.parents[2]
 
 sys.path.insert(0, str(REPO_ROOT / "sim"))
 
-from harness import HARNESS_VERSION, corners as corners_mod, klt_batch, runner  # noqa: E402
+from harness import HARNESS_VERSION, cliutil, corners as corners_mod, klt_batch, runner  # noqa: E402
 from harness.pdk import PdkNotFound, find_pdk  # noqa: E402
 
 FRAGMENT = CONTROL_DIR / "dwell_sweep.spice"
@@ -258,7 +258,7 @@ def main() -> int:
             ngspice_version = runner.ngspice_version()
     except (PdkNotFound, runner.NgspiceMissing, klt_batch.BatchError) as exc:
         print(exc, file=sys.stderr)
-        return 3
+        return cliutil.EXIT_ENVIRONMENT
     batch = (
         klt_batch.BatchConfig(pdk=pdk, stage_root=CONTROL_DIR / "batch", klt=args.klt)
         if backend == klt_batch.BACKEND_BATCH else None
