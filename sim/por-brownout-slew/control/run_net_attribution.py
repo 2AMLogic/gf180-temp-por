@@ -508,7 +508,7 @@ def main(argv: list[str] | None = None) -> int:
         pdk = find_pdk()
     except (PdkNotFound, klt_batch.BatchError) as exc:
         print(exc, file=sys.stderr)
-        return 1
+        return cliutil.EXIT_ENVIRONMENT
     batch = (
         klt_batch.BatchConfig(pdk=pdk, stage_root=CONTROL_DIR / "batch", klt=args.klt)
         if backend == klt_batch.BACKEND_BATCH and not report_only else None

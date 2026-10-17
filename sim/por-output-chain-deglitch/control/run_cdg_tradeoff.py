@@ -51,8 +51,7 @@ REPO_ROOT = CONTROL_DIR.parents[2]
 
 sys.path.insert(0, str(REPO_ROOT / "sim"))
 
-from harness import HARNESS_VERSION, corners as corners_mod, runner  # noqa: E402
-from harness.pdk import PdkNotFound, find_pdk  # noqa: E402
+from harness import HARNESS_VERSION, cliutil, corners as corners_mod, runner  # noqa: E402
 
 FRAGMENT = CONTROL_DIR / "cdg_tradeoff.spice"
 POSTLAYOUT_NETLIST = REPO_ROOT / "layout" / "postlayout" / "por_output_chain.spice"
@@ -165,12 +164,10 @@ def verdict(meas: dict[str, float]) -> str:
 
 
 def main() -> int:
-    try:
-        pdk = find_pdk()
-        ngspice_version = runner.ngspice_version()
-    except (PdkNotFound, runner.NgspiceMissing) as exc:
-        print(exc, file=sys.stderr)
-        return 3
+    toolchain = cliutil.locate_toolchain()
+    if toolchain is None:
+        return cliutil.EXIT_ENVIRONMENT
+    pdk, ngspice_version = toolchain
 
     options = list(json.loads(MANIFEST.read_text()).get("options", []))
     deck_dir = CONTROL_DIR / "decks"

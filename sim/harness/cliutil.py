@@ -20,6 +20,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Callable
 
+from .pdk import Pdk, PdkNotFound, find_pdk
 from .testbench import MANIFEST_NAME, TESTBENCH_DIRNAME, discover
 
 # Exit codes shared by the record-derivation CLIs (sim/run_corners.py via
@@ -28,6 +29,27 @@ EXIT_OK = 0
 EXIT_CHECK_FAILED = 1
 EXIT_SIM_ERROR = 2
 EXIT_ENVIRONMENT = 3
+
+
+def locate_toolchain(*, need_ngspice: bool = True) -> tuple[Pdk, str | None] | None:
+    """Locate the PDK (and, if ``need_ngspice``, the ngspice version string).
+
+    Shared preamble of the ``sim/*/control/run_*.py`` entry points. On a
+    missing PDK or ngspice, prints the error to stderr and returns ``None``;
+    the caller then returns ``EXIT_ENVIRONMENT``. The version is ``None`` when
+    ``need_ngspice`` is false.
+    """
+    # Local import: runner pulls in the simulation stack, which the pure
+    # formatting/path helpers in this module do not need.
+    from . import runner
+
+    try:
+        pdk = find_pdk()
+        version = runner.ngspice_version() if need_ngspice else None
+    except (PdkNotFound, runner.NgspiceMissing) as exc:
+        print(exc, file=sys.stderr)
+        return None
+    return pdk, version
 
 
 def load_manifest(path: Path) -> dict:

@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import datetime
+import io
 import json
 import sys
 import tempfile
@@ -18,6 +19,7 @@ SIM_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(SIM_DIR))
 
 from harness import cli, cliutil, corners, report, runner, testbench  # noqa: E402
+from harness.pdk import PdkNotFound  # noqa: E402
 from testutil import fake_pdk  # noqa: E402
 
 
@@ -1212,6 +1214,44 @@ class CliTotalFailureRefusalTests(unittest.TestCase):
         exit_code = self._run(["tt"], ["error"], extra_args=["--no-write"])
         self.assertEqual(exit_code, cliutil.EXIT_SIM_ERROR)
         self.assertFalse((self.experiment_dir / report.RECORDS_DIR).exists())
+
+
+class LocateToolchainTests(unittest.TestCase):
+    """cliutil.locate_toolchain: the shared preamble of the control scripts."""
+
+    def setUp(self):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        self.pdk = fake_pdk(Path(tmp.name))
+
+    def test_returns_pdk_and_version(self):
+        pdk = self.pdk
+        with mock.patch.object(cliutil, "find_pdk", return_value=pdk), \
+             mock.patch.object(runner, "ngspice_version", return_value="ngspice-45"):
+            self.assertEqual(cliutil.locate_toolchain(), (pdk, "ngspice-45"))
+
+    def test_need_ngspice_false_skips_the_version_probe(self):
+        pdk = self.pdk
+        with mock.patch.object(cliutil, "find_pdk", return_value=pdk), \
+             mock.patch.object(
+                 runner, "ngspice_version", side_effect=AssertionError("probed")):
+            self.assertEqual(cliutil.locate_toolchain(need_ngspice=False), (pdk, None))
+
+    def test_missing_pdk_prints_and_returns_none(self):
+        err = io.StringIO()
+        with mock.patch.object(cliutil, "find_pdk", side_effect=PdkNotFound("no pdk")), \
+             mock.patch.object(sys, "stderr", err):
+            self.assertIsNone(cliutil.locate_toolchain())
+        self.assertIn("no pdk", err.getvalue())
+
+    def test_missing_ngspice_prints_and_returns_none(self):
+        err = io.StringIO()
+        with mock.patch.object(cliutil, "find_pdk", return_value=self.pdk), \
+             mock.patch.object(
+                 runner, "ngspice_version", side_effect=runner.NgspiceMissing("no ngspice")), \
+             mock.patch.object(sys, "stderr", err):
+            self.assertIsNone(cliutil.locate_toolchain())
+        self.assertIn("no ngspice", err.getvalue())
 
 
 class DefaultJobsTests(unittest.TestCase):
