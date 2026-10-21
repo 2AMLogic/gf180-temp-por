@@ -77,7 +77,10 @@ concurrency:
 jobs:
   checks:
     name: checks (headless -- no PDK/xschem)
-    runs-on: ubuntu-latest
+    # Pinned: ubuntu-latest moved to 26.04, and the actions/python-versions
+    # manifest has no 3.9 build for it (#379). Revisit when the manifest gains
+    # one or the 3.9 floor is dropped.
+    runs-on: ubuntu-24.04
     if: github.event_name != 'schedule'
     # 3.9 is the documented floor for the stdlib-only harness (README
     # Prerequisites, #354); 3.11 is what the klt-based grader steps run on.
