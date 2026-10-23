@@ -266,6 +266,7 @@ def run(args: argparse.Namespace) -> int:
     # samples git first internally, preserving that ordering.)
     record_id, workdir, log_dir, git, started = cliutil.provision_record(
         REPO_ROOT, WORK_DIR, records_dir, experiment_dir, tb.experiment, args.no_write,
+        stage=True,
     )
 
     if not args.quiet:
@@ -383,6 +384,7 @@ def run(args: argparse.Namespace) -> int:
 
     return cliutil.finish_run(
         tb, record, experiment_dir, record_id, workdir, log_dir, args.no_write, report.write_record,
+        stage=True, repo_root=REPO_ROOT,
     )
 
 

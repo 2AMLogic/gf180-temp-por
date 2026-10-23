@@ -38,6 +38,7 @@ from .cliutil import fmt as _fmt
 from .montecarlo import BindingPoint, McPoint
 from .pdk import Pdk
 from .report import (
+    _evidence_link_lines,
     CORNERS_DIR,
     write_exclusive,
     RECORDS_DIR,
@@ -280,9 +281,11 @@ def render_mc_record(record: dict, experiment: str) -> str:
         "- **Links**:",
         f"  - Testbench: `sim/{experiment}/{testbench_dir}/{tb['netlist']}`, "
         f"`sim/{experiment}/{testbench_dir}/tb.json`",
-        f"  - Netlist snapshot: `sim/{experiment}/{SNAPSHOT_DIR}/{record_id}.spice`",
-        f"  - Raw per-sample logs (one file per (binding point, sample), "
-        f"{record['total_points']} files): `sim/{experiment}/{CORNERS_DIR}/{record_id}/`",
+        *_evidence_link_lines(
+            record, experiment, record_id,
+            f"Raw per-sample logs (one file per (binding point, sample), "
+            f"{record['total_points']} files)",
+        ),
         f"- **Timestamp / author**: {record['started_utc']}, {env['user']}",
         f"- **Supersedes**: {record['supersedes'] or '(none)'}",
         "",

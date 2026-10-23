@@ -46,6 +46,9 @@ test:
 	@echo
 	@echo "== signoff/tests (ERC freshness gate unit tests, no PDK/klt required) =="
 	python3 -m unittest discover -s signoff/tests -t signoff/tests
+	@echo
+	@echo "== scripts/tests (artifact-manifest check unit tests, no broker/klt required) =="
+	python3 -m unittest discover -s scripts/tests -t scripts/tests
 
 # Unit tests (via `make test`) + a staleness check + an explicit environment/PDK report.
 # Nothing here needs ngspice or the PDK except the last step, which reports

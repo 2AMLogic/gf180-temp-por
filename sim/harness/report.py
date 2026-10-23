@@ -429,14 +429,16 @@ def write_exclusive(path: Path, text: str) -> None:
         ) from None
 
 
-def write_netlist_snapshot(tb: Testbench, experiment_dir: Path, record_id: str) -> Path:
+def write_netlist_snapshot(
+    tb: Testbench, experiment_dir: Path, record_id: str, out_dir: Path | None = None
+) -> Path:
     """Freeze the DUT netlist for this record.
 
     ``sim/README.md``: ``netlist-snapshots/<record-id>.spice`` is "the frozen
     DUT netlist used for this record", so later edits to ``testbench/`` never
     change what an existing record refers to.
     """
-    out_dir = experiment_dir / SNAPSHOT_DIR
+    out_dir = out_dir if out_dir is not None else experiment_dir / SNAPSHOT_DIR
     out_dir.mkdir(parents=True, exist_ok=True)
     path = out_dir / f"{record_id}.spice"
     header = "\n".join(
@@ -529,6 +531,21 @@ def _result_lines(record: dict) -> list[str]:
     return lines
 
 
+def _evidence_link_lines(record: dict, experiment: str, record_id: str, logs_label: str) -> list[str]:
+    """Links to the run's raw bytes: the artifact manifest (DR-030) for a
+    record minted with the store, else the legacy committed paths."""
+    manifest = record.get("evidence_manifest")
+    if manifest:
+        return [
+            f"  - Artifact manifest (netlist snapshot + {logs_label.lower()}, "
+            f"stored in the artifact store by sha256): `{manifest}`"
+        ]
+    return [
+        f"  - Netlist snapshot: `sim/{experiment}/{SNAPSHOT_DIR}/{record_id}.spice`",
+        f"  - {logs_label}: `sim/{experiment}/{CORNERS_DIR}/{record_id}/`",
+    ]
+
+
 def render_record(record: dict, experiment: str) -> str:
     """Render the ratified ``records/<record-id>.md`` summary.
 
@@ -576,8 +593,7 @@ def render_record(record: dict, experiment: str) -> str:
         "- **Links**:",
         f"  - Testbench: `sim/{experiment}/{testbench_dir}/{tb['netlist']}`, "
         f"`sim/{experiment}/{testbench_dir}/tb.json`",
-        f"  - Netlist snapshot: `sim/{experiment}/{SNAPSHOT_DIR}/{record_id}.spice`",
-        f"  - Raw logs: `sim/{experiment}/{CORNERS_DIR}/{record_id}/`",
+        *_evidence_link_lines(record, experiment, record_id, "Raw logs"),
         f"- **Timestamp / author**: {record['started_utc']}, {env['user']}",
         f"- **Supersedes**: {record['supersedes'] or '(none)'}",
         "",
