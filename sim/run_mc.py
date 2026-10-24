@@ -137,6 +137,7 @@ def run(args: argparse.Namespace) -> int:
     jobs = args.jobs or cliutil.default_jobs()
     record_id, workdir, log_dir, git, started = cliutil.provision_record(
         REPO_ROOT, WORK_DIR, records_dir, experiment_dir, tb.experiment, args.no_write,
+        stage=True,
     )
 
     if not args.quiet:
@@ -209,6 +210,7 @@ def run(args: argparse.Namespace) -> int:
 
     return cliutil.finish_run(
         tb, record, experiment_dir, record_id, workdir, log_dir, args.no_write, mc_report.write_mc_record,
+        stage=True, repo_root=REPO_ROOT,
     )
 
 

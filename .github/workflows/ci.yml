@@ -109,6 +109,14 @@ jobs:
       - name: signoff/tests (ERC freshness gate unit tests, no PDK/klt)
         run: python3 -m unittest discover -s signoff/tests -t signoff/tests
 
+      - name: scripts/tests (artifact-manifest check unit tests, no broker/klt)
+        run: python3 -m unittest discover -s scripts/tests -t scripts/tests
+
+      - name: scripts/check_artifact_manifests.py (manifest schema, artifact: URIs, no committed stored bytes)
+        # DR-030. Needs neither the broker nor klt; `klt artifact verify` is a
+        # fleet-worker check, not a public-CI one.
+        run: python3 scripts/check_artifact_manifests.py
+
       - name: Install the pinned signoff grader (klt -- no PDK needed)
         if: matrix.python-version == '3.11'
         # signoff/toolchain.json pins the klt build that GRADES this block.

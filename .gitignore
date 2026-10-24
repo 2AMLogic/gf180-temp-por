@@ -123,3 +123,9 @@ sim/pdk.local.json
 # `klt sim --backend batch` scratch (staged bodies, requests, klt artifacts): disposable;
 # the evidence copies live in logs/ and corners/.
 sim/*/control/batch/
+
+# Staging area for a new run's raw evidence bytes before they go to the
+# artifact store (DR-030). Lives under sim/.work/, already ignored above;
+# named here because new campaigns must never commit what is staged in it.
+# The exemptions above stay: they cover the evidence already committed.
+sim/.work/evidence-stage/
