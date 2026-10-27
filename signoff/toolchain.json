@@ -11,7 +11,7 @@
     "                                    this pin means re-running DRC/LVS and",
     "                                    re-committing evidence (deck hash",
     "                                    changes across klt releases).",
-    "  signoff/toolchain.json klt 0.7.0  reads those envelopes and renders the",
+    "  signoff/toolchain.json klt 0.8.0  reads those envelopes and renders the",
     "                                    tier report. Moving this pin re-grades",
     "                                    existing evidence and produces no new",
     "                                    evidence at all.",
@@ -25,11 +25,11 @@
     "what turns that into a loud, actionable failure."
   ],
   "klt": {
-    "version": "klt 0.7.0",
-    "install": "uv tool install --force klayout-tools==0.7.0",
+    "version": "klt 0.8.0",
+    "install": "uv tool install --force klayout-tools==0.8.0",
     "release": {
-      "package_version": "0.7.0",
-      "git_tag": "v0.7.0"
+      "package_version": "0.8.0",
+      "git_tag": "v0.8.0"
     }
   },
   "tiers_doc": {

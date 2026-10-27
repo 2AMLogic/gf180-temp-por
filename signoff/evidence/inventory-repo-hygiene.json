@@ -10,7 +10,7 @@
   "files": [
     {
       "path": ".github/workflows/ci.yml",
-      "sha256": "sha256:91a7a2f99332df0b1af74296ac70f52533389c067eae8092b30dce1b294735c0"
+      "sha256": "sha256:91c73c5572c030971f53bb3a512b5c7105d0852e8797a6d6ceca6b871c1afe04"
     },
     {
       "path": "LICENSE",
@@ -18,7 +18,7 @@
     },
     {
       "path": "README.md",
-      "sha256": "sha256:68e2629f3b777089ac1f99104cd9f9148daf1a4fcb3477d1606db8062100273e"
+      "sha256": "sha256:10fd1848947a3b0eba3deec048c10597431b7336f711b49633e92081b069d64b"
     },
     {
       "path": "spec/target-spec.md",
