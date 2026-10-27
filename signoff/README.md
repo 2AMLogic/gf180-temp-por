@@ -29,7 +29,7 @@ which invalidated every prior hand-read in the fleet at a stroke.
 prose disagree — including #145's checkboxes — the report wins, and the prose
 is the thing that is wrong.
 
-## The current verdict: `tier: null`, 8 of 11 items met
+## The current verdict: `tier: null`, 9 of 11 items met
 
 Rendered by `klt 0.8.0` against its bundled `docs/design-evidence-tiers.md`.
 Block `kind` is **`analog`**: a single analog partition with no synthesized
@@ -46,17 +46,17 @@ artifact, and there is no partition boundary to declare.
 | 4 | LVS clean | **`met`** | `layout/reports/temp_por_top/lvs.json` — `status: match`, engine `klayout` 0.30.10, 145/145 nets, 239/239 devices, 6/6 pins. **Warnings-only mismatches and a freshness caveat disclosed below.** |
 | 5 | Full corner verification vs a ratified spec | `unmet` / `no_evidence` | The 81-point PVT matrix exists under `sim/*/records/`, but as this repo's own Markdown evidence records — there is no `klt sim` JSON envelope to cite. The manifest already declares `spec_rows."5"` (every `measured`/`derived` row in `evidence/inventory-testbenches.json`, each a gap naming the issue that will cover it: [#388](https://github.com/2AMLogic/gf180-temp-por/issues/388), [#389](https://github.com/2AMLogic/gf180-temp-por/issues/389)); `klt 0.8.0` accepts it but only surfaces it (`partial_coverage` + `declared_gaps`) once a first envelope is cited, so the verdict stays `no_evidence` until then. |
 | 6 | Statistical claims carry Monte Carlo evidence | `unmet` / `no_evidence` | N=500 MC records exist (`sim/temp-accuracy-mc`, `sim/por-threshold-mc`) with a reproducible seed formula and a deterministic negative control, but there is no `klt yield` report. |
-| 7 | Post-layout verification | `unmet` / `no_evidence` | Post-layout re-simulation exists (`sim/*/testbench-postlayout/`, `sim/postlayout_delta.py`, `layout/reports/*/extracted-parasitics.json`), but it is `klt extract --parasitics` plus this repo's own harness. **Item 7 accepts a `klt pex` report and nothing else** — a citation of the extract envelope would render `wrong_kind`, not `met`. |
+| 7 | Post-layout verification | **`met`** | `layout/reports/temp_por_top/pex.json`, a `klt pex` report (`--measure-command` mode) on `layout/cells/temp_por_top.gds` against `design/netlist/temp_por_top.spice`: the `sim/por-vth` full-assembly bench over all 81 PVT corners, 23 measurements per corner, 1863 `delta[]` rows, none errored. Covers `por-vth-rise`, `por-vth-fall`, `por-hysteresis` only; every other row with a post-layout bench is a declared gap (`spec_rows."7"`, [#391](https://github.com/2AMLogic/gf180-temp-por/issues/391)). **`body_bias.status` is `unbiased`** (64 PMOS bodies); see the item 7 section below. |
 | 8 | Characterization report | **`met`** | `evidence/characterization-report.json`, a generic envelope wrapping `spec/target-spec.md`, pinned to `sha256:d78561ee…`. **Disclosed exceptions below.** |
 | 9 | Testbenches shipped | **`met`** | `evidence/t1-item-9-testbenches.json`, bound to `evidence/inventory-testbenches.json`: all 29 spec rows classified, every measured row mapped to the committed `testbench/` and `testbench-postlayout/` files of 22 `sim/` experiments (each file hashed, with the testbench's own PVT settings from its `tb.json`), the cold-start invocations from `sim/harness/README.md`, and the PDK pin from `.github/workflows/ci.yml`. **Binding limits below.** |
 | 10 | Repo hygiene | **`met`** | `evidence/t1-item-10-repo-hygiene.json`, bound to `evidence/inventory-repo-hygiene.json`: `README.md`, `LICENSE`, `spec/target-spec.md` and `.github/workflows/ci.yml`, each hashed, with four stated assertions re-checked on every run. **Binding limits below.** |
 | 11 | Power delivery (structural) | **`met`** | `layout/reports/temp_por_top/erc_supply.json` (a `klt erc` supply-spec run) plus `layout/reports/temp_por_top/lvs.json`, whose `net_correspondence` carries both supplies ([#300](https://github.com/2AMLogic/gf180-temp-por/issues/300), `ties[]` added by [#310](https://github.com/2AMLogic/gf180-temp-por/issues/310)). The report has `erc_finding_count: 0` — zero `erc.supply_short`, zero `erc.unconnected_net`, and zero `erc.missing_tie`, with all four declared `ties[]` entries graded `checked` (none `skipped`/degenerate) — pinned to `sha256:a119a12b…` (the committed GDS) and `sha256:773047b1…` (the committed spec). The grader reports all four ties as caller-asserted (`ties_checked_by_assertion`), three of them resting on an asserted well (`ties_checked_by_well_assertion`) — this is provenance, not a weaker bar; see `layout/README.md`'s "Item 11" section. **Produced with the released `klt 0.7.0`** (PR #351's operator ruling declined to grade item 11 on an earlier unreleased-build run; the report was regenerated on the released tool and the caveat retired — see below), with the spec's own declared coverage disclosed below. |
 
-**8 of 11 is a lower number than #145's 10/10, and both are honest reads of
+**9 of 11 is a lower number than #145's 10/10, and both are honest reads of
 different questions.** #145 asked "does this repo contain the artifact the
 item describes?" and largely, it does. This report asks "is there a passing,
 fresh, machine-readable envelope of the kind this item accepts?" and for 3
-items (5, 6, 7) there is not. Nothing regressed between the two reads; the second
+items (5, 6) there is not. Nothing regressed between the two reads; the second
 question is simply stricter, and it is the one a downstream consumer of this
 block can actually verify without taking our word for it.
 
@@ -209,7 +209,59 @@ The audits behind each `pass`:
 Consequence for the fleet roll-up
 ([2AMLogic/2am#956](https://github.com/2AMLogic/2am/issues/956)): the first
 unmet item is now 5, so `blocking_item` reports a real blocker rather than
-item 1. Items 5, 6 and 7 are what stand between this block and T1.
+item 1. Items 5 and 6 are what stand between this block and T1.
+
+## Item 7 — `klt pex` evidence, its `body_bias` status, and what was patched
+
+`layout/reports/temp_por_top/pex.json` is `klt pex 0.8.0` run with
+`--measure-command` (`sim/pex/run_pex.sh` reproduces it; the staged requests are
+committed under `layout/reports/temp_por_top/pex-requests/`). The grader quotes
+the report's `body_bias` on the citation and does not grade on it, so the
+claim states it:
+
+- **`body_bias.status: "unbiased"`**, `unbiased_device_count: 64`, on six
+  deck-synthesized well nets (`$50`, `$51`, `$53`, `$65`, `$100`, `$101`):
+  every PMOS body in the extraction sits on an Nwell island the gf180mcu
+  deck found no tie for. That is the same condition `klt lvs` reports as
+  `device.body_unverified` (item 4). It is a property of the deck, not
+  evidence that the drawn wells are untied.
+
+The comparison would be physically wrong if those wells floated, so the
+extracted leg is **patched before it is simulated**; `sim/pex/measure.py`
+prints each patch on stderr and keeps `extracted-patched.spice`:
+
+1. Each of the 19 extracted `Q… bjt` cards becomes `XQ… pnp_10p00x10p00` (the
+   deck has one generic bipolar class), after checking `AE=100P`.
+2. The six unbiased well nets get a 0 V source to the net the schematic puts
+   that well on (`layout/postlayout.py:body_ties()`, found through a
+   `klt lvs 0.8.0` net correspondence): five go to `VDD`, `xtemp.NW2` to
+   `xtemp.NT`; the bipolar base well `xbias.NWQ` goes to `VSS`.
+3. The `.SUBCKT` header lists the same pins in the schematic's order.
+
+`klt pex` therefore reports `body_bias` for the *unpatched* extraction, and
+the numbers were measured on the patched one.
+
+Settings that decide the numbers, all in `sim/pex/run_pex.sh`:
+`--deck-option poly_res=3k` (the schematic's resistor flavour; the default `1k`
+shifts the divider) and `--substrate-tie-ohms 0` (the default leaves the
+synthesized substrate floating at 1e12 ohm, so every ground capacitance hangs
+off a floating node and couples nets to each other: with it, VREF's 127.5 fF
+to `vsubs` removed the comparator's hysteresis entirely. Dropping that single
+capacitor, or tying the substrate, restores 190 mV).
+
+Measured result: thresholds agree within 0.24 % (`vpor_rise_v`, `vpor_fall_v`),
+`v_hys_mv` within 4.3 % (190.3 mV extracted against 183.6 mV on the schematic
+at the typical corner, in line with the repo's own post-layout record), and the
+large relative deltas are on near-zero rows (`vref_settle_drift_mv`,
+`por_raw_hi_droop_mv`, `v_hys_rate_guard_delta_mv`), where the absolute values
+are millivolts or less.
+
+Toolchain split: the batch fleet runs `klt 0.7.0` and refuses any other
+`klt sim` client (`batch_runner_version_mismatch`), so the legs' `klt sim`
+runs at 0.7.0 while `klt pex` and `klt lvs` run at 0.8.0 (the grader's pin).
+0.7.0's `klt sim` silently drops `corners.params`, so the supply is one literal
+`.param vdd_val` per request rather than an axis; `measure.py` fails if a
+report's corner count differs from the request's.
 
 ## Item 11 — graded `met` on released-tool evidence (`klt 0.7.0`)
 
