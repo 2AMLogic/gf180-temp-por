@@ -31,7 +31,7 @@ is the thing that is wrong.
 
 ## The current verdict: `tier: null`, 8 of 11 items met
 
-Rendered by `klt 0.7.0` against its bundled `docs/design-evidence-tiers.md`.
+Rendered by `klt 0.8.0` against its bundled `docs/design-evidence-tiers.md`.
 Block `kind` is **`analog`**: a single analog partition with no synthesized
 or placed-and-routed digital sub-block. The POR output chain is logic, but it
 is hand-captured as schematics and hand-drawn as layout — no RTL, no
@@ -44,7 +44,7 @@ artifact, and there is no partition boundary to declare.
 | 2 | Layout | **`met`** | `evidence/t1-item-2-layout.json`, a generic envelope bound directly to `layout/cells/temp_por_top.gds` (`sha256:a119a12b…`, the hash items 3, 4 and 11 pin). Its summary names the other 5 GDS under `layout/cells/` and the gate `layout/build_cells.py --check`. **Binding limits below.** |
 | 3 | DRC clean | **`met`** | `layout/reports/temp_por_top/drc.json` — `status: clean`, deck `gf180mcu`, pinned to `sha256:a119a12b…` which is the sha256 of the committed `layout/cells/temp_por_top.gds`. **Coverage gaps disclosed below.** |
 | 4 | LVS clean | **`met`** | `layout/reports/temp_por_top/lvs.json` — `status: match`, engine `klayout` 0.30.10, 145/145 nets, 239/239 devices, 6/6 pins. **Warnings-only mismatches and a freshness caveat disclosed below.** |
-| 5 | Full corner verification vs a ratified spec | `unmet` / `no_evidence` | The 81-point PVT matrix exists under `sim/*/records/`, but as this repo's own Markdown evidence records — there is no `klt sim` JSON envelope to cite. |
+| 5 | Full corner verification vs a ratified spec | `unmet` / `no_evidence` | The 81-point PVT matrix exists under `sim/*/records/`, but as this repo's own Markdown evidence records — there is no `klt sim` JSON envelope to cite. The manifest already declares `spec_rows."5"` (every `measured`/`derived` row in `evidence/inventory-testbenches.json`, each a gap naming the issue that will cover it: [#388](https://github.com/2AMLogic/gf180-temp-por/issues/388), [#389](https://github.com/2AMLogic/gf180-temp-por/issues/389)); `klt 0.8.0` accepts it but only surfaces it (`partial_coverage` + `declared_gaps`) once a first envelope is cited, so the verdict stays `no_evidence` until then. |
 | 6 | Statistical claims carry Monte Carlo evidence | `unmet` / `no_evidence` | N=500 MC records exist (`sim/temp-accuracy-mc`, `sim/por-threshold-mc`) with a reproducible seed formula and a deterministic negative control, but there is no `klt yield` report. |
 | 7 | Post-layout verification | `unmet` / `no_evidence` | Post-layout re-simulation exists (`sim/*/testbench-postlayout/`, `sim/postlayout_delta.py`, `layout/reports/*/extracted-parasitics.json`), but it is `klt extract --parasitics` plus this repo's own harness. **Item 7 accepts a `klt pex` report and nothing else** — a citation of the extract envelope would render `wrong_kind`, not `met`. |
 | 8 | Characterization report | **`met`** | `evidence/characterization-report.json`, a generic envelope wrapping `spec/target-spec.md`, pinned to `sha256:d78561ee…`. **Disclosed exceptions below.** |
@@ -348,7 +348,7 @@ independently — but it is why they had to be.
 ```bash
 # Install the pinned grader (separate from layout/toolchain.json's pin --
 # see toolchain.json for why)
-uv tool install --force klayout-tools==0.7.0
+uv tool install --force klayout-tools==0.8.0
 
 # The gate CI runs: re-grade the tree, fail on any drift from the committed verdict
 python3 signoff/check.py

@@ -34,7 +34,71 @@
     },
     "10": {
       "file": "signoff/evidence/t1-item-10-repo-hygiene.json",
-      "content_hash": "sha256:fd0c03e56625de6da37e2c6874e7c0c65f7361c3cd3fc1c17315f9596f0f2ad3"
+      "content_hash": "sha256:3e38ec8d99c88402a388bfff351acf7966ef027d81d4d5792f004758671a671a"
     }
+  },
+  "spec_rows": {
+    "5": [
+      {
+        "id": "iq-total",
+        "gap": "no klt sim envelope yet; the envelope for this row is planned in #389"
+      },
+      {
+        "id": "por-brownout",
+        "gap": "no klt sim envelope yet; the envelope for this row is planned in #389"
+      },
+      {
+        "id": "por-hysteresis",
+        "gap": "no klt sim envelope yet; the por-vth pilot that will cover this row is #388"
+      },
+      {
+        "id": "por-iq",
+        "gap": "no klt sim envelope yet; the envelope for this row is planned in #389"
+      },
+      {
+        "id": "por-ramp-rate",
+        "gap": "no klt sim envelope yet; the envelope for this row is planned in #389"
+      },
+      {
+        "id": "por-reset-pulse",
+        "gap": "no klt sim envelope yet; the envelope for this row is planned in #389"
+      },
+      {
+        "id": "por-reset-valid-floor",
+        "gap": "no klt sim envelope yet; the envelope for this row is planned in #389"
+      },
+      {
+        "id": "por-vth-fall",
+        "gap": "no klt sim envelope yet; the por-vth pilot that will cover this row is #388"
+      },
+      {
+        "id": "por-vth-rise",
+        "gap": "no klt sim envelope yet; the por-vth pilot that will cover this row is #388"
+      },
+      {
+        "id": "temp-accuracy-trimmed",
+        "gap": "no klt sim envelope yet; the envelope for this row is planned in #389"
+      },
+      {
+        "id": "temp-accuracy-untrimmed",
+        "gap": "no klt sim envelope yet; the envelope for this row is planned in #389"
+      },
+      {
+        "id": "temp-iq",
+        "gap": "no klt sim envelope yet; the envelope for this row is planned in #389"
+      },
+      {
+        "id": "temp-supply-sensitivity",
+        "gap": "no klt sim envelope yet; the envelope for this row is planned in #389"
+      },
+      {
+        "id": "temp-trim-strategy",
+        "gap": "no klt sim envelope yet; the envelope for this row is planned in #389"
+      },
+      {
+        "id": "temp-vt-transfer",
+        "gap": "no klt sim envelope yet; the envelope for this row is planned in #389"
+      }
+    ]
   }
 }
