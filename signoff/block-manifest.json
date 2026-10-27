@@ -30,11 +30,15 @@
     },
     "9": {
       "file": "signoff/evidence/t1-item-9-testbenches.json",
-      "content_hash": "sha256:5fe9d015476f6d12a045baf2541454140d38e2927892d0fa2967766eb6057ca2"
+      "content_hash": "sha256:1cac4b5d0ef62a639b2bd8ad0667b3eed1e3a010a3667fa7fb536fc673adcd0f"
     },
     "10": {
       "file": "signoff/evidence/t1-item-10-repo-hygiene.json",
       "content_hash": "sha256:3e38ec8d99c88402a388bfff351acf7966ef027d81d4d5792f004758671a671a"
+    },
+    "7": {
+      "file": "layout/reports/temp_por_top/pex.json",
+      "content_hash": "sha256:a119a12b1fa2daff64772a4a804a0ea14f17c68dc9357fe167dfd287df0628fd"
     }
   },
   "spec_rows": {
@@ -98,6 +102,56 @@
       {
         "id": "temp-vt-transfer",
         "gap": "no klt sim envelope yet; the envelope for this row is planned in #389"
+      }
+    ],
+    "7": [
+      {
+        "id": "iq-total",
+        "gap": "no klt pex coverage yet; the post-layout bench exists (sim/temp-accuracy-vt/testbench-postlayout) but is not staged under sim/pex/ -- tracked in #391"
+      },
+      {
+        "id": "por-brownout",
+        "gap": "no klt pex coverage yet; the post-layout bench exists (sim/por-brownout/testbench-postlayout) but is not staged under sim/pex/ -- tracked in #391"
+      },
+      {
+        "id": "por-iq",
+        "gap": "no klt pex coverage yet; the post-layout bench exists (sim/temp-accuracy-vt/testbench-postlayout) but is not staged under sim/pex/ -- tracked in #391"
+      },
+      {
+        "id": "por-ramp-rate",
+        "gap": "no klt pex coverage yet; the post-layout bench exists (sim/por-ramp-rate/testbench-postlayout) but is not staged under sim/pex/ -- tracked in #391"
+      },
+      {
+        "id": "por-reset-pulse",
+        "gap": "no klt pex coverage yet; the post-layout bench exists (sim/por-output-chain-pulse/testbench-postlayout) but is not staged under sim/pex/ -- tracked in #391"
+      },
+      {
+        "id": "por-reset-valid-floor",
+        "gap": "no klt pex coverage yet; the post-layout bench exists (sim/por-output-chain-floor/testbench-postlayout) but is not staged under sim/pex/ -- tracked in #391"
+      },
+      {
+        "id": "temp-accuracy-trimmed",
+        "gap": "no klt pex coverage yet; the post-layout bench exists (sim/temp-accuracy-vt/testbench-postlayout) but is not staged under sim/pex/ -- tracked in #391"
+      },
+      {
+        "id": "temp-accuracy-untrimmed",
+        "gap": "no klt pex coverage yet; the post-layout bench exists (sim/temp-accuracy-vt/testbench-postlayout) but is not staged under sim/pex/ -- tracked in #391"
+      },
+      {
+        "id": "temp-iq",
+        "gap": "no klt pex coverage yet; the post-layout bench exists (sim/temp-accuracy-vt/testbench-postlayout) but is not staged under sim/pex/ -- tracked in #391"
+      },
+      {
+        "id": "temp-supply-sensitivity",
+        "gap": "no klt pex coverage yet; the post-layout bench exists (sim/temp-accuracy-vt/testbench-postlayout) but is not staged under sim/pex/ -- tracked in #391"
+      },
+      {
+        "id": "temp-trim-strategy",
+        "gap": "no klt pex coverage yet; the post-layout bench exists (sim/temp-core-designer-check/testbench-postlayout) but is not staged under sim/pex/ -- tracked in #391"
+      },
+      {
+        "id": "temp-vt-transfer",
+        "gap": "no klt pex coverage yet; the post-layout bench exists (sim/temp-accuracy-vt/testbench-postlayout) but is not staged under sim/pex/ -- tracked in #391"
       }
     ]
   }
