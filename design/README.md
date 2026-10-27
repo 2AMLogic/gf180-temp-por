@@ -135,11 +135,12 @@ directory.
 Under the hood, per cell:
 
 ```bash
-xschem -x -q -n -s -r --rcfile design/xschemrc -o <outdir> design/<cell>.sch
+klt netlist design/<cell>.sch -o <outdir>/<cell>.spice --rcfile design/xschemrc
 ```
 
-`-x` batch (no X11), `-q` quit when done, `-n -s` netlist as SPICE, `-r` no
-readline. `design/xschemrc` sets the library path (xschem devices → PDK symbols
+`klt netlist` owns the xschem invocation: it always passes `-x -q -n -s -r`
+(batch, quit when done, SPICE netlist, no readline), bounds the run with a
+timeout, and judges success by a freshly written output file. `design/xschemrc` sets the library path (xschem devices → PDK symbols
 → `design/`) and, critically, `top_is_subckt 1`: **every** cell — including the
 top — netlists as a `.subckt`, never as a flat simulation deck. Cells here are
 blocks that testbenches instantiate; the deck belongs to the testbench.
