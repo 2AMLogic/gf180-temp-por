@@ -177,6 +177,13 @@ jobs:
           # produced against (sim/devchar/SUMMARY.md, sim/smoke-bias/records/).
           volare enable --pdk gf180mcu c6d73a35f524070e85faff4a6a9eef49553ebc2b
 
+      - name: Install klt (netlist export front-end for design/netlist.py)
+        # design/netlist.py shells out to `klt netlist`, which owns the xschem
+        # invocation. This pin is separate from the signoff grader pin in
+        # signoff/toolchain.json: it only needs a release that provides
+        # `klt netlist`, and is bumped on the netlist export's own schedule.
+        run: pip install "klayout-tools==0.7.0"
+
       - name: design/netlist.py --check (deterministic-netlist staleness guard)
         run: python3 design/netlist.py --check
 
