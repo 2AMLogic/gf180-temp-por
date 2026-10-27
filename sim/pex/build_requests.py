@@ -22,8 +22,10 @@ MECHANICAL EDITS (all visible in the staged files)
 1. The stimulus fragment is inlined into `body.spice` followed by one
    `.include "dut.spice"`; `dut.spice` is `design/netlist/temp_por_top.spice`
    unchanged. `sim/pex/measure.py` swaps that file per leg.
-2. `vdd_val` is declared back as a nominal `.param` and swept on the
-   `corners.params` axis (klt >= 0.8.0 refuses `supply_v` on a `.param`).
+2. The supply is NOT a corner axis: one request per (temperature, supply),
+   `.param vdd_val` a literal in the body. The batch fleet runs klt 0.7.0,
+   whose `klt sim` silently drops `corners.params`, and 0.8.0 refuses
+   `supply_v` on a `.param`; per-request literals need neither.
 3. The harness's derived `let`/`print` rows (`m_<name>`, e.g. `v_hys_mv`) are
    re-expressed as `.meas tran <name> param='<expr>'` cards, because a klt
    `expr` measurement cannot read a `.meas` result.
@@ -72,21 +74,19 @@ def stage(slug: str, outdir: Path, temps: list[float] | None) -> list[Path]:
         text = runner.compose_deck(tb, pdk, p)
         units.append(klt_batch.translate_deck(
             text, key=p.corner_id, log_path=exp / "unused.log", pdk=pdk, deck_dir=exp,
-            lift_params=("vdd_val",), extra_init=init))
+            lift_params=(), extra_init=init))
     cfg = klt_batch.BatchConfig(pdk=pdk, stage_root=exp / "req", evidence_dir=None)
     groups: dict[tuple, list] = {}
     for u in units:
         groups.setdefault(klt_batch._unit_group_key(u), []).append(u)
     out = []
     for members in groups.values():
-        name = f"T{members[0].temp_c:g}C"
+        vdd = corners_mod.parse_corner_id(members[0].key)[2]
+        name = f"T{members[0].temp_c:g}C_V{vdd}"
         req_path, request = klt_batch._stage(members, pdk, cfg, name)
         request["backend"] = "batch"
-        # klt >= 0.8.0 refuses `supply_v` on a .param (alter cannot change one);
-        # sweep it on the parameter axis (corners.params) instead.
-        if request.get("exclude"):
-            raise SystemExit(f"{slug}: sparse grid; the params axis has no exclude form here")
-        request["corners"]["params"] = request["corners"].pop("supply_v")
+        if request["corners"].get("supply_v") or request.get("exclude"):
+            raise SystemExit(f"{slug}: unexpected supply axis; vdd_val is a literal per request")
         for m in request["measurements"]:
             if "expr" in m:
                 m["name"] = m["name"].removeprefix("m_")
@@ -100,9 +100,6 @@ def stage(slug: str, outdir: Path, temps: list[float] | None) -> list[Path]:
         if len(hit) != 1:
             raise SystemExit(f"{body}: expected one include of tb_pex.spice, saw {len(hit)}")
         lines[hit[0]:hit[0] + 1] = stub.read_text().splitlines()
-        # the harness lifts vdd_val out of the body; declare the nominal back
-        # as the default that each corner's params row then overrides.
-        lines.insert(1, f".param vdd_val={tb.nominal_supply_v!r}")
         body.write_text("\n".join(lines) + "\n")
         (req_path.parent / "dut.spice").write_text(SCHEMATIC.read_text())
         out.append(req_path)

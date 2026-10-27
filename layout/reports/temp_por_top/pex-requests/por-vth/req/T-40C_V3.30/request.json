@@ -107,14 +107,7 @@
           "mimcap_typical"
         ]
       }
-    ],
-    "params": {
-      "vdd_val": [
-        2.97,
-        3.3,
-        3.63
-      ]
-    }
+    ]
   },
   "analysis": {
     "kind": "tran",

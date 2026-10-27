@@ -5,7 +5,7 @@
   "netlist_source": "schematic",
   "corners": {
     "temperature_c": [
-      125.0
+      -40.0
     ],
     "process": [
       {
@@ -107,14 +107,7 @@
           "mimcap_typical"
         ]
       }
-    ],
-    "params": {
-      "vdd_val": [
-        2.97,
-        3.3,
-        3.63
-      ]
-    }
+    ]
   },
   "analysis": {
     "kind": "tran",

@@ -44,6 +44,7 @@ import re
 import shutil
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
@@ -166,7 +167,21 @@ def run_leg(slug_dir: Path, work: Path, dut_text: str, backend: str | None, klt:
         cmd = [klt, "sim", str(w / "request.json"), "-o", str(w / "klt"), "--format", "json"]
         if backend:
             cmd += ["--backend", backend]
-        proc = subprocess.run(cmd, capture_output=True, text=True)
+        # the spot quota is shared with CI: on a capacity refusal wait and
+        # retry (bounded; never fall back to a local grid)
+        deadline = time.monotonic() + float(os.environ.get("PEX_WAIT_FOR_CAPACITY", "1200"))
+        delay = 30.0
+        while True:
+            proc = subprocess.run(cmd, capture_output=True, text=True)
+            out_text = proc.stdout + proc.stderr
+            if backend == "batch" and ("batch_no_capacity" in out_text
+                                       or "batch_concurrency_cap" in out_text):
+                if time.monotonic() + delay < deadline:
+                    print(f"{w.name}: fleet at capacity; retrying in {delay:.0f}s", file=sys.stderr)
+                    time.sleep(delay)
+                    delay = min(delay * 2, 300.0)
+                    continue
+            break
         try:
             doc = json.loads(proc.stdout)
         except json.JSONDecodeError:
@@ -175,10 +190,18 @@ def run_leg(slug_dir: Path, work: Path, dut_text: str, backend: str | None, klt:
             die(f"klt sim on {w.name}: {json.dumps(doc['error'])[:600]}")
         if backend == "batch" and not (doc.get("environment") or {}).get("remote"):
             die(f"{w.name}: report carries no environment.remote -- not executed on the fleet")
+        want = len(req["corners"]["process"]) * len(req["corners"]["temperature_c"])
+        if doc.get("corner_count") != want or len(doc["corners"]) != want:
+            die(f"{w.name}: expected {want} corners, report has "
+                f"{doc.get('corner_count')}/{len(doc['corners'])} -- an axis was dropped")
         (w / "report.json").write_text(json.dumps(doc, indent=1) + "\n")
         for c in doc["corners"]:
+            errs = [d for d in c.get("diagnostics") or [] if d.get("severity") == "error"]
+            if c.get("status") == "error" and errs:
+                die(f"{slug_dir.name}/{w.name} {c['corner_id']}: {errs[0].get('code')}: "
+                    f"{str(errs[0].get('message'))[:400]}")
             corners.append({
-                "corner_id": f"{slug_dir.name}/{c['corner_id']}",
+                "corner_id": f"{slug_dir.name}/{w.name.split('_')[1]}/{c['corner_id']}",
                 "measurements": [
                     {"name": m["name"], "value": m.get("value"), "status": m.get("status")}
                     for m in c.get("measurements", [])
@@ -190,7 +213,9 @@ def run_leg(slug_dir: Path, work: Path, dut_text: str, backend: str | None, klt:
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--stage-root", type=Path, required=True)
-    ap.add_argument("--klt", default=os.environ.get("KLT", "klt"))
+    ap.add_argument("--klt", default=os.environ.get("KLT", "klt"),
+                    help="klt used for `klt sim` (must match the batch fleet runner's build)")
+    ap.add_argument("--lvs-klt", help="klt used for `klt lvs` (default: --klt)")
     ap.add_argument("slugs", nargs="+")
     ap.add_argument("netlist", type=Path)
     a = ap.parse_args()
@@ -200,7 +225,7 @@ def main() -> int:
     backend = os.environ.get("KLT_SIM_BACKEND") or None
     text = a.netlist.read_text()
     if side == "extracted":
-        text, report = patch_extracted(text, a.klt)
+        text, report = patch_extracted(text, a.lvs_klt or a.klt)
         (art / "extracted-patched.spice").write_text(text)
         print("extracted-leg patches:\n  " + "\n  ".join(report), file=sys.stderr)
     elif side != "schematic":
