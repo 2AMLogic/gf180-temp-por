@@ -107,7 +107,13 @@ def export_cell(cell: str, outdir: Path, env: dict[str, str]) -> str:
         "-o", str(produced),
         "--rcfile", str(XSCHEMRC),
     ]
-    proc = subprocess.run(cmd, env=env, capture_output=True, text=True)
+    try:
+        proc = subprocess.run(cmd, env=env, capture_output=True, text=True)
+    except FileNotFoundError as exc:
+        raise ExportError(
+            "`klt` not found on PATH; install klayout-tools "
+            "(pip install klayout-tools) -- it owns the xschem invocation"
+        ) from exc
     if proc.returncode != 0 or not produced.is_file():
         raise ExportError(
             f"klt netlist failed for {cell} (exit {proc.returncode})\n"
