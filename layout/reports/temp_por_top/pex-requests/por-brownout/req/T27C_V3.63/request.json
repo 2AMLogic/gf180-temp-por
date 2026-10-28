@@ -1,0 +1,188 @@
+{
+  "netlist": "body.spice",
+  "engine": "ngspice",
+  "backend": "batch",
+  "netlist_source": "schematic",
+  "corners": {
+    "temperature_c": [
+      27.0
+    ],
+    "process": [
+      {
+        "name": "typical+res_typical+bjt_typical+diode_typical+moscap_typical+mimcap_typical",
+        "sections": [
+          "typical",
+          "res_typical",
+          "bjt_typical",
+          "diode_typical",
+          "moscap_typical",
+          "mimcap_typical"
+        ]
+      },
+      {
+        "name": "ff+res_ff+bjt_ff+diode_ff+moscap_ff+mimcap_ff",
+        "sections": [
+          "ff",
+          "res_ff",
+          "bjt_ff",
+          "diode_ff",
+          "moscap_ff",
+          "mimcap_ff"
+        ]
+      },
+      {
+        "name": "ss+res_ss+bjt_ss+diode_ss+moscap_ss+mimcap_ss",
+        "sections": [
+          "ss",
+          "res_ss",
+          "bjt_ss",
+          "diode_ss",
+          "moscap_ss",
+          "mimcap_ss"
+        ]
+      },
+      {
+        "name": "fs+res_typical+bjt_typical+diode_typical+moscap_typical+mimcap_typical",
+        "sections": [
+          "fs",
+          "res_typical",
+          "bjt_typical",
+          "diode_typical",
+          "moscap_typical",
+          "mimcap_typical"
+        ]
+      },
+      {
+        "name": "sf+res_typical+bjt_typical+diode_typical+moscap_typical+mimcap_typical",
+        "sections": [
+          "sf",
+          "res_typical",
+          "bjt_typical",
+          "diode_typical",
+          "moscap_typical",
+          "mimcap_typical"
+        ]
+      },
+      {
+        "name": "typical+res_ff+bjt_typical+diode_typical+moscap_typical+mimcap_typical",
+        "sections": [
+          "typical",
+          "res_ff",
+          "bjt_typical",
+          "diode_typical",
+          "moscap_typical",
+          "mimcap_typical"
+        ]
+      },
+      {
+        "name": "typical+res_ss+bjt_typical+diode_typical+moscap_typical+mimcap_typical",
+        "sections": [
+          "typical",
+          "res_ss",
+          "bjt_typical",
+          "diode_typical",
+          "moscap_typical",
+          "mimcap_typical"
+        ]
+      },
+      {
+        "name": "typical+res_typical+bjt_ff+diode_typical+moscap_typical+mimcap_typical",
+        "sections": [
+          "typical",
+          "res_typical",
+          "bjt_ff",
+          "diode_typical",
+          "moscap_typical",
+          "mimcap_typical"
+        ]
+      },
+      {
+        "name": "typical+res_typical+bjt_ss+diode_typical+moscap_typical+mimcap_typical",
+        "sections": [
+          "typical",
+          "res_typical",
+          "bjt_ss",
+          "diode_typical",
+          "moscap_typical",
+          "mimcap_typical"
+        ]
+      }
+    ]
+  },
+  "analysis": {
+    "kind": "tran",
+    "args": "20u 55m"
+  },
+  "measurements": [
+    {
+      "name": "vrst_pre",
+      "spice": ".meas tran vrst_pre find v(resetn) at=19.9m"
+    },
+    {
+      "name": "vdd_dip",
+      "spice": ".meas tran vdd_dip find v(vdd) at=20.03m"
+    },
+    {
+      "name": "vrst_dip",
+      "spice": ".meas tran vrst_dip find v(resetn) at=20.045m"
+    },
+    {
+      "name": "treassert",
+      "spice": ".meas tran treassert when v(resetn)=0.3 fall=1 td=20m"
+    },
+    {
+      "name": "trel2",
+      "spice": ".meas tran trel2 when v(resetn)=1.0 rise=1 td=20.052m"
+    },
+    {
+      "name": "trel2_last",
+      "spice": ".meas tran trel2_last when v(resetn)=1.0 rise=last td=20.052m"
+    },
+    {
+      "name": "vrst_final",
+      "spice": ".meas tran vrst_final find v(resetn) at=54.5m"
+    },
+    {
+      "name": "resetn_pre_dip_v",
+      "spice": ".meas tran resetn_pre_dip_v param='vrst_pre'"
+    },
+    {
+      "name": "vdd_dip_v",
+      "spice": ".meas tran vdd_dip_v param='vdd_dip'"
+    },
+    {
+      "name": "resetn_floor_in_dip_mv",
+      "spice": ".meas tran resetn_floor_in_dip_mv param='vrst_dip*1e3'"
+    },
+    {
+      "name": "t_reassert_us",
+      "spice": ".meas tran t_reassert_us param='(treassert-20m)*1e6'"
+    },
+    {
+      "name": "t_pulse_regen_ms",
+      "spice": ".meas tran t_pulse_regen_ms param='(trel2-treassert)*1e3'"
+    },
+    {
+      "name": "release_chatter_us",
+      "spice": ".meas tran release_chatter_us param='(trel2_last-trel2)*1e6'"
+    },
+    {
+      "name": "resetn_final_v",
+      "spice": ".meas tran resetn_final_v param='vrst_final'"
+    }
+  ],
+  "options": {
+    "timeout_s": 1800,
+    "keep_artifacts": true,
+    "ngspice_init": [
+      "set wnflag=1",
+      "set num_threads=1",
+      "set numdgt=10",
+      "set noaskquit"
+    ]
+  },
+  "models": {
+    "pdk": "gf180mcuD",
+    "lib": "libs.tech/ngspice/sm141064.ngspice"
+  }
+}

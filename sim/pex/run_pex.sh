@@ -15,10 +15,10 @@ cd "$(dirname "$0")/../.."
 # which must equal the batch fleet runner's build (a different client is refused
 # with batch_runner_version_mismatch).
 KLT_VERSION="${KLT_VERSION:-0.8.0}"
-SIM_KLT_VERSION="${SIM_KLT_VERSION:-0.7.0}"
+SIM_KLT_VERSION="${SIM_KLT_VERSION:-0.8.0}"
 BACKEND="${PEX_BACKEND:-batch}"
 SLUGS=("$@")
-[ ${#SLUGS[@]} -gt 0 ] || SLUGS=(por-vth)
+[ ${#SLUGS[@]} -gt 0 ] || SLUGS=(por-vth por-brownout por-ramp-rate temp-accuracy-vt)
 STAGE=layout/reports/temp_por_top/pex-requests
 OUT=layout/reports/temp_por_top/pex.json
 SCRATCH="${PEX_SCRATCH:-/tmp/pex-temp_por_top}"
@@ -43,4 +43,10 @@ rc=0
   --format json -o "$SCRATCH/extracted.spice" --outdir "$SCRATCH/out" \
   > "$SCRATCH/pex.json" || rc=$?
 echo "klt pex exit $rc (4 = a delta row errored; see $SCRATCH/pex.json)"
-cp "$SCRATCH/pex.json" "$OUT"
+# only a report (0) or a report with errored delta rows (4) replaces the
+# committed one; any other exit leaves an error payload that must not clobber it
+if [ "$rc" -eq 0 ] || [ "$rc" -eq 4 ]; then
+  cp "$SCRATCH/pex.json" "$OUT"
+else
+  exit "$rc"
+fi
