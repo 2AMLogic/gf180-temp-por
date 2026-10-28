@@ -321,5 +321,47 @@ class RegenTest(unittest.TestCase):
         self.assertIn("audit failed", err.getvalue())
 
 
+class CitationHashDriftTest(unittest.TestCase):
+    """Same verdicts, stale cited hash: check_drift must still fail."""
+
+    @staticmethod
+    def report(digest: str) -> dict:
+        return {
+            "block": "b", "kind": "k", "tier": None,
+            "t1_item_count": 1, "t1_met_count": 1,
+            "items": [{
+                "tier": "T1", "id": 10, "partition": None,
+                "status": "met", "reason": None,
+                "citation": {
+                    "content_hash": digest,
+                    "artifact_binding": {"content_hash": digest},
+                },
+            }],
+        }
+
+    def run_drift(self, committed: dict, graded: dict):
+        tmp = Path(tempfile.mkdtemp(dir=REPO_ROOT))
+        self.addCleanup(shutil.rmtree, tmp, True)
+        path = tmp / "tier-report.json"
+        path.write_text(json.dumps(committed))
+        err = io.StringIO()
+        saved = check.REPORT
+        check.REPORT = path
+        self.addCleanup(setattr, check, "REPORT", saved)
+        with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(err):
+            ok = check.check_drift(graded)
+        return ok, err.getvalue()
+
+    def test_stale_citation_hash_fails(self):
+        ok, err = self.run_drift(self.report("sha256:aa"), self.report("sha256:bb"))
+        self.assertFalse(ok)
+        self.assertIn("sha256:aa", err)
+        self.assertIn("--regen", err)
+
+    def test_matching_hashes_pass(self):
+        ok, _ = self.run_drift(self.report("sha256:aa"), self.report("sha256:aa"))
+        self.assertTrue(ok)
+
+
 if __name__ == "__main__":
     unittest.main()

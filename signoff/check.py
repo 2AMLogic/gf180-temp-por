@@ -376,6 +376,29 @@ def projection(report: dict) -> dict:
     }
 
 
+def citation_hashes(report: dict) -> dict:
+    """Every content hash a report cites, keyed by item and field.
+
+    Kept apart from `projection()` on purpose: new citation *fields* are not
+    rot, but a hash the report cites that no longer matches the freshly
+    graded one is a statement about a file version that no longer exists.
+    """
+    out = {}
+    for item in report.get("items", []):
+        cite = item.get("citation") or {}
+        key = (item.get("tier"), item.get("id"), item.get("partition"))
+        for field, value in (
+            ("citation.content_hash", cite.get("content_hash")),
+            (
+                "artifact_binding.content_hash",
+                (cite.get("artifact_binding") or {}).get("content_hash"),
+            ),
+        ):
+            if value is not None:
+                out[(*key, field)] = value
+    return out
+
+
 def check_no_stale(report: dict) -> bool:
     stale = [
         item
@@ -406,6 +429,22 @@ def check_drift(report: dict) -> bool:
         fail(f"{REPORT.relative_to(REPO_ROOT)} is not valid JSON: {exc}")
         return False
     want, got = projection(committed), projection(report)
+    old_hashes, new_hashes = citation_hashes(committed), citation_hashes(report)
+    stale = {
+        k for k in old_hashes.keys() & new_hashes.keys() if old_hashes[k] != new_hashes[k]
+    }
+    if want == got and stale:
+        fail(
+            f"{REPORT.relative_to(REPO_ROOT)} cites content hashes that differ "
+            "from what the current tree grades to (verdicts unchanged):"
+        )
+        for key in sorted(stale, key=str):
+            print(
+                f"     ~ {key}: committed {old_hashes[key]} -> now {new_hashes[key]}",
+                file=sys.stderr,
+            )
+        print("     Run: python3 signoff/check.py --regen", file=sys.stderr)
+        return False
     if want == got:
         print(
             f"ok   {REPORT.relative_to(REPO_ROOT)} matches what the current "
