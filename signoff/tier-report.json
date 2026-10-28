@@ -286,7 +286,7 @@
         "command": null,
         "kind": "generic",
         "check_status": "pass",
-        "content_hash": "sha256:3e38ec8d99c88402a388bfff351acf7966ef027d81d4d5792f004758671a671a",
+        "content_hash": "sha256:3ddde032948cb5d3f13586d6e68cf3580effce70e75e85970c08a9c9fc1545c3",
         "input_verified": true,
         "exit_status": 0,
         "artifact_binding": {
@@ -295,7 +295,7 @@
             "path": "signoff/evidence/inventory-repo-hygiene.json",
             "scope": "repo"
           },
-          "content_hash": "sha256:3e38ec8d99c88402a388bfff351acf7966ef027d81d4d5792f004758671a671a",
+          "content_hash": "sha256:3ddde032948cb5d3f13586d6e68cf3580effce70e75e85970c08a9c9fc1545c3",
           "input_verified": true,
           "summary": "Audited inventory for T1 item 10 (Repo hygiene): .github/workflows/ci.yml, LICENSE, README.md, spec/target-spec.md with the stated assertions. Every member file is listed with its sha256 and signoff/check.py re-derives the inventory from the live tree, so the bound hash proves the inventory is current and the member hashes prove the files it describes are. It does not run a simulation or re-derive any measured value.",
           "source": "signoff/evidence/inventory-repo-hygiene.json"
