@@ -1,0 +1,308 @@
+{
+  "netlist": "body.spice",
+  "engine": "ngspice",
+  "backend": "batch",
+  "netlist_source": "schematic",
+  "corners": {
+    "temperature_c": [
+      -40.0
+    ],
+    "process": [
+      {
+        "name": "typical+res_typical+bjt_typical+diode_typical+moscap_typical+mimcap_typical",
+        "sections": [
+          "typical",
+          "res_typical",
+          "bjt_typical",
+          "diode_typical",
+          "moscap_typical",
+          "mimcap_typical"
+        ]
+      },
+      {
+        "name": "ff+res_ff+bjt_ff+diode_ff+moscap_ff+mimcap_ff",
+        "sections": [
+          "ff",
+          "res_ff",
+          "bjt_ff",
+          "diode_ff",
+          "moscap_ff",
+          "mimcap_ff"
+        ]
+      },
+      {
+        "name": "ss+res_ss+bjt_ss+diode_ss+moscap_ss+mimcap_ss",
+        "sections": [
+          "ss",
+          "res_ss",
+          "bjt_ss",
+          "diode_ss",
+          "moscap_ss",
+          "mimcap_ss"
+        ]
+      },
+      {
+        "name": "fs+res_typical+bjt_typical+diode_typical+moscap_typical+mimcap_typical",
+        "sections": [
+          "fs",
+          "res_typical",
+          "bjt_typical",
+          "diode_typical",
+          "moscap_typical",
+          "mimcap_typical"
+        ]
+      },
+      {
+        "name": "sf+res_typical+bjt_typical+diode_typical+moscap_typical+mimcap_typical",
+        "sections": [
+          "sf",
+          "res_typical",
+          "bjt_typical",
+          "diode_typical",
+          "moscap_typical",
+          "mimcap_typical"
+        ]
+      },
+      {
+        "name": "typical+res_ff+bjt_typical+diode_typical+moscap_typical+mimcap_typical",
+        "sections": [
+          "typical",
+          "res_ff",
+          "bjt_typical",
+          "diode_typical",
+          "moscap_typical",
+          "mimcap_typical"
+        ]
+      },
+      {
+        "name": "typical+res_ss+bjt_typical+diode_typical+moscap_typical+mimcap_typical",
+        "sections": [
+          "typical",
+          "res_ss",
+          "bjt_typical",
+          "diode_typical",
+          "moscap_typical",
+          "mimcap_typical"
+        ]
+      },
+      {
+        "name": "typical+res_typical+bjt_ff+diode_typical+moscap_typical+mimcap_typical",
+        "sections": [
+          "typical",
+          "res_typical",
+          "bjt_ff",
+          "diode_typical",
+          "moscap_typical",
+          "mimcap_typical"
+        ]
+      },
+      {
+        "name": "typical+res_typical+bjt_ss+diode_typical+moscap_typical+mimcap_typical",
+        "sections": [
+          "typical",
+          "res_typical",
+          "bjt_ss",
+          "diode_typical",
+          "moscap_typical",
+          "mimcap_typical"
+        ]
+      }
+    ]
+  },
+  "analysis": {
+    "kind": "tran",
+    "args": "2m 3.7"
+  },
+  "measurements": [
+    {
+      "name": "trel1",
+      "spice": ".meas tran trel1 when v(resetnr1)=1.0 rise=1"
+    },
+    {
+      "name": "trel1_last",
+      "spice": ".meas tran trel1_last when v(resetnr1)=1.0 rise=last"
+    },
+    {
+      "name": "vddrel1",
+      "spice": ".meas tran vddrel1 find v(vddr1) when v(resetnr1)=1.0 rise=1"
+    },
+    {
+      "name": "rst1_at1v",
+      "spice": ".meas tran rst1_at1v find v(resetnr1) at=1.0"
+    },
+    {
+      "name": "rst1_at2v",
+      "spice": ".meas tran rst1_at2v find v(resetnr1) at=2.0"
+    },
+    {
+      "name": "trel2",
+      "spice": ".meas tran trel2 when v(resetnr2)=1.0 rise=1"
+    },
+    {
+      "name": "trel2_last",
+      "spice": ".meas tran trel2_last when v(resetnr2)=1.0 rise=last"
+    },
+    {
+      "name": "vddrel2",
+      "spice": ".meas tran vddrel2 find v(vddr2) when v(resetnr2)=1.0 rise=1"
+    },
+    {
+      "name": "rst2_at1v",
+      "spice": ".meas tran rst2_at1v find v(resetnr2) at=0.1"
+    },
+    {
+      "name": "rst2_at2v",
+      "spice": ".meas tran rst2_at2v find v(resetnr2) at=0.2"
+    },
+    {
+      "name": "trel3",
+      "spice": ".meas tran trel3 when v(resetnr3)=1.0 rise=1"
+    },
+    {
+      "name": "trel3_last",
+      "spice": ".meas tran trel3_last when v(resetnr3)=1.0 rise=last"
+    },
+    {
+      "name": "vddrel3",
+      "spice": ".meas tran vddrel3 find v(vddr3) when v(resetnr3)=1.0 rise=1"
+    },
+    {
+      "name": "rst3_at1v",
+      "spice": ".meas tran rst3_at1v find v(resetnr3) at=10u"
+    },
+    {
+      "name": "rst3_at2v",
+      "spice": ".meas tran rst3_at2v find v(resetnr3) at=20u"
+    },
+    {
+      "name": "trel4",
+      "spice": ".meas tran trel4 when v(resetnr4)=1.0 rise=1"
+    },
+    {
+      "name": "trel4_last",
+      "spice": ".meas tran trel4_last when v(resetnr4)=1.0 rise=last"
+    },
+    {
+      "name": "vddrel4",
+      "spice": ".meas tran vddrel4 find v(vddr4) when v(resetnr4)=1.0 rise=1"
+    },
+    {
+      "name": "rst4_at1v",
+      "spice": ".meas tran rst4_at1v find v(resetnr4) at=1u"
+    },
+    {
+      "name": "rst4_at2v",
+      "spice": ".meas tran rst4_at2v find v(resetnr4) at=2u"
+    },
+    {
+      "name": "vref_rel4",
+      "spice": ".meas tran vref_rel4 find v(xr4.vref) when v(resetnr4)=1.0 rise=1"
+    },
+    {
+      "name": "biasok_rel4",
+      "spice": ".meas tran biasok_rel4 find v(xr4.bias_ok) when v(resetnr4)=1.0 rise=1"
+    },
+    {
+      "name": "vddrel_1vs_v",
+      "spice": ".meas tran vddrel_1vs_v param='vddrel1'"
+    },
+    {
+      "name": "vddrel_10vs_v",
+      "spice": ".meas tran vddrel_10vs_v param='vddrel2'"
+    },
+    {
+      "name": "vddrel_100kvs_v",
+      "spice": ".meas tran vddrel_100kvs_v param='vddrel3'"
+    },
+    {
+      "name": "vddrel_1mvs_v",
+      "spice": ".meas tran vddrel_1mvs_v param='vddrel4'"
+    },
+    {
+      "name": "chatter_1vs_us",
+      "spice": ".meas tran chatter_1vs_us param='(trel1_last-trel1)*1e6'"
+    },
+    {
+      "name": "chatter_10vs_us",
+      "spice": ".meas tran chatter_10vs_us param='(trel2_last-trel2)*1e6'"
+    },
+    {
+      "name": "chatter_100kvs_us",
+      "spice": ".meas tran chatter_100kvs_us param='(trel3_last-trel3)*1e6'"
+    },
+    {
+      "name": "chatter_1mvs_us",
+      "spice": ".meas tran chatter_1mvs_us param='(trel4_last-trel4)*1e6'"
+    },
+    {
+      "name": "resetn_at_1v_1vs_mv",
+      "spice": ".meas tran resetn_at_1v_1vs_mv param='rst1_at1v*1e3'"
+    },
+    {
+      "name": "resetn_at_2v_1vs_mv",
+      "spice": ".meas tran resetn_at_2v_1vs_mv param='rst1_at2v*1e3'"
+    },
+    {
+      "name": "resetn_at_1v_10vs_mv",
+      "spice": ".meas tran resetn_at_1v_10vs_mv param='rst2_at1v*1e3'"
+    },
+    {
+      "name": "resetn_at_2v_10vs_mv",
+      "spice": ".meas tran resetn_at_2v_10vs_mv param='rst2_at2v*1e3'"
+    },
+    {
+      "name": "resetn_at_1v_100kvs_mv",
+      "spice": ".meas tran resetn_at_1v_100kvs_mv param='rst3_at1v*1e3'"
+    },
+    {
+      "name": "resetn_at_2v_100kvs_mv",
+      "spice": ".meas tran resetn_at_2v_100kvs_mv param='rst3_at2v*1e3'"
+    },
+    {
+      "name": "resetn_at_1v_1mvs_mv",
+      "spice": ".meas tran resetn_at_1v_1mvs_mv param='rst4_at1v*1e3'"
+    },
+    {
+      "name": "resetn_at_2v_1mvs_mv",
+      "spice": ".meas tran resetn_at_2v_1mvs_mv param='rst4_at2v*1e3'"
+    },
+    {
+      "name": "t_release_1vs_ms",
+      "spice": ".meas tran t_release_1vs_ms param='trel1*1e3'"
+    },
+    {
+      "name": "t_release_10vs_ms",
+      "spice": ".meas tran t_release_10vs_ms param='trel2*1e3'"
+    },
+    {
+      "name": "t_release_100kvs_ms",
+      "spice": ".meas tran t_release_100kvs_ms param='trel3*1e3'"
+    },
+    {
+      "name": "t_release_1mvs_ms",
+      "spice": ".meas tran t_release_1mvs_ms param='trel4*1e3'"
+    },
+    {
+      "name": "vref_at_rel_1mvs_v",
+      "spice": ".meas tran vref_at_rel_1mvs_v param='vref_rel4'"
+    },
+    {
+      "name": "biasok_at_rel_1mvs_v",
+      "spice": ".meas tran biasok_at_rel_1mvs_v param='biasok_rel4'"
+    }
+  ],
+  "options": {
+    "timeout_s": 1800,
+    "keep_artifacts": true,
+    "ngspice_init": [
+      "set wnflag=1",
+      "set num_threads=1",
+      "set numdgt=10",
+      "set noaskquit"
+    ]
+  },
+  "models": {
+    "pdk": "gf180mcuD",
+    "lib": "libs.tech/ngspice/sm141064.ngspice"
+  }
+}

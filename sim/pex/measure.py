@@ -196,7 +196,11 @@ def run_leg(slug_dir: Path, work: Path, dut_text: str, backend: str | None, klt:
                 f"{doc.get('corner_count')}/{len(doc['corners'])} -- an axis was dropped")
         (w / "report.json").write_text(json.dumps(doc, indent=1) + "\n")
         for c in doc["corners"]:
-            errs = [d for d in c.get("diagnostics") or [] if d.get("severity") == "error"]
+            # a `.meas` that yields no value (e.g. a threshold never crossed) is
+            # a result, not a harness failure: it is passed on as value=null,
+            # status=error so klt pex can compare it across the two legs
+            errs = [d for d in c.get("diagnostics") or []
+                    if d.get("severity") == "error" and d.get("code") != "measurement"]
             if c.get("status") == "error" and errs:
                 die(f"{slug_dir.name}/{w.name} {c['corner_id']}: {errs[0].get('code')}: "
                     f"{str(errs[0].get('message'))[:400]}")
