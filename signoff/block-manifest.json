@@ -106,20 +106,8 @@
     ],
     "7": [
       {
-        "id": "por-reset-pulse",
-        "gap": "no klt pex coverage yet; the post-layout bench exists (cell-level DUT, not temp_por_top) (sim/por-output-chain-pulse/testbench-postlayout) but is not staged under sim/pex/ -- needs a cell-level DUT wrapper, tracked in #393"
-      },
-      {
-        "id": "por-reset-valid-floor",
-        "gap": "no klt pex coverage yet; the post-layout bench exists (cell-level DUT, not temp_por_top) (sim/por-output-chain-floor/testbench-postlayout) but is not staged under sim/pex/ -- needs a cell-level DUT wrapper, tracked in #393"
-      },
-      {
         "id": "temp-accuracy-trimmed",
         "gap": "derived row: sim/temp-accuracy-vt/analyze_derived.py computes it from the raw V(T) readings, and sim/pex/build_requests.py does not re-express it as a .meas, so the klt pex report carries no delta row for it -- tracked in #391"
-      },
-      {
-        "id": "temp-trim-strategy",
-        "gap": "no klt pex coverage yet; the post-layout bench exists (cell-level DUT, not temp_por_top) (sim/temp-core-designer-check/testbench-postlayout) but is not staged under sim/pex/ -- needs a cell-level DUT wrapper, tracked in #393"
       }
     ]
   }

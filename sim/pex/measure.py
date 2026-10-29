@@ -1,10 +1,14 @@
 #!/usr/bin/env python3
-"""`klt pex --measure-command` driver for temp_por_top.
+"""`klt pex --measure-command` driver for temp_por_top or one of its cells.
 
     klt pex layout/cells/temp_por_top.gds --deck gf180mcu --pdk gf180mcuD \\
         --pins VDD,VSS,PTAT,CTAT,RESETn --rename-declared-pins \\
         --reference-netlist design/netlist/temp_por_top.spice \\
         --measure-command 'python3 sim/pex/measure.py --stage-root DIR slug...'
+
+`--cell NAME` points the same driver at a cell-level DUT (`temp_core`,
+`por_output_chain`): the DUT subcircuit, its pin order and the LVS request come
+from that cell, and nothing else changes. The default is `temp_por_top`.
 
 `klt pex` runs this twice (schematic leg, extracted leg), appending the
 netlist under measurement as the last argument. For each slug it swaps that
@@ -18,7 +22,7 @@ THE EXTRACTED LEG IS PATCHED -- these are the whole of the edits, and they are
 needed because klt's gf180mcu deck extracts devices that the PDK models do not
 accept as written:
 
-1. The `.SUBCKT temp_por_top` header lists the same pins in the schematic's
+1. The `.SUBCKT <cell>` header lists the same pins in the schematic's
    order (the stimulus instantiates the DUT positionally).
 2. Each extracted `Q... bjt` card (the deck has one generic bipolar class and
    cannot name the PDK device) becomes `XQ... c b e pnp_10p00x10p00`, the
@@ -50,7 +54,6 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "layout"))
 
-SCH_PINS = ["VDD", "VSS", "PTAT", "CTAT", "RESETn"]
 PDK_BJT = "pnp_10p00x10p00"
 
 
@@ -70,9 +73,18 @@ def logical_cards(text: str) -> list[list[str]]:
     return groups
 
 
-def lvs_correspondence(klt: str) -> dict[str, str]:
-    """reference net (upper-case) -> layout net, from `klt lvs` on the top cell."""
-    req = REPO / "layout" / "cells" / "temp_por_top.lvs.json"
+def schematic_pins(cell: str) -> list[str]:
+    """Pin order of `.subckt <cell>` in the schematic (the stimulus is positional)."""
+    text = (REPO / "design" / "netlist" / f"{cell}.spice").read_text()
+    for card in logical_cards(text):
+        if re.match(rf"^\.subckt\s+{re.escape(cell)}\b", card[0], re.I):
+            return card[0].split()[2:]
+    die(f"no `.subckt {cell}` in design/netlist/{cell}.spice")
+
+
+def lvs_correspondence(klt: str, cell: str) -> dict[str, str]:
+    """reference net (upper-case) -> layout net, from `klt lvs` on the cell."""
+    req = REPO / "layout" / "cells" / f"{cell}.lvs.json"
     proc = subprocess.run([klt, "lvs", str(req), "--format", "json"],
                           capture_output=True, text=True)
     try:
@@ -84,14 +96,16 @@ def lvs_correspondence(klt: str) -> dict[str, str]:
     return {e["reference"].upper(): e["layout"] for e in doc["net_correspondence"]}
 
 
-def patch_extracted(text: str, klt: str) -> tuple[str, list[str]]:
+def patch_extracted(text: str, klt: str, cell: str) -> tuple[str, list[str]]:
     import postlayout  # layout/postlayout.py
 
-    ties = {k: v for k, v in postlayout.body_ties("temp_por_top").items() if k != "vsubs"}
-    expected_model = postlayout.bipolar_model("temp_por_top")
-    if expected_model != PDK_BJT:
+    sch_pins = schematic_pins(cell)
+    ties = {k: v for k, v in postlayout.body_ties(cell).items() if k != "vsubs"}
+    expected_model = postlayout.bipolar_model(cell)
+    # a cell with no bipolars (por_output_chain) has nothing to rename
+    if expected_model not in (None, PDK_BJT):
         die(f"schematic bipolar is {expected_model}, wrapper is written for {PDK_BJT}")
-    ref_to_layout = lvs_correspondence(klt)
+    ref_to_layout = lvs_correspondence(klt, cell)
 
     def layout_net(ref_name: str) -> str:
         key = ref_name.upper().replace(".", "_")
@@ -109,11 +123,11 @@ def patch_extracted(text: str, klt: str) -> tuple[str, list[str]]:
     report: list[str] = []
     for card in logical_cards(text):
         head = card[0]
-        if re.match(r"^\.subckt\s+temp_por_top\b", head, re.I):
+        if re.match(rf"^\.subckt\s+{re.escape(cell)}\b", head, re.I):
             pins = head.split()[2:]
-            if sorted(p.upper() for p in pins) != sorted(p.upper() for p in SCH_PINS):
-                die(f"extracted pin set {pins} != schematic {SCH_PINS}")
-            card = [".SUBCKT temp_por_top " + " ".join(SCH_PINS)]
+            if sorted(p.upper() for p in pins) != sorted(p.upper() for p in sch_pins):
+                die(f"extracted pin set {pins} != schematic {sch_pins}")
+            card = [f".SUBCKT {cell} " + " ".join(sch_pins)]
             seen_header = True
         elif re.match(r"^q", head, re.I):
             joined = " ".join(c.lstrip("+").strip() for c in card)
@@ -141,14 +155,17 @@ def patch_extracted(text: str, klt: str) -> tuple[str, list[str]]:
             out.extend(tie_lines)
         out.extend(card)
     if not seen_header:
-        die("no `.SUBCKT temp_por_top` in the extracted netlist")
-    if bjt_count == 0:
+        die(f"no `.SUBCKT {cell}` in the extracted netlist")
+    if expected_model and bjt_count == 0:
         die("no bipolar cards found in the extracted netlist")
+    if not expected_model and bjt_count:
+        die(f"{bjt_count} bipolar cards extracted but the schematic has none")
     tied = {line.split()[1] for line in tie_lines}
     for b in bjt_bases:
         if b not in tied and not re.match(r"^VSS(__t\d+)?$", b):
             die(f"bipolar base {b} is neither a tied well nor on the VSS net")
-    report.append(f"{bjt_count} bipolar cards -> {PDK_BJT}")
+    if bjt_count:
+        report.append(f"{bjt_count} bipolar cards -> {PDK_BJT}")
     return "\n".join(out) + "\n", report
 
 
@@ -217,6 +234,7 @@ def run_leg(slug_dir: Path, work: Path, dut_text: str, backend: str | None, klt:
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--stage-root", type=Path, required=True)
+    ap.add_argument("--cell", default="temp_por_top", help="DUT subcircuit under measurement")
     ap.add_argument("--klt", default=os.environ.get("KLT", "klt"),
                     help="klt used for `klt sim` (must match the batch fleet runner's build)")
     ap.add_argument("--lvs-klt", help="klt used for `klt lvs` (default: --klt)")
@@ -229,7 +247,7 @@ def main() -> int:
     backend = os.environ.get("KLT_SIM_BACKEND") or None
     text = a.netlist.read_text()
     if side == "extracted":
-        text, report = patch_extracted(text, a.lvs_klt or a.klt)
+        text, report = patch_extracted(text, a.lvs_klt or a.klt, a.cell)
         (art / "extracted-patched.spice").write_text(text)
         print("extracted-leg patches:\n  " + "\n  ".join(report), file=sys.stderr)
     elif side != "schematic":

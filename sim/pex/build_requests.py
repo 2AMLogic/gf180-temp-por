@@ -20,15 +20,18 @@ checks come from the experiment's committed `tb.json` unchanged.
 MECHANICAL EDITS (all visible in the staged files)
 
 1. The stimulus fragment is inlined into `body.spice` followed by one
-   `.include "dut.spice"`; `dut.spice` is `design/netlist/temp_por_top.spice`
-   unchanged. `sim/pex/measure.py` swaps that file per leg.
+   `.include "dut.spice"`; `dut.spice` is `design/netlist/<dut>.spice`
+   unchanged (`--dut`, default temp_por_top). `sim/pex/measure.py` swaps that
+   file per leg.
 2. The supply is NOT a corner axis: one request per (temperature, supply),
    `.param vdd_val` a literal in the body. The batch fleet runs klt 0.7.0,
    whose `klt sim` silently drops `corners.params`, and 0.8.0 refuses
    `supply_v` on a `.param`; per-request literals need neither.
 3. The harness's derived `let`/`print` rows (`m_<name>`, e.g. `v_hys_mv`) are
    re-expressed as `.meas tran <name> param='<expr>'` cards, because a klt
-   `expr` measurement cannot read a `.meas` result.
+   `expr` measurement cannot read a `.meas` result. On an `op` analysis (the
+   temp_core bench) klt refuses `.meas`, and a whole-vector reduction such as
+   `maximum(v(vdd))` is not a `.meas` parameter, so those stay `expr` measurements.
 
 The grid goes out as `klt sim` requests (one per temperature), never as a
 hand-rolled ngspice loop.
@@ -38,6 +41,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 from dataclasses import replace
 from pathlib import Path
@@ -49,14 +53,15 @@ from harness import corners as corners_mod  # noqa: E402
 from harness import klt_batch, runner, testbench  # noqa: E402
 from harness.pdk import find_pdk  # noqa: E402
 
-SCHEMATIC = REPO / "design" / "netlist" / "temp_por_top.spice"
+VECTOR_FN = re.compile(r"\b(maximum|minimum|mean|sum|length|vector)\s*\(", re.I)
+NETLIST_DIR = REPO / "design" / "netlist"
 
 
 def stimulus_text(path: Path) -> str:
     return path.read_text() + '\n.include "dut.spice"\n'
 
 
-def stage(slug: str, outdir: Path, temps: list[float] | None) -> list[Path]:
+def stage(slug: str, outdir: Path, temps: list[float] | None, dut: str) -> list[Path]:
     pdk = find_pdk()
     tb = testbench.load(REPO / "sim" / slug / "testbench")
     exp = outdir / slug
@@ -90,7 +95,12 @@ def stage(slug: str, outdir: Path, temps: list[float] | None) -> list[Path]:
         for m in request["measurements"]:
             if "expr" in m:
                 m["name"] = m["name"].removeprefix("m_")
-                m["spice"] = f".meas tran {m['name']} param='{m.pop('expr')}'"
+                # an `op` analysis has no sweep for a `.meas` card to search
+                # (klt refuses it), and a `.meas param=` cannot evaluate a
+                # whole-vector reduction (`maximum(v(vdd))`): those derived
+                # rows stay `expr` measurements
+                if request["analysis"]["kind"] != "op" and not VECTOR_FN.search(m["expr"]):
+                    m["spice"] = f".meas tran {m['name']} param='{m.pop('expr')}'"
         req_path.write_text(json.dumps(request, indent=2) + "\n")
         # `klt pex` re-points the DUT `.include` in the request's own netlist,
         # so inline the stimulus stub (which holds that include) into body.spice
@@ -101,7 +111,7 @@ def stage(slug: str, outdir: Path, temps: list[float] | None) -> list[Path]:
             raise SystemExit(f"{body}: expected one include of tb_pex.spice, saw {len(hit)}")
         lines[hit[0]:hit[0] + 1] = stub.read_text().splitlines()
         body.write_text("\n".join(lines) + "\n")
-        (req_path.parent / "dut.spice").write_text(SCHEMATIC.read_text())
+        (req_path.parent / "dut.spice").write_text((NETLIST_DIR / f"{dut}.spice").read_text())
         out.append(req_path)
         print(f"{slug}: {req_path.relative_to(outdir)} ({len(members)} corners)")
     return out
@@ -112,9 +122,11 @@ def main() -> int:
     ap.add_argument("outdir", type=Path)
     ap.add_argument("slugs", nargs="+")
     ap.add_argument("--temps", type=float, nargs="+")
+    ap.add_argument("--dut", default="temp_por_top",
+                    help="schematic netlist (design/netlist/<dut>.spice) the stimulus instantiates")
     a = ap.parse_args()
     for s in a.slugs:
-        stage(s, a.outdir.resolve(), a.temps)
+        stage(s, a.outdir.resolve(), a.temps, a.dut)
     return 0
 
 
