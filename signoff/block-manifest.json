@@ -106,52 +106,20 @@
     ],
     "7": [
       {
-        "id": "iq-total",
-        "gap": "no klt pex coverage yet; the post-layout bench exists (sim/temp-accuracy-vt/testbench-postlayout) but is not staged under sim/pex/ -- tracked in #391"
-      },
-      {
-        "id": "por-brownout",
-        "gap": "no klt pex coverage yet; the post-layout bench exists (sim/por-brownout/testbench-postlayout) but is not staged under sim/pex/ -- tracked in #391"
-      },
-      {
-        "id": "por-iq",
-        "gap": "no klt pex coverage yet; the post-layout bench exists (sim/temp-accuracy-vt/testbench-postlayout) but is not staged under sim/pex/ -- tracked in #391"
-      },
-      {
-        "id": "por-ramp-rate",
-        "gap": "no klt pex coverage yet; the post-layout bench exists (sim/por-ramp-rate/testbench-postlayout) but is not staged under sim/pex/ -- tracked in #391"
-      },
-      {
         "id": "por-reset-pulse",
-        "gap": "no klt pex coverage yet; the post-layout bench exists (sim/por-output-chain-pulse/testbench-postlayout) but is not staged under sim/pex/ -- tracked in #391"
+        "gap": "no klt pex coverage yet; the post-layout bench exists (cell-level DUT, not temp_por_top) (sim/por-output-chain-pulse/testbench-postlayout) but is not staged under sim/pex/ -- needs a cell-level DUT wrapper, tracked in #393"
       },
       {
         "id": "por-reset-valid-floor",
-        "gap": "no klt pex coverage yet; the post-layout bench exists (sim/por-output-chain-floor/testbench-postlayout) but is not staged under sim/pex/ -- tracked in #391"
+        "gap": "no klt pex coverage yet; the post-layout bench exists (cell-level DUT, not temp_por_top) (sim/por-output-chain-floor/testbench-postlayout) but is not staged under sim/pex/ -- needs a cell-level DUT wrapper, tracked in #393"
       },
       {
         "id": "temp-accuracy-trimmed",
-        "gap": "no klt pex coverage yet; the post-layout bench exists (sim/temp-accuracy-vt/testbench-postlayout) but is not staged under sim/pex/ -- tracked in #391"
-      },
-      {
-        "id": "temp-accuracy-untrimmed",
-        "gap": "no klt pex coverage yet; the post-layout bench exists (sim/temp-accuracy-vt/testbench-postlayout) but is not staged under sim/pex/ -- tracked in #391"
-      },
-      {
-        "id": "temp-iq",
-        "gap": "no klt pex coverage yet; the post-layout bench exists (sim/temp-accuracy-vt/testbench-postlayout) but is not staged under sim/pex/ -- tracked in #391"
-      },
-      {
-        "id": "temp-supply-sensitivity",
-        "gap": "no klt pex coverage yet; the post-layout bench exists (sim/temp-accuracy-vt/testbench-postlayout) but is not staged under sim/pex/ -- tracked in #391"
+        "gap": "derived row: sim/temp-accuracy-vt/analyze_derived.py computes it from the raw V(T) readings, and sim/pex/build_requests.py does not re-express it as a .meas, so the klt pex report carries no delta row for it -- tracked in #391"
       },
       {
         "id": "temp-trim-strategy",
-        "gap": "no klt pex coverage yet; the post-layout bench exists (sim/temp-core-designer-check/testbench-postlayout) but is not staged under sim/pex/ -- tracked in #391"
-      },
-      {
-        "id": "temp-vt-transfer",
-        "gap": "no klt pex coverage yet; the post-layout bench exists (sim/temp-accuracy-vt/testbench-postlayout) but is not staged under sim/pex/ -- tracked in #391"
+        "gap": "no klt pex coverage yet; the post-layout bench exists (cell-level DUT, not temp_por_top) (sim/temp-core-designer-check/testbench-postlayout) but is not staged under sim/pex/ -- needs a cell-level DUT wrapper, tracked in #393"
       }
     ]
   }

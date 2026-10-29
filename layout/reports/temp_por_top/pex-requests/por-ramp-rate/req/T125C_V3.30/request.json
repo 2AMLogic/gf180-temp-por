@@ -295,7 +295,6 @@
     "timeout_s": 1800,
     "keep_artifacts": true,
     "ngspice_init": [
-      "set wnflag=1",
       "set num_threads=1",
       "set numdgt=10",
       "set noaskquit"
