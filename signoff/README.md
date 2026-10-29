@@ -255,8 +255,14 @@ process split, plus `V3.30 ss -40C`). `sim/pex/measure.py` passes a `.meas` that
 yields no value on as `value: null`; on these rows the schematic leg never
 re-asserts reset while the extracted leg does (e.g. `treassert` 20 us), so the
 report grades `error` and item 7 grades `unmet`/`check_failed`. This is the
-result of the run; no threshold or bench was changed. Whether the extracted
-netlist or the schematic bench is right at these dips is open.
+result of the run; no threshold or bench was changed. The cause is measured
+([#405](https://github.com/2AMLogic/gf180-temp-por/issues/405),
+`sim/por-brownout/control/schematic-nonreassert.md`): the deck's 1 us dip edge
+leaves RESETn tracking the rail, and the single post-recovery POR_RAW pulse
+(about 16 us at `ss V2.97 -40C`) is shorter than the deglitch dwell, so the
+schematic never re-asserts while the extracted leg does. The same eight corners
+already error in the schematic-only records. It is not a `.meas` window
+problem, and `set wnflag=1` changes nothing. The grade stands.
 
 Measured result: thresholds agree within 0.24 % (`vpor_rise_v`, `vpor_fall_v`),
 `v_hys_mv` within 4.3 % (190.3 mV extracted against 183.6 mV on the schematic
