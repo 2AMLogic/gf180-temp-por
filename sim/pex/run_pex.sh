@@ -1,7 +1,11 @@
 #!/usr/bin/env bash
-# Produce layout/reports/temp_por_top/pex.json with klt pex (T1 item 7).
+# Produce layout/reports/<cell>/pex.json with klt pex (T1 item 7).
 #
-#   bash sim/pex/run_pex.sh [slug ...]       # default: every slug in SLUGS
+#   bash sim/pex/run_pex.sh [--cell CELL] [slug ...]   # default: every slug of CELL
+#
+# CELL is temp_por_top (default), temp_core or por_output_chain. The cell-level
+# runs re-point the cell's own benches (sim/<slug>/testbench/stimulus.spice
+# instantiates the cell by name) at the extracted cell, not at the top level.
 #
 # Needs: $PDK_ROOT/$PDK (source <(python3 sim/run_corners.py --print-env)),
 # `uvx`, and the batch fleet. The grid goes out through `klt sim --backend
@@ -11,6 +15,8 @@
 # what ran.
 set -euo pipefail
 cd "$(dirname "$0")/../.."
+CELL=temp_por_top
+if [ "${1:-}" = "--cell" ]; then CELL="${2:?--cell needs a cell name}"; shift 2; fi
 # klt pex / klt lvs run at KLT_VERSION; the legs' `klt sim` runs at SIM_KLT_VERSION,
 # which must equal the batch fleet runner's build (a different client is refused
 # with batch_runner_version_mismatch).
@@ -18,10 +24,19 @@ KLT_VERSION="${KLT_VERSION:-0.8.0}"
 SIM_KLT_VERSION="${SIM_KLT_VERSION:-0.8.0}"
 BACKEND="${PEX_BACKEND:-batch}"
 SLUGS=("$@")
-[ ${#SLUGS[@]} -gt 0 ] || SLUGS=(por-vth por-brownout por-ramp-rate temp-accuracy-vt)
-STAGE=layout/reports/temp_por_top/pex-requests
-OUT=layout/reports/temp_por_top/pex.json
-SCRATCH="${PEX_SCRATCH:-/tmp/pex-temp_por_top}"
+case "$CELL" in
+  temp_por_top)     DEFAULT_SLUGS=(por-vth por-brownout por-ramp-rate temp-accuracy-vt)
+                    PINS=VDD,VSS,PTAT,CTAT,RESETn ;;
+  temp_core)        DEFAULT_SLUGS=(temp-core-designer-check)
+                    PINS=VDD,VSS,IBIAS,EN,PTAT,CTAT ;;
+  por_output_chain) DEFAULT_SLUGS=(por-output-chain-pulse por-output-chain-floor)
+                    PINS=VDD,VSS,IBIAS,POR_RAW,RESETn ;;
+  *) echo "run_pex.sh: unknown cell $CELL" >&2; exit 2 ;;
+esac
+[ ${#SLUGS[@]} -gt 0 ] || SLUGS=("${DEFAULT_SLUGS[@]}")
+STAGE=layout/reports/$CELL/pex-requests
+OUT=layout/reports/$CELL/pex.json
+SCRATCH="${PEX_SCRATCH:-/tmp/pex-$CELL}"
 KLTW="$SCRATCH/klt"
 mkdir -p "$SCRATCH"
 printf '#!/bin/sh\nexec uvx --from "klayout-tools==%s" klt "$@"\n' "$KLT_VERSION" > "$KLTW"
@@ -30,16 +45,16 @@ SIMW="$SCRATCH/klt-sim"
 printf '#!/bin/sh\nexec uvx --from "klayout-tools==%s" klt "$@"\n' "$SIM_KLT_VERSION" > "$SIMW"
 chmod +x "$SIMW"
 
-python3 sim/pex/build_requests.py "$STAGE" "${SLUGS[@]}"
+python3 sim/pex/build_requests.py "$STAGE" --dut "$CELL" "${SLUGS[@]}"
 
 rc=0
-"$KLTW" pex layout/cells/temp_por_top.gds \
+"$KLTW" pex "layout/cells/$CELL.gds" \
   --deck gf180mcu --deck-option poly_res=3k --substrate-tie-ohms 0 \
   --pdk "$PDK" --pdk-root "$PDK_ROOT" \
-  --top temp_por_top --pins VDD,VSS,PTAT,CTAT,RESETn --rename-declared-pins \
-  --reference-netlist design/netlist/temp_por_top.spice \
+  --top "$CELL" --pins "$PINS" --rename-declared-pins \
+  --reference-netlist "design/netlist/$CELL.spice" \
   --backend "$BACKEND" --measure-timeout-s 7200 \
-  --measure-command "python3 sim/pex/measure.py --klt $SIMW --lvs-klt $KLTW --stage-root $STAGE ${SLUGS[*]}" \
+  --measure-command "python3 sim/pex/measure.py --cell $CELL --klt $SIMW --lvs-klt $KLTW --stage-root $STAGE ${SLUGS[*]}" \
   --format json -o "$SCRATCH/extracted.spice" --outdir "$SCRATCH/out" \
   > "$SCRATCH/pex.json" || rc=$?
 echo "klt pex exit $rc (4 = a delta row errored; see $SCRATCH/pex.json)"

@@ -1,0 +1,212 @@
+{
+  "netlist": "body.spice",
+  "engine": "ngspice",
+  "backend": "batch",
+  "netlist_source": "schematic",
+  "corners": {
+    "temperature_c": [
+      -15.0
+    ],
+    "process": [
+      {
+        "name": "typical+res_typical+bjt_typical+diode_typical+moscap_typical+mimcap_typical",
+        "sections": [
+          "typical",
+          "res_typical",
+          "bjt_typical",
+          "diode_typical",
+          "moscap_typical",
+          "mimcap_typical"
+        ]
+      },
+      {
+        "name": "ff+res_ff+bjt_ff+diode_ff+moscap_ff+mimcap_ff",
+        "sections": [
+          "ff",
+          "res_ff",
+          "bjt_ff",
+          "diode_ff",
+          "moscap_ff",
+          "mimcap_ff"
+        ]
+      },
+      {
+        "name": "ss+res_ss+bjt_ss+diode_ss+moscap_ss+mimcap_ss",
+        "sections": [
+          "ss",
+          "res_ss",
+          "bjt_ss",
+          "diode_ss",
+          "moscap_ss",
+          "mimcap_ss"
+        ]
+      },
+      {
+        "name": "fs+res_typical+bjt_typical+diode_typical+moscap_typical+mimcap_typical",
+        "sections": [
+          "fs",
+          "res_typical",
+          "bjt_typical",
+          "diode_typical",
+          "moscap_typical",
+          "mimcap_typical"
+        ]
+      },
+      {
+        "name": "sf+res_typical+bjt_typical+diode_typical+moscap_typical+mimcap_typical",
+        "sections": [
+          "sf",
+          "res_typical",
+          "bjt_typical",
+          "diode_typical",
+          "moscap_typical",
+          "mimcap_typical"
+        ]
+      },
+      {
+        "name": "typical+res_ff+bjt_typical+diode_typical+moscap_typical+mimcap_typical",
+        "sections": [
+          "typical",
+          "res_ff",
+          "bjt_typical",
+          "diode_typical",
+          "moscap_typical",
+          "mimcap_typical"
+        ]
+      },
+      {
+        "name": "typical+res_ss+bjt_typical+diode_typical+moscap_typical+mimcap_typical",
+        "sections": [
+          "typical",
+          "res_ss",
+          "bjt_typical",
+          "diode_typical",
+          "moscap_typical",
+          "mimcap_typical"
+        ]
+      },
+      {
+        "name": "typical+res_typical+bjt_ff+diode_typical+moscap_typical+mimcap_typical",
+        "sections": [
+          "typical",
+          "res_typical",
+          "bjt_ff",
+          "diode_typical",
+          "moscap_typical",
+          "mimcap_typical"
+        ]
+      },
+      {
+        "name": "typical+res_typical+bjt_ss+diode_typical+moscap_typical+mimcap_typical",
+        "sections": [
+          "typical",
+          "res_typical",
+          "bjt_ss",
+          "diode_typical",
+          "moscap_typical",
+          "mimcap_typical"
+        ]
+      }
+    ]
+  },
+  "analysis": {
+    "kind": "op",
+    "args": ""
+  },
+  "measurements": [
+    {
+      "name": "vptat",
+      "expr": "v(ptat)"
+    },
+    {
+      "name": "vctat",
+      "expr": "v(ctat)"
+    },
+    {
+      "name": "ptat_k_mvk",
+      "expr": "v(ptat)/v(tk)*1e3"
+    },
+    {
+      "name": "terr_untrim_c",
+      "expr": "v(ptat)/4.308842e-3 - v(tk)"
+    },
+    {
+      "name": "terr_supply_c",
+      "expr": "(v(ptat)-v(ptatn))/4.308842e-3"
+    },
+    {
+      "name": "vout_margin_v",
+      "expr": "min(min(v(ptat)-0.2,v(ctat)-0.2),min(v(vdd)-0.2-v(ptat),v(vdd)-0.2-v(ctat)))"
+    },
+    {
+      "name": "iq_ua",
+      "expr": "-i(vsup)*1e6"
+    },
+    {
+      "name": "iq_dis_ua",
+      "expr": "-i(vsupd)*1e6"
+    },
+    {
+      "name": "ibias_dis_na",
+      "expr": "i(vibd)*1e9"
+    },
+    {
+      "name": "vibias_dis_v",
+      "expr": "v(ibiasd)"
+    },
+    {
+      "name": "vptat_dis_mv",
+      "expr": "v(ptatd)*1e3"
+    },
+    {
+      "name": "vctat_dis_mv",
+      "expr": "v(ctatd)*1e3"
+    },
+    {
+      "name": "load10m_err_pct",
+      "expr": "(v(ptatl)-v(ptat))/v(ptat)*100"
+    },
+    {
+      "name": "dvbe_mv",
+      "expr": "(v(xdut.nb)-v(xdut.nc))*1e3"
+    },
+    {
+      "name": "aoffs_uv",
+      "expr": "(v(xdut.na)-v(xdut.nb))*1e6"
+    },
+    {
+      "name": "vnd_mv",
+      "expr": "v(xdut.nd)*1e3"
+    },
+    {
+      "name": "mp3_hdr_v",
+      "expr": "v(vdd)-v(xdut.m3d)"
+    },
+    {
+      "name": "rtrim_nom_k",
+      "expr": "v(nl32)/2.5u*1e-3"
+    },
+    {
+      "name": "rtrim_lsb_pct",
+      "expr": "(v(nl32)-v(nl33))/v(nl32)*100"
+    },
+    {
+      "name": "rtrim_range_pct",
+      "expr": "(v(nl00)-v(nl63))/v(nl32)*100"
+    }
+  ],
+  "options": {
+    "timeout_s": 1800,
+    "keep_artifacts": true,
+    "ngspice_init": [
+      "set wnflag=1",
+      "set num_threads=1",
+      "set numdgt=10",
+      "set noaskquit"
+    ]
+  },
+  "models": {
+    "pdk": "gf180mcuD",
+    "lib": "libs.tech/ngspice/sm141064.ngspice"
+  }
+}
