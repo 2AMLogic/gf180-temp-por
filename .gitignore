@@ -129,3 +129,6 @@ sim/*/control/batch/
 # named here because new campaigns must never commit what is staged in it.
 # The exemptions above stay: they cover the evidence already committed.
 sim/.work/evidence-stage/
+
+# Repo Skills Codex-side machine-local install metadata (never committed)
+.agents/skills/repo/.install-local.json
