@@ -158,6 +158,8 @@ NO_TESTBENCH_DIRS = {
     "harness": "shared corner-runner support code, not an experiment",
     "por-iq": "derivation only (analyze_por_iq.py) over the temp-accuracy-vt "
     "testbench's raw logs; por-iq and iq-total list that testbench as their basis",
+    "pex": "klt pex staging and measure-command driver (T1 item 7); it re-expresses "
+    "the por-vth testbench rather than adding an experiment of its own",
     "tests": "harness unit tests, not an experiment",
 }
 

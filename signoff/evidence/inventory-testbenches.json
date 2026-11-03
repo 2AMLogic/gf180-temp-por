@@ -1077,6 +1077,7 @@
   "dirs_without_testbench": {
     "devchar": "device characterization decks and results; cited by the spec only as an informative physics anchor, no spec row's number is measured here",
     "harness": "shared corner-runner support code, not an experiment",
+    "pex": "klt pex staging and measure-command driver (T1 item 7); it re-expresses the por-vth testbench rather than adding an experiment of its own",
     "por-iq": "derivation only (analyze_por_iq.py) over the temp-accuracy-vt testbench's raw logs; por-iq and iq-total list that testbench as their basis",
     "tests": "harness unit tests, not an experiment"
   }

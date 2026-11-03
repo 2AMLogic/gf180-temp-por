@@ -95,26 +95,28 @@ def normalize(text: str) -> str:
 
 
 def export_cell(cell: str, outdir: Path, env: dict[str, str]) -> str:
-    """Run xschem headless on one cell and return its normalized netlist."""
+    """Run ``klt netlist`` on one cell and return its normalized netlist."""
     sch = DESIGN_DIR / f"{cell}.sch"
     if not sch.is_file():
         raise ExportError(f"no such cell: {sch}")
-    cmd = [
-        "xschem",
-        "-x",  # no X11: batch
-        "-q",  # quit when done
-        "-n",  # netlist
-        "-s",  # spice
-        "-r",  # no tclreadline (stdin/stdout may be redirected)
-        "--rcfile", str(XSCHEMRC),
-        "-o", str(outdir),
-        str(sch),
-    ]
-    proc = subprocess.run(cmd, env=env, capture_output=True, text=True)
     produced = outdir / f"{cell}.spice"
+    # `klt netlist` owns the xschem invocation: forced headless flags, a
+    # wall-clock bound, and success judged by a freshly written output file.
+    cmd = [
+        "klt", "netlist", str(sch),
+        "-o", str(produced),
+        "--rcfile", str(XSCHEMRC),
+    ]
+    try:
+        proc = subprocess.run(cmd, env=env, capture_output=True, text=True)
+    except FileNotFoundError as exc:
+        raise ExportError(
+            "`klt` not found on PATH; install klayout-tools "
+            "(pip install klayout-tools) -- it owns the xschem invocation"
+        ) from exc
     if proc.returncode != 0 or not produced.is_file():
         raise ExportError(
-            f"xschem failed for {cell} (exit {proc.returncode})\n"
+            f"klt netlist failed for {cell} (exit {proc.returncode})\n"
             f"--- stdout ---\n{proc.stdout}\n--- stderr ---\n{proc.stderr}"
         )
     text = normalize(produced.read_text())

@@ -1,0 +1,196 @@
+{
+  "netlist": "body.spice",
+  "engine": "ngspice",
+  "backend": "batch",
+  "netlist_source": "schematic",
+  "corners": {
+    "temperature_c": [
+      125.0
+    ],
+    "process": [
+      {
+        "name": "typical+res_typical+bjt_typical+diode_typical+moscap_typical+mimcap_typical",
+        "sections": [
+          "typical",
+          "res_typical",
+          "bjt_typical",
+          "diode_typical",
+          "moscap_typical",
+          "mimcap_typical"
+        ]
+      },
+      {
+        "name": "ff+res_ff+bjt_ff+diode_ff+moscap_ff+mimcap_ff",
+        "sections": [
+          "ff",
+          "res_ff",
+          "bjt_ff",
+          "diode_ff",
+          "moscap_ff",
+          "mimcap_ff"
+        ]
+      },
+      {
+        "name": "ss+res_ss+bjt_ss+diode_ss+moscap_ss+mimcap_ss",
+        "sections": [
+          "ss",
+          "res_ss",
+          "bjt_ss",
+          "diode_ss",
+          "moscap_ss",
+          "mimcap_ss"
+        ]
+      },
+      {
+        "name": "fs+res_typical+bjt_typical+diode_typical+moscap_typical+mimcap_typical",
+        "sections": [
+          "fs",
+          "res_typical",
+          "bjt_typical",
+          "diode_typical",
+          "moscap_typical",
+          "mimcap_typical"
+        ]
+      },
+      {
+        "name": "sf+res_typical+bjt_typical+diode_typical+moscap_typical+mimcap_typical",
+        "sections": [
+          "sf",
+          "res_typical",
+          "bjt_typical",
+          "diode_typical",
+          "moscap_typical",
+          "mimcap_typical"
+        ]
+      },
+      {
+        "name": "typical+res_ff+bjt_typical+diode_typical+moscap_typical+mimcap_typical",
+        "sections": [
+          "typical",
+          "res_ff",
+          "bjt_typical",
+          "diode_typical",
+          "moscap_typical",
+          "mimcap_typical"
+        ]
+      },
+      {
+        "name": "typical+res_ss+bjt_typical+diode_typical+moscap_typical+mimcap_typical",
+        "sections": [
+          "typical",
+          "res_ss",
+          "bjt_typical",
+          "diode_typical",
+          "moscap_typical",
+          "mimcap_typical"
+        ]
+      },
+      {
+        "name": "typical+res_typical+bjt_ff+diode_typical+moscap_typical+mimcap_typical",
+        "sections": [
+          "typical",
+          "res_typical",
+          "bjt_ff",
+          "diode_typical",
+          "moscap_typical",
+          "mimcap_typical"
+        ]
+      },
+      {
+        "name": "typical+res_typical+bjt_ss+diode_typical+moscap_typical+mimcap_typical",
+        "sections": [
+          "typical",
+          "res_typical",
+          "bjt_ss",
+          "diode_typical",
+          "moscap_typical",
+          "mimcap_typical"
+        ]
+      }
+    ]
+  },
+  "analysis": {
+    "kind": "tran",
+    "args": "10u 20m"
+  },
+  "measurements": [
+    {
+      "name": "iasrt1",
+      "spice": ".meas tran iasrt1 avg i(vd1) from=0.5m to=0.95m"
+    },
+    {
+      "name": "iasrt2",
+      "spice": ".meas tran iasrt2 avg i(vd2) from=0.5m to=0.95m"
+    },
+    {
+      "name": "vasrt1",
+      "spice": ".meas tran vasrt1 find v(resetn1) at=0.9m"
+    },
+    {
+      "name": "trel1",
+      "spice": ".meas tran trel1 when v(resetn1)=1.0 rise=1 td=1.002m"
+    },
+    {
+      "name": "trel2",
+      "spice": ".meas tran trel2 when v(resetn2)=1.0 rise=1 td=1.002m"
+    },
+    {
+      "name": "irel1",
+      "spice": ".meas tran irel1 avg i(vd1) from=18m to=19.8m"
+    },
+    {
+      "name": "vrel1",
+      "spice": ".meas tran vrel1 find v(resetn1) at=19.5m"
+    },
+    {
+      "name": "vrel2",
+      "spice": ".meas tran vrel2 find v(resetn2) at=19.5m"
+    },
+    {
+      "name": "tpulse_1x_ms",
+      "spice": ".meas tran tpulse_1x_ms param='(trel1-1.001e-3)*1e3'"
+    },
+    {
+      "name": "tpulse_3x_ms",
+      "spice": ".meas tran tpulse_3x_ms param='(trel2-1.001e-3)*1e3'"
+    },
+    {
+      "name": "iq_asserted_1x_na",
+      "spice": ".meas tran iq_asserted_1x_na param='iasrt1*1e9'"
+    },
+    {
+      "name": "iq_asserted_3x_na",
+      "spice": ".meas tran iq_asserted_3x_na param='iasrt2*1e9'"
+    },
+    {
+      "name": "iq_released_1x_na",
+      "spice": ".meas tran iq_released_1x_na param='irel1*1e9'"
+    },
+    {
+      "name": "v_asserted_1x_mv",
+      "spice": ".meas tran v_asserted_1x_mv param='vasrt1*1e3'"
+    },
+    {
+      "name": "v_released_1x",
+      "spice": ".meas tran v_released_1x param='vrel1'"
+    },
+    {
+      "name": "v_released_3x",
+      "spice": ".meas tran v_released_3x param='vrel2'"
+    }
+  ],
+  "options": {
+    "timeout_s": 1800,
+    "keep_artifacts": true,
+    "ngspice_init": [
+      "set wnflag=1",
+      "set num_threads=1",
+      "set numdgt=10",
+      "set noaskquit"
+    ]
+  },
+  "models": {
+    "pdk": "gf180mcuD",
+    "lib": "libs.tech/ngspice/sm141064.ngspice"
+  }
+}

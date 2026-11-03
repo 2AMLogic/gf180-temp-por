@@ -1132,10 +1132,17 @@ class CliTotalFailureRefusalTests(unittest.TestCase):
             (cli, "WORK_DIR", root / ".work"),
             (cli, "find_pdk", lambda: self.pdk),
             (cli.runner, "ngspice_version", lambda: "ngspice-test"),
+            # DR-030: never reach the real artifact store from a unit test.
+            (cliutil.evidence_store, "preflight", lambda *a, **k: None),
+            (cliutil.evidence_store, "publish", self._fake_publish),
         ):
             patcher = mock.patch.object(obj, name, value)
             patcher.start()
             self.addCleanup(patcher.stop)
+
+    @staticmethod
+    def _fake_publish(stage_dir, repo_root, experiment, record_id, **kwargs):
+        return repo_root / cliutil.evidence_store.manifest_relpath(experiment, record_id)
 
     def _run(self, corner_names, statuses, extra_args=()):
         """Run ``cli.run()`` with ``run_grid`` faked to return one
@@ -1205,7 +1212,13 @@ class CliTotalFailureRefusalTests(unittest.TestCase):
         self.assertEqual(exit_code, cliutil.EXIT_SIM_ERROR)
         records = list((self.experiment_dir / report.RECORDS_DIR).glob("*.md"))
         self.assertEqual(len(records), 1)
-        self.assertIn("ERROR", records[0].read_text())
+        text = records[0].read_text()
+        self.assertIn("ERROR", text)
+        # DR-030: the record cites the manifest, not committed raw-log paths.
+        self.assertIn("manifests/artifacts/total-failure-tb-", text)
+        self.assertNotIn("corners/", text)
+        self.assertEqual(list(self.experiment_dir.rglob("*.log")), [])
+        self.assertFalse((self.experiment_dir / report.SNAPSHOT_DIR).exists())
 
     def test_no_write_still_runs_without_triggering_the_refusal_path(self):
         """--no-write is the existing debugging escape hatch: it must keep

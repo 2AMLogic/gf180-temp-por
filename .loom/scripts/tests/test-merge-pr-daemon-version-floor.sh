@@ -291,27 +291,21 @@ echo "Testing the merge-pr floor covers every fail-closed sub-subcommand (#8967)
 # `git show <mainline commit that first carried it>:VERSION` + 1:
 #   classify-response  97609b86f (#9228, squash)          0.19.455 -> 0.19.456
 #   partial-conflict   2ab7630c5 (merge of #9246)          0.19.463 -> 0.19.464
-#   checks-failure     397f06feb (merge of #9272)          0.19.464 -> 0.19.465
 # (ci-result 0.19.763 and stale-checks 0.19.221 were fail-closed rows until
-# #12063 slice 1 deleted both gates, which LOWERED the floor to checks-failure.)
+# #12063 slice 1 deleted both gates, and checks-failure 0.19.465 until slice 2 deleted
+# the wait that called it, which LOWERED the floor to partial-conflict.)
+# required-checks (#10688) is `open`: a binary without the verb warns and leaves branch protection as
+# the guard. Its forge-read failures DO refuse, but only a binary that has the verb can report one.
 # tree-checks (#10026) is `open` BY CONSTRUCTION: _check_tree_checks only calls it when .loom/config.json
 # declares merge.treeChecks (opt-in), so no repo that has not opted in is gated on a daemon carrying it; an
 # opted-in repo on an older binary is refused (fail closed) and told to roll the host.
-# required-checks (#10688) is `open`: a binary without the verb warns and leaves branch protection as
-# the guard. Its forge-read failures DO refuse, but only a binary that has the verb can report one.
 MERGE_PR_VERB_TABLE="verdict-contradiction closed 0.19.172
 required-checks open -
 tree-checks open -
 loom-pr-guard closed 0.19.375
 classify-response closed 0.19.456
 partial-conflict closed 0.19.464
-checks-failure closed 0.19.465
-head-sync-retry open -
 hold-state open -
-delete-branch open -
-zero-checks-settle open -
-check-runs-streak open -
-check-runs-rollup open -
 stacked-children open -
 retarget-children open -
 version-policy open -
@@ -319,18 +313,11 @@ partial-reset open -
 partial-comment open -
 loom-pr-override-comment open -
 closed-building open -
-issue-close-gate open -
-dirty-guard open -
 worktree-contains open -
-worktree-preserve open -
-discovered-worktree open -
-retries-used open -
 pr-state open -
-poll-wait open -
 merge-route open -
-revalidate-head open -
-cleanup-paths open -
-workflow-scope open -"
+workflow-scope open -
+post-merge-cleanup open -"
 
 # Shared comparison, so the controls below exercise the SAME logic the real
 # assertion does rather than a paraphrase of it. `sort -V` over a here-string
@@ -358,13 +345,14 @@ assert_eq "" "$(_verb_row no-such-verb)" \
   "an unknown verb looks up to nothing, so the unclassified-verb leg below can fire"
 
 # Only real INVOCATIONS, not the same verb quoted in prose or in a refusal
-# message: the shape is `"${LOOM_DAEMON_BIN:-loom-daemon}" merge-pr <verb>`.
-CALLED_VERBS="$(grep -o 'loom-daemon}" merge-pr [a-z][a-z0-9-]*' "$MERGE_PR_SRC" | sed 's/.* //' | sort -u)"
+# message: the shape is `"${LOOM_DAEMON_BIN:-loom-daemon}" merge-pr <verb>`, or
+# (#8191, post-merge-cleanup) the head of an argv array: `base=(merge-pr <verb>`.
+CALLED_VERBS="$(grep -oE '(loom-daemon\}" |base=\()merge-pr [a-z][a-z0-9-]*' "$MERGE_PR_SRC" | sed 's/.* //' | sort -u)"
 
 # If the invocation idiom is ever refactored, the scan above could come back
 # empty and every assertion below would vacuously pass. Pin the three verbs
 # that are fail-closed TODAY so that refactor fails loudly instead.
-for _known in verdict-contradiction loom-pr-guard classify-response partial-conflict checks-failure; do
+for _known in verdict-contradiction loom-pr-guard classify-response partial-conflict; do
     assert_contains "$CALLED_VERBS" "$_known" \
       "the invocation scan still finds 'merge-pr $_known' in merge-pr.sh"
 done
@@ -413,23 +401,31 @@ echo "Testing a fail-open verb's roll-hint names its OWN floor (#9377, via #1116
 # host that lacked issue-close-gate (first released in 0.19.462). The per-verb
 # `# daemon-verb-hint:` annotation is MESSAGE TEXT ONLY: these assertions pin
 # that the hint uses it, and that nothing gates on it.
-DECLARED_ICG_HINT="$(sed -n '/^# daemon-verb-hint: merge-pr issue-close-gate >= /{s/^# daemon-verb-hint: merge-pr issue-close-gate >= \([0-9][0-9.]*\).*/\1/p;q;}' "$FUNCS_FILE")"
-assert_eq "0.19.462" "$DECLARED_ICG_HINT" \
-  "issue-close-gate carries a daemon-verb-hint naming its own landing version (f4517bb46, #9240 -> v0.19.462)"
-HINT_ICG="$(SCRIPT_DIR="$HELPERS_DIR" _mp_daemon_roll_hint merge-pr "$WORKDIR/stale-loom-daemon" issue-close-gate)"
-assert_contains "$HINT_ICG" "loom-daemon >= 0.19.462 for 'merge-pr issue-close-gate'" \
-  "fail-open issue-close-gate: the hint names THAT verb and ITS floor"
-assert_not_contains "$HINT_ICG" "loom-daemon >= $DECLARED_MERGEPR_MIN" \
-  "fail-open issue-close-gate: the hint does NOT quote the fail-closed family floor ($DECLARED_MERGEPR_MIN)"
-assert_contains "$HINT_ICG" "merge-pr issue-close-gate --help" \
-  "fail-open issue-close-gate: the confirm step probes the verb itself, not just the family"
+# issue-close-gate was the exemplar until #8191's orchestrator slice 1 moved its
+# only caller into `merge-pr post-merge-cleanup` (in-process, so no shell
+# warning can quote a hint for it). The property is about the MECHANISM, so it
+# is re-pointed at the one remaining hinted verb, `merge-pr-refs
+# loom-issue-trailer-warnings` (hint: >= 0.19.512): the hint names THAT verb and
+# ITS floor, does not quote the sub-command's family floor, and the confirm
+# step probes the verb itself.
+DECLARED_ICG_HINT="$(sed -n '/^# daemon-verb-hint: merge-pr-refs loom-issue-trailer-warnings >= /{s/^# daemon-verb-hint: merge-pr-refs loom-issue-trailer-warnings >= \([0-9][0-9.]*\).*/\1/p;q;}' "$FUNCS_FILE")"
+assert_eq "0.19.512" "$DECLARED_ICG_HINT" \
+  "loom-issue-trailer-warnings carries a daemon-verb-hint naming its own landing version (d8fafb19a -> v0.19.512)"
+DECLARED_REFS_MIN="$(sed -n 's/^# requires-daemon: merge-pr-refs >= \([0-9][0-9.]*\).*/\1/p;q' "$FUNCS_FILE")"
+HINT_ICG="$(SCRIPT_DIR="$HELPERS_DIR" _mp_daemon_roll_hint merge-pr-refs "$WORKDIR/stale-loom-daemon" loom-issue-trailer-warnings)"
+assert_contains "$HINT_ICG" "loom-daemon >= 0.19.512 for 'merge-pr-refs loom-issue-trailer-warnings'" \
+  "fail-open loom-issue-trailer-warnings: the hint names THAT verb and ITS floor"
+assert_not_contains "$HINT_ICG" "loom-daemon >= $DECLARED_REFS_MIN " \
+  "fail-open loom-issue-trailer-warnings: the hint does NOT quote the family floor ($DECLARED_REFS_MIN)"
+assert_contains "$HINT_ICG" "merge-pr-refs loom-issue-trailer-warnings --help" \
+  "fail-open loom-issue-trailer-warnings: the confirm step probes the verb itself, not just the family"
 HINT_UNANNOTATED="$(SCRIPT_DIR="$HELPERS_DIR" _mp_daemon_roll_hint merge-pr "" no-such-verb)"
 assert_contains "$HINT_UNANNOTATED" "loom-daemon >= $DECLARED_MERGEPR_MIN for 'merge-pr'." \
   "an unannotated verb falls back to the family floor (the pre-#9377 message, unchanged)"
 assert_eq "$HINT_MERGEPR" "$(SCRIPT_DIR="$HELPERS_DIR" _mp_daemon_roll_hint merge-pr)" \
   "two-argument callers are unaffected (no verb -> family floor)"
-assert_contains "$(grep -F "merge-pr issue-close-gate' exited" "$MERGE_PR_SRC")" '2>/dev/null || true)" issue-close-gate)' \
-  "merge-pr.sh's issue-close-gate warning passes its verb to _mp_daemon_roll_hint"
+assert_contains "$(grep -F "_mp_daemon_roll_hint merge-pr-refs" "$MERGE_PR_SRC")" 'loom-issue-trailer-warnings)' \
+  "merge-pr.sh's loom-issue-trailer-warnings warning passes its verb to _mp_daemon_roll_hint"
 
 # Every merge-pr `daemon-verb-hint:` must name a verb classified `open` in the
 # fail-direction table above: a fail-CLOSED verb's floor is the family marker

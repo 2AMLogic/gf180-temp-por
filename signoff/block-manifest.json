@@ -30,11 +30,85 @@
     },
     "9": {
       "file": "signoff/evidence/t1-item-9-testbenches.json",
-      "content_hash": "sha256:5fe9d015476f6d12a045baf2541454140d38e2927892d0fa2967766eb6057ca2"
+      "content_hash": "sha256:1cac4b5d0ef62a639b2bd8ad0667b3eed1e3a010a3667fa7fb536fc673adcd0f"
     },
     "10": {
       "file": "signoff/evidence/t1-item-10-repo-hygiene.json",
-      "content_hash": "sha256:ee7720488f5e3edd3b9da060779f73cb999a49f81799b50e21ee9e0e117b2e63"
+      "content_hash": "sha256:3ddde032948cb5d3f13586d6e68cf3580effce70e75e85970c08a9c9fc1545c3"
+    },
+    "7": {
+      "file": "layout/reports/temp_por_top/pex.json",
+      "content_hash": "sha256:a119a12b1fa2daff64772a4a804a0ea14f17c68dc9357fe167dfd287df0628fd"
     }
+  },
+  "spec_rows": {
+    "5": [
+      {
+        "id": "iq-total",
+        "gap": "no klt sim envelope yet; the envelope for this row is planned in #389"
+      },
+      {
+        "id": "por-brownout",
+        "gap": "no klt sim envelope yet; the envelope for this row is planned in #389"
+      },
+      {
+        "id": "por-hysteresis",
+        "gap": "no klt sim envelope yet; the por-vth pilot that will cover this row is #388"
+      },
+      {
+        "id": "por-iq",
+        "gap": "no klt sim envelope yet; the envelope for this row is planned in #389"
+      },
+      {
+        "id": "por-ramp-rate",
+        "gap": "no klt sim envelope yet; the envelope for this row is planned in #389"
+      },
+      {
+        "id": "por-reset-pulse",
+        "gap": "no klt sim envelope yet; the envelope for this row is planned in #389"
+      },
+      {
+        "id": "por-reset-valid-floor",
+        "gap": "no klt sim envelope yet; the envelope for this row is planned in #389"
+      },
+      {
+        "id": "por-vth-fall",
+        "gap": "no klt sim envelope yet; the por-vth pilot that will cover this row is #388"
+      },
+      {
+        "id": "por-vth-rise",
+        "gap": "no klt sim envelope yet; the por-vth pilot that will cover this row is #388"
+      },
+      {
+        "id": "temp-accuracy-trimmed",
+        "gap": "no klt sim envelope yet; the envelope for this row is planned in #389"
+      },
+      {
+        "id": "temp-accuracy-untrimmed",
+        "gap": "no klt sim envelope yet; the envelope for this row is planned in #389"
+      },
+      {
+        "id": "temp-iq",
+        "gap": "no klt sim envelope yet; the envelope for this row is planned in #389"
+      },
+      {
+        "id": "temp-supply-sensitivity",
+        "gap": "no klt sim envelope yet; the envelope for this row is planned in #389"
+      },
+      {
+        "id": "temp-trim-strategy",
+        "gap": "no klt sim envelope yet; the envelope for this row is planned in #389"
+      },
+      {
+        "id": "temp-vt-transfer",
+        "gap": "no klt sim envelope yet; the envelope for this row is planned in #389"
+      }
+    ],
+    "7": [
+      {
+        "id": "temp-accuracy-trimmed",
+        "gap": "derived row: sim/temp-accuracy-vt/analyze_derived.py computes it from the raw V(T) readings, and sim/pex/build_requests.py does not re-express it as a .meas, so the klt pex report carries no delta row for it -- tracked in #391"
+      }
+    ]
   }
 }

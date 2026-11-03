@@ -185,7 +185,7 @@ T1, "sim-validated", has an eleven-item checklist. **This repo's answer to
 "how far along is it?" is graded mechanically, not written by hand:**
 
 ```bash
-uv tool install --force klayout-tools==0.7.0   # the pinned grader
+# install the grader version pinned in signoff/toolchain.json ("klt"."install")
 python3 signoff/check.py                        # re-grade; fails on evidence rot
 ```
 
@@ -196,7 +196,7 @@ python3 signoff/check.py                        # re-grade; fails on evidence ro
 - [`signoff/README.md`](signoff/README.md) reads that verdict out item by item,
   with the coverage gaps and disclosed exceptions each `met` row carries.
 
-The verdict today is **`tier: null` — 8 of 11 items met**. That is deliberately
+The verdict today is **`tier: null` — 9 of 11 items met** (items 5 and 6 unmet). That is deliberately
 a stricter question than "does the repo contain the artifact?", and the report,
 not any prose in this repo, is the answer of record. CI re-runs it on every
 push and pull request, so a claim citing an artifact that has since changed
@@ -248,7 +248,7 @@ Run these from the repository root.
 
 | Target | What it does | Measured wall-clock (8-core host, this repo's own dry run below) | Exit code |
 |---|---|---|---|
-| `make check` | `sim/build_tb.py --check` (testbench fragments match `design/netlist/` exports) + `make test` (`sim/tests`/`layout/tests`/`signoff/tests` unit tests) (headless, no PDK needed) + an explicit environment/PDK report (`sim/run_corners.py --check-env`) | ~2 s | non-zero on any failure, including a missing PDK or ngspice |
+| `make check` | `sim/build_tb.py --check` (testbench fragments match `design/netlist/` exports) + `make test` (`sim/tests`/`layout/tests`/`signoff/tests`/`scripts/tests` unit tests) (headless, no PDK needed) + an explicit environment/PDK report (`sim/run_corners.py --check-env`) | ~2 s | non-zero on any failure, including a missing PDK or ngspice |
 | `make smoke` | `sim/selftest.sh`: harness unit tests plus a full-PVT-grid (81-point) run of the harness's own acceptance testbench, `sim/smoke-bias/` (an ideal divider, a PDK poly-resistor/nfet bias, and the same vertical-PNP diode the sensing core's CTAT leg is built from) — proves ngspice, the PDK, and the corner-sweep mechanics all actually work, fast | ~3-4 s | non-zero on any failure |
 | `make characterize` | The full campaign behind the proposal's §4 spec table: every **schematic-level** experiment discovered under `sim/*/testbench/` — the full 81-point PVT grid for a deterministic experiment (`sim/run_corners.py`), or the full N≥500-per-binding-point Monte Carlo sweep for one that carries an `"mc"` block (`sim/run_mc.py`) — each minting a new append-only evidence record | see "Fresh-clone dry run" below | non-zero if any experiment fails |
 

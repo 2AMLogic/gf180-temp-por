@@ -1,0 +1,164 @@
+{
+  "netlist": "body.spice",
+  "engine": "ngspice",
+  "backend": "batch",
+  "netlist_source": "schematic",
+  "corners": {
+    "temperature_c": [
+      27.0
+    ],
+    "process": [
+      {
+        "name": "typical+res_typical+bjt_typical+diode_typical+moscap_typical+mimcap_typical",
+        "sections": [
+          "typical",
+          "res_typical",
+          "bjt_typical",
+          "diode_typical",
+          "moscap_typical",
+          "mimcap_typical"
+        ]
+      },
+      {
+        "name": "ff+res_ff+bjt_ff+diode_ff+moscap_ff+mimcap_ff",
+        "sections": [
+          "ff",
+          "res_ff",
+          "bjt_ff",
+          "diode_ff",
+          "moscap_ff",
+          "mimcap_ff"
+        ]
+      },
+      {
+        "name": "ss+res_ss+bjt_ss+diode_ss+moscap_ss+mimcap_ss",
+        "sections": [
+          "ss",
+          "res_ss",
+          "bjt_ss",
+          "diode_ss",
+          "moscap_ss",
+          "mimcap_ss"
+        ]
+      },
+      {
+        "name": "fs+res_typical+bjt_typical+diode_typical+moscap_typical+mimcap_typical",
+        "sections": [
+          "fs",
+          "res_typical",
+          "bjt_typical",
+          "diode_typical",
+          "moscap_typical",
+          "mimcap_typical"
+        ]
+      },
+      {
+        "name": "sf+res_typical+bjt_typical+diode_typical+moscap_typical+mimcap_typical",
+        "sections": [
+          "sf",
+          "res_typical",
+          "bjt_typical",
+          "diode_typical",
+          "moscap_typical",
+          "mimcap_typical"
+        ]
+      },
+      {
+        "name": "typical+res_ff+bjt_typical+diode_typical+moscap_typical+mimcap_typical",
+        "sections": [
+          "typical",
+          "res_ff",
+          "bjt_typical",
+          "diode_typical",
+          "moscap_typical",
+          "mimcap_typical"
+        ]
+      },
+      {
+        "name": "typical+res_ss+bjt_typical+diode_typical+moscap_typical+mimcap_typical",
+        "sections": [
+          "typical",
+          "res_ss",
+          "bjt_typical",
+          "diode_typical",
+          "moscap_typical",
+          "mimcap_typical"
+        ]
+      },
+      {
+        "name": "typical+res_typical+bjt_ff+diode_typical+moscap_typical+mimcap_typical",
+        "sections": [
+          "typical",
+          "res_typical",
+          "bjt_ff",
+          "diode_typical",
+          "moscap_typical",
+          "mimcap_typical"
+        ]
+      },
+      {
+        "name": "typical+res_typical+bjt_ss+diode_typical+moscap_typical+mimcap_typical",
+        "sections": [
+          "typical",
+          "res_typical",
+          "bjt_ss",
+          "diode_typical",
+          "moscap_typical",
+          "mimcap_typical"
+        ]
+      }
+    ]
+  },
+  "analysis": {
+    "kind": "tran",
+    "args": "2u 7m"
+  },
+  "measurements": [
+    {
+      "name": "itop",
+      "spice": ".meas tran itop avg i(vd1) from=6.5m to=6.95m"
+    },
+    {
+      "name": "floor_ratio_porlow",
+      "expr": "maximum(v(resetn1)*(v(vdd) gt 1e-3)/(v(vdd)+1e-9))"
+    },
+    {
+      "name": "floor_mv_porlow",
+      "expr": "maximum(v(resetn1))*1e3"
+    },
+    {
+      "name": "floor_ratio_porhigh",
+      "expr": "maximum(v(resetn2)*(v(vdd) gt 1e-3)*(v(vdd) lt 1.5)/(v(vdd)+1e-9))"
+    },
+    {
+      "name": "floor_mv_porhigh",
+      "expr": "maximum(v(resetn2)*(v(vdd) lt 1.5))*1e3"
+    },
+    {
+      "name": "floor_ratio_sub100mv",
+      "expr": "maximum(v(resetn1)*(v(vdd) gt 1e-3)*(v(vdd) lt 0.1)/(v(vdd)+1e-9))"
+    },
+    {
+      "name": "iq_ramp_top_na",
+      "spice": ".meas tran iq_ramp_top_na param='itop*1e9'"
+    },
+    {
+      "name": "vdd_top",
+      "expr": "maximum(v(vdd))"
+    }
+  ],
+  "options": {
+    "timeout_s": 1800,
+    "keep_artifacts": true,
+    "ngspice_init": [
+      "set wnflag=1",
+      "set num_threads=1",
+      "set numdgt=10",
+      "set noaskquit"
+    ]
+  },
+  "models": {
+    "pdk": "gf180mcuD",
+    "lib": "libs.tech/ngspice/sm141064.ngspice"
+  }
+}

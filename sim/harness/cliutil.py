@@ -20,6 +20,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Callable
 
+from . import evidence_store
 from .pdk import Pdk, PdkNotFound, find_pdk
 from .testbench import MANIFEST_NAME, TESTBENCH_DIRNAME, discover
 
@@ -146,6 +147,7 @@ def provision_record(
     experiment_dir: Path,
     experiment_name: str,
     no_write: bool,
+    stage: bool = False,
 ) -> tuple[str, Path, Path | None, dict, datetime]:
     """Allocate a record id and derive its workdir/log_dir, as both
     ``sim/run_corners.py`` (via ``sim/harness/cli.py``) and ``sim/run_mc.py``
@@ -153,20 +155,32 @@ def provision_record(
 
     Returns ``(record_id, workdir, log_dir, git, started)``. ``log_dir`` is
     ``None`` when ``no_write`` is set (debugging runs write no evidence).
+
+    With ``stage=True`` (what the entry points pass, DR-030) the run's raw
+    outputs are staged in the git-ignored ``<work_dir>/evidence-stage/`` tree
+    instead of ``<experiment>/corners/<record-id>/``: ``log_dir`` is then
+    ``<stage>/corners`` and ``finish_run(..., stage=True)`` ships the stage to
+    the artifact store. Nothing is reserved in the tracked tree, and the store
+    is checked up front so a worker that cannot publish fails before it
+    simulates anything.
     """
     # Local import: sim/harness/report.py imports this module (for `fmt()`),
     # so importing it at module scope here would be circular.
     from . import report as report_mod
 
+    if stage and not no_write:
+        evidence_store.preflight()
     started = datetime.now(timezone.utc)
     git = report_mod.git_provenance(repo_root)
     when = started
+    staging = stage and not no_write
+    stage_dir = None
     while True:
         # Writing runs atomically reserve the record id (its raw-log
         # directory) before any simulation starts; --no-write runs reserve
         # nothing in the evidence tree.
         record_id = report_mod.allocate_record_id(
-            repo_root, records_dir, when, git=git, reserve=not no_write
+            repo_root, records_dir, when, git=git, reserve=not no_write and not staging
         )
         workdir = work_dir / experiment_name / record_id
         # The scratch directory is claimed exclusively too, so two runs
@@ -174,13 +188,23 @@ def provision_record(
         workdir.parent.mkdir(parents=True, exist_ok=True)
         try:
             workdir.mkdir()
+            if staging:
+                stage_dir = evidence_store.stage_dir_for(work_dir, experiment_name, record_id)
+                stage_dir.parent.mkdir(parents=True, exist_ok=True)
+                stage_dir.mkdir()
             break
         except FileExistsError:
             # The id's leading YYYYMMDD-HHMMSS is the (possibly advanced) time.
             when = datetime.strptime(record_id[:15], "%Y%m%d-%H%M%S").replace(
                 tzinfo=timezone.utc
             ) + timedelta(seconds=1)
-    log_dir = None if no_write else experiment_dir / report_mod.CORNERS_DIR / record_id
+    if no_write:
+        log_dir = None
+    elif staging:
+        log_dir = stage_dir / evidence_store.STAGE_CORNERS
+        log_dir.mkdir()
+    else:
+        log_dir = experiment_dir / report_mod.CORNERS_DIR / record_id
     return record_id, workdir, log_dir, git, started
 
 
@@ -202,6 +226,8 @@ def finish_run(
     log_dir: Path | None,
     no_write: bool,
     write_record: Callable[[dict, Path], Path],
+    stage: bool = False,
+    repo_root: Path | None = None,
 ) -> int:
     """Write evidence to disk (or note that it wasn't written) and print the
     footer shared by ``sim/run_corners.py`` (via ``sim/harness/cli.py``) and
@@ -217,7 +243,27 @@ def finish_run(
     # so importing it at module scope here would be circular.
     from . import report as report_mod
 
-    if not no_write:
+    if not no_write and stage:
+        # DR-030: the raw logs and the netlist snapshot go to the artifact
+        # store; git gets the manifest and the summary record. Publish first
+        # so a failed put leaves no record behind (fail closed, no fallback).
+        stage_dir = log_dir.parent
+        report_mod.write_netlist_snapshot(
+            tb, experiment_dir, record_id, out_dir=stage_dir / evidence_store.STAGE_SNAPSHOTS
+        )
+        try:
+            manifest = evidence_store.publish(
+                stage_dir, repo_root, experiment_dir.name, record_id
+            )
+        except evidence_store.EvidenceStoreError as exc:
+            print(f"error: {exc}\nstaged bytes kept at {stage_dir}", file=sys.stderr)
+            return EXIT_ENVIRONMENT
+        record["evidence_manifest"] = manifest.relative_to(repo_root).as_posix()
+        record_path = write_record(record, experiment_dir)
+        print()
+        print(f"record    : {record_path}")
+        print(f"manifest  : {manifest}")
+    elif not no_write:
         snapshot = report_mod.write_netlist_snapshot(tb, experiment_dir, record_id)
         record_path = write_record(record, experiment_dir)
         print()
@@ -269,6 +315,9 @@ def run_and_report(
 
     try:
         return run_fn(args)
-    except (FileNotFoundError, ValueError, KeyError, report_mod.RecordExists) as exc:
+    except (
+        FileNotFoundError, ValueError, KeyError, report_mod.RecordExists,
+        evidence_store.EvidenceStoreError,
+    ) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return EXIT_ENVIRONMENT

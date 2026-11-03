@@ -59,7 +59,8 @@ sim/
   edited in place. The same `<record-id>` ties together the netlist snapshot,
   the raw per-corner logs, and the summary record for one run.
   A writing run reserves its id before any simulation starts by exclusively
-  creating `corners/<record-id>/`; on a collision (concurrent run, or an
+  creating `corners/<record-id>/` (post-DR-030 runs: the staging directory,
+  see "New records" below); on a collision (concurrent run, or an
   existing record, snapshot, or log directory from an interrupted run) the
   timestamp advances by a second. Reservations are never reclaimed: an empty
   `corners/<record-id>/` is an abandoned run and keeps its id occupied.
@@ -71,6 +72,31 @@ sim/
   testbench itself changes in a way that could affect comparability across
   records, note that in the new record's summary (e.g. under Claim or a
   free-text note).
+
+### New records: raw bytes live in the artifact store (DR-030)
+
+The tree above is the layout of every record minted **before**
+[DR-030](../spec/decision-records/DR-030-evidence-artifact-store.md); those
+files stay committed and are never moved. For a record minted after it, the
+per-corner (or per-sample) logs and the netlist snapshot are **not committed**:
+the harness stages them in the git-ignored `sim/.work/evidence-stage/`, stores
+them with `klt artifact put`, and commits only
+
+- `manifests/artifacts/<experiment-slug>-<record-id>.manifest.json` -- each
+  stored object by name, size, sha256 and `artifact:` URI, and
+- `records/<record-id>.md`, whose **Links** field cites that manifest instead
+  of the raw-log and snapshot paths.
+
+Fail-closed: with `$KLT_ARTIFACT_BROKER` unset, a `klt` without `artifact put`,
+or an unreachable broker, `run_corners.py` / `run_mc.py` exit non-zero before
+simulating (or, if the put fails afterwards, before recording) and commit
+nothing. Check a record's bytes from a fleet worker with
+`klt artifact verify manifests/artifacts/<...>.manifest.json`; fetch one with
+`klt artifact get`. CI (`scripts/check_artifact_manifests.py`) validates the
+manifests and fails if a stored object's bytes are tracked in git. The record
+id is still reserved against the tracked tree (an existing record, snapshot or
+log directory occupies it) and, for the run itself, by an exclusive staging
+directory.
 
 ## Summary record format
 

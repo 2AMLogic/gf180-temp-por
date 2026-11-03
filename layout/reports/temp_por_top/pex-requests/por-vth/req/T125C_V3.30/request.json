@@ -1,0 +1,223 @@
+{
+  "netlist": "body.spice",
+  "engine": "ngspice",
+  "backend": "batch",
+  "netlist_source": "schematic",
+  "corners": {
+    "temperature_c": [
+      125.0
+    ],
+    "process": [
+      {
+        "name": "typical+res_typical+bjt_typical+diode_typical+moscap_typical+mimcap_typical",
+        "sections": [
+          "typical",
+          "res_typical",
+          "bjt_typical",
+          "diode_typical",
+          "moscap_typical",
+          "mimcap_typical"
+        ]
+      },
+      {
+        "name": "ff+res_ff+bjt_ff+diode_ff+moscap_ff+mimcap_ff",
+        "sections": [
+          "ff",
+          "res_ff",
+          "bjt_ff",
+          "diode_ff",
+          "moscap_ff",
+          "mimcap_ff"
+        ]
+      },
+      {
+        "name": "ss+res_ss+bjt_ss+diode_ss+moscap_ss+mimcap_ss",
+        "sections": [
+          "ss",
+          "res_ss",
+          "bjt_ss",
+          "diode_ss",
+          "moscap_ss",
+          "mimcap_ss"
+        ]
+      },
+      {
+        "name": "fs+res_typical+bjt_typical+diode_typical+moscap_typical+mimcap_typical",
+        "sections": [
+          "fs",
+          "res_typical",
+          "bjt_typical",
+          "diode_typical",
+          "moscap_typical",
+          "mimcap_typical"
+        ]
+      },
+      {
+        "name": "sf+res_typical+bjt_typical+diode_typical+moscap_typical+mimcap_typical",
+        "sections": [
+          "sf",
+          "res_typical",
+          "bjt_typical",
+          "diode_typical",
+          "moscap_typical",
+          "mimcap_typical"
+        ]
+      },
+      {
+        "name": "typical+res_ff+bjt_typical+diode_typical+moscap_typical+mimcap_typical",
+        "sections": [
+          "typical",
+          "res_ff",
+          "bjt_typical",
+          "diode_typical",
+          "moscap_typical",
+          "mimcap_typical"
+        ]
+      },
+      {
+        "name": "typical+res_ss+bjt_typical+diode_typical+moscap_typical+mimcap_typical",
+        "sections": [
+          "typical",
+          "res_ss",
+          "bjt_typical",
+          "diode_typical",
+          "moscap_typical",
+          "mimcap_typical"
+        ]
+      },
+      {
+        "name": "typical+res_typical+bjt_ff+diode_typical+moscap_typical+mimcap_typical",
+        "sections": [
+          "typical",
+          "res_typical",
+          "bjt_ff",
+          "diode_typical",
+          "moscap_typical",
+          "mimcap_typical"
+        ]
+      },
+      {
+        "name": "typical+res_typical+bjt_ss+diode_typical+moscap_typical+mimcap_typical",
+        "sections": [
+          "typical",
+          "res_typical",
+          "bjt_ss",
+          "diode_typical",
+          "moscap_typical",
+          "mimcap_typical"
+        ]
+      }
+    ]
+  },
+  "analysis": {
+    "kind": "tran",
+    "args": "10u 55m"
+  },
+  "measurements": [
+    {
+      "name": "vpor_rise",
+      "spice": ".meas tran vpor_rise find v(vdd) when v(xdut.por_raw)=1.5 rise=1"
+    },
+    {
+      "name": "vpor_fall",
+      "spice": ".meas tran vpor_fall find v(vdd) when v(xdut.por_raw)=1.5 fall=1"
+    },
+    {
+      "name": "t_rise2_s",
+      "spice": ".meas tran t_rise2_s when v(xdut.por_raw)=1.5 rise=2"
+    },
+    {
+      "name": "t_fall2_s",
+      "spice": ".meas tran t_fall2_s when v(xdut.por_raw)=1.5 fall=2"
+    },
+    {
+      "name": "vpor_rise_guard",
+      "spice": ".meas tran vpor_rise_guard find v(vdd) when v(xdut.por_raw)=1.5 rise=2"
+    },
+    {
+      "name": "vpor_fall_guard",
+      "spice": ".meas tran vpor_fall_guard find v(vdd) when v(xdut.por_raw)=1.5 fall=2"
+    },
+    {
+      "name": "vref_settle_early",
+      "spice": ".meas tran vref_settle_early find v(xdut.vref) at=8.0m"
+    },
+    {
+      "name": "vref_settle_late",
+      "spice": ".meas tran vref_settle_late find v(xdut.vref) at=10.9m"
+    },
+    {
+      "name": "por_raw_top",
+      "spice": ".meas tran por_raw_top find v(xdut.por_raw) at=10.9m"
+    },
+    {
+      "name": "vdd_top",
+      "spice": ".meas tran vdd_top find v(vdd) at=10.9m"
+    },
+    {
+      "name": "vpor_rise_v",
+      "spice": ".meas tran vpor_rise_v param='vpor_rise'"
+    },
+    {
+      "name": "vpor_fall_v",
+      "spice": ".meas tran vpor_fall_v param='vpor_fall'"
+    },
+    {
+      "name": "v_hys_mv",
+      "spice": ".meas tran v_hys_mv param='(vpor_rise-vpor_fall)*1e3'"
+    },
+    {
+      "name": "rise_chatter_guard_ms",
+      "spice": ".meas tran rise_chatter_guard_ms param='t_rise2_s*1e3'"
+    },
+    {
+      "name": "fall_chatter_guard_ms",
+      "spice": ".meas tran fall_chatter_guard_ms param='t_fall2_s*1e3'"
+    },
+    {
+      "name": "vpor_rise_guard_v",
+      "spice": ".meas tran vpor_rise_guard_v param='vpor_rise_guard'"
+    },
+    {
+      "name": "vpor_fall_guard_v",
+      "spice": ".meas tran vpor_fall_guard_v param='vpor_fall_guard'"
+    },
+    {
+      "name": "v_hys_guard_mv",
+      "spice": ".meas tran v_hys_guard_mv param='(vpor_rise_guard-vpor_fall_guard)*1e3'"
+    },
+    {
+      "name": "v_hys_rate_guard_delta_mv",
+      "spice": ".meas tran v_hys_rate_guard_delta_mv param='((vpor_rise-vpor_fall)-(vpor_rise_guard-vpor_fall_guard))*1e3'"
+    },
+    {
+      "name": "vref_settle_early_v",
+      "spice": ".meas tran vref_settle_early_v param='vref_settle_early'"
+    },
+    {
+      "name": "vref_settle_late_v",
+      "spice": ".meas tran vref_settle_late_v param='vref_settle_late'"
+    },
+    {
+      "name": "vref_settle_drift_mv",
+      "spice": ".meas tran vref_settle_drift_mv param='(vref_settle_late-vref_settle_early)*1e3'"
+    },
+    {
+      "name": "por_raw_hi_droop_mv",
+      "spice": ".meas tran por_raw_hi_droop_mv param='(vdd_top-por_raw_top)*1e3'"
+    }
+  ],
+  "options": {
+    "timeout_s": 1800,
+    "keep_artifacts": true,
+    "ngspice_init": [
+      "set num_threads=1",
+      "set numdgt=10",
+      "set noaskquit"
+    ]
+  },
+  "models": {
+    "pdk": "gf180mcuD",
+    "lib": "libs.tech/ngspice/sm141064.ngspice"
+  }
+}
