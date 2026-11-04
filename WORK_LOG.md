@@ -2,8 +2,47 @@
 
 Merged PRs and closed issues from the initial 30-day snapshot (2026-09-07 onward).
 
+### 2026-11-01
+
+- **PR #408**: Bump Repo Skills 0.24.7 -> 0.25.1
+
+### 2026-10-29
+
+- **PR #407**: feat(pex): klt pex evidence for the temp_core and por_output_chain cells
+- **PR #406**: docs(por-brownout): root-cause the schematic leg's missing re-assert at 8 corners
+- **PR #404**: feat(pex): klt pex evidence for brownout, ramp-rate and temp-accuracy-vt
+- **Issue #405** (closed): Investigate por-brownout post-layout errors: schematic leg yields no reset re-assert at low-supply dips
+- **Issue #393** (closed): T1 item 7: klt pex coverage for cell-level post-layout benches (temp_core, por_output_chain)
+- **Issue #391** (closed): T1 item 7: extend the klt pex report to the remaining post-layout benches
+
+### 2026-10-28
+
+- **PR #403**: fix(pex): stage three more temp_por_top experiments and harden the PEX driver
+- **PR #402**: fix(signoff): refresh stale item-10 hash, fail on stale citation hashes, correct README verdict
+- **Issue #401** (closed): T1 grading: refresh tier-report.json (item 10 cites a superseded inventory hash) and correct README's 8/11 verdict
+
+### 2026-10-27
+
+- **PR #399**: ci: quote manifest-check step name so ci.yml parses
+- **PR #397**: refactor(design): netlist cells through klt netlist instead of raw xschem
+- **PR #395**: chore: remove truncated .loom/manifest.json.tmp install leftover
+- **PR #392**: feat(signoff): cite a klt pex report for T1 item 7 (por-vth, 81 corners)
+- **PR #390**: chore(signoff): pin grader to klt 0.8.0 and declare item 5 spec_rows as gaps
+- **Issue #398** (closed): ci: .github/workflows/ci.yml is invalid YAML on main, so no CI job runs
+- **Issue #396** (closed): Replace hand-rolled xschem call in design/netlist.py with klt netlist
+- **Issue #394** (closed): Remove .loom/manifest.json.tmp: truncated install leftover
+- **Issue #387** (closed): T1 item 5 phase 1: bump the grader pin and declare spec_rows."5" with every measured row as a gap
+- **Issue #385** (closed): T1 item 7 (post-layout verification): klt pex delta report for temp_por_top
+
+### 2026-10-24
+
+- **PR #382**: feat: store new sim evidence bytes in the artifact store, commit manifests
+- **Issue #381** (closed): Adopt the common artifact store for sim evidence (manifests in git, bytes via klt artifact)
+
 ### 2026-10-21
 
+- **PR #380**: ci: pin checks job to ubuntu-24.04 for the Python 3.9 leg
+- **Issue #379** (closed): CI: python 3.9 matrix leg fails — setup-python has no 3.9 build for ubuntu-latest (Ubuntu 26.04)
 - **PR #377**: Bump Repo Skills 0.24.3 -> 0.24.7
 
 ### 2026-10-17
