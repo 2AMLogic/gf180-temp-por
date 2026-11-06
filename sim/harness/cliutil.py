@@ -236,8 +236,8 @@ def finish_run(
 
     ``write_record`` is the record-writer the caller wants invoked as
     ``write_record(record, experiment_dir)`` -- ``report.write_record`` for
-    the PVT-grid harness, ``mc_report.write_mc_record`` for Monte Carlo runs
-    -- the one line the two callers' footers otherwise differ on.
+    the PVT-grid harness, ``report.write_record`` bound to
+    ``mc_report.render_mc_record`` for Monte Carlo runs -- the one line the two callers' footers otherwise differ on.
     """
     # Local import: sim/harness/report.py imports this module (for `fmt()`),
     # so importing it at module scope here would be circular.
