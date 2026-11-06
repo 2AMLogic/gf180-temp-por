@@ -666,34 +666,18 @@ def run_point(
     )
 
 
-def run_grid(
-    tb: Testbench,
-    pdk: Pdk,
-    points: list[PvtPoint],
-    workdir: Path,
-    jobs: int = 1,
-    timeout_s: int = DEFAULT_TIMEOUT_S,
-    on_result=None,
-    log_dir: Path | None = None,
-    backend: str = klt_batch.BACKEND_LOCAL,
-    batch: "klt_batch.BatchConfig | None" = None,
-) -> list[PointResult]:
-    """Run every PVT point; results come back in grid order regardless of jobs.
+def run_local_grid(run_one, points: list, jobs: int, on_result) -> list[PointResult]:
+    """Run ``run_one(point)`` over ``points`` locally, optionally threaded.
 
-    ``backend="batch"`` (with a ``klt_batch.BatchConfig``) sends the grid
-    through ``klt sim --backend batch`` -- see :func:`run_grid_batch`. It
-    never falls through to the local loop below.
+    Shared local loop behind :func:`run_grid` and ``montecarlo.run_mc_grid``.
+    ``on_result`` fires as each point finishes; the returned list is in
+    ``points`` order regardless of ``jobs``.
     """
-    if _require_batch(backend, batch):
-        return run_grid_batch(
-            tb, pdk, points, workdir, batch, jobs=jobs, timeout_s=timeout_s,
-            on_result=on_result, log_dir=log_dir,
-        )
     results: list[PointResult | None] = [None] * len(points)
 
     def _one(index_point):
         index, point = index_point
-        result = run_point(tb, pdk, point, workdir, timeout_s=timeout_s, log_dir=log_dir)
+        result = run_one(point)
         results[index] = result
         if on_result is not None:
             on_result(result)
@@ -709,28 +693,34 @@ def run_grid(
     return [r for r in results if r is not None]
 
 
-def run_grid_batch(
+def run_grid(
     tb: Testbench,
     pdk: Pdk,
     points: list[PvtPoint],
     workdir: Path,
-    batch: "klt_batch.BatchConfig",
     jobs: int = 1,
     timeout_s: int = DEFAULT_TIMEOUT_S,
     on_result=None,
     log_dir: Path | None = None,
+    backend: str = klt_batch.BACKEND_LOCAL,
+    batch: "klt_batch.BatchConfig | None" = None,
 ) -> list[PointResult]:
-    """``run_grid`` through ``klt sim --backend batch`` (#331).
+    """Run every PVT point; results come back in grid order regardless of jobs.
 
-    Same contract as the local grid: results in grid order, ``ok`` only when
-    every ``tb.measure`` name parsed out of the returned raw log, and every
-    point that klt did not return as a clean ``pass`` is an ``error`` --
-    never an ``ok``. Points differing only in supply share one request
-    (``vdd_val`` rides klt's supply axis); ``jobs`` bounds concurrent requests.
+    ``backend="batch"`` (with a ``klt_batch.BatchConfig``) sends the grid
+    through ``klt sim --backend batch`` (#331) via :func:`run_batch_grid`. It
+    never falls through to the local loop. Points differing only in supply
+    share one request (``vdd_val`` rides klt's supply axis); ``jobs`` bounds
+    concurrent requests.
     """
-    return run_batch_grid(
-        tb, pdk, points, workdir, batch, compose_deck, lift_params=("vdd_val",),
-        jobs=jobs, timeout_s=timeout_s, on_result=on_result, log_dir=log_dir,
+    if _require_batch(backend, batch):
+        return run_batch_grid(
+            tb, pdk, points, workdir, batch, compose_deck, lift_params=("vdd_val",),
+            jobs=jobs, timeout_s=timeout_s, on_result=on_result, log_dir=log_dir,
+        )
+    return run_local_grid(
+        lambda point: run_point(tb, pdk, point, workdir, timeout_s=timeout_s, log_dir=log_dir),
+        points, jobs, on_result,
     )
 
 
@@ -747,8 +737,8 @@ def run_batch_grid(
     on_result=None,
     log_dir: Path | None = None,
 ) -> list[PointResult]:
-    """Shared batch-backend grid runner behind :func:`run_grid_batch` and
-    ``montecarlo.run_mc_grid_batch``.
+    """Shared batch-backend grid runner behind :func:`run_grid` and
+    ``montecarlo.run_mc_grid``.
 
     ``compose(tb, pdk, point)`` builds each point's deck text; ``lift_params``
     is forwarded to :func:`klt_batch.translate_deck`. Results come back in
