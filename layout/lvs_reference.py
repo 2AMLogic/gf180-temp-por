@@ -7,7 +7,6 @@
     python3 layout/lvs_reference.py --cell <name> --corrupt device-param -o /tmp/bad.spice
     python3 layout/lvs_reference.py --check-deck-hash  # committed drc.json all one deck?
     python3 layout/lvs_reference.py --check-gds-hash   # committed reports match their .gds?
-    python3 layout/lvs_reference.py --list-frozen-deck-cells  # who that gate skips
 
 stdlib only; no PDK, no klayout, no ngspice.
 
@@ -116,7 +115,7 @@ import json
 import re
 import shlex
 import sys
-from collections.abc import Callable, Sequence
+from collections.abc import Callable
 from pathlib import Path
 from typing import NamedTuple
 
@@ -148,41 +147,6 @@ def pinned_deck_hash(path: Path = TOOLCHAIN_PATH) -> str:
     """The ``provenance.deck.content_hash`` every committed report must name."""
     return toolchain(path)["deck"]["content_hash"]
 
-
-#: Cells whose committed artefacts are deliberately held at an older build than
-#: their sources would produce, keyed by cell name. Read by **both**
-#: ``--check`` paths -- this module's and ``layout/build_cells.py``'s (which
-#: imports this module) -- so a freeze is declared once and cannot drift
-#: between the two gates.
-#:
-#: A freeze is *not* "skip the staleness check". A frozen cell's committed
-#: artefact is pinned to the exact sha256 recorded here, so ``--check`` still
-#: fails if that artefact changes -- what the freeze suspends is only the
-#: comparison against a *fresh rebuild*, which is the thing the tracking issue
-#: owns. The three states are therefore distinguishable in the output:
-#:
-#: * unfrozen and current            -> ``ok <artefact>``
-#: * unfrozen and rebuilt-differs    -> ``FAIL ...: committed ... is stale``
-#: * frozen and baseline intact      -> ``frozen <artefact> ... (see #N)``
-#: * frozen and baseline **changed** -> ``FAIL ...: no longer matches the
-#:   pinned frozen baseline`` (someone regenerated a frozen artefact; either
-#:   restore it or land the tracking issue and delete the entry)
-#:
-#: Regenerating (running either script without ``--check``) also skips a frozen
-#: cell unless it is named explicitly with ``--cell``, so a routine
-#: whole-repo regeneration cannot quietly break the pin.
-#:
-#: Removal condition: delete the entry when its ``issue`` lands. Nothing else
-#: has to change -- both gates fall straight back to rebuild-and-compare.
-FROZEN_CELLS: dict[str, dict[str, str]] = {}
-
-#: Cells whose committed ``layout/reports/<cell>/drc.json`` is allowed to lag
-#: the rest on deck version because the cell itself is intentionally frozen.
-#: Derived from :data:`FROZEN_CELLS` rather than declared separately -- the
-#: two registries used to be independent sets that happened to agree only
-#: because there was ever one frozen cell (#111), which is exactly the kind
-#: of drift a second source of truth invites.
-FROZEN_DECK_CELLS = frozenset(FROZEN_CELLS)
 
 #: The deck ties every extracted NMOS body to this global net -- except on a
 #: cell in :data:`BODY_TIES_RESOLVED_CELLS`, where it ties to nothing at all
@@ -1001,36 +965,6 @@ CELLS["temp_por_top"] = {
 }
 
 
-class FrozenVerdict(NamedTuple):
-    """One frozen cell's artefact verdict: ``ok`` plus the line to print."""
-
-    ok: bool
-    line: str
-
-
-def pinned_report_cells(named: Sequence[str]) -> list[str]:
-    """Cells whose committed ``layout/reports/<cell>/`` this invocation of
-    ``run_checks.sh`` must **not** overwrite.
-
-    A frozen cell's committed reports are evidence recorded under the deck and
-    the sub-cell set its tracking issue owns; a whole-repo run re-stamping them
-    onto today's deck silently ends the freeze the moment someone ``git add
-    -A``s (#111). So a run that names no cells -- the implicit whole-repo loop
-    -- treats every :data:`FROZEN_CELLS` entry's reports as read-only: the
-    checks still run, but into a scratch directory that is diffed against the
-    committed set instead of replacing it.
-
-    Naming cells explicitly (``bash layout/run_checks.sh temp_por_top``) is the
-    deliberate "regenerate it anyway" path, exactly as ``--cell`` is for this
-    module's and ``build_cells.py``'s regeneration passes, so nothing is
-    pinned then. Empty :data:`FROZEN_CELLS` gives an empty list either way,
-    which is what makes the guard a no-op once the freezes are lifted.
-    """
-    if named:
-        return []
-    return sorted(FROZEN_CELLS)
-
-
 def sha256_bytes(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
@@ -1041,43 +975,6 @@ def _display_path(path: Path) -> Path:
         return path.relative_to(REPO_ROOT)
     except ValueError:
         return path
-
-
-def frozen_check(name: str, artefact: str, path: Path) -> FrozenVerdict | None:
-    """Verify a frozen cell's committed artefact against its pinned digest.
-
-    ``artefact`` selects the pinned digest (``"gds"`` -> ``gds_sha256``,
-    ``"reference"`` -> ``reference_sha256``); ``path`` is the committed file.
-
-    Returns ``None`` when ``name`` is not frozen, which means "do the normal
-    rebuild-and-compare"; every caller must handle that case rather than
-    treating a missing entry as a pass. A ``KeyError`` here means a
-    :data:`FROZEN_CELLS` entry declared a freeze without pinning this artefact,
-    which is a mistake in the freeze, not something to skip.
-    """
-    spec = FROZEN_CELLS.get(name)
-    if spec is None:
-        return None
-    pinned = spec[f"{artefact}_sha256"]
-    where = _display_path(path)
-    if not path.exists():
-        return FrozenVerdict(
-            False,
-            f"{name}: frozen for {spec['issue']} but {where} is not committed",
-        )
-    digest = sha256_bytes(path.read_bytes())
-    if digest != pinned:
-        return FrozenVerdict(
-            False,
-            f"{name}: committed {where} no longer matches the pinned frozen "
-            f"baseline (pinned {pinned[:16]}, committed {digest[:16]}) -- "
-            f"restore it, or land {spec['issue']} and drop the freeze",
-        )
-    return FrozenVerdict(
-        True,
-        f"frozen {where}  sha256={digest[:16]}  "
-        f"(pinned baseline, not rebuilt: see {spec['issue']})",
-    )
 
 
 SUBCKT_RE = re.compile(r"^\.subckt\s+(\S+)\s+(.*)$", re.IGNORECASE)
@@ -2027,12 +1924,6 @@ def check_deck_hash_consistency(
     ``run_checks.sh`` toolchain gate asserts that half, live, before any
     report is written).
 
-    Cells in :data:`FROZEN_DECK_CELLS` are excluded from the agreement check
-    (their own committed report can lag while the cell is intentionally
-    frozen) but still required to have a well-formed ``provenance.deck``
-    block -- a frozen cell with an unreadable report is still a bug, just not
-    a hash-drift one.
-
     Returns a list of human-readable failure strings; empty means consistent.
     """
     hashes: dict[str, str] = {}
@@ -2050,8 +1941,6 @@ def check_deck_hash_consistency(
                 f"{cell}: {drc_path} has no provenance.deck.content_hash"
             )
             continue
-        if cell in FROZEN_DECK_CELLS:
-            continue
         hashes[cell] = content_hash
 
     distinct = sorted(set(hashes.values()))
@@ -2063,13 +1952,11 @@ def check_deck_hash_consistency(
             f"{content_hash} -> {', '.join(sorted(cells))}"
             for content_hash, cells in sorted(by_hash.items())
         )
-        frozen = sorted(FROZEN_DECK_CELLS)
         failures.append(
             "committed layout/reports/*/drc.json disagree on "
             f"provenance.deck.content_hash: {detail}. Regenerate every "
-            "non-frozen cell's reports against one deck (bash "
-            f"layout/run_checks.sh) before committing. (Excluded as frozen: "
-            f"{', '.join(frozen) if frozen else 'none'}.)"
+            "cell's reports against one deck (bash "
+            "layout/run_checks.sh) before committing."
         )
 
     # ... and the one deck they agree on has to be the pinned one (#258).
@@ -2100,8 +1987,7 @@ def check_deck_hash_consistency(
 #: For each report file under ``layout/reports/<cell>/``, the JSON path (as a
 #: key tuple) to the field recording the sha256 of the ``.gds`` stream it was
 #: generated from. ``lvs.json``'s ``environment.layout_sha256`` is ``klt
-#: lvs``'s own output and was already correct (see :data:`FROZEN_CELLS`'
-#: ``gds_sha256``, pinned against the same convention); ``drc.json`` and
+#: lvs``'s own output and was already correct; ``drc.json`` and
 #: ``extract.json`` gained ``provenance.gds_sha256`` under #106, spliced in by
 #: ``run_checks.sh`` right after ``klt drc``/``klt extract`` write the file,
 #: since neither writes it itself.
@@ -2147,9 +2033,7 @@ def check_gds_hash(
     ``layout/reports/<cell>/{drc,extract,lvs}.json`` now pins a digest of its
     source GDS (see :data:`GDS_HASH_FIELDS`); this recomputes
     ``sha256(layout/cells/<cell>.gds)`` and compares it against every report
-    that names that cell, for every cell -- including frozen ones (a frozen
-    cell's committed reports must still describe its own committed,
-    unchanged GDS; freezing suspends the *rebuild* comparison, not this one).
+    that names that cell, for every cell.
 
     Returns a list of human-readable failure strings; empty means every
     committed report's recorded digest matches its committed GDS.
@@ -2206,24 +2090,6 @@ def run(check: bool, only: str | None, corrupt: str | None, out: str | None) -> 
     failures = []
     for name in names:
         path = CELLS_DIR / f"{name}.reference.spice"
-        # A frozen cell (see FROZEN_CELLS) is held against its pinned committed
-        # digest instead of against a fresh derivation, in both directions:
-        # --check does not compare it to `build(name)`, and a regeneration pass
-        # does not overwrite it unless it was named explicitly with --cell.
-        frozen = frozen_check(name, "reference", path)
-        if frozen is not None and (check or only is None):
-            if check:
-                if frozen.ok:
-                    print(frozen.line)
-                else:
-                    failures.append(frozen.line)
-            else:
-                print(
-                    f"skip {_display_path(path)}  "
-                    f"(frozen for {FROZEN_CELLS[name]['issue']}; "
-                    f"pass --cell {name} to regenerate it anyway)"
-                )
-            continue
         text = build(name)
         if check:
             if not path.exists():
@@ -2261,8 +2127,7 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help=(
             "fail if committed layout/reports/*/drc.json disagree on "
-            "provenance.deck.content_hash (ignores --cell/--corrupt/--output; "
-            f"tolerates {', '.join(sorted(FROZEN_DECK_CELLS))} while frozen)"
+            "provenance.deck.content_hash (ignores --cell/--corrupt/--output)"
         ),
     )
     parser.add_argument(
@@ -2285,43 +2150,7 @@ def main(argv: list[str] | None = None) -> int:
             "pin is declared exactly once, in the JSON"
         ),
     )
-    parser.add_argument(
-        "--list-frozen-deck-cells",
-        action="store_true",
-        help=(
-            "print the cells --check-deck-hash excludes as frozen, one per "
-            "line (run_checks.sh --regen-all reads this so the list is "
-            "declared once, here, rather than duplicated in the shell)"
-        ),
-    )
-    parser.add_argument(
-        "--pinned-report-cells",
-        action="store_true",
-        help=(
-            "print (one per line) the cells whose committed "
-            "layout/reports/<cell>/ the caller must not overwrite: the frozen "
-            "cells, unless the caller named cells itself (see the trailing "
-            "positional arguments), which is the explicit "
-            "regenerate-it-anyway path. Read by layout/run_checks.sh"
-        ),
-    )
-    parser.add_argument(
-        "cells",
-        nargs="*",
-        help=(
-            "the cells the caller was asked to act on; only meaningful with "
-            "--pinned-report-cells, and empty means a whole-repo run"
-        ),
-    )
     args = parser.parse_args(argv)
-    if args.cells and not args.pinned_report_cells:
-        # The positional exists only to let run_checks.sh forward its own "$@";
-        # every other mode selects a cell with --cell, and used to reject a bare
-        # name outright. Keep rejecting it rather than silently ignoring it.
-        parser.error(
-            "cell names are positional only with --pinned-report-cells; "
-            "use --cell to select a cell"
-        )
     if args.pinned_toolchain:
         pin = toolchain()
         release = pin["klt"]["release"]
@@ -2339,14 +2168,6 @@ def main(argv: list[str] | None = None) -> int:
             # Shell-quoted: run_checks.sh `eval`s these, and every value here
             # contains spaces.
             print(f"{key}={shlex.quote(value)}")
-        return 0
-    if args.list_frozen_deck_cells:
-        for cell in sorted(FROZEN_DECK_CELLS):
-            print(cell)
-        return 0
-    if args.pinned_report_cells:
-        for name in pinned_report_cells(args.cells):
-            print(name)
         return 0
     if args.check_deck_hash:
         failures = check_deck_hash_consistency()

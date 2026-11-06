@@ -3942,18 +3942,6 @@ def run(check: bool, only: str | None) -> int:
 
     if not check:
         for name in names:
-            # A frozen cell's committed stream is pinned (see
-            # lvs_reference.FROZEN_CELLS); a whole-repo regeneration must not
-            # silently overwrite it and break the pin. Naming it explicitly
-            # with --cell still rebuilds it -- that is the tracking issue's own
-            # workflow.
-            if name in lvsref.FROZEN_CELLS and only is None:
-                issue = lvsref.FROZEN_CELLS[name]["issue"]
-                print(
-                    f"skip {name}.gds  (frozen for {issue}; "
-                    f"pass --cell {name} to rebuild it anyway)"
-                )
-                continue
             path = build(name, CELLS_DIR)
             print(
                 f"wrote {path.relative_to(REPO_ROOT)}  "
@@ -3965,17 +3953,6 @@ def run(check: bool, only: str | None) -> int:
     with tempfile.TemporaryDirectory() as tmp:
         for name in names:
             committed = CELLS_DIR / f"{name}.gds"
-            # Frozen cells are held against their pinned committed digest
-            # rather than against a rebuild -- deferring that rebuild is
-            # exactly what the freeze is for. `frozen_check` returns None for
-            # every other cell, which falls through to the normal compare.
-            frozen = lvsref.frozen_check(name, "gds", committed)
-            if frozen is not None:
-                if frozen.ok:
-                    print(frozen.line)
-                else:
-                    failures.append(frozen.line)
-                continue
             fresh = build(name, Path(tmp))
             if not committed.exists():
                 failures.append(f"{name}: not committed (run without --check)")
