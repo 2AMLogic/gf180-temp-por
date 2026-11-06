@@ -4,6 +4,7 @@ Merged PRs and closed issues from the initial 30-day snapshot (2026-09-07 onward
 
 ### 2026-11-06
 
+- **PR #423**: feat(sim): define seeded known-bad variants of the two yield campaigns
 - **PR #421**: feat(sim): add klt sim batch backend to run_mc.py
 - **PR #419**: layout: remove one-point postlayout smoke script, re-point citations to grid records
 - **PR #418**: feat(signoff): klt yield reports for the [3σ] rows (T1 item 6)
