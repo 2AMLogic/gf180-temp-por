@@ -201,8 +201,12 @@ ramps rather than of any topology change:
 | `t_release_1mvs_ms` (1 V/µs ramp), grid min | `por-ramp-rate` | 4.74916 | 4.8921 | +3.01 % |
 
 That figure is consistent with PR #180's own nominal smoke run on this cell
-(`t_release_ms` +2.01 % at `tt_27c_3.30v`,
-[`layout/postlayout/SMOKE.md`](../layout/postlayout/SMOKE.md)) and with the
+(`t_release_ms` +2.01 % at `tt_27c_3.30v`: 10.068 ms schematic in
+[`20260802-205904-bdc077d`](../sim/temp-por-top-release/records/20260802-205904-bdc077d.md)
+→ 10.2704 ms extracted in
+[`20260819-173152-e58ed1a`](../sim/temp-por-top-release/records/20260819-173152-e58ed1a.md),
+the same corner read off the full 81-point grid; PR #180's one-point smoke
+script and its `SMOKE.md` table were removed in favour of these records) and with the
 +1.9–2.4 % the `por_output_chain` cell-level re-run measured on its own
 one-shot ([`por_output_chain.md`](por_output_chain.md) → "Post-layout re-run").
 It costs margin nowhere: the release-time guard band is 1–29 ms and the widest

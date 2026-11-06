@@ -311,7 +311,6 @@ layout/
   build_cells.py                 builds cells/*.gds, byte-reproducibly
   lvs_reference.py               derives cells/*.reference.spice from design/netlist/
   postlayout.py                  derives postlayout/*.spice from the extraction
-  postlayout_smoke.py            one nominal-corner smoke run per post-layout netlist
   cells/
     <cell>.gds                   the layout stream
     <cell>.reference.spice       generated -- do not edit
@@ -323,7 +322,6 @@ layout/
   postlayout/
     <cell>.spice                 the simulatable post-layout netlist
     audit.json / AUDIT.md        what is the layout's and what is not
-    SMOKE.md                     the nominal-corner smoke table
   reports/
     environment.json             klt version + deck hash + release the reports
                                   were produced with (after the fact; the
@@ -387,7 +385,6 @@ summarises all four.
 python3 layout/postlayout.py --extract   # re-run klt (needs klt + the deck)
 python3 layout/postlayout.py             # regenerate layout/postlayout/
 python3 layout/postlayout.py --check     # committed artifacts current? (stdlib only)
-python3 layout/postlayout_smoke.py       # one nominal-corner run per netlist
 ```
 
 ### How it is built, and why there is a build step at all
@@ -473,12 +470,13 @@ still describes the netlist it names.
   carries the negative controls: a corrupted net correspondence must move the
   netlist, an unpaired net must be rejected, a wrong emitter area must be
   rejected.
-* [`postlayout/SMOKE.md`](postlayout/SMOKE.md) runs each netlist **and the
-  golden schematic netlist** through a byte-identical deck at
-  `tt_27c_3.30v`. The pair is the point: a netlist whose ties or names landed
-  on the wrong nodes would still converge and still print numbers. It is
-  **not** a `sim/` evidence record — one PVT point, loose sanity windows — and
-  says so in every artifact it writes.
+* The golden schematic netlist and the post-layout netlist are compared at
+  **every** PVT corner by the `testbench-postlayout/` experiments under
+  `sim/` and their `<record-id>-postlayout-delta` records
+  (`sim/postlayout_delta.py`), not by a one-point smoke run. An earlier
+  nominal-corner script (`postlayout_smoke.py`, with a `SMOKE.md` table) was
+  removed once those landed; the `layout/reports/<cell>/postlayout-smoke.json`
+  reports it wrote remain as results, and their `note` fields still name it.
 
 The DC quantities agree with the schematic to within a few parts in a
 thousand, which is expected and is not a null result. The parasitic model is
