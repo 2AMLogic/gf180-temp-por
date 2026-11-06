@@ -123,11 +123,15 @@ jobs:
         # It is a different pin from layout/toolchain.json's, which pins the
         # build that PRODUCED layout/reports/ -- see signoff/toolchain.json
         # for why the two cannot be the same version.
-        run: pip install "klayout-tools==0.7.0"
+        run: pip install "klayout-tools[yield]==0.9.1"
 
       - name: signoff/check.py (re-grade the T1 manifest; fail on evidence rot)
         if: matrix.python-version == '3.11'
         run: python3 signoff/check.py
+
+      - name: signoff/yield_samples.py --check (item 6 sample sets match the committed MC logs)
+        if: matrix.python-version == '3.11'
+        run: python3 signoff/yield_samples.py --check
 
   pdk-checks:
     name: pdk-checks (netlist export + full PVT smoke)

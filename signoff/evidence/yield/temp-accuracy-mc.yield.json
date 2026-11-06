@@ -1,0 +1,781 @@
+{
+  "samples": "signoff/evidence/yield/temp-accuracy-mc.samples.json",
+  "limits": null,
+  "source": {
+    "kind": "sample-set",
+    "netlist": null,
+    "monte_carlo": null,
+    "provenance": {
+      "seed": 20260802,
+      "rng": "ngspice `.option seed=<seed_base + binding_index*100000 + sample>` per sample, local mismatch only (sw_stat_mismatch=1, sw_stat_global=0), process held at each binding point's own corner; record 20260802-082345-989ce7a",
+      "draws_per_population": 500,
+      "common_random_numbers": false,
+      "corner_matrix": [
+        "temp_lo_vdd_lo: tt/-40C/2.97V",
+        "temp_lo_vdd_hi: tt/-40C/3.63V",
+        "temp_hi_vdd_lo: tt/125C/2.97V",
+        "temp_hi_vdd_hi: tt/125C/3.63V"
+      ]
+    },
+    "sample_count": 4000
+  },
+  "schema_version": 1,
+  "confidence": 0.95,
+  "target_ci_halfwidth": 0.05,
+  "min_samples": 2,
+  "status": "fail",
+  "measurement_count": 8,
+  "measurements": [
+    {
+      "name": "terr_untrim_c@temp_lo_vdd_lo",
+      "unit": null,
+      "n": 500,
+      "errored": 0,
+      "failed_unmeasurable": 0,
+      "censored": 0,
+      "inconclusive": 0,
+      "limits": {
+        "min": -3.0,
+        "max": 3.0,
+        "target_yield": 0.9973
+      },
+      "source_corners": [
+        "tt/-40C/2.97V"
+      ],
+      "distribution": {
+        "model": "normal",
+        "mean": 0.32467449146151456,
+        "stddev": 6.1893088153974425,
+        "min": -19.83244997,
+        "max": 18.502495324,
+        "median": 0.54191268008,
+        "skewness": -0.001097300254779412,
+        "excess_kurtosis": 0.014115954544508202,
+        "normality": {
+          "test": "anderson-darling",
+          "statistic": 0.4566254568692231,
+          "critical_value": 0.787,
+          "significance": 0.05,
+          "verdict": "consistent"
+        }
+      },
+      "yield": {
+        "empirical": {
+          "method": "clopper-pearson",
+          "estimate": 0.334,
+          "confidence": 0.95,
+          "confidence_interval": {
+            "low": 0.2927472479465658,
+            "high": 0.3772296650095578
+          },
+          "n": 500
+        },
+        "normal": {
+          "method": "normal-delta",
+          "estimate": 0.37164281526886767,
+          "confidence": 0.95,
+          "confidence_interval": {
+            "low": 0.3503518792656185,
+            "high": 0.3929337512721168
+          },
+          "n": 500
+        },
+        "variance_reduced": null
+      },
+      "capability": {
+        "cp": 0.16156892955676275,
+        "cpk": 0.14408315954348833,
+        "cpk_confidence_interval": {
+          "low": 0.11352884967082799,
+          "high": 0.17463746941614866
+        },
+        "sigma_to_spec": 0.432249478630465,
+        "sigma_to_spec_confidence_interval": {
+          "low": 0.340586549012484,
+          "high": 0.523912408248446
+        },
+        "limiting_side": "upper"
+      },
+      "sample_size": {
+        "n": 500,
+        "observed_ci_halfwidth": 0.04224120853149599,
+        "target_ci_halfwidth": 0.05,
+        "required_n": 342,
+        "required_n_for_target": null,
+        "verdict": "sufficient",
+        "method": "normal-approximation",
+        "variance_reduced": null
+      },
+      "negative_control": null,
+      "analytic_cross_check": null,
+      "sampling": {
+        "strategy": "plain_random",
+        "replicates": null,
+        "effective_sample_size": null
+      },
+      "status": "fail",
+      "warnings": [
+        "measurement 'terr_untrim_c@temp_lo_vdd_lo': the observed pass rate (0.334000) is at or below the 0.9973 target, so no sample count can support the claim -- this is the design falling short, not the campaign"
+      ],
+      "spec_row": "temp-accuracy-untrimmed"
+    },
+    {
+      "name": "terr_trim_c@temp_lo_vdd_lo",
+      "unit": null,
+      "n": 500,
+      "errored": 0,
+      "failed_unmeasurable": 0,
+      "censored": 0,
+      "inconclusive": 0,
+      "limits": {
+        "min": -1.5,
+        "max": 1.5,
+        "target_yield": 0.9973
+      },
+      "source_corners": [
+        "tt/-40C/2.97V"
+      ],
+      "distribution": {
+        "model": "normal",
+        "mean": -0.0319761495286287,
+        "stddev": 1.5280442672863526,
+        "min": -4.870788146218566,
+        "max": 4.117436890030526,
+        "median": 0.2968640481467956,
+        "skewness": -0.079868900381743,
+        "excess_kurtosis": -0.4806270110934503,
+        "normality": {
+          "test": "anderson-darling",
+          "statistic": 4.6167643878749205,
+          "critical_value": 0.787,
+          "significance": 0.05,
+          "verdict": "rejected"
+        }
+      },
+      "yield": {
+        "empirical": {
+          "method": "clopper-pearson",
+          "estimate": 0.642,
+          "confidence": 0.95,
+          "confidence_interval": {
+            "low": 0.5982358844094091,
+            "high": 0.6840738479280815
+          },
+          "n": 500
+        },
+        "normal": {
+          "method": "normal-delta",
+          "estimate": 0.6736202762860832,
+          "confidence": 0.95,
+          "confidence_interval": {
+            "low": 0.6436362279765603,
+            "high": 0.7036043245956062
+          },
+          "n": 500
+        },
+        "variance_reduced": null
+      },
+      "capability": {
+        "cp": 0.3272156512114324,
+        "cpk": 0.3202402534839362,
+        "cpk_confidence_interval": {
+          "low": 0.284907502621687,
+          "high": 0.3555730043461854
+        },
+        "sigma_to_spec": 0.9607207604518087,
+        "sigma_to_spec_confidence_interval": {
+          "low": 0.8547225078650611,
+          "high": 1.0667190130385562
+        },
+        "limiting_side": "lower"
+      },
+      "sample_size": {
+        "n": 500,
+        "observed_ci_halfwidth": 0.04291898175933617,
+        "target_ci_halfwidth": 0.05,
+        "required_n": 354,
+        "required_n_for_target": null,
+        "verdict": "sufficient",
+        "method": "normal-approximation",
+        "variance_reduced": null
+      },
+      "negative_control": null,
+      "analytic_cross_check": null,
+      "sampling": {
+        "strategy": "plain_random",
+        "replicates": null,
+        "effective_sample_size": null
+      },
+      "status": "fail",
+      "warnings": [
+        "measurement 'terr_trim_c@temp_lo_vdd_lo': the sample set is not consistent with a normal distribution (Anderson-Darling A2* = 4.6168 > 0.787); treat the parametric yield estimate and Cpk as indicative only and prefer the empirical estimate",
+        "measurement 'terr_trim_c@temp_lo_vdd_lo': the observed pass rate (0.642000) is at or below the 0.9973 target, so no sample count can support the claim -- this is the design falling short, not the campaign"
+      ],
+      "spec_row": "temp-accuracy-trimmed"
+    },
+    {
+      "name": "terr_untrim_c@temp_lo_vdd_hi",
+      "unit": null,
+      "n": 500,
+      "errored": 0,
+      "failed_unmeasurable": 0,
+      "censored": 0,
+      "inconclusive": 0,
+      "limits": {
+        "min": -3.0,
+        "max": 3.0,
+        "target_yield": 0.9973
+      },
+      "source_corners": [
+        "tt/-40C/3.63V"
+      ],
+      "distribution": {
+        "model": "normal",
+        "mean": -0.15019893873954027,
+        "stddev": 6.078893829330131,
+        "min": -17.03968064,
+        "max": 20.749394805,
+        "median": -0.0046819809165,
+        "skewness": 0.11745089859597894,
+        "excess_kurtosis": -0.046743769444475,
+        "normality": {
+          "test": "anderson-darling",
+          "statistic": 0.2662730417575429,
+          "critical_value": 0.787,
+          "significance": 0.05,
+          "verdict": "consistent"
+        }
+      },
+      "yield": {
+        "empirical": {
+          "method": "clopper-pearson",
+          "estimate": 0.37,
+          "confidence": 0.95,
+          "confidence_interval": {
+            "low": 0.32755875718147576,
+            "high": 0.41398834821110186
+          },
+          "n": 500
+        },
+        "normal": {
+          "method": "normal-delta",
+          "estimate": 0.3782419171178787,
+          "confidence": 0.95,
+          "confidence_interval": {
+            "low": 0.3566397269841236,
+            "high": 0.3998441072516338
+          },
+          "n": 500
+        },
+        "variance_reduced": null
+      },
+      "capability": {
+        "cp": 0.1645036133342365,
+        "cpk": 0.1562675239536958,
+        "cpk_confidence_interval": {
+          "low": 0.1254835645162187,
+          "high": 0.18705148339117292
+        },
+        "sigma_to_spec": 0.4688025718610874,
+        "sigma_to_spec_confidence_interval": {
+          "low": 0.3764506935486561,
+          "high": 0.5611544501735187
+        },
+        "limiting_side": "lower"
+      },
+      "sample_size": {
+        "n": 500,
+        "observed_ci_halfwidth": 0.043214795514813054,
+        "target_ci_halfwidth": 0.05,
+        "required_n": 359,
+        "required_n_for_target": null,
+        "verdict": "sufficient",
+        "method": "normal-approximation",
+        "variance_reduced": null
+      },
+      "negative_control": null,
+      "analytic_cross_check": null,
+      "sampling": {
+        "strategy": "plain_random",
+        "replicates": null,
+        "effective_sample_size": null
+      },
+      "status": "fail",
+      "warnings": [
+        "measurement 'terr_untrim_c@temp_lo_vdd_hi': the observed pass rate (0.370000) is at or below the 0.9973 target, so no sample count can support the claim -- this is the design falling short, not the campaign"
+      ],
+      "spec_row": "temp-accuracy-untrimmed"
+    },
+    {
+      "name": "terr_trim_c@temp_lo_vdd_hi",
+      "unit": null,
+      "n": 500,
+      "errored": 0,
+      "failed_unmeasurable": 0,
+      "censored": 0,
+      "inconclusive": 0,
+      "limits": {
+        "min": -1.5,
+        "max": 1.5,
+        "target_yield": 0.9973
+      },
+      "source_corners": [
+        "tt/-40C/3.63V"
+      ],
+      "distribution": {
+        "model": "normal",
+        "mean": -0.13180903501988817,
+        "stddev": 1.4912551129117693,
+        "min": -4.061827375125326,
+        "max": 4.302225349199923,
+        "median": -0.3345196269536443,
+        "skewness": 0.022150709174397248,
+        "excess_kurtosis": -0.6269650337635073,
+        "normality": {
+          "test": "anderson-darling",
+          "statistic": 3.6969739009575586,
+          "critical_value": 0.787,
+          "significance": 0.05,
+          "verdict": "rejected"
+        }
+      },
+      "yield": {
+        "empirical": {
+          "method": "clopper-pearson",
+          "estimate": 0.658,
+          "confidence": 0.95,
+          "confidence_interval": {
+            "low": 0.6145792138319854,
+            "high": 0.6995394737059466
+          },
+          "n": 500
+        },
+        "normal": {
+          "method": "normal-delta",
+          "estimate": 0.6836311872804903,
+          "confidence": 0.95,
+          "confidence_interval": {
+            "low": 0.6536362470887169,
+            "high": 0.7136261274722637
+          },
+          "n": 500
+        },
+        "variance_reduced": null
+      },
+      "capability": {
+        "cp": 0.3352880373524545,
+        "cpk": 0.30582537558102835,
+        "cpk_confidence_interval": {
+          "low": 0.27098766683611486,
+          "high": 0.34066308432594183
+        },
+        "sigma_to_spec": 0.9174761267430851,
+        "sigma_to_spec_confidence_interval": {
+          "low": 0.8129630005083446,
+          "high": 1.0219892529778254
+        },
+        "limiting_side": "lower"
+      },
+      "sample_size": {
+        "n": 500,
+        "observed_ci_halfwidth": 0.04248012993698058,
+        "target_ci_halfwidth": 0.05,
+        "required_n": 346,
+        "required_n_for_target": null,
+        "verdict": "sufficient",
+        "method": "normal-approximation",
+        "variance_reduced": null
+      },
+      "negative_control": null,
+      "analytic_cross_check": null,
+      "sampling": {
+        "strategy": "plain_random",
+        "replicates": null,
+        "effective_sample_size": null
+      },
+      "status": "fail",
+      "warnings": [
+        "measurement 'terr_trim_c@temp_lo_vdd_hi': the sample set is not consistent with a normal distribution (Anderson-Darling A2* = 3.6970 > 0.787); treat the parametric yield estimate and Cpk as indicative only and prefer the empirical estimate",
+        "measurement 'terr_trim_c@temp_lo_vdd_hi': the observed pass rate (0.658000) is at or below the 0.9973 target, so no sample count can support the claim -- this is the design falling short, not the campaign"
+      ],
+      "spec_row": "temp-accuracy-trimmed"
+    },
+    {
+      "name": "terr_untrim_c@temp_hi_vdd_lo",
+      "unit": null,
+      "n": 500,
+      "errored": 0,
+      "failed_unmeasurable": 0,
+      "censored": 0,
+      "inconclusive": 0,
+      "limits": {
+        "min": -3.0,
+        "max": 3.0,
+        "target_yield": 0.9973
+      },
+      "source_corners": [
+        "tt/125C/2.97V"
+      ],
+      "distribution": {
+        "model": "normal",
+        "mean": 0.20088309738701327,
+        "stddev": 6.477708182976859,
+        "min": -20.40926447,
+        "max": 20.824481354,
+        "median": 0.205486133865,
+        "skewness": 0.04798980281897779,
+        "excess_kurtosis": 0.05750496416642514,
+        "normality": {
+          "test": "anderson-darling",
+          "statistic": 0.16028802250593194,
+          "critical_value": 0.787,
+          "significance": 0.05,
+          "verdict": "consistent"
+        }
+      },
+      "yield": {
+        "empirical": {
+          "method": "clopper-pearson",
+          "estimate": 0.364,
+          "confidence": 0.95,
+          "confidence_interval": {
+            "low": 0.32173892611037025,
+            "high": 0.4078797483633628
+          },
+          "n": 500
+        },
+        "normal": {
+          "method": "normal-delta",
+          "estimate": 0.3565669086177867,
+          "confidence": 0.95,
+          "confidence_interval": {
+            "low": 0.33600094664084174,
+            "high": 0.3771328705947317
+          },
+          "n": 500
+        },
+        "variance_reduced": null
+      },
+      "capability": {
+        "cp": 0.15437558651190206,
+        "cpk": 0.14403843785208614,
+        "cpk_confidence_interval": {
+          "low": 0.11348493961854142,
+          "high": 0.17459193608563087
+        },
+        "sigma_to_spec": 0.43211531355625843,
+        "sigma_to_spec_confidence_interval": {
+          "low": 0.34045481885562423,
+          "high": 0.5237758082568926
+        },
+        "limiting_side": "upper"
+      },
+      "sample_size": {
+        "n": 500,
+        "observed_ci_halfwidth": 0.04307041112649629,
+        "target_ci_halfwidth": 0.05,
+        "required_n": 356,
+        "required_n_for_target": null,
+        "verdict": "sufficient",
+        "method": "normal-approximation",
+        "variance_reduced": null
+      },
+      "negative_control": null,
+      "analytic_cross_check": null,
+      "sampling": {
+        "strategy": "plain_random",
+        "replicates": null,
+        "effective_sample_size": null
+      },
+      "status": "fail",
+      "warnings": [
+        "measurement 'terr_untrim_c@temp_hi_vdd_lo': the observed pass rate (0.364000) is at or below the 0.9973 target, so no sample count can support the claim -- this is the design falling short, not the campaign"
+      ],
+      "spec_row": "temp-accuracy-untrimmed"
+    },
+    {
+      "name": "terr_trim_c@temp_hi_vdd_lo",
+      "unit": null,
+      "n": 500,
+      "errored": 0,
+      "failed_unmeasurable": 0,
+      "censored": 0,
+      "inconclusive": 0,
+      "limits": {
+        "min": -1.5,
+        "max": 1.5,
+        "target_yield": 0.9973
+      },
+      "source_corners": [
+        "tt/125C/2.97V"
+      ],
+      "distribution": {
+        "model": "normal",
+        "mean": 0.30868247024520656,
+        "stddev": 2.4626580809589473,
+        "min": -6.4114494915983355,
+        "max": 7.56552578759825,
+        "median": 0.6792690113305351,
+        "skewness": 0.005962418598350968,
+        "excess_kurtosis": -0.6166322484451823,
+        "normality": {
+          "test": "anderson-darling",
+          "statistic": 3.9011231341198314,
+          "critical_value": 0.787,
+          "significance": 0.05,
+          "verdict": "rejected"
+        }
+      },
+      "yield": {
+        "empirical": {
+          "method": "clopper-pearson",
+          "estimate": 0.372,
+          "confidence": 0.95,
+          "confidence_interval": {
+            "low": 0.3295002563949765,
+            "high": 0.4160229977417732
+          },
+          "n": 500
+        },
+        "normal": {
+          "method": "normal-delta",
+          "estimate": 0.45437997687058607,
+          "confidence": 0.95,
+          "confidence_interval": {
+            "low": 0.429479560670003,
+            "high": 0.47928039307116915
+          },
+          "n": 500
+        },
+        "variance_reduced": null
+      },
+      "capability": {
+        "cp": 0.20303265153451688,
+        "cpk": 0.16125090459044428,
+        "cpk_confidence_interval": {
+          "low": 0.13036817902345027,
+          "high": 0.19213363015743828
+        },
+        "sigma_to_spec": 0.48375271377133283,
+        "sigma_to_spec_confidence_interval": {
+          "low": 0.3911045370703508,
+          "high": 0.5764008904723148
+        },
+        "limiting_side": "upper"
+      },
+      "sample_size": {
+        "n": 500,
+        "observed_ci_halfwidth": 0.04326137067339836,
+        "target_ci_halfwidth": 0.05,
+        "required_n": 359,
+        "required_n_for_target": null,
+        "verdict": "sufficient",
+        "method": "normal-approximation",
+        "variance_reduced": null
+      },
+      "negative_control": null,
+      "analytic_cross_check": null,
+      "sampling": {
+        "strategy": "plain_random",
+        "replicates": null,
+        "effective_sample_size": null
+      },
+      "status": "fail",
+      "warnings": [
+        "measurement 'terr_trim_c@temp_hi_vdd_lo': the sample set is not consistent with a normal distribution (Anderson-Darling A2* = 3.9011 > 0.787); treat the parametric yield estimate and Cpk as indicative only and prefer the empirical estimate",
+        "measurement 'terr_trim_c@temp_hi_vdd_lo': the observed pass rate (0.372000) is at or below the 0.9973 target, so no sample count can support the claim -- this is the design falling short, not the campaign"
+      ],
+      "spec_row": "temp-accuracy-trimmed"
+    },
+    {
+      "name": "terr_untrim_c@temp_hi_vdd_hi",
+      "unit": null,
+      "n": 500,
+      "errored": 0,
+      "failed_unmeasurable": 0,
+      "censored": 0,
+      "inconclusive": 0,
+      "limits": {
+        "min": -3.0,
+        "max": 3.0,
+        "target_yield": 0.9973
+      },
+      "source_corners": [
+        "tt/125C/3.63V"
+      ],
+      "distribution": {
+        "model": "normal",
+        "mean": 0.19195186328310004,
+        "stddev": 6.171764523199661,
+        "min": -15.95197537,
+        "max": 19.650767552,
+        "median": 0.578388390035,
+        "skewness": -0.0711788174197512,
+        "excess_kurtosis": -0.15892500899807604,
+        "normality": {
+          "test": "anderson-darling",
+          "statistic": 0.7235512366682396,
+          "critical_value": 0.787,
+          "significance": 0.05,
+          "verdict": "consistent"
+        }
+      },
+      "yield": {
+        "empirical": {
+          "method": "clopper-pearson",
+          "estimate": 0.404,
+          "confidence": 0.95,
+          "confidence_interval": {
+            "low": 0.36066782834926503,
+            "high": 0.4484741074313735
+          },
+          "n": 500
+        },
+        "normal": {
+          "method": "normal-delta",
+          "estimate": 0.3729262086856845,
+          "confidence": 0.95,
+          "confidence_interval": {
+            "low": 0.35157450018237224,
+            "high": 0.39427791718899674
+          },
+          "n": 500
+        },
+        "variance_reduced": null
+      },
+      "capability": {
+        "cp": 0.16202821676702026,
+        "cpk": 0.15166101072939772,
+        "cpk_confidence_interval": {
+          "low": 0.1209658609774542,
+          "high": 0.18235616048134126
+        },
+        "sigma_to_spec": 0.45498303218819314,
+        "sigma_to_spec_confidence_interval": {
+          "low": 0.3628975829323626,
+          "high": 0.5470684814440238
+        },
+        "limiting_side": "upper"
+      },
+      "sample_size": {
+        "n": 500,
+        "observed_ci_halfwidth": 0.04390313954105424,
+        "target_ci_halfwidth": 0.05,
+        "required_n": 370,
+        "required_n_for_target": null,
+        "verdict": "sufficient",
+        "method": "normal-approximation",
+        "variance_reduced": null
+      },
+      "negative_control": null,
+      "analytic_cross_check": null,
+      "sampling": {
+        "strategy": "plain_random",
+        "replicates": null,
+        "effective_sample_size": null
+      },
+      "status": "fail",
+      "warnings": [
+        "measurement 'terr_untrim_c@temp_hi_vdd_hi': the observed pass rate (0.404000) is at or below the 0.9973 target, so no sample count can support the claim -- this is the design falling short, not the campaign"
+      ],
+      "spec_row": "temp-accuracy-untrimmed"
+    },
+    {
+      "name": "terr_trim_c@temp_hi_vdd_hi",
+      "unit": null,
+      "n": 500,
+      "errored": 0,
+      "failed_unmeasurable": 0,
+      "censored": 0,
+      "inconclusive": 0,
+      "limits": {
+        "min": -1.5,
+        "max": 1.5,
+        "target_yield": 0.9973
+      },
+      "source_corners": [
+        "tt/125C/3.63V"
+      ],
+      "distribution": {
+        "model": "normal",
+        "mean": 0.2950982292786905,
+        "stddev": 2.347698717426917,
+        "min": -6.4440936423088315,
+        "max": 6.184597962655988,
+        "median": 0.5752312402017477,
+        "skewness": 0.08780576555921693,
+        "excess_kurtosis": -0.6704991357995547,
+        "normality": {
+          "test": "anderson-darling",
+          "statistic": 3.3550221778193468,
+          "critical_value": 0.787,
+          "significance": 0.05,
+          "verdict": "rejected"
+        }
+      },
+      "yield": {
+        "empirical": {
+          "method": "clopper-pearson",
+          "estimate": 0.44,
+          "confidence": 0.95,
+          "confidence_interval": {
+            "low": 0.395957411203802,
+            "high": 0.48475606103093327
+          },
+          "n": 500
+        },
+        "normal": {
+          "method": "normal-delta",
+          "estimate": 0.47385481809036467,
+          "confidence": 0.95,
+          "confidence_interval": {
+            "low": 0.44820997962683573,
+            "high": 0.4994996565538936
+          },
+          "n": 500
+        },
+        "variance_reduced": null
+      },
+      "capability": {
+        "cp": 0.2129745168272704,
+        "cpk": 0.17107558162912895,
+        "cpk_confidence_interval": {
+          "low": 0.1399900506215067,
+          "high": 0.20216111263675118
+        },
+        "sigma_to_spec": 0.5132267448873868,
+        "sigma_to_spec_confidence_interval": {
+          "low": 0.41997015186452014,
+          "high": 0.6064833379102536
+        },
+        "limiting_side": "upper"
+      },
+      "sample_size": {
+        "n": 500,
+        "observed_ci_halfwidth": 0.04439932491356563,
+        "target_ci_halfwidth": 0.05,
+        "required_n": 379,
+        "required_n_for_target": null,
+        "verdict": "sufficient",
+        "method": "normal-approximation",
+        "variance_reduced": null
+      },
+      "negative_control": null,
+      "analytic_cross_check": null,
+      "sampling": {
+        "strategy": "plain_random",
+        "replicates": null,
+        "effective_sample_size": null
+      },
+      "status": "fail",
+      "warnings": [
+        "measurement 'terr_trim_c@temp_hi_vdd_hi': the sample set is not consistent with a normal distribution (Anderson-Darling A2* = 3.3550 > 0.787); treat the parametric yield estimate and Cpk as indicative only and prefer the empirical estimate",
+        "measurement 'terr_trim_c@temp_hi_vdd_hi': the observed pass rate (0.440000) is at or below the 0.9973 target, so no sample count can support the claim -- this is the design falling short, not the campaign"
+      ],
+      "spec_row": "temp-accuracy-trimmed"
+    }
+  ],
+  "warnings": [
+    "no measurement declared a negative_control -- this campaign has no seeded, known-bad variant demonstrating that the statistics above can actually detect a degraded design; see docs/cli/yield.md#negative-control"
+  ]
+}

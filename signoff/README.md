@@ -31,7 +31,7 @@ is the thing that is wrong.
 
 ## The current verdict: `tier: null`, 9 of 11 items met
 
-Rendered by `klt 0.8.0` against its bundled `docs/design-evidence-tiers.md`.
+Rendered by `klt 0.9.1` against its bundled `docs/design-evidence-tiers.md`.
 Block `kind` is **`analog`**: a single analog partition with no synthesized
 or placed-and-routed digital sub-block. The POR output chain is logic, but it
 is hand-captured as schematics and hand-drawn as layout — no RTL, no
@@ -44,8 +44,8 @@ artifact, and there is no partition boundary to declare.
 | 2 | Layout | **`met`** | `evidence/t1-item-2-layout.json`, a generic envelope bound directly to `layout/cells/temp_por_top.gds` (`sha256:a119a12b…`, the hash items 3, 4 and 11 pin). Its summary names the other 5 GDS under `layout/cells/` and the gate `layout/build_cells.py --check`. **Binding limits below.** |
 | 3 | DRC clean | **`met`** | `layout/reports/temp_por_top/drc.json` — `status: clean`, deck `gf180mcu`, pinned to `sha256:a119a12b…` which is the sha256 of the committed `layout/cells/temp_por_top.gds`. **Coverage gaps disclosed below.** |
 | 4 | LVS clean | **`met`** | `layout/reports/temp_por_top/lvs.json` — `status: match`, engine `klayout` 0.30.10, 145/145 nets, 239/239 devices, 6/6 pins. **Warnings-only mismatches and a freshness caveat disclosed below.** |
-| 5 | Full corner verification vs a ratified spec | `unmet` / `no_evidence` | The 81-point PVT matrix exists under `sim/*/records/`, but as this repo's own Markdown evidence records — there is no `klt sim` JSON envelope to cite. The manifest already declares `spec_rows."5"` (every `measured`/`derived` row in `evidence/inventory-testbenches.json`, each a gap naming the issue that will cover it: [#388](https://github.com/2AMLogic/gf180-temp-por/issues/388), [#389](https://github.com/2AMLogic/gf180-temp-por/issues/389)); `klt 0.8.0` accepts it but only surfaces it (`partial_coverage` + `declared_gaps`) once a first envelope is cited, so the verdict stays `no_evidence` until then. |
-| 6 | Statistical claims carry Monte Carlo evidence | `unmet` / `no_evidence` | N=500 MC records exist (`sim/temp-accuracy-mc`, `sim/por-threshold-mc`) with a reproducible seed formula and a deterministic negative control, but there is no `klt yield` report. |
+| 5 | Full corner verification vs a ratified spec | `unmet` / `partial_coverage` | The 81-point PVT matrix exists under `sim/*/records/`, but as this repo's own Markdown evidence records — there is no `klt sim` JSON envelope to cite. The manifest already declares `spec_rows."5"` (every `measured`/`derived` row in `evidence/inventory-testbenches.json`, each a gap naming the issue that will cover it: [#388](https://github.com/2AMLogic/gf180-temp-por/issues/388), [#389](https://github.com/2AMLogic/gf180-temp-por/issues/389)); The 0.9.1 grader surfaces the declared gaps as `partial_coverage` (0.8.0 held `no_evidence`); the pin move changed this label only, no evidence moved. |
+| 6 | Statistical claims carry Monte Carlo evidence | **`unmet` / `check_failed`** | Two committed `klt yield` reports, one per row set, declared under `spec_rows."6"` with one citation each: `evidence/yield/temp-accuracy-mc.yield.json` (`temp-accuracy-untrimmed`, `temp-accuracy-trimmed`) and `evidence/yield/por-threshold-mc.yield.json` (`por-vth-rise`, `por-vth-fall`, `por-hysteresis`). No row is `uncovered`. See "Item 6" below for why both row sets fail. |
 | 7 | Post-layout verification | **`unmet` / `check_failed`** | `layout/reports/temp_por_top/pex.json`, a `klt pex` report (`--measure-command` mode) on `layout/cells/temp_por_top.gds` against `design/netlist/temp_por_top.spice`: four `temp_por_top` experiments (`por-vth`, `por-brownout`, `por-ramp-rate`, `temp-accuracy-vt`) over 351 corner decks, 9153 `delta[]` rows, **48 errored** (all `por-brownout`: the schematic leg yields no value for `treassert`, `trel2`, `trel2_last`, `t_reassert_us`, `t_pulse_regen_ms` and `release_chatter_us` at 8 corners, which the extracted leg does measure). Covers 11 spec rows (`por-vth-rise`, `por-vth-fall`, `por-hysteresis`, `por-brownout`, `por-ramp-rate`, `iq-total`, `por-iq`, `temp-accuracy-untrimmed`, `temp-iq`, `temp-supply-sensitivity`, `temp-vt-transfer`); the three cell-level rows `por-reset-pulse`, `por-reset-valid-floor` and `temp-trim-strategy` are covered by two further `klt pex` reports, `layout/reports/por_output_chain/pex.json` (162 corner decks, 1944 `delta[]` rows, 0 errored, status `pass`) and `layout/reports/temp_core/pex.json` (216 corner decks, 4320 rows, 0 errored, status `pass`), each graded `met` when cited alone but **not cited by the manifest**, because `klt signoff` accepts exactly one `klt pex` citation for item 7 (a list grades `invalid_evidence`); the one remaining declared gap (`spec_rows."7"`) is `temp-accuracy-trimmed` (derived, not a `.meas`; [#391](https://github.com/2AMLogic/gf180-temp-por/issues/391)). **`body_bias.status` is `unbiased`** (64 PMOS bodies); see the item 7 section below. |
 | 8 | Characterization report | **`met`** | `evidence/characterization-report.json`, a generic envelope wrapping `spec/target-spec.md`, pinned to `sha256:d78561ee…`. **Disclosed exceptions below.** |
 | 9 | Testbenches shipped | **`met`** | `evidence/t1-item-9-testbenches.json`, bound to `evidence/inventory-testbenches.json`: all 29 spec rows classified, every measured row mapped to the committed `testbench/` and `testbench-postlayout/` files of 22 `sim/` experiments (each file hashed, with the testbench's own PVT settings from its `tb.json`), the cold-start invocations from `sim/harness/README.md`, and the PDK pin from `.github/workflows/ci.yml`. **Binding limits below.** |
@@ -417,7 +417,7 @@ independently — but it is why they had to be.
 ```bash
 # Install the pinned grader (separate from layout/toolchain.json's pin --
 # see toolchain.json for why)
-uv tool install --force klayout-tools==0.8.0
+uv tool install --force 'klayout-tools[yield]==0.9.1'
 
 # The gate CI runs: re-grade the tree, fail on any drift from the committed verdict
 python3 signoff/check.py
@@ -435,3 +435,55 @@ PR.
 **`--regen` is not a way to make a failure go away.** It rewrites the verdict
 of record. If it changes a `met` row to `unmet`, the claim genuinely got
 weaker and the table above has to be corrected in the same commit.
+
+## Item 6 — statistical rows, graded against the ratified `[3σ]` basis
+
+The five `[3σ]` rows are covered by two `klt yield` reports, built from the
+raw ngspice logs already committed under `sim/*/corners/` (no simulation was
+re-run). `signoff/yield_samples.py` reads them through the harness's own
+parser (and its `derive_temp_trim` hook for `terr_trim_c`) and writes
+`evidence/yield/<experiment>.samples.json`; CI re-derives them with
+`python3 signoff/yield_samples.py --check`. The reports are then:
+
+```
+klt yield signoff/evidence/yield/<experiment>.samples.json --target-ci-halfwidth 0.05 --format json \
+    > signoff/evidence/yield/<experiment>.yield.json
+```
+
+Run with `klayout-tools[yield]==0.9.1` (the `klt-yield-native` wheel resolves
+on that release; `uvx --from "klayout-tools[yield]==0.9.1" klt yield --help`
+runs). Output is byte-reproducible.
+
+- **Records**: the schematic-level `20260802-082345-989ce7a` (temperature) and
+  `20260802-083749-3b9b414` (POR); the `-postlayout` re-runs belong to item 7.
+- **Seed / N / corners**: seed base 20260802 (per-sample
+  `.option seed = base + binding_index*100000 + sample`), N=500 per binding
+  point, local mismatch only at each row's own binding corner; the corner
+  combination is in each report's `source.provenance.corner_matrix`.
+- **Limits** are the rows' ratified windows from each `tb.json`; unchanged.
+- **`target_yield` = 0.9973**: the Gaussian mass inside mean ± 3σ, which is
+  what spec section 2's `[3σ]` basis stands for.
+- **`--target-ci-halfwidth 0.05`**: the resolution the spec's own N ≥ 500 floor
+  supports in the worst case (±4.4 points at 50 % yield). The tool default
+  (±1 point) would need ≈ 8 500 samples per point and would mark every row
+  undersized regardless of what it measures.
+
+Results (see the reports for per-binding-point numbers):
+
+| row set | verdict | why |
+|---|---|---|
+| `temp-accuracy-untrimmed`, `temp-accuracy-trimmed` | `fail`, sample size `sufficient` | Empirical yield 33–40 % (±3 °C) and 38–66 % (±1.5 °C) against 99.73 %. Already recorded as not met in the spec / DR-029; this is the same finding, now machine-graded. Not relaxed. |
+| `por-vth-rise`, `por-vth-fall`, `por-hysteresis` | `fail`, sample size `insufficient` | 500/500 samples inside the window at every point (Cpk 2.9–23), but N = 500 cannot show a 99.73 % yield at 95 % confidence: 0 failures bounds yield only to ≥ 99.26 %. The tool asks for N ≥ 1 365 per point. The measurement is not worse than the record says; it is under-sampled for this claim. |
+
+**Negative control: not declared.** The only existing control
+(`sim/temp-accuracy-mc/control/`) proves the mismatch switch and seeding
+mechanism on 2 + 2 dice at 27 °C; it is not a sample set of a known-bad
+variant of these measurements, and `por-threshold-mc` has none. Repackaging it
+as one would be circular, so the reports carry `negative_control: not_declared`
+(a disclosure, not a refusal). A real control needs sampled runs of a seeded
+bad variant, which is batch-fleet work.
+
+Follow-ups: [#415](https://github.com/2AMLogic/gf180-temp-por/issues/415)
+(temperature design gap), [#416](https://github.com/2AMLogic/gf180-temp-por/issues/416)
+(POR at N ≥ 1 365), [#417](https://github.com/2AMLogic/gf180-temp-por/issues/417)
+(sampled negative control).
