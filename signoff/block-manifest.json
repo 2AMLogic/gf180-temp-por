@@ -34,12 +34,29 @@
     },
     "10": {
       "file": "signoff/evidence/t1-item-10-repo-hygiene.json",
-      "content_hash": "sha256:3ddde032948cb5d3f13586d6e68cf3580effce70e75e85970c08a9c9fc1545c3"
+      "content_hash": "sha256:5c6df9a2a9495c449d264516337294dd2922781df2a3ca5aa3b91be6a82688e6"
     },
     "7": {
       "file": "layout/reports/temp_por_top/pex.json",
       "content_hash": "sha256:a119a12b1fa2daff64772a4a804a0ea14f17c68dc9357fe167dfd287df0628fd"
-    }
+    },
+    "6": [
+      {
+        "file": "signoff/evidence/yield/temp-accuracy-mc.yield.json",
+        "rows": [
+          "temp-accuracy-untrimmed",
+          "temp-accuracy-trimmed"
+        ]
+      },
+      {
+        "file": "signoff/evidence/yield/por-threshold-mc.yield.json",
+        "rows": [
+          "por-vth-rise",
+          "por-vth-fall",
+          "por-hysteresis"
+        ]
+      }
+    ]
   },
   "spec_rows": {
     "5": [
@@ -102,6 +119,23 @@
       {
         "id": "temp-vt-transfer",
         "gap": "no klt sim envelope yet; the envelope for this row is planned in #389"
+      }
+    ],
+    "6": [
+      {
+        "id": "por-hysteresis"
+      },
+      {
+        "id": "por-vth-fall"
+      },
+      {
+        "id": "por-vth-rise"
+      },
+      {
+        "id": "temp-accuracy-trimmed"
+      },
+      {
+        "id": "temp-accuracy-untrimmed"
       }
     ],
     "7": [

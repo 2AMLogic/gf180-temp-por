@@ -505,7 +505,7 @@ def main(argv: list[str] | None = None) -> int:
     if shutil.which("klt") is None:
         fail(
             "klt is not on PATH. Install the pinned grader:\n"
-            "       uv tool install --force klayout-tools==0.8.0\n"
+            "       uv tool install --force 'klayout-tools[yield]==0.9.1'\n"
             "     (see signoff/toolchain.json for why this pin is separate "
             "from layout/toolchain.json's)"
         )
