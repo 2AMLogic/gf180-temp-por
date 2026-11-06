@@ -164,7 +164,9 @@ class StampDiscoveryTests(unittest.TestCase):
     stops checking anything. These two tests make that drift fail instead."""
 
     def test_the_stamp_text_still_matches_the_harness(self):
-        for module in ("report.py", "mc_report.py"):
+        # Both record kinds are rendered by report.render_record_document, so
+        # report.py is the one module that emits the stamp.
+        for module in ("report.py",):
             source = (SIM_DIR / "harness" / module).read_text(encoding="utf-8")
             self.assertIn(
                 STAMP,

@@ -38,14 +38,14 @@ from .cliutil import fmt as _fmt
 from .montecarlo import BindingPoint, McPoint
 from .pdk import Pdk
 from .report import (
-    _evidence_link_lines,
     CORNERS_DIR,
-    write_exclusive,
     RECORDS_DIR,
     SNAPSHOT_DIR,
     TESTBENCH_DIR,
     RecordExists,
     environment,
+    render_record_document,
+    write_exclusive,
 )
 from .runner import PointResult
 from .testbench import Testbench
@@ -209,118 +209,45 @@ def _result_lines(record: dict) -> list[str]:
 
 
 def render_mc_record(record: dict, experiment: str) -> str:
-    record_id = record["record_id"]
-    env = record["environment"]
-    tb = record["testbench"]
-    git = env["git"]
-    pdk = env["pdk"]
-
-    # Manifest-driven, exactly as report.py's render_record() does it (#86):
-    # tb["directory"] is the actual testbench subdirectory name (usually
-    # "testbench"; "testbench-postlayout" for an extracted-provenance sibling
-    # directory), and the provenance kind plus its mandatory caveat note come
-    # from the testbench manifest rather than being assumed. Hardcoding
-    # "schematic" here mislabelled the first post-layout Monte Carlo record
-    # (#194) -- an extracted run has to say so, and has to carry the
-    # layout/postlayout/AUDIT.md caveat sim/README.md requires of it. Falls
-    # back to the ratified defaults for records built before these fields
-    # existed.
-    testbench_dir = tb.get("directory") or TESTBENCH_DIR
-    provenance_kind = tb.get("netlist_provenance") or "schematic"
-    provenance = f"{provenance_kind} (`sim/{experiment}/{testbench_dir}/{tb['netlist']}`)"
-    note = tb.get("netlist_provenance_note") or ""
-    if note:
-        provenance += f" — {note}"
-
-    # `run_mc.py <slug>` resolves to the experiment's schematic `testbench/`
-    # directory (cliutil.resolve_tb_path), so a record taken against any other
-    # testbench directory has to spell that directory out or its Reproduce
-    # line re-runs a different netlist (#194).
-    reproduce_arg = (
-        experiment
-        if testbench_dir == TESTBENCH_DIR
-        else f"sim/{experiment}/{testbench_dir}"
-    )
-
-    if git["dirty"]:
-        provenance += (
-            f" — **taken against a dirty working tree** at commit `{git['commit']}`; "
-            "not citable as a clean-tree result"
+    def env_tail(testbench_dir: str) -> list[str]:
+        # `run_mc.py <slug>` resolves to the experiment's schematic `testbench/`
+        # directory (cliutil.resolve_tb_path), so a record taken against any
+        # other testbench directory has to spell that directory out or its
+        # Reproduce line re-runs a different netlist (#194).
+        reproduce_arg = (
+            experiment
+            if testbench_dir == TESTBENCH_DIR
+            else f"sim/{experiment}/{testbench_dir}"
         )
+        return [
+            f"- Reproduce: `python3 sim/run_mc.py {reproduce_arg}` "
+            f"(same `mc.seed_base` in the manifest reproduces the identical sample set)",
+        ]
 
-    lines = [
-        f"# Record {record_id}",
-        "",
-        f"- **Record ID**: {record_id}",
-        f"- **Claim**: {record['claim'] or 'harness self-verification — no spec claim'}",
-        f"- **Netlist provenance**: {provenance}",
-    ]
-    lines += _binding_points_lines(record)
-    lines.append(
-        "- **Statistical convention**: "
-        + (
-            record["statistical_convention"]
-            or (
-                f"Process plus local mismatch (spec/target-spec.md §2's `[3σ]`): "
-                f"process held at each binding point's own named deterministic "
-                f"corner (see above), local mismatch on "
-                f"(`sw_stat_mismatch=1`, `sw_stat_global=0`), N={record['n_per_point']} "
-                f"independent samples per binding point (>= the N>=500 floor), "
-                f"each sample reproducible via `.option seed=<{record['seed_base']}"
-                f" + binding_index*100000 + sample>` (see the raw per-sample logs "
-                f"linked below). Reported per (binding point, measurement): "
-                f"empirical mean/σ, the empirical yield (fraction of the N "
-                f"samples inside the ratified spec limits), and the parametric "
-                f"mean ± 3σ bound spec/target-spec.md §2 defines a `[3σ]` claim "
-                f"against."
-            )
-        )
+    default_convention = (
+        f"Process plus local mismatch (spec/target-spec.md §2's `[3σ]`): "
+        f"process held at each binding point's own named deterministic "
+        f"corner (see above), local mismatch on "
+        f"(`sw_stat_mismatch=1`, `sw_stat_global=0`), N={record['n_per_point']} "
+        f"independent samples per binding point (>= the N>=500 floor), "
+        f"each sample reproducible via `.option seed=<{record['seed_base']}"
+        f" + binding_index*100000 + sample>` (see the raw per-sample logs "
+        f"linked below). Reported per (binding point, measurement): "
+        f"empirical mean/σ, the empirical yield (fraction of the N "
+        f"samples inside the ratified spec limits), and the parametric "
+        f"mean ± 3σ bound spec/target-spec.md §2 defines a `[3σ]` claim "
+        f"against."
     )
-    lines += _result_lines(record)
-    lines += [
-        "- **Links**:",
-        f"  - Testbench: `sim/{experiment}/{testbench_dir}/{tb['netlist']}`, "
-        f"`sim/{experiment}/{testbench_dir}/tb.json`",
-        *_evidence_link_lines(
-            record, experiment, record_id,
+    return render_record_document(
+        record,
+        experiment,
+        matrix_lines=_binding_points_lines(record),
+        result_lines=_result_lines(record),
+        default_convention=default_convention,
+        logs_label=(
             f"Raw per-sample logs (one file per (binding point, sample), "
-            f"{record['total_points']} files)",
+            f"{record['total_points']} files)"
         ),
-        f"- **Timestamp / author**: {record['started_utc']}, {env['user']}",
-        f"- **Supersedes**: {record['supersedes'] or '(none)'}",
-        "",
-        "## Environment",
-        "",
-        "Everything needed to re-run this record:",
-        "",
-        f"- PDK: {pdk.get('variant')} @ open_pdks `{pdk.get('open_pdks_version')}`"
-        f" ({pdk.get('path')}, found via {pdk.get('discovered_via')})",
-        f"- ngspice: {env['ngspice']}",
-        f"- Harness: sim/harness {env['harness_version']}, python {env['python']}",
-        f"- git: `{git['commit']}` on `{git['branch']}`"
-        + (" (dirty)" if git["dirty"] else " (clean)"),
-        f"- Testbench netlist sha256: `{tb['netlist_sha256']}`",
-        f"- Manifest sha256: `{tb['manifest_sha256']}`",
-        f"- Wall time: {record['wall_seconds']} s",
-        f"- Reproduce: `python3 sim/run_mc.py {reproduce_arg}` "
-        f"(same `mc.seed_base` in the manifest reproduces the identical sample set)",
-        "",
-        "---",
-        "",
-        "Written by `sim/run_mc.py`. Append-only: never edit or delete this",
-        "file — a re-run or correction mints a new record-id and points back here",
-        "via **Supersedes** (see `sim/README.md`).",
-        "",
-    ]
-    return "\n".join(lines)
-
-
-def write_mc_record(record: dict, experiment_dir: Path) -> Path:
-    """Write ``records/<record-id>.md``; never overwrite an existing record."""
-    out_dir = experiment_dir / RECORDS_DIR
-    out_dir.mkdir(parents=True, exist_ok=True)
-    path = out_dir / f"{record['record_id']}.md"
-    if path.exists():  # fail before rendering; write_exclusive still guards the race
-        write_exclusive(path, "")
-    write_exclusive(path, render_mc_record(record, experiment_dir.name))
-    return path
+        script="run_mc.py",
+        env_tail=env_tail,
+    )

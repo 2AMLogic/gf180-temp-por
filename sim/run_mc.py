@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import argparse
 import datetime as _dt
+import functools
 import sys
 from pathlib import Path
 
@@ -225,7 +226,7 @@ def run(args: argparse.Namespace) -> int:
         )
 
     return cliutil.finish_run(
-        tb, record, experiment_dir, record_id, workdir, log_dir, args.no_write, mc_report.write_mc_record,
+        tb, record, experiment_dir, record_id, workdir, log_dir, args.no_write, functools.partial(report.write_record, render=mc_report.render_mc_record),
         stage=True, repo_root=REPO_ROOT,
     )
 

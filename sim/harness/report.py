@@ -25,6 +25,7 @@ import platform
 import socket
 import subprocess
 import sys
+from collections.abc import Callable
 from pathlib import Path
 
 from . import HARNESS_VERSION
@@ -546,12 +547,25 @@ def _evidence_link_lines(record: dict, experiment: str, record_id: str, logs_lab
     ]
 
 
-def render_record(record: dict, experiment: str) -> str:
-    """Render the ratified ``records/<record-id>.md`` summary.
+def render_record_document(
+    record: dict,
+    experiment: str,
+    *,
+    matrix_lines: list[str],
+    result_lines: list[str],
+    default_convention: str,
+    logs_label: str,
+    script: str,
+    env_tail: Callable[[str], list[str]],
+) -> str:
+    """Render the document skeleton shared by the PVT-grid and Monte Carlo records.
 
-    Field set and order follow ``sim/README.md``: Record ID, Claim, Netlist
-    provenance, Corner matrix run, Statistical convention, Result, Links,
-    Timestamp / author, Supersedes.
+    Both record kinds carry the same ratified field order, links block,
+    ``## Environment`` block and append-only footer; only the pieces passed in
+    differ: the corner-matrix and result blocks, the default statistical-convention text,
+    the raw-log link label, the writing script's name, and the Environment
+    lines that follow the wall time (``env_tail`` is given the testbench
+    directory name, which a Reproduce line needs).
     """
     record_id = record["record_id"]
     env = record["environment"]
@@ -562,7 +576,9 @@ def render_record(record: dict, experiment: str) -> str:
     # tb["directory"] is the actual testbench subdirectory name (usually
     # "testbench"; "testbench-postlayout" etc. for an extracted-provenance
     # sibling directory, #86) -- fall back to the ratified default for
-    # records built before this field existed.
+    # records built before this field existed. The provenance kind and its
+    # mandatory caveat note likewise come from the testbench manifest, never
+    # assumed (#194: a hardcoded "schematic" mislabelled an extracted run).
     testbench_dir = tb.get("directory") or TESTBENCH_DIR
     provenance_kind = tb.get("netlist_provenance") or "schematic"
     provenance = f"{provenance_kind} (`sim/{experiment}/{testbench_dir}/{tb['netlist']}`)"
@@ -582,18 +598,17 @@ def render_record(record: dict, experiment: str) -> str:
         f"- **Claim**: {record['claim'] or 'harness self-verification — no spec claim'}",
         f"- **Netlist provenance**: {provenance}",
     ]
-    lines += _corner_matrix_lines(record)
+    lines += matrix_lines
     lines.append(
         "- **Statistical convention**: "
-        + (record["statistical_convention"]
-           or "N/A (corner-matrix claim, not a distribution claim)")
+        + (record["statistical_convention"] or default_convention)
     )
-    lines += _result_lines(record)
+    lines += result_lines
     lines += [
         "- **Links**:",
         f"  - Testbench: `sim/{experiment}/{testbench_dir}/{tb['netlist']}`, "
         f"`sim/{experiment}/{testbench_dir}/tb.json`",
-        *_evidence_link_lines(record, experiment, record_id, "Raw logs"),
+        *_evidence_link_lines(record, experiment, record_id, logs_label),
         f"- **Timestamp / author**: {record['started_utc']}, {env['user']}",
         f"- **Supersedes**: {record['supersedes'] or '(none)'}",
         "",
@@ -610,17 +625,11 @@ def render_record(record: dict, experiment: str) -> str:
         f"- Testbench netlist sha256: `{tb['netlist_sha256']}`",
         f"- Manifest sha256: `{tb['manifest_sha256']}`",
         f"- Wall time: {record['wall_seconds']} s",
-        "",
-        "Per-corner model sections used:",
-        "",
-    ]
-    for corner in record["grid"]["corners"]:
-        lines.append(f"- `{corner['name']}`: {' '.join(corner['sections'])}")
-    lines += [
+        *env_tail(testbench_dir),
         "",
         "---",
         "",
-        "Written by `sim/run_corners.py`. Append-only: never edit or delete this",
+        f"Written by `sim/{script}`. Append-only: never edit or delete this",
         "file — a re-run or correction mints a new record-id and points back here",
         "via **Supersedes** (see `sim/README.md`).",
         "",
@@ -628,12 +637,52 @@ def render_record(record: dict, experiment: str) -> str:
     return "\n".join(lines)
 
 
-def write_record(record: dict, experiment_dir: Path) -> Path:
-    """Write ``records/<record-id>.md``; never overwrite an existing record."""
+def render_record(record: dict, experiment: str) -> str:
+    """Render the ratified ``records/<record-id>.md`` summary.
+
+    Field set and order follow ``sim/README.md``: Record ID, Claim, Netlist
+    provenance, Corner matrix run, Statistical convention, Result, Links,
+    Timestamp / author, Supersedes.
+    """
+
+    def env_tail(_testbench_dir: str) -> list[str]:
+        return [
+            "",
+            "Per-corner model sections used:",
+            "",
+            *(
+                f"- `{corner['name']}`: {' '.join(corner['sections'])}"
+                for corner in record["grid"]["corners"]
+            ),
+        ]
+
+    return render_record_document(
+        record,
+        experiment,
+        matrix_lines=_corner_matrix_lines(record),
+        result_lines=_result_lines(record),
+        default_convention="N/A (corner-matrix claim, not a distribution claim)",
+        logs_label="Raw logs",
+        script="run_corners.py",
+        env_tail=env_tail,
+    )
+
+
+def write_record(
+    record: dict,
+    experiment_dir: Path,
+    render: Callable[[dict, str], str] | None = None,
+) -> Path:
+    """Write ``records/<record-id>.md``; never overwrite an existing record.
+
+    ``render`` defaults to :func:`render_record`; the Monte Carlo harness
+    passes ``mc_report.render_mc_record``.
+    """
+    render = render or render_record
     out_dir = experiment_dir / RECORDS_DIR
     out_dir.mkdir(parents=True, exist_ok=True)
     path = out_dir / f"{record['record_id']}.md"
     if path.exists():  # fail before rendering; write_exclusive still guards the race
         write_exclusive(path, "")
-    write_exclusive(path, render_record(record, experiment_dir.name))
+    write_exclusive(path, render(record, experiment_dir.name))
     return path
