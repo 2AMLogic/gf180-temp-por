@@ -58,7 +58,6 @@ import shutil
 import statistics
 import subprocess
 import time
-from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -73,6 +72,7 @@ from .runner import (
     _require_batch,
     parse_measurements,
     run_batch_grid,
+    run_local_grid,
     write_run_spiceinit,
 )
 from .testbench import Testbench
@@ -408,59 +408,22 @@ def run_mc_grid(
     """Run every MC sample; results come back in the order ``points`` was given.
 
     ``backend="batch"`` (with a ``klt_batch.BatchConfig``) submits each sample
-    through ``klt sim --backend batch`` instead -- see :func:`run_mc_grid_batch`;
+    through ``klt sim --backend batch`` instead -- see :func:`run_batch_grid`;
     no local ngspice process is started in that mode (#420).
     """
     if _require_batch(backend, batch):
-        return run_mc_grid_batch(
-            tb, pdk, points, workdir, batch, jobs=jobs, timeout_s=timeout_s,
-            on_result=on_result, log_dir=log_dir,
+        # Each sample's deck is the same compose_mc_deck text the local path
+        # runs; it is its own request (the per-sample seed makes every body
+        # distinct) and the klt-returned raw log is copied byte-for-byte to
+        # <log_dir>/<corner_id>.log. A sample klt did not return as a clean
+        # pass is an error, never an ok.
+        return run_batch_grid(
+            tb, pdk, points, workdir, batch, compose_mc_deck,
+            jobs=jobs, timeout_s=timeout_s, on_result=on_result, log_dir=log_dir,
         )
-    results: list[PointResult | None] = [None] * len(points)
-
-    def _one(index_point):
-        index, point = index_point
-        result = run_mc_point(tb, pdk, point, workdir, timeout_s=timeout_s, log_dir=log_dir)
-        results[index] = result
-        if on_result is not None:
-            on_result(result)
-        return result
-
-    if jobs <= 1:
-        for item in enumerate(points):
-            _one(item)
-    else:
-        with ThreadPoolExecutor(max_workers=jobs) as pool:
-            list(pool.map(_one, enumerate(points)))
-
-    return [r for r in results if r is not None]
-
-
-def run_mc_grid_batch(
-    tb: Testbench,
-    pdk: Pdk,
-    points: list[McPoint],
-    workdir: Path,
-    batch: "klt_batch.BatchConfig",
-    jobs: int = 1,
-    timeout_s: int = DEFAULT_TIMEOUT_S,
-    on_result=None,
-    log_dir: Path | None = None,
-) -> list[PointResult]:
-    """``run_mc_grid`` through ``klt sim --backend batch`` (#420).
-
-    Each sample's deck is the same :func:`compose_mc_deck` text the local
-    path runs (seed and record format unchanged); it is submitted as its own
-    request (the per-sample ``.option seed=`` makes every body distinct) and
-    the klt-returned raw log is copied byte-for-byte to
-    ``<log_dir>/<corner_id>.log``. Results come back in ``points`` order; a
-    sample klt did not return as a clean ``pass`` (error, missing log,
-    failed ``environment.remote`` check) is an ``error``, never an ``ok``.
-    ``jobs`` bounds concurrent requests.
-    """
-    return run_batch_grid(
-        tb, pdk, points, workdir, batch, compose_mc_deck,
-        jobs=jobs, timeout_s=timeout_s, on_result=on_result, log_dir=log_dir,
+    return run_local_grid(
+        lambda point: run_mc_point(tb, pdk, point, workdir, timeout_s=timeout_s, log_dir=log_dir),
+        points, jobs, on_result,
     )
 
 
