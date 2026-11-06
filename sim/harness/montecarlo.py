@@ -66,13 +66,13 @@ from . import klt_batch
 from .corners import CORNERS, Corner
 from .pdk import Pdk
 from .runner import (
-    _ERROR_RE,
     DEFAULT_TIMEOUT_S,
     NGSPICE,
     NgspiceMissing,
     PointResult,
     _require_batch,
     parse_measurements,
+    run_batch_grid,
     write_run_spiceinit,
 )
 from .testbench import Testbench
@@ -458,70 +458,10 @@ def run_mc_grid_batch(
     failed ``environment.remote`` check) is an ``error``, never an ``ok``.
     ``jobs`` bounds concurrent requests.
     """
-    workdir.mkdir(parents=True, exist_ok=True)
-    log_dir = workdir if log_dir is None else log_dir
-    log_dir.mkdir(parents=True, exist_ok=True)
-    init = klt_batch.compat_init_lines()
-    results: list[PointResult | None] = [None] * len(points)
-    index_of: dict[str, int] = {}
-    units: list[klt_batch.BatchUnit] = []
-
-    def finish(i: int, result: PointResult) -> None:
-        results[i] = result
-        if on_result is not None:
-            on_result(result)
-
-    for i, point in enumerate(points):
-        deck_path = workdir / f"{point.corner_id}.spice"
-        log_path = log_dir / f"{point.corner_id}.log"
-        text = compose_mc_deck(tb, pdk, point)
-        deck_path.write_text(text)
-        try:
-            unit = klt_batch.translate_deck(
-                text, key=point.corner_id, log_path=log_path, pdk=pdk, deck_dir=workdir,
-                extra_init=init, timeout_s=timeout_s,
-            )
-        except klt_batch.BatchIncompatible as exc:
-            finish(i, PointResult(point=point, status="error", deck=deck_path.name,
-                                  message=f"not expressible as a klt sim request: {exc}"))
-            continue
-        index_of[point.corner_id] = i
-        units.append(unit)
-
-    if batch.evidence_dir is None:
-        batch.evidence_dir = log_dir
-
-    def on_outcome(out: klt_batch.UnitOutcome) -> None:
-        i = index_of[out.unit.key]
-        point = points[i]
-        deck_name = f"{point.corner_id}.spice"
-        if not out.ok:
-            finish(i, PointResult(point=point, status="error", seconds=out.seconds,
-                                  deck=deck_name, message=out.message))
-            return
-        output = out.text()
-        measurements = parse_measurements(output)
-        missing = [name for name in tb.measure if name not in measurements]
-        base = dict(point=point, measurements=measurements, seconds=out.seconds,
-                    deck=deck_name, log=out.log_path.name)
-        if missing:
-            first_error = next(
-                (ln.strip() for ln in output.splitlines() if _ERROR_RE.match(ln)), ""
-            )
-            finish(i, PointResult(status="failed", missing=missing,
-                                  message=first_error or "no measurements parsed from the returned log",
-                                  **base))
-        else:
-            finish(i, PointResult(status="ok", **base))
-
-    if units:
-        klt_batch.run_units(units, batch, tolerate_absent=False, jobs=jobs, on_outcome=on_outcome)
-        for unit in units:   # a unit the batch layer never reported on can never be ok
-            i = index_of[unit.key]
-            if results[i] is None:
-                finish(i, PointResult(point=points[i], status="error",
-                                      message="batch run returned no outcome for this point"))
-    return [r for r in results if r is not None]
+    return run_batch_grid(
+        tb, pdk, points, workdir, batch, compose_mc_deck,
+        jobs=jobs, timeout_s=timeout_s, on_result=on_result, log_dir=log_dir,
+    )
 
 
 # ---------------------------------------------------------------------------

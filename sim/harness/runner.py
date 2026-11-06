@@ -728,6 +728,33 @@ def run_grid_batch(
     never an ``ok``. Points differing only in supply share one request
     (``vdd_val`` rides klt's supply axis); ``jobs`` bounds concurrent requests.
     """
+    return run_batch_grid(
+        tb, pdk, points, workdir, batch, compose_deck, lift_params=("vdd_val",),
+        jobs=jobs, timeout_s=timeout_s, on_result=on_result, log_dir=log_dir,
+    )
+
+
+def run_batch_grid(
+    tb: Testbench,
+    pdk: Pdk,
+    points: list,
+    workdir: Path,
+    batch: "klt_batch.BatchConfig",
+    compose,
+    lift_params: tuple[str, ...] = (),
+    jobs: int = 1,
+    timeout_s: int = DEFAULT_TIMEOUT_S,
+    on_result=None,
+    log_dir: Path | None = None,
+) -> list[PointResult]:
+    """Shared batch-backend grid runner behind :func:`run_grid_batch` and
+    ``montecarlo.run_mc_grid_batch``.
+
+    ``compose(tb, pdk, point)`` builds each point's deck text; ``lift_params``
+    is forwarded to :func:`klt_batch.translate_deck`. Results come back in
+    ``points`` order; anything klt did not return as a clean ``pass`` is an
+    ``error``, never an ``ok``.
+    """
     workdir.mkdir(parents=True, exist_ok=True)
     log_dir = workdir if log_dir is None else log_dir
     log_dir.mkdir(parents=True, exist_ok=True)
@@ -744,12 +771,12 @@ def run_grid_batch(
     for i, point in enumerate(points):
         deck_path = workdir / f"{point.corner_id}.spice"
         log_path = log_dir / f"{point.corner_id}.log"
-        text = compose_deck(tb, pdk, point)
+        text = compose(tb, pdk, point)
         deck_path.write_text(text)
         try:
             unit = klt_batch.translate_deck(
                 text, key=point.corner_id, log_path=log_path, pdk=pdk, deck_dir=workdir,
-                lift_params=("vdd_val",), extra_init=init, timeout_s=timeout_s,
+                lift_params=lift_params, extra_init=init, timeout_s=timeout_s,
             )
         except klt_batch.BatchIncompatible as exc:
             finish(i, PointResult(point=point, status="error", deck=deck_path.name,
