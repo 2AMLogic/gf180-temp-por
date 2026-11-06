@@ -2,6 +2,11 @@
 
 Merged PRs and closed issues from the initial 30-day snapshot (2026-09-07 onward).
 
+### 2026-11-06
+
+- **PR #413**: refactor(layout): remove the unused cell-freeze mechanism
+- **Issue #411** (closed): Remove the unused cell-freeze mechanism (FROZEN_CELLS is empty; its tests skip)
+
 ### 2026-11-01
 
 - **PR #408**: Bump Repo Skills 0.24.7 -> 0.25.1
