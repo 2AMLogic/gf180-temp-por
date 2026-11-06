@@ -764,6 +764,37 @@
         }
       ]
     },
+    "por-threshold-mc-defect": {
+      "testbench_dirs": [
+        "testbench"
+      ],
+      "pvt": {
+        "corners": [
+          "full"
+        ],
+        "temperatures_c": [
+          -40,
+          27,
+          125
+        ],
+        "nominal_supply_v": 3.3,
+        "supply_tolerance": 0.1
+      },
+      "files": [
+        {
+          "path": "sim/por-threshold-mc-defect/testbench/stimulus.spice",
+          "sha256": "sha256:5ce38b07c8300ee7eb3011079424153af1c807949b9ca6fcf86007a78cb7f2f3"
+        },
+        {
+          "path": "sim/por-threshold-mc-defect/testbench/tb.json",
+          "sha256": "sha256:09ea095a1b0da959a101a5e25b579e979e9f57030c0ff7a6cdcc519bdcf900c0"
+        },
+        {
+          "path": "sim/por-threshold-mc-defect/testbench/tb_por_threshold_mc_defect.spice",
+          "sha256": "sha256:f90e26842a833caf9afa91a8564c52fce59c5ffba93a74da8d8c42348f77dd7e"
+        }
+      ]
+    },
     "por-vth": {
       "testbench_dirs": [
         "testbench",
@@ -868,6 +899,37 @@
         {
           "path": "sim/temp-accuracy-mc/testbench/tb_temp_accuracy_mc.spice",
           "sha256": "sha256:4d6c901b124e2186c2057c884e4c25d68f76c4e1631b176709af4179e7b93d0f"
+        }
+      ]
+    },
+    "temp-accuracy-mc-defect": {
+      "testbench_dirs": [
+        "testbench"
+      ],
+      "pvt": {
+        "corners": [
+          "full"
+        ],
+        "temperatures_c": [
+          -40,
+          27,
+          125
+        ],
+        "nominal_supply_v": 3.3,
+        "supply_tolerance": 0.1
+      },
+      "files": [
+        {
+          "path": "sim/temp-accuracy-mc-defect/testbench/stimulus.spice",
+          "sha256": "sha256:246a65247c1b932a55b0783d97e9285da94bbe008aeccdbedaa06086a9f65773"
+        },
+        {
+          "path": "sim/temp-accuracy-mc-defect/testbench/tb.json",
+          "sha256": "sha256:2b62bb3257f23c0047074b1456abb7c11497684fcdf84d2908e1c929ebc0d9a2"
+        },
+        {
+          "path": "sim/temp-accuracy-mc-defect/testbench/tb_temp_accuracy_mc_defect.spice",
+          "sha256": "sha256:dfb9e29a405de7c07ae7e858b071325cc1dc303e7ab480bb72e5f92fda8cc3c2"
         }
       ]
     },

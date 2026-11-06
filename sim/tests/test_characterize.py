@@ -39,7 +39,11 @@ class ExperimentDiscoveryTests(unittest.TestCase):
         self.assertIn("por-vth", slugs)
 
         mc_slugs = {d.name for d, mc in found if mc}
-        self.assertEqual(mc_slugs, {"por-threshold-mc", "temp-accuracy-mc"})
+        self.assertEqual(
+            mc_slugs,
+            {"por-threshold-mc", "temp-accuracy-mc",
+             "por-threshold-mc-defect", "temp-accuracy-mc-defect"},
+        )
 
         # testbench-postlayout/ re-runs are deliberately out of scope (module
         # docstring) -- discover() only walks testbench/, so no slug here

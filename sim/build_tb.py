@@ -86,6 +86,10 @@ FRAGMENTS: dict[str, tuple[str, tuple[str, ...]]] = {
     # per binding point at.
     "temp-accuracy-mc": ("tb_temp_accuracy_mc.spice", ("temp_core",)),
     "por-threshold-mc": ("tb_por_threshold_mc.spice", ("por_comparator",)),
+    # #417's seeded known-bad variants (the negative control of T1 item 6):
+    # the nominal stimulus plus one top-level shunt resistor, same DUT cell.
+    "temp-accuracy-mc-defect": ("tb_temp_accuracy_mc_defect.spice", ("temp_core",)),
+    "por-threshold-mc-defect": ("tb_por_threshold_mc_defect.spice", ("por_comparator",)),
     # NOTE: sim/por-iq/ is deliberately absent here -- it has no netlist
     # fragment of its own. It PUBLISHES spec/target-spec.md#por-iq/#iq-total
     # as a derivation from sim/temp-accuracy-vt/'s already-run raw logs (see
