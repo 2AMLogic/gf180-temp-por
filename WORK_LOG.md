@@ -4,6 +4,12 @@ Merged PRs and closed issues from the initial 30-day snapshot (2026-09-07 onward
 
 ### 2026-11-06
 
+- **PR #421**: feat(sim): add klt sim batch backend to run_mc.py
+- **PR #419**: layout: remove one-point postlayout smoke script, re-point citations to grid records
+- **PR #418**: feat(signoff): klt yield reports for the [3σ] rows (T1 item 6)
+- **Issue #420** (closed): sim/run_mc.py: add a klt sim batch backend for large Monte Carlo campaigns
+- **Issue #409** (closed): Remove layout/postlayout_smoke.py and SMOKE.md: superseded by full-PVT post-layout re-runs
+- **Issue #384** (closed): T1 item 6 (Monte Carlo): klt yield reports for temp-accuracy-mc and por-threshold-mc
 - **PR #413**: refactor(layout): remove the unused cell-freeze mechanism
 - **Issue #411** (closed): Remove the unused cell-freeze mechanism (FROZEN_CELLS is empty; its tests skip)
 
