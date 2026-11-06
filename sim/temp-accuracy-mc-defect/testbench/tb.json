@@ -1,0 +1,82 @@
+{
+  "name": "temp-accuracy-mc-defect",
+  "description": "NEGATIVE CONTROL for temp-accuracy-mc (issue #417): the same Monte Carlo campaign with one deliberate, documented defect -- a 10 Mohm leak from the 1x-PNP side amplifier input (temp_core node NB) to VSS ('Rdef xdut.nb 0 10Meg', stimulus.spice) -- and an independent seed_base (30261106; the nominal 20260802 draws seeds 20260802..20261300+4e5, so the ranges cannot overlap). Nothing else differs from sim/temp-accuracy-mc/testbench/. The checks block is the nominal row limits, unchanged: this campaign is expected to FAIL them.",
+  "claim": "negative control for sim/temp-accuracy-mc/ -- a known-bad variant a yield analysis must flag; evidence only, supports no spec row",
+  "netlist": "tb_temp_accuracy_mc_defect.spice",
+  "nominal_supply_v": 3.3,
+  "supply_tolerance": 0.1,
+  "temperatures_c": [
+    -40,
+    27,
+    125
+  ],
+  "corners": [
+    "full"
+  ],
+  "options": [
+    "reltol=1e-5",
+    "abstol=1e-15",
+    "vntol=1e-9"
+  ],
+  "analyses": [
+    "dc temp 25 25 1",
+    "let m_vptat25_v = v(ptat)",
+    "let m_aoffs25_uv = (v(xdut.na)-v(xdut.nb))*1e6",
+    "print m_vptat25_v",
+    "print m_aoffs25_uv",
+    "dc temp %(temp_c)g %(temp_c)g 1"
+  ],
+  "measure": {
+    "vptattgt_v": "v(ptat)",
+    "vtktgt_k": "v(tk)",
+    "aoffstgt_uv": "(v(xdut.na)-v(xdut.nb))*1e6",
+    "dvbetgt_mv": "(v(xdut.nb)-v(xdut.nc))*1e3",
+    "terr_untrim_c": "v(ptat)/4.308842e-3 - v(tk)"
+  },
+  "mc": {
+    "n": 500,
+    "seed_base": 30261106,
+    "derive": "temp_trim",
+    "binding_points": [
+      {
+        "label": "temp_lo_vdd_lo",
+        "corner": "tt",
+        "temp_c": -40,
+        "vdd": 2.97
+      },
+      {
+        "label": "temp_lo_vdd_hi",
+        "corner": "tt",
+        "temp_c": -40,
+        "vdd": 3.63
+      },
+      {
+        "label": "temp_hi_vdd_lo",
+        "corner": "tt",
+        "temp_c": 125,
+        "vdd": 2.97
+      },
+      {
+        "label": "temp_hi_vdd_hi",
+        "corner": "tt",
+        "temp_c": 125,
+        "vdd": 3.63
+      }
+    ]
+  },
+  "checks": {
+    "terr_untrim_c": {
+      "min": -3.0,
+      "max": 3.0,
+      "description": "spec/target-spec.md#temp-accuracy-untrimmed ([3sigma], +/-3 C). Untrimmed error against the declared nominal K0=4.308842 mV/K, WITH local mismatch on (sw_stat_mismatch=1) -- this is the mismatch-inclusive counterpart to sim/temp-accuracy-vt/'s deterministic-corners-only terr_untrim_c check."
+    },
+    "terr_trim_c": {
+      "min": -1.5,
+      "max": 1.5,
+      "description": "spec/target-spec.md#temp-accuracy-trimmed ([3sigma] stretch, +/-1.5 C). DERIVED per-sample (montecarlo.derive_temp_trim): each die's own 25 C reading stands in for a real one-point 25 C production trim on that same die -- see sim/temp-accuracy-mc/testbench/stimulus.spice and sim/harness/montecarlo.py's derive_temp_trim docstring for the full method, which mirrors sim/temp-accuracy-vt/analyze_derived.py's deterministic-grid derivation."
+    }
+  },
+  "params": {
+    "rdef": "10Meg"
+  }
+}

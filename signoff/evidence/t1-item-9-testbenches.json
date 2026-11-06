@@ -3,7 +3,7 @@
   "kind": "generic",
   "t1_item": 9,
   "status": "pass",
-  "summary": "Audited inventory for T1 item 9 (Testbenches shipped): the committed testbench files of 22 sim/ experiments mapped to all 29 spec rows, the cold-start invocation and the pinned PDK revision. Every member file is listed with its sha256 and signoff/check.py re-derives the inventory from the live tree, so the bound hash proves the inventory is current and the member hashes prove the files it describes are. It does not run a simulation or re-derive any measured value.",
+  "summary": "Audited inventory for T1 item 9 (Testbenches shipped): the committed testbench files of 24 sim/ experiments mapped to all 29 spec rows, the cold-start invocation and the pinned PDK revision. Every member file is listed with its sha256 and signoff/check.py re-derives the inventory from the live tree, so the bound hash proves the inventory is current and the member hashes prove the files it describes are. It does not run a simulation or re-derive any measured value.",
   "source": "signoff/evidence/inventory-testbenches.json",
   "provenance": {
     "klt_version": null,
@@ -15,7 +15,7 @@
         "path": "signoff/evidence/inventory-testbenches.json",
         "scope": "repo"
       },
-      "content_hash": "sha256:873c35e7e01009b1c431bf88e192f1375490fb7479b0d66a06a46af1b0054e15"
+      "content_hash": "sha256:e9ddcc0a5ab1f85296e1c1b2223802465e5cccf936285b1603ed5138e3c3f010"
     }
   }
 }
