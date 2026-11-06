@@ -90,10 +90,20 @@ jobs:
         python-version: ["3.9", "3.11"]
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Full history so the PR base is reachable for the merge-base in
+          # sim/check_append_only.py (the default shallow merge-commit
+          # checkout cannot compute one).
+          fetch-depth: 0
 
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
+
+      - name: sim/check_append_only.py (PR must not edit, delete or move existing sim/ evidence)
+        if: github.event_name == 'pull_request'
+        # #353. Stdlib-only; no bypass -- correct evidence with a superseding record.
+        run: python3 sim/check_append_only.py --base origin/${{ github.base_ref }}
 
       - name: sim/build_tb.py --check (testbench fragments match the exported netlists)
         run: python3 sim/build_tb.py --check
