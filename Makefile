@@ -55,6 +55,9 @@ test:
 # (and fails loudly on) their absence rather than letting `make smoke` or
 # `make characterize` fail later with a less specific error.
 check:
+	@echo "== sim/check_append_only.py (no edited/deleted sim/ evidence vs origin/main) =="
+	python3 sim/check_append_only.py --base origin/main
+	@echo
 	@echo "== sim/build_tb.py --check (testbench fragments match design/netlist/ exports) =="
 	python3 sim/build_tb.py --check
 	@echo

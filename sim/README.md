@@ -174,6 +174,20 @@ corrects or replaces a prior result, it references that prior record via
 the append-only guarantee is what makes `sim/` usable as an evidence trail;
 "fixing" an existing record in place would defeat that.
 
+CI enforces this mechanically (`sim/check_append_only.py`, run on every pull
+request and by `make check`): a change fails if it modifies, deletes, or
+moves (rename source) any existing file under these protected paths.
+Additions always pass, and there is no allowlist or bypass — supersede with a
+new record instead.
+
+- `sim/*/records/**`
+- `sim/*/corners/**`
+- `sim/*/netlist-snapshots/**`
+
+`sim/*/control/**` (a control re-run overwrites its outputs, see "Control
+experiments"), `sim/devchar/results/**`, and `sim/*/testbench/**` are not
+protected.
+
 ## Citing a "taken against a dirty working tree" record
 
 `sim/harness/report.py` and `mc_report.py` append `— **taken against a dirty
