@@ -73,15 +73,14 @@ interactive KLayout session, no netgen/magic.
 bash layout/run_checks.sh              # every cell under layout/cells/
 bash layout/run_checks.sh <cell>       # one cell
 bash layout/run_checks.sh --check-env  # what klt/PDK am I about to use?
-bash layout/run_checks.sh --regen-all  # re-stamp every non-frozen cell onto
+bash layout/run_checks.sh --regen-all  # re-stamp every cell onto
                                        # one deck (see 0b below)
 ```
 
 Exit 0 means, for every cell: the committed GDS and reference netlist are
 current, DRC is clean, extraction succeeded, LVS matches, **and** both LVS
 negative controls were detected. Every JSON report is rewritten under
-`layout/reports/` and committed as evidence — except a frozen cell's, which a
-whole-repo run checks but does not overwrite (see [Frozen cells](#frozen-cells)).
+`layout/reports/` and committed as evidence.
 
 ### The pinned toolchain
 
@@ -119,7 +118,7 @@ Two gates enforce the pin, and they check different things:
 
 Moving the pin is a deliberate act: edit `layout/toolchain.json`, install that
 build, and run `bash layout/run_checks.sh --regen-all` to re-stamp every
-non-frozen cell onto it in one go.
+cell onto it in one go.
 
 ### Prerequisites
 
@@ -171,9 +170,7 @@ otherwise the evidence describes two different rule sets and a clean report
 for one cell says nothing about another's — **and** that one hash has to be
 the pinned one, or the whole directory can agree perfectly on a deck nobody
 can install (#258). Unscoped even for a single-cell run, since it is a
-property of the whole `layout/reports/` directory, not of any one cell;
-tolerates whichever cell is currently listed in
-`lvs_reference.FROZEN_DECK_CELLS` (none, today) while its own issue reworks it:
+property of the whole `layout/reports/` directory, not of any one cell:
 
 ```bash
 python3 layout/lvs_reference.py --check-deck-hash
@@ -181,7 +178,7 @@ python3 layout/lvs_reference.py --check-deck-hash
 
 ##### Repairing a split: `--regen-all`
 
-The gate's remediation is "regenerate every non-frozen cell's reports against
+The gate's remediation is "regenerate every cell's reports against
 one deck" — but the command that does that is `run_checks.sh` itself, which
 aborted *at the gate* before it could regenerate anything. A directory that had
 legitimately drifted (two correct single-cell PRs landing days apart under
@@ -196,7 +193,7 @@ to after the per-cell loop rather than skipping it:
 | --- | --- | --- |
 | deck-hash gate | before any per-cell work | after the per-cell loop |
 | on failure | aborts (`set -e`), nothing rewritten | non-zero exit, run is a failure |
-| cells | as named (all, or the ones given) | every **non-frozen** cell, always |
+| cells | as named (all, or the ones given) | every cell, always |
 
 Deferring is not weakening, and the distinction is the whole point of the flag:
 
@@ -204,15 +201,10 @@ Deferring is not weakening, and the distinction is the whole point of the flag:
   gate before touching anything, so a genuinely drifted `layout/reports/` fails
   loudly exactly as it did before;
 - `--regen-all` rejects cell arguments (exit 2). It can only ever *establish*
-  one shared deck across every non-frozen cell, never re-stamp a subset — a
+  one shared deck across every cell, never re-stamp a subset — a
   partial regeneration is precisely what produces the drift it exists to fix;
 - the same check still has to pass on the **result**, and a failure there fails
   the run. Nothing in the script can waive it.
-
-It skips the cells the gate itself excludes as frozen (`FROZEN_DECK_CELLS`,
-today `temp_por_top`), reading that list from `lvs_reference.py
---list-frozen-deck-cells` so it is declared exactly once — re-stamping a frozen
-cell's evidence here would silently take over the issue that owns it.
 
 Note that `--regen-all` defers only the deck-hash gate. The GDS-hash gate below
 still runs before the per-cell loop on every invocation, including this one: it
@@ -235,11 +227,7 @@ so does `extracted-parasitics.json` (`layout/postlayout.py --extract`'s own reco
 which writes the digest itself — see "Post-layout netlists" below). This
 recomputes `sha256(layout/cells/<cell>.gds)` and fails if it disagrees with
 any of those, so a cell whose GDS moves without its extraction being re-run
-cannot ship a post-layout netlist of a layout that no longer exists. Also unscoped even for a single-cell run, and — unlike the
-deck-hash gate — **not** tolerant of frozen cells: a frozen cell's own
-committed reports still have to describe its own committed (unchanged) GDS,
-since freezing suspends only the comparison against a *fresh rebuild*, not
-this one:
+cannot ship a post-layout netlist of a layout that no longer exists. Also unscoped even for a single-cell run:
 
 ```bash
 python3 layout/lvs_reference.py --check-gds-hash
@@ -247,128 +235,18 @@ python3 layout/lvs_reference.py --check-gds-hash
 
 All three gates run before the first per-cell check, and `run_checks.sh` is
 `set -e`, so a cell that fails one of them used to abort the whole script —
-including the cells that were current (#102). Frozen cells (below) are why that
-is no longer possible.
+including the cells that were current (#102).
 
-#### Frozen cells
+#### Freezing a cell
 
-No cell is frozen today — `temp_por_top` was the one example (held behind the
-#72 sub-cell set while #97 reworked its floorplan against the four grown
-sub-cells) and that freeze ended when #97 landed. The mechanism stays in place
-for the next cell that needs it: `lvs_reference.py`'s `FROZEN_CELLS` table
-declares a freeze, and **both** `--check` paths read it (`build_cells.py`
-imports the module), so a freeze is declared once and cannot drift between the
-two gates:
-
-```python
-FROZEN_CELLS = {
-    "temp_por_top": {
-        "issue": "#97",              # the freeze's removal condition
-        "why": "...",                # why it is frozen, in prose
-        "gds_sha256": "...",         # the pinned committed stream
-        "reference_sha256": "...",   # the pinned committed reference
-    },
-}
-```
-
-A freeze is **not** "stop checking this cell". The committed bytes are still
-verified on every run against the digests pinned above; what is suspended is
-only the comparison against a *fresh rebuild*, which is the part #97 owns. So
-the states stay distinguishable in the log:
-
-| Committed artefact | `--check` says |
-| ------------------ | -------------- |
-| unfrozen, current | `ok <artefact>` |
-| unfrozen, source has moved | `FAIL …: committed … is stale` |
-| frozen, pinned baseline intact | `frozen <artefact> … (see #97)` |
-| frozen, baseline **changed** | `FAIL …: no longer matches the pinned frozen baseline` |
-
-Running either script *without* `--check` also skips a frozen cell (rather than
-overwriting it and quietly breaking the pin) unless it is named explicitly with
-`--cell`, which is #97's own workflow. `layout/tests/test_lvs_reference.py`'s
-`FrozenCellTest` asserts the pinned digests against the committed files, so the
-pin is enforced in CI too (stdlib only, no `klt`) — and asserts that an
-*unfrozen* stale cell still fails, so the mechanism cannot decay into a blanket
-staleness bypass.
-
-##### A frozen cell's committed *reports* are held too
-
-The two gates above pin a frozen cell's committed *inputs* (its GDS and its
-reference netlist). Its committed `layout/reports/<cell>/` is the other half of
-the freeze: that evidence was recorded against those pinned inputs, under the
-`klt` deck of the day it was checked, and `FROZEN_DECK_CELLS` exists precisely
-so it is allowed to lag. A whole-repo `run_checks.sh` used to re-run the cell
-and overwrite those five files anyway, re-stamping them onto today's deck — so
-the next `git add -A` swept them into an unrelated PR and ended the freeze
-without anyone deciding to (#111).
-
-So a **whole-repo run** (no cell argument) now runs every check on a frozen cell
-for real and writes this run's reports into a scratch directory, then diffs them
-against the committed set instead of replacing it:
-
-```
-==> temp_por_top
-    (frozen: every check below really runs, but its reports go to a
-     scratch dir and are diffed -- layout/reports/temp_por_top/ is left as committed.
-     To regenerate it: bash layout/run_checks.sh temp_por_top)
-    DRC   clean   (/tmp/tmp.XXXX/reports/temp_por_top/drc.json)
-    …
-    FROZEN this run reproduces the committed reports exactly
-```
-
-Only the *destination of the bytes* changes, which is what keeps the guard from
-shading "don't overwrite" into "don't notice": the DRC/EXTR/LVS/CTRL verdicts
-are this run's own and fail the run exactly as loudly as any other cell's. A
-failing frozen cell also keeps its scratch directory (the script says where), so
-the report the `FAIL` line names is still there to read.
-
-The diff itself is reported, never failed: the committed set differing from a
-fresh one is the expected state of a frozen cell, and the verdicts above it are
-what carry pass/fail. `klt extract` records the `-o` path it was handed, so the
-scratch path is rewritten back before comparing — otherwise every frozen cell
-would report drift in `extract.json` that is purely the guard's own doing.
-
-**Naming the cell explicitly** — `bash layout/run_checks.sh temp_por_top` —
-writes its reports as usual. That is the same "an explicit `--cell` overrides
-the freeze" convention `build_cells.py` and `lvs_reference.py` use for
-regeneration, and it is how #97 refreshes this cell's evidence on purpose.
-
-`lvs_reference.py` owns the decision, so the two halves cannot drift apart:
-
-```bash
-python3 layout/lvs_reference.py --pinned-report-cells          # -> temp_por_top
-python3 layout/lvs_reference.py --pinned-report-cells <cells>  # -> nothing
-```
-
-`run_checks.sh` passes its own arguments straight through, so "the caller named
-cells" is the whole of the override. With no frozen cells the list is empty and
-the guard is a no-op — the same state every explicit single-cell run is already
-in. `RunChecksFrozenReportsTest` in `layout/tests/test_lvs_reference.py` runs
-the real script against a sandbox copy of the tree with a stub `klt` (no klt, no
-PDK, no klayout needed) and asserts all four properties, including that an
-injected DRC failure on the frozen cell still fails the run.
-
-**Why `--regen-all` behaves differently, on purpose.** `--regen-all` *skips* a
-frozen cell's checks entirely rather than running them into a scratch dir —
-different from the plain whole-repo run described above, which runs every
-check for real. The two modes have different jobs: `--regen-all` exists to
-*establish* one shared deck across every cell it touches, and a frozen cell is
-deliberately not on that deck yet (its own issue owns moving it), so there is
-nothing useful to compare a fresh run against. A plain run's job is the
-opposite — notice drift on every cell, frozen or not — so it always runs the
-checks and only changes where the bytes land.
-
-`FROZEN_DECK_CELLS` (which `--regen-all` and `--check-deck-hash` read) and
-`FROZEN_CELLS` (which the report guard above and the artefact-staleness gates
-read) are **one declaration**: `FROZEN_DECK_CELLS` is `frozenset(FROZEN_CELLS)`
-in `lvs_reference.py`, not a second hand-maintained set, so a cell frozen for
-one purpose is frozen for all of them and the two questions ("exclude from the
-deck-hash gate" vs. "don't overwrite this cell's committed reports") cannot
-silently disagree about which cells they mean.
-
-**To end a freeze**: delete its `FROZEN_CELLS` entry. Nothing else changes —
-both gates fall straight back to rebuild-and-compare, and the report guard goes
-quiet by itself.
+There is no cell-freeze mechanism any more. It held a cell's committed
+artefacts at a pinned digest (`FROZEN_CELLS` in `lvs_reference.py`, read by both
+`--check` paths and by a report guard in `run_checks.sh`) while a tracking issue
+reworked it; `temp_por_top` was the only cell ever frozen, and that ended with
+#97. With no entries it was dead scaffolding, so #411 removed it. If a future
+cell needs a freeze, recover the design from history:
+`git log -S"FROZEN_CELLS" -- layout/lvs_reference.py` (the removal is the PR
+that closed #411).
 
 **1. DRC.**
 
@@ -1817,8 +1695,7 @@ filed upstream per this repo's friction protocol.
   `por_comparator`'s report was regenerated once, under an older deck, and
   never again. #103 added `python3 layout/lvs_reference.py --check-deck-hash`
   (wired into `run_checks.sh`, unscoped even for a single-cell run) so this
-  fails loudly instead of drifting silently; it tolerates whichever cell is
-  currently frozen (see `lvs_reference.FROZEN_DECK_CELLS`) — none, today.
+  fails loudly instead of drifting silently.
 - **A report can also silently drift from *its own* GDS.** The deck-hash
   guard above catches two reports disagreeing with *each other*; it says
   nothing about whether a single report still describes the GDS committed
@@ -1828,9 +1705,7 @@ filed upstream per this repo's friction protocol.
   `provenance.gds_sha256` to `drc.json`/`extract.json` (mirroring
   `lvs.json`'s pre-existing `environment.layout_sha256`) and
   `python3 layout/lvs_reference.py --check-gds-hash` (also wired into
-  `run_checks.sh`, also unscoped, but — unlike the deck-hash guard — **not**
-  tolerant of frozen cells: a frozen cell's own reports still have to match
-  its own committed GDS).
+  `run_checks.sh`, also unscoped).
 - **`klt --version` is not a build identity, and this repo learned it the hard
   way.** *(Diagnosed and fixed by #258; the entry stays because the failure is
   a property of the tool's identity surface, not a one-off mistake.)* A source
