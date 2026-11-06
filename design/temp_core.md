@@ -867,9 +867,11 @@ Two rows are worth reading twice:
   against 0.55 °C systematic) and the trimmed row by ~9× (±7.4 °C against
   0.80 °C).
 - **The +1.99 % reset release time is the one place the drawn interconnect
-  genuinely bites.** It is the same +2.0 % `layout/postlayout/SMOKE.md`
-  measured on this assembly at the nominal point, now confirmed across the
-  whole PVT grid, and it stays inside the 1–25 ms liveness bound with room to
+  genuinely bites.** It is the same +2.0 % the first one-point nominal
+  run measured on this assembly (`tt_27c_3.30v`: 10.068 ms → 10.2704 ms, +2.01 %,
+  from the [`20260802-205904-bdc077d`](../sim/temp-por-top-release/records/20260802-205904-bdc077d.md)
+  and [`20260819-173152-e58ed1a`](../sim/temp-por-top-release/records/20260819-173152-e58ed1a.md)
+  grid records), now confirmed across the whole PVT grid, and it stays inside the 1–25 ms liveness bound with room to
   spare. It belongs to `por_output_chain`'s timing capacitors, not to this
   cell.
 
