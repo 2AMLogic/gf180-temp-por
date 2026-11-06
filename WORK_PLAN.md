@@ -54,15 +54,16 @@ Issues carrying `loom:curated`.
 - **#324**: Regenerate the deglitch dwell sweep against the star extraction: the post-layout slowest crossing moved from 20.77 to 22.34 µs *(curated)*
 - **#331**: sim/harness/runner.py: batch (klt sim) execution path so control grids can run off dispatch workers (mechanism question from #321) *(curated)*
 - **#336**: Live batch-fleet verification of a control grid via klt_batch (blocked: fleet runner klt 0.5.0 vs client 0.6.0) *(curated)*
-- **#384**: T1 item 6 (Monte Carlo): klt yield reports for temp-accuracy-mc and por-threshold-mc *(curated)*
+- **#353**: CI: mechanically enforce the append-only rule for sim/ evidence records *(curated)*
 - **#386**: Track the gap to T1 sim-validated / bronze (klayout-tools design-evidence tiers), items 5–7 *(curated)*
 - **#388**: T1 item 5 phase 2: klt sim envelope with per-row limits over the 81-point grid, piloted on por-vth *(curated)*
 - **#400**: Bump klayout-tools pin 0.6.0, 0.7.0 → 0.8.0 *(curated)*
+- **#416**: POR threshold rows: N=500 cannot demonstrate the 99.73 % [3σ] yield; need a larger campaign *(curated)*
+- **#417**: Item 6: sampled negative control for the Monte Carlo yield campaigns *(curated)*
 
 ## Proposed (Architect / Hermit)
 
 - **#353**: CI: mechanically enforce the append-only rule for sim/ evidence records *(architect)*
-- **#409**: Remove layout/postlayout_smoke.py and SMOKE.md: superseded by full-PVT post-layout re-runs *(hermit)*
 
 ## Epics
 
@@ -79,7 +80,7 @@ _None._
 | In Progress (`loom:building`) | 0 |
 | PRs awaiting review | 0 |
 | Approved PRs awaiting merge | 0 |
-| Curated | 8 |
-| Architect / Hermit proposals | 2 |
+| Curated | 10 |
+| Architect / Hermit proposals | 1 |
 | Active epics | 0 |
 <!-- guide:plan-body:end -->
