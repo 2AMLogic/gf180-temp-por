@@ -39,8 +39,17 @@ if args == ["--version"]:
     print("klt 0.0.0+fake"); sys.exit(0)
 req_path = Path(args[1]); outdir = Path(args[args.index("-o") + 1])
 req = json.loads(req_path.read_text())
-n_prev = len(list(state.glob("req-*.json")))
-(state / f"req-{n_prev}.json").write_text(json.dumps(req))
+# Claim the next free index atomically ("x" = O_EXCL): concurrent fake-klt
+# processes (the MC grid runs jobs>1) must never share an index.
+n_prev = 0
+while True:
+    try:
+        fh = open(state / f"req-{n_prev}.json", "x")
+        break
+    except FileExistsError:
+        n_prev += 1
+with fh:
+    fh.write(json.dumps(req))
 (state / f"body-{n_prev}.spice").write_text((req_path.parent / req["netlist"]).read_text())
 
 if mode == "refuse":
