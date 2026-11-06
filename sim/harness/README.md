@@ -395,7 +395,14 @@ instead, for hosts that must not run SPICE grids themselves.
 python3 sim/run_corners.py <testbench> --backend batch
 python3 sim/por-brownout-slew/control/run_net_attribution.py --backend batch
 python3 sim/por-output-chain-deglitch/control/run_dwell_sweep.py --backend batch
+python3 sim/run_mc.py <mc-testbench> --backend batch
 ```
+
+`run_mc.py` (#420) submits each Monte Carlo sample as its own request: the deck,
+seed (`seed_base + binding_index*100000 + sample`) and record format are the
+local ones, and the klt-returned raw log is copied byte-for-byte to the
+`corners/<record>/…_sNNNN.log` the local backend writes. The record's `ngspice`
+field names the batch backend and klt version instead of a local ngspice.
 
 * Selection: `--backend local|batch|auto`. `auto` (the default) reads
   `$KLT_SIM_BACKEND` (`local` or `batch`; anything else is an error) and

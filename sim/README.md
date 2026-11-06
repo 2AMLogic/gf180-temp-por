@@ -374,6 +374,10 @@ than one row per PVT point. See `sim/harness/README.md` § "Monte Carlo
 mismatch" for the mechanism and why the two record shapes are deliberately
 different.
 
+`sim/run_mc.py` takes `--backend local|batch|auto` (and honours `$KLT_SIM_BACKEND`)
+like `run_corners.py`; on a shared dispatch worker use `--backend batch`, which
+starts no local `ngspice` (see `sim/harness/README.md` § "Batch backend").
+
 A **derived** record may reduce an existing record's raw logs without running
 a simulation — `sim/temp-accuracy-vt/analyze_derived.py`,
 `sim/temp-accuracy-mc/analyze_breakdown.py` and `sim/postlayout_delta.py`

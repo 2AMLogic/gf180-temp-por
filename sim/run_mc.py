@@ -34,7 +34,7 @@ WORK_DIR = SIM_DIR / ".work"
 
 sys.path.insert(0, str(SIM_DIR))
 
-from harness import HARNESS_VERSION, cliutil, mc_report, montecarlo, report, testbench as tb_mod  # noqa: E402
+from harness import HARNESS_VERSION, cliutil, klt_batch, mc_report, montecarlo, report, testbench as tb_mod  # noqa: E402
 from harness.montecarlo import ManifestError  # noqa: E402
 from harness.pdk import PdkNotFound, find_pdk  # noqa: E402
 from harness.runner import NgspiceMissing, ngspice_version  # noqa: E402
@@ -54,6 +54,7 @@ def build_parser() -> argparse.ArgumentParser:
             "Examples:\n"
             "  python3 sim/run_mc.py temp-accuracy-mc\n"
             "  python3 sim/run_mc.py por-threshold-mc -j 4\n"
+            "  python3 sim/run_mc.py por-threshold-mc --backend batch   # klt sim fleet\n"
             "  python3 sim/run_mc.py --list\n"
         ),
     )
@@ -78,6 +79,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--supersedes", default="", metavar="RECORD_ID", help="prior record-id this run corrects")
     parser.add_argument("--no-write", action="store_true", help="run but do not record evidence (debugging only)")
     parser.add_argument("--quiet", action="store_true", help="only print the summary")
+    klt_batch.add_backend_argument(parser)
     parser.add_argument("--version", action="version", version=f"gf180-temp-por harness {HARNESS_VERSION}")
     return parser
 
@@ -116,9 +118,15 @@ def run(args: argparse.Namespace) -> int:
         return EXIT_ENVIRONMENT
 
     try:
+        backend = klt_batch.resolve_backend(args.backend)
         pdk = find_pdk()
-        ngspice = ngspice_version()
-    except (PdkNotFound, NgspiceMissing) as exc:
+        if backend == klt_batch.BACKEND_BATCH:
+            # Batch mode never touches a local ngspice: the engine runs on the
+            # fleet, so the record names klt (the only thing this host runs).
+            ngspice = f"batch via klt sim ({klt_batch.klt_version(args.klt)}); ngspice runs on the fleet"
+        else:
+            ngspice = ngspice_version()
+    except (PdkNotFound, NgspiceMissing, klt_batch.BatchError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return EXIT_ENVIRONMENT
 
@@ -143,6 +151,7 @@ def run(args: argparse.Namespace) -> int:
     if not args.quiet:
         print(f"experiment: {tb.experiment}" + (f"  ({tb.description})" if tb.description else ""))
         print(f"pdk       : {pdk.variant} @ {pdk.version}  ({pdk.path})")
+        print(f"backend   : {backend}")
         print(f"ngspice   : {ngspice}")
         print(f"binding points: {len(binding_points)}")
         for bp in binding_points:
@@ -162,13 +171,20 @@ def run(args: argparse.Namespace) -> int:
             flag = {"ok": "ok", "failed": "FAIL", "error": "ERR"}[result.status]
             print(f"[{completed:>5}/{len(points)}] last={result.point.corner_id} {flag}")
 
+    batch_cfg = (
+        klt_batch.BatchConfig(pdk=pdk, stage_root=workdir / "batch", evidence_dir=log_dir,
+                              klt=args.klt)
+        if backend == klt_batch.BACKEND_BATCH else None
+    )
     wall_start = _dt.datetime.now(_dt.timezone.utc)
     try:
         results = montecarlo.run_mc_grid(
             tb, pdk, points, workdir, jobs=jobs, timeout_s=args.timeout,
             on_result=progress, log_dir=log_dir,
+            # local mode keeps the exact pre-batch call signature
+            **({"backend": backend, "batch": batch_cfg} if batch_cfg else {}),
         )
-    except NgspiceMissing as exc:
+    except (NgspiceMissing, klt_batch.BatchError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return EXIT_ENVIRONMENT
     wall_seconds = (_dt.datetime.now(_dt.timezone.utc) - wall_start).total_seconds()
