@@ -4,6 +4,10 @@ Merged PRs and closed issues from the initial 30-day snapshot (2026-09-07 onward
 
 ### 2026-11-06
 
+- **PR #432**: refactor(sim): share one local grid loop, drop single-call batch wrappers
+- **PR #430**: ci(sim): fail PRs that edit, delete or move existing sim evidence
+- **Issue #431** (closed): Simplify sim harness: share the local grid loop and drop the one-line batch wrappers
+- **Issue #353** (closed): CI: mechanically enforce the append-only rule for sim/ evidence records
 - **PR #428**: refactor(sim): share one record renderer and writer between PVT and Monte Carlo
 - **PR #426**: refactor(sim): share one batch-grid runner between PVT and Monte Carlo
 - **Issue #427** (closed): Dedupe render_record/render_mc_record and write_record/write_mc_record in sim harness
