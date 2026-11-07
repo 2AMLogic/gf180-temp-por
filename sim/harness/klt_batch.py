@@ -246,6 +246,13 @@ class BatchUnit:
     measurements: tuple[tuple[str, str, str], ...]  # (name, "spice"|"expr", text)
     init: tuple[str, ...]          # .spiceinit lines
     timeout_s: int = DEFAULT_TIMEOUT_S
+    #: Several solves of one corner (route (a), #440): ordered
+    #: ``(step name, (kind, args), step measurements)`` rows sent as klt's
+    #: ``analysis_steps[]``. Empty for the ordinary single-analysis unit. In a
+    #: stepped unit ``measurements`` are the *derived* top-level entries
+    #: (``expr`` over ``<step>.<measurement>``), named as the deck's own
+    #: ``print``ed vectors, so callers read the same names either way.
+    steps: tuple[tuple[str, tuple[str, str], tuple[tuple[str, str, str], ...]], ...] = ()
 
     @property
     def process_name(self) -> str | None:
@@ -343,9 +350,10 @@ def translate_deck(
     sections: list[str] = []
     temp_c: float | None = None
     analysis: tuple[str, str] | None = None
+    extra_analyses: list[tuple[str, str]] = []   # 2nd.. control-block analyses
     init: list[str] = []
     lets: dict[str, str] = {}          # name -> fully expanded expression
-    printed: list[str] = []
+    printed: list[tuple[str, int]] = []   # (let name, index of the solve it follows)
     meas: list[tuple[str, str, str]] = []
     lifted: dict[str, float] = {}
     params: dict[str, str] = {}        # plain-number .param cards kept in the body
@@ -356,13 +364,18 @@ def translate_deck(
             raise BatchIncompatible(f"{key}: duplicate measurement name {name!r}")
         meas.append((name, form, text_))
 
-    def set_analysis(kind: str, args: str) -> None:
+    def set_analysis(kind: str, args: str, *, control: bool = False) -> None:
         nonlocal analysis
         if analysis is not None:
-            raise BatchIncompatible(
-                f"{key}: more than one analysis ({analysis[0]!r} and {kind!r}); "
-                "klt sim runs exactly one per corner"
-            )
+            if not control:
+                raise BatchIncompatible(
+                    f"{key}: more than one analysis ({analysis[0]!r} and {kind!r}); "
+                    "klt sim runs exactly one per corner"
+                )
+            # Control-block solves run in order, each followed by its own
+            # lets/prints: that is klt's analysis_steps[] (route (a), #440).
+            extra_analyses.append((kind.lower(), args.strip()))
+            return
         analysis = (kind.lower(), args.strip())
 
     for line in _logical_lines(text):
@@ -378,7 +391,7 @@ def translate_deck(
                 init.append(stripped)
             elif _ANALYSIS_RE.match(stripped) and not low.startswith("."):
                 m = _ANALYSIS_RE.match(stripped)
-                set_analysis(m.group(1), m.group(2))
+                set_analysis(m.group(1), m.group(2), control=True)
             elif _LET_RE.match(stripped):
                 m = _LET_RE.match(stripped)
                 lets[m.group(1)] = _inline(m.group(2).strip(), lets, lambda e: f"({e})")
@@ -388,7 +401,7 @@ def translate_deck(
                         raise BatchIncompatible(
                             f"{key}: `print {name}` of something that is not a `let` vector"
                         )
-                    printed.append(name)
+                    printed.append((name, len(extra_analyses)))
             elif low.startswith("meas"):
                 m = _MEAS_RE.match(stripped)
                 if not m or m.group(1).lower() == "op":
@@ -496,8 +509,23 @@ def translate_deck(
     analysis = (analysis[0], _resolve_analysis_args(analysis[1], params, lift_params, key))
     if temp_c is None:
         raise BatchIncompatible(f"{key}: no .temp card; the temperature axis would be undefined")
-    for name in printed:
-        add_meas(name, "expr", lets[name])
+    steps: list = []
+    if extra_analyses:
+        if meas:
+            raise BatchIncompatible(
+                f"{key}: `.meas` cards in a deck with more than one solve are not "
+                "expressible as analysis_steps (use `let`/`print` vectors)"
+            )
+        every = [analysis, *((k, _resolve_analysis_args(a, params, lift_params, key))
+                             for k, a in extra_analyses)]
+        for i, (kind, args) in enumerate(every):
+            step_meas = tuple((f"raw_{n}", "expr", lets[n]) for n, at in printed if at == i)
+            steps.append((f"s{i + 1}", (kind, args), step_meas))
+        for name, at in printed:
+            add_meas(name, "expr", f"s{at + 1}.raw_{name}")
+    else:
+        for name, _ in printed:
+            add_meas(name, "expr", lets[name])
     if not meas:
         raise BatchIncompatible(f"{key}: no measurements; nothing to return from the fleet")
     for name in lift_params:
@@ -517,6 +545,7 @@ def translate_deck(
         measurements=tuple(meas),
         init=tuple(dict.fromkeys([*extra_init, *init])),
         timeout_s=timeout_s,
+        steps=tuple(steps),
     )
 
 
@@ -551,6 +580,14 @@ class BatchConfig:
     log: Callable[[str], None] = print
     #: Where to also copy request.json / report.json (evidence), if anywhere.
     evidence_dir: Path | None = None
+    #: Submit every request of a run through ONE ``klt sim --batch-set`` call
+    #: (#440) instead of one blocking ``klt sim`` per request. The three knobs
+    #: below are forwarded as ``--max-in-flight`` / ``--wait-for-capacity`` /
+    #: ``--capacity-retries``.
+    batch_set: bool = False
+    max_in_flight: int = 4
+    wait_for_capacity_s: int = 600
+    capacity_retries: int = 3
     #: Set once a run-wide fatal condition (runner/client ``klt`` mismatch) is
     #: seen; every later request in the same run is then refused without
     #: being submitted, so a grid does not burn one fleet job per deck on a
@@ -583,7 +620,7 @@ def _safe(name: str) -> str:
 
 def _unit_group_key(u: BatchUnit) -> tuple:
     return (u.body, u.temp_c, u.analysis, u.measurements, u.init, u.timeout_s,
-            tuple(n for n, _ in u.supply), u.process is None)
+            tuple(n for n, _ in u.supply), u.process is None, u.steps)
 
 
 def _same(a: float, b: float) -> bool:
@@ -630,7 +667,6 @@ def _build_request(units: list[BatchUnit], pdk: Pdk, cfg: BatchConfig) -> dict:
         "backend": BACKEND_BATCH,
         "netlist_source": "schematic",
         "corners": corners,
-        "analysis": {"kind": first.analysis[0], "args": first.analysis[1]},
         "measurements": [
             {"name": n, form: txt} for n, form, txt in first.measurements
         ],
@@ -640,6 +676,14 @@ def _build_request(units: list[BatchUnit], pdk: Pdk, cfg: BatchConfig) -> dict:
             "ngspice_init": list(first.init),
         },
     }
+    if first.steps:
+        request["analysis_steps"] = [
+            {"name": sname, "analysis": {"kind": kind, "args": args},
+             "measurements": [{"name": n, form: txt} for n, form, txt in smeas]}
+            for sname, (kind, args), smeas in first.steps
+        ]
+    else:
+        request["analysis"] = {"kind": first.analysis[0], "args": first.analysis[1]}
     if process_names:
         request["models"] = {
             "pdk": pdk.variant,
@@ -652,7 +696,8 @@ def _build_request(units: list[BatchUnit], pdk: Pdk, cfg: BatchConfig) -> dict:
     return request
 
 
-def _stage(units: list[BatchUnit], pdk: Pdk, cfg: BatchConfig, name: str) -> tuple[Path, dict]:
+def _stage(units: list[BatchUnit], pdk: Pdk, cfg: BatchConfig, name: str,
+           request_name: str = "request.json") -> tuple[Path, dict]:
     stage = cfg.stage_root / name
     stage.mkdir(parents=True, exist_ok=True)
     lines = []
@@ -664,7 +709,7 @@ def _stage(units: list[BatchUnit], pdk: Pdk, cfg: BatchConfig, name: str) -> tup
         lines.append(line)
     (stage / "body.spice").write_text("\n".join(lines) + "\n")
     request = _build_request(units, pdk, cfg)
-    req_path = stage / "request.json"
+    req_path = stage / request_name
     req_path.write_text(json.dumps(request, indent=2) + "\n")
     return req_path, request
 
@@ -720,6 +765,46 @@ def invoke_klt(req: Path, outdir: Path, cfg: BatchConfig, timeout_s: float) -> d
             f"klt sim {what} for {req.parent.name} (exit {proc.returncode}): "
             f"{message[:800] or proc.stdout[:400] or 'no output'}"
         )
+
+
+def invoke_klt_set(reqs: list[Path], outdir: Path, cfg: BatchConfig, timeout_s: float) -> dict:
+    """Run ONE ``klt sim --batch-set`` over ``reqs``; return the aggregate
+    envelope. Exit codes 0/3/4 carry an envelope on stdout (4 = some member
+    errored or was refused: reported per member, not raised); anything else,
+    or output that is not an envelope, raises :class:`BatchSubmitError`."""
+    exe = shutil.which(cfg.klt)
+    if not exe:
+        raise KltMissing(
+            f"'{cfg.klt}' not found on PATH; batch mode never falls back to a local ngspice run"
+        )
+    cmd = [exe, "sim", "--batch-set", *map(str, reqs),
+           "--max-in-flight", str(cfg.max_in_flight),
+           "--wait-for-capacity", str(cfg.wait_for_capacity_s),
+           "--capacity-retries", str(cfg.capacity_retries),
+           "-o", str(outdir), "--format", "json", "--backend", BACKEND_BATCH]
+    try:
+        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout_s)
+    except subprocess.TimeoutExpired as exc:
+        raise BatchSubmitError(
+            f"klt sim --batch-set ({len(reqs)} requests) did not finish within {timeout_s:.0f}s "
+            "(the fleet jobs may still be running)"
+        ) from exc
+    except OSError as exc:
+        raise BatchSubmitError(f"could not execute klt: {exc}") from exc
+    try:
+        env = json.loads(proc.stdout) if proc.stdout.strip() else None
+    except json.JSONDecodeError:
+        env = None
+    if proc.returncode in (0, 3, 4) and isinstance(env, dict) and isinstance(env.get("requests"), list):
+        return env
+    message = ""
+    if isinstance(env, dict) and isinstance(env.get("error"), dict):
+        message = str(env["error"].get("message", ""))
+    message = (message + " " + proc.stderr).strip()
+    raise BatchSubmitError(
+        f"klt sim --batch-set failed (exit {proc.returncode}): "
+        f"{message[:800] or proc.stdout[:400] or 'no output'}"
+    )
 
 
 def _finite(value) -> float | None:
@@ -948,9 +1033,28 @@ def run_units(
         groups.setdefault(_unit_group_key(u), []).append(i)
     results: list[UnitOutcome | None] = [None] * len(units)
 
+    def record(members: list[BatchUnit], name: str, req_path: Path, report: dict) -> list[UnitOutcome]:
+        (req_path.parent / "report.json").write_text(
+            json.dumps(report, indent=1, sort_keys=True) + "\n")
+        if cfg.evidence_dir is not None:
+            cfg.evidence_dir.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(req_path, cfg.evidence_dir / f"klt-{name}.request.json")
+            shutil.copyfile(req_path.parent / "report.json",
+                            cfg.evidence_dir / f"klt-{name}.report.json")
+        return _collect_group(members, report, tolerate_absent, req_path.parent)
+
+    def deliver(indices: list[int], outs: list[UnitOutcome]) -> None:
+        for i, out in zip(indices, outs):
+            results[i] = out
+            if on_outcome is not None:
+                on_outcome(out)
+
+    def group_name(members: list[BatchUnit]) -> str:
+        return _safe(members[0].key) + (f"+{len(members) - 1}" if len(members) > 1 else "")
+
     def do_group(indices: list[int]) -> None:
         members = [units[i] for i in indices]
-        name = _safe(members[0].key) + (f"+{len(members) - 1}" if len(members) > 1 else "")
+        name = group_name(members)
         try:
             if cfg.halted:
                 raise BatchRunnerMismatch(f"not submitted: {cfg.halted}")
@@ -958,14 +1062,7 @@ def run_units(
             n_corners = len(members) + len(request.get("exclude", []))
             poll = cfg.poll_timeout_s or (members[0].timeout_s * n_corners + 1800 + 120)
             report = invoke_klt(req_path, req_path.parent / "klt", cfg, poll + cfg.client_slack_s)
-            (req_path.parent / "report.json").write_text(
-                json.dumps(report, indent=1, sort_keys=True) + "\n")
-            if cfg.evidence_dir is not None:
-                cfg.evidence_dir.mkdir(parents=True, exist_ok=True)
-                shutil.copyfile(req_path, cfg.evidence_dir / f"klt-{name}.request.json")
-                shutil.copyfile(req_path.parent / "report.json",
-                                cfg.evidence_dir / f"klt-{name}.report.json")
-            outs = _collect_group(members, report, tolerate_absent, req_path.parent)
+            outs = record(members, name, req_path, report)
         except KltMissing:
             raise
         except BatchRunnerMismatch as exc:
@@ -974,13 +1071,62 @@ def run_units(
             outs = [UnitOutcome(u, "error", str(exc)) for u in members]
         except BatchError as exc:
             outs = [UnitOutcome(u, "error", str(exc)) for u in members]
-        for i, out in zip(indices, outs):
-            results[i] = out
-            if on_outcome is not None:
-                on_outcome(out)
+        deliver(indices, outs)
+
+    def do_set(batches: list[list[int]]) -> None:
+        """Every request of the run through one ``klt sim --batch-set`` (#440).
+        A member klt refused, or whose report is missing/malformed, is an error
+        outcome for that member's units only -- never dropped, never ok."""
+        staged: list[tuple[list[int], list[BatchUnit], str, Path, dict]] = []
+        for b in batches:
+            members = [units[i] for i in b]
+            name = group_name(members)
+            req_path, request = _stage(members, cfg.pdk, cfg, name, request_name=f"{name}.json")
+            staged.append((b, members, name, req_path, request))
+        longest = max(m[0].timeout_s * (len(m) + len(r.get("exclude", []))) + 1800 + 120
+                      for _, m, _, _, r in staged)
+        waves = -(-len(staged) // max(1, cfg.max_in_flight))
+        total = (cfg.poll_timeout_s or longest) * waves + cfg.wait_for_capacity_s * waves
+        outdir = cfg.stage_root / "klt-set"
+        try:
+            env = invoke_klt_set([s_[3] for s_ in staged], outdir, cfg, total + cfg.client_slack_s)
+        except KltMissing:
+            raise
+        except BatchError as exc:
+            for b, members, *_ in staged:
+                deliver(b, [UnitOutcome(u, "error", str(exc)) for u in members])
+            return
+        by_request = {}
+        for entry in env["requests"]:
+            if isinstance(entry, dict) and isinstance(entry.get("request"), str):
+                by_request[Path(entry["request"]).resolve()] = entry
+        for b, members, name, req_path, _ in staged:
+            entry = by_request.get(req_path.resolve())
+            try:
+                if entry is None:
+                    raise BatchResultError("klt returned no entry for this request")
+                rpt = entry.get("report")
+                if not rpt or not Path(rpt).is_file():
+                    err = entry.get("error") if isinstance(entry.get("error"), dict) else {}
+                    raise BatchSubmitError(
+                        f"klt sim --batch-set: request {req_path.name} {entry.get('status')!r} with no "
+                        f"report ({err.get('code', '?')}: {str(err.get('message', ''))[:600]})")
+                report = json.loads(Path(rpt).read_text())
+                if not isinstance(report, dict) or "corners" not in report or "error" in report:
+                    raise BatchResultError(f"request {req_path.name}: report is not a corner report")
+                outs = record(members, name, req_path, report)
+            except (BatchError, OSError, json.JSONDecodeError) as exc:
+                outs = [UnitOutcome(u, "error", str(exc)) for u in members]
+            deliver(b, outs)
 
     batches = list(groups.values())
-    if jobs <= 1 or len(batches) == 1:
+    if cfg.batch_set:
+        if cfg.halted:
+            for b in batches:
+                deliver(b, [UnitOutcome(units[i], "error", f"not submitted: {cfg.halted}") for i in b])
+        else:
+            do_set(batches)
+    elif jobs <= 1 or len(batches) == 1:
         for b in batches:
             do_group(b)
     else:

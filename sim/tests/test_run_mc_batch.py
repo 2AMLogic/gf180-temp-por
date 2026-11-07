@@ -103,6 +103,59 @@ class McBatchGridTests(McBatchFixture):
         self.assertNoLocalNgspice()
 
 
+class McBatchSetTests(McBatchFixture):
+    def grid_set(self):
+        seen = []
+        res = montecarlo.run_mc_grid(
+            self.tb, self.pdk, self.points, self.root / "work", jobs=2,
+            log_dir=self.log_dir, on_result=seen.append, backend="batch",
+            batch=self.cfg(batch_set=True, max_in_flight=3),
+        )
+        return res, seen
+
+    def test_all_samples_go_through_one_batch_set_call(self):
+        res, seen = self.grid_set()
+        sims = [c for c in self.calls() if c[0] == "sim"]
+        self.assertEqual(len(sims), 1)
+        self.assertIn("--batch-set", sims[0])
+        self.assertEqual(sims[0][sims[0].index("--max-in-flight") + 1], "3")
+        self.assertEqual(len(res), 6)
+        self.assertEqual(len(seen), 6)
+        self.assertTrue(all(r.status == "ok" for r in res), [r.message for r in res])
+        self.assertEqual([r.point.corner_id for r in res], [p.corner_id for p in self.points])
+        for r in res:
+            self.assertTrue((self.log_dir / r.log).is_file())
+        self.assertNoLocalNgspice()
+
+    def test_member_refused_is_a_per_sample_error_not_dropped(self):
+        self.mode("set_member_refused")
+        res, seen = self.grid_set()
+        self.assertEqual(len(res), 6)             # every sample still counted
+        self.assertEqual(len(seen), 6)
+        bad = [r for r in res if r.status == "error"]
+        self.assertEqual(len(bad), 1)
+        self.assertIn("batch_no_capacity", bad[0].message)
+        self.assertEqual(sum(r.status == "ok" for r in res), 5)
+        self.assertNoLocalNgspice()
+
+    def test_whole_set_refused_marks_every_sample_error(self):
+        self.mode("set_refuse")
+        res, _ = self.grid_set()
+        self.assertEqual(len(res), 6)
+        self.assertTrue(all(r.status == "error" and "set refused" in r.message for r in res))
+        self.assertNoLocalNgspice()
+
+    def test_set_mode_failure_modes_are_never_ok(self):
+        for mode in ("failed_corner", "no_log", "missing_meas", "no_remote", "mismatch",
+                     "drop_corner"):
+            with self.subTest(mode):
+                self.mode(mode)
+                res, _ = self.grid_set()
+                self.assertEqual(len(res), 6)
+                self.assertTrue(all(r.status != "ok" for r in res), mode)
+                self.assertNoLocalNgspice()
+
+
 class McBatchCliTests(McBatchFixture):
     def _args(self, *extra):
         return run_mc.build_parser().parse_args(
@@ -117,8 +170,24 @@ class McBatchCliTests(McBatchFixture):
         os.remove(self.bin / "ngspice")
         self.assertEqual(self._run("--backend", "batch"), run_mc.EXIT_OK)
         sims = [c for c in self.calls() if c[0] == "sim"]
-        self.assertEqual(len(sims), 4)                    # 2 binding points x n=2
-        self.assertTrue(all(c[c.index("--backend") + 1] == "batch" for c in sims))
+        # 2 binding points x n=2 samples = 4 requests, ONE --batch-set submission (#440)
+        self.assertEqual(len(sims), 1)
+        (call,) = sims
+        self.assertEqual(call[call.index("--backend") + 1], "batch")
+        first = call.index("--batch-set") + 1
+        self.assertEqual(len([a for a in call[first:call.index("--max-in-flight")]]), 4)
+        self.assertEqual(call[call.index("--max-in-flight") + 1], "4")
+        self.assertEqual(call[call.index("--wait-for-capacity") + 1], "600")
+        self.assertEqual(call[call.index("--capacity-retries") + 1], "3")
+
+    def test_flags_are_forwarded(self):
+        self.assertEqual(self._run("--backend", "batch", "--max-in-flight", "2",
+                                   "--wait-for-capacity", "30", "--capacity-retries", "1"),
+                         run_mc.EXIT_OK)
+        (call,) = [c for c in self.calls() if c[0] == "sim"]
+        self.assertEqual(call[call.index("--max-in-flight") + 1], "2")
+        self.assertEqual(call[call.index("--wait-for-capacity") + 1], "30")
+        self.assertEqual(call[call.index("--capacity-retries") + 1], "1")
 
     def test_env_selects_batch_and_failure_is_nonzero_not_local(self):
         self.mode("refuse")

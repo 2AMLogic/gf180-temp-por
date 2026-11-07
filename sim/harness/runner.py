@@ -788,6 +788,16 @@ def run_batch_grid(
             return
         output = out.text()
         measurements = parse_measurements(output)
+        if out.unit.steps:
+            # Several solves (analysis_steps, #440): the derived values are
+            # klt's own full-precision results; take any the raw log does not
+            # carry as `m_<name> = <value>` lines (same names the local
+            # deck's `print m_<name>` produces).
+            for vname, value in out.values.items():
+                bare = vname[2:] if vname.startswith("m_") else vname
+                if value is not None and bare not in measurements and vname in {
+                        n for n, _, _ in out.unit.measurements}:
+                    measurements[bare] = value
         missing = [name for name in tb.measure if name not in measurements]
         base = dict(point=point, measurements=measurements, seconds=out.seconds,
                     deck=deck_name, log=out.log_path.name)
