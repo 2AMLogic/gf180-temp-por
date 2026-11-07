@@ -81,6 +81,15 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--no-write", action="store_true", help="run but do not record evidence (debugging only)")
     parser.add_argument("--quiet", action="store_true", help="only print the summary")
     klt_batch.add_backend_argument(parser)
+    parser.add_argument("--max-in-flight", type=int, default=4, metavar="N",
+                        help="batch backend: requests in flight at once in the single "
+                             "`klt sim --batch-set` submission (default 4)")
+    parser.add_argument("--wait-for-capacity", type=int, default=600, metavar="SECONDS",
+                        help="batch backend: wait up to SECONDS for fleet capacity per "
+                             "request (default 600)")
+    parser.add_argument("--capacity-retries", type=int, default=3, metavar="N",
+                        help="batch backend: re-submit a request refused for fleet "
+                             "capacity up to N more times (default 3)")
     parser.add_argument("--version", action="version", version=f"gf180-temp-por harness {HARNESS_VERSION}")
     return parser
 
@@ -174,7 +183,9 @@ def run(args: argparse.Namespace) -> int:
 
     batch_cfg = (
         klt_batch.BatchConfig(pdk=pdk, stage_root=workdir / "batch", evidence_dir=log_dir,
-                              klt=args.klt)
+                              klt=args.klt, batch_set=True, max_in_flight=args.max_in_flight,
+                              wait_for_capacity_s=args.wait_for_capacity,
+                              capacity_retries=args.capacity_retries)
         if backend == klt_batch.BACKEND_BATCH else None
     )
     wall_start = _dt.datetime.now(_dt.timezone.utc)

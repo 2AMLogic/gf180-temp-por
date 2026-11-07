@@ -33,10 +33,45 @@ from pathlib import Path
 mode = os.environ.get("FAKE_KLT_MODE", "ok")
 state = Path(os.environ["FAKE_KLT_STATE"])
 args = sys.argv[1:]
-with open(state / "calls.jsonl", "a") as fh:
-    fh.write(json.dumps(args) + "\n")
+if not os.environ.get("FAKE_KLT_INNER"):
+    with open(state / "calls.jsonl", "a") as fh:
+        fh.write(json.dumps(args) + "\n")
 if args == ["--version"]:
     print("klt 0.0.0+fake"); sys.exit(0)
+if "--batch-set" in args:
+    import subprocess
+    i = args.index("--batch-set") + 1
+    reqs = []
+    while i < len(args) and not args[i].startswith("--"):
+        reqs.append(args[i]); i += 1
+    outdir = Path(args[args.index("-o") + 1])
+    if mode == "set_refuse":
+        print(json.dumps({"error": {"message": "set refused"}})); sys.exit(1)
+    entries, worst = [], 0
+    for k, r in enumerate(reqs):
+        stem = Path(r).stem
+        d = outdir / stem; d.mkdir(parents=True, exist_ok=True)
+        env = dict(os.environ, FAKE_KLT_INNER="1")
+        p = subprocess.run([sys.argv[0], "sim", r, "-o", str(d), "--format", "json"],
+                           capture_output=True, text=True, env=env)
+        try:
+            rep = json.loads(p.stdout)
+        except ValueError:
+            rep = None
+        if mode == "set_member_refused" and k == 0:
+            rep = None
+        if isinstance(rep, dict) and "corners" in rep:
+            (d / "report.json").write_text(json.dumps(rep))
+            entries.append({"index": k, "request": r, "status": "pass", "exit_code": 0,
+                            "report": str(d / "report.json"), "error": None})
+        else:
+            worst = 4
+            entries.append({"index": k, "request": r, "status": "error", "exit_code": 1,
+                            "report": None,
+                            "error": {"message": "refused", "code": "batch_no_capacity"}})
+    print(json.dumps({"schema_version": 1, "status": "pass" if not worst else "error",
+                      "request_count": len(reqs), "requests": entries}))
+    sys.exit(worst)
 req_path = Path(args[1]); outdir = Path(args[args.index("-o") + 1])
 req = json.loads(req_path.read_text())
 # Claim the next free index atomically ("x" = O_EXCL): concurrent fake-klt
@@ -288,6 +323,65 @@ class TranslationTests(BatchTestCase):
         self.assertIn(".param vdd_val=3.3", u.body)       # not lifted unless asked
         self.assertIn("sw_stat_global=0", u.body)          # design.ngspice inlined
         self.assertIn("set numdgt=8", u.init)
+
+    STEPPED_DECK = textwrap.dedent(
+        """\
+        * two-solve deck
+        .param vdd_val=3.3
+        .include "{design}"
+        .lib "{lib}" tt
+        .temp 125.0
+        .control
+        set numdgt=10
+        dc temp 25 25 1
+        let m_a25 = v(ptat)
+        print m_a25
+        dc temp 125 125 1
+        let m_atgt = v(ptat)
+        let m_tk = v(tk)
+        print m_atgt
+        print m_tk
+        .endc
+        .end
+        """
+    )
+
+    def test_two_solve_deck_becomes_analysis_steps(self):
+        u = self.unit(template=self.STEPPED_DECK)
+        self.assertEqual([s[0] for s in u.steps], ["s1", "s2"])
+        self.assertEqual(u.steps[0][1], ("dc", "temp 25 25 1"))
+        self.assertEqual(u.steps[1][1], ("dc", "temp 125 125 1"))
+        self.assertEqual(u.steps[0][2], (("raw_m_a25", "expr", "v(ptat)"),))
+        self.assertEqual([m[0] for m in u.steps[1][2]], ["raw_m_atgt", "raw_m_tk"])
+        # derived measurements keep the deck's own print names
+        self.assertEqual(u.measurements, (("m_a25", "expr", "s1.raw_m_a25"),
+                                          ("m_atgt", "expr", "s2.raw_m_atgt"),
+                                          ("m_tk", "expr", "s2.raw_m_tk")))
+        req = klt_batch._build_request([u], self.pdk, self.cfg())
+        self.assertNotIn("analysis", req)
+        self.assertEqual([s["name"] for s in req["analysis_steps"]], ["s1", "s2"])
+        self.assertEqual(req["analysis_steps"][1]["analysis"], {"kind": "dc", "args": "temp 125 125 1"})
+        self.assertEqual([m["name"] for m in req["measurements"]], ["m_a25", "m_atgt", "m_tk"])
+
+    def test_two_solve_deck_runs_through_the_fake_klt(self):
+        u = self.unit(template=self.STEPPED_DECK)
+        (out,) = klt_batch.run_units([u], self.cfg())
+        self.assertTrue(out.ok, out.message)
+        self.assertIn("analysis_steps", self.calls() and json.loads((self.state / "req-0.json").read_text()))
+        self.assertNoLocalNgspice()
+
+    def test_single_analysis_request_is_unchanged(self):
+        u = self.unit()
+        self.assertEqual(u.steps, ())
+        req = klt_batch._build_request([u], self.pdk, self.cfg())
+        self.assertEqual(req["analysis"], {"kind": "tran", "args": "2e-05 0.03"})
+        self.assertNotIn("analysis_steps", req)
+
+    def test_second_file_scope_analysis_is_still_refused(self):
+        deck = self.deck(FILE_SCOPE_DECK).replace(".end\n", ".op\n.end\n")
+        with self.assertRaises(klt_batch.BatchIncompatible):
+            klt_batch.translate_deck(deck, key="x", log_path=self.root / "x.log",
+                                     pdk=self.pdk, deck_dir=self.control / "decks")
 
     def test_file_scope_deck(self):
         u = self.unit(template=FILE_SCOPE_DECK)
