@@ -2,6 +2,10 @@
 
 Merged PRs and closed issues from the initial 30-day snapshot (2026-09-07 onward).
 
+### 2026-11-07
+
+- **PR #436**: Bump Repo Skills 0.25.1 -> 0.25.10
+
 ### 2026-11-06
 
 - **PR #432**: refactor(sim): share one local grid loop, drop single-call batch wrappers
