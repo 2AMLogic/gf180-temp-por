@@ -58,10 +58,12 @@ Issues carrying `loom:curated`.
 - **#388**: T1 item 5 phase 2: klt sim envelope with per-row limits over the 81-point grid, piloted on por-vth *(curated)*
 - **#400**: Bump klayout-tools pin 0.6.0, 0.7.0 → 0.8.0 *(curated)*
 - **#416**: POR threshold rows: N=500 cannot demonstrate the 99.73 % [3σ] yield; need a larger campaign *(curated)*
+- **#417**: Item 6: sampled negative control for the Monte Carlo yield campaigns *(curated)*
 
 ## Proposed (Architect / Hermit)
 
 - **#435**: Scrub or remove ratification/market-key before public visibility flip *(hermit)*
+- **#443**: Remove run_mc_point: near-verbatim duplicate of runner.run_point *(hermit)*
 
 ## Epics
 
@@ -78,7 +80,7 @@ _None._
 | In Progress (`loom:building`) | 0 |
 | PRs awaiting review | 0 |
 | Approved PRs awaiting merge | 0 |
-| Curated | 8 |
-| Architect / Hermit proposals | 1 |
+| Curated | 9 |
+| Architect / Hermit proposals | 2 |
 | Active epics | 0 |
 <!-- guide:plan-body:end -->
