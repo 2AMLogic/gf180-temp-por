@@ -54,10 +54,7 @@ the deterministic-grid equivalent):
 
 from __future__ import annotations
 
-import shutil
 import statistics
-import subprocess
-import time
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -66,14 +63,11 @@ from .corners import CORNERS, Corner
 from .pdk import Pdk
 from .runner import (
     DEFAULT_TIMEOUT_S,
-    NGSPICE,
-    NgspiceMissing,
     PointResult,
     _require_batch,
-    parse_measurements,
     run_batch_grid,
     run_local_grid,
-    write_run_spiceinit,
+    run_point,
 )
 from .testbench import Testbench
 
@@ -307,92 +301,6 @@ def compose_mc_deck(tb: Testbench, pdk: Pdk, point: McPoint) -> str:
     return "\n".join(lines)
 
 
-def run_mc_point(
-    tb: Testbench,
-    pdk: Pdk,
-    point: McPoint,
-    workdir: Path,
-    timeout_s: int = DEFAULT_TIMEOUT_S,
-    log_dir: Path | None = None,
-) -> PointResult:
-    """Simulate one MC sample. Never raises for simulation failure.
-
-    Structurally identical to ``runner.run_point`` (same ngspice invocation,
-    same measurement parsing, same log-writing convention) but composes the
-    deck via :func:`compose_mc_deck`. Kept separate rather than
-    parameterising ``runner.run_point`` so the deterministic-grid path is
-    untouched by this issue.
-    """
-    workdir.mkdir(parents=True, exist_ok=True)
-    log_dir = workdir if log_dir is None else log_dir
-    log_dir.mkdir(parents=True, exist_ok=True)
-    deck_path = workdir / f"{point.corner_id}.spice"
-    log_path = log_dir / f"{point.corner_id}.log"
-    deck_path.write_text(compose_mc_deck(tb, pdk, point))
-
-    if shutil.which(NGSPICE) is None:
-        raise NgspiceMissing("ngspice not found on PATH")
-
-    # #216/#229: force single-threaded ngspice via a per-run .spiceinit so
-    # this harness's own process-level `-j` parallelism (run_mc_grid's
-    # ThreadPoolExecutor) doesn't contend with a nested OpenMP team inside
-    # each ngspice process. Every point in a grid shares `workdir`, so
-    # concurrent points each re-write identical content.
-    write_run_spiceinit(workdir)
-
-    started = time.monotonic()
-    try:
-        proc = subprocess.run(
-            [NGSPICE, "-b", str(deck_path)],
-            capture_output=True,
-            text=True,
-            timeout=timeout_s,
-            cwd=workdir,
-            check=False,
-        )
-        output = proc.stdout + "\n" + proc.stderr
-    except subprocess.TimeoutExpired:
-        elapsed = time.monotonic() - started
-        log_path.write_text(f"TIMEOUT after {timeout_s}s\n")
-        return PointResult(
-            point=point,
-            status="error",
-            seconds=elapsed,
-            deck=deck_path.name,
-            log=log_path.name,
-            message=f"ngspice timed out after {timeout_s}s",
-        )
-    elapsed = time.monotonic() - started
-    log_path.write_text(output)
-
-    measurements = parse_measurements(output)
-    missing = [name for name in tb.measure if name not in measurements]
-    if missing:
-        first_error = next(
-            (line.strip() for line in output.splitlines() if line.strip().startswith(("Error", "ERROR", "Fatal"))),
-            "",
-        )
-        return PointResult(
-            point=point,
-            status="failed",
-            measurements=measurements,
-            missing=missing,
-            seconds=elapsed,
-            deck=deck_path.name,
-            log=log_path.name,
-            message=first_error or f"no measurements parsed",
-        )
-
-    return PointResult(
-        point=point,
-        status="ok",
-        measurements=measurements,
-        seconds=elapsed,
-        deck=deck_path.name,
-        log=log_path.name,
-    )
-
-
 def run_mc_grid(
     tb: Testbench,
     pdk: Pdk,
@@ -422,7 +330,9 @@ def run_mc_grid(
             jobs=jobs, timeout_s=timeout_s, on_result=on_result, log_dir=log_dir,
         )
     return run_local_grid(
-        lambda point: run_mc_point(tb, pdk, point, workdir, timeout_s=timeout_s, log_dir=log_dir),
+        lambda point: run_point(
+            tb, pdk, point, workdir, timeout_s=timeout_s, log_dir=log_dir, compose=compose_mc_deck,
+        ),
         points, jobs, on_result,
     )
 

@@ -18,7 +18,7 @@ from unittest import mock
 SIM_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(SIM_DIR))
 
-from harness import cli, cliutil, corners, report, runner, testbench  # noqa: E402
+from harness import cli, cliutil, corners, montecarlo, report, runner, testbench  # noqa: E402
 from harness.pdk import PdkNotFound  # noqa: E402
 from testutil import fake_pdk  # noqa: E402
 
@@ -345,24 +345,37 @@ class SpiceinitTests(unittest.TestCase):
         self.assertEqual(path.read_text(), runner.spiceinit_text(home_spiceinit=home))
 
     def test_run_point_writes_a_spiceinit_alongside_the_deck(self):
-        """The actual call site (`runner.py:415`'s `subprocess.run(...,
+        """The actual call site (`run_point`'s `subprocess.run(...,
         cwd=workdir)`) writes `workdir/.spiceinit` before invoking ngspice --
-        exercised here without a real ngspice by faking `subprocess.run`."""
+        exercised here without a real ngspice by faking `subprocess.run`.
+        Covers both the PVT composer and the Monte Carlo composer (#216/#229,
+        #443): the MC grid runs through `run_point(..., compose=compose_mc_deck)`."""
         root = self.root
         (root / "tb").mkdir()
         (root / "tb" / "x.spice").write_text("v1 out 0 dc {vdd_val}\n")
         (root / "tb" / "tb.json").write_text(
-            json.dumps({"name": "x", "netlist": "x.spice", "measure": {"vout": "v(out)"}})
+            json.dumps(
+                {
+                    "name": "x",
+                    "netlist": "x.spice",
+                    "measure": {"vout": "v(out)"},
+                    "analyses": ["dc temp %(temp_c)g %(temp_c)g 1"],
+                    "mc": {
+                        "n": 500,
+                        "seed_base": 1,
+                        "binding_points": [{"label": "a", "corner": "ss", "temp_c": -40, "vdd": 3.63}],
+                    },
+                }
+            )
         )
         tb = testbench.load(root / "tb")
         pdk = fake_pdk(root / "gf180mcuD")
-        point = corners.build_grid(corners.resolve_corners(["tt"]), (27,), [3.3])[0]
-        workdir = root / "work"
-
-        seen_cwd = []
+        pvt_point = corners.build_grid(corners.resolve_corners(["tt"]), (27,), [3.3])[0]
+        mc_point = montecarlo.build_mc_grid(
+            montecarlo.load_binding_points(tb), n=500, seed_base=1
+        )[0]
 
         def fake_run(cmd, capture_output, text, timeout, cwd, check):
-            seen_cwd.append(Path(cwd))
             self.assertTrue((Path(cwd) / ".spiceinit").is_file())
             proc = mock.Mock()
             proc.stdout = "m_vout = 1.0"
@@ -370,12 +383,19 @@ class SpiceinitTests(unittest.TestCase):
             proc.returncode = 0
             return proc
 
-        with mock.patch.object(runner.subprocess, "run", side_effect=fake_run):
-            result = runner.run_point(tb, pdk, point, workdir)
+        cases = [
+            ("pvt", pvt_point, runner.compose_deck),
+            ("mc", mc_point, montecarlo.compose_mc_deck),
+        ]
+        for name, point, compose in cases:
+            with self.subTest(composer=name):
+                workdir = root / f"work-{name}"
+                with mock.patch.object(runner.subprocess, "run", side_effect=fake_run):
+                    result = runner.run_point(tb, pdk, point, workdir, compose=compose)
 
-        self.assertEqual(result.status, "ok")
-        self.assertTrue((workdir / ".spiceinit").is_file())
-        self.assertIn("set num_threads=1", (workdir / ".spiceinit").read_text())
+                self.assertEqual(result.status, "ok")
+                self.assertTrue((workdir / ".spiceinit").is_file())
+                self.assertIn("set num_threads=1", (workdir / ".spiceinit").read_text())
 
     def test_probe_num_threads_parses_the_echoed_value(self):
         with mock.patch.object(runner.shutil, "which", return_value="/usr/bin/ngspice"), \
