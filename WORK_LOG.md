@@ -2,6 +2,11 @@
 
 Merged PRs and closed issues from the initial 30-day snapshot (2026-09-07 onward).
 
+### 2026-11-10
+
+- **PR #445**: refactor(sim): route Monte Carlo samples through run_point via compose=
+- **Issue #443** (closed): Remove run_mc_point: near-verbatim duplicate of runner.run_point
+
 ### 2026-11-07
 
 - **PR #441**: sim: submit Monte Carlo samples via one klt --batch-set; run multi-solve decks
