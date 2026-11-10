@@ -588,8 +588,13 @@ def run_point(
     workdir: Path,
     timeout_s: int = DEFAULT_TIMEOUT_S,
     log_dir: Path | None = None,
+    compose=compose_deck,
 ) -> PointResult:
     """Simulate one PVT point. Never raises for simulation failure.
+
+    ``compose`` is the deck composer, ``(tb, pdk, point) -> str``; it defaults
+    to :func:`compose_deck`. The Monte Carlo path passes its own composer so
+    both grids share this one ngspice-invocation path.
 
     ``workdir`` holds the generated deck (scratch, disposable). ``log_dir``
     -- when given -- is where the raw ngspice output lands as
@@ -602,7 +607,7 @@ def run_point(
     log_dir.mkdir(parents=True, exist_ok=True)
     deck_path = workdir / f"{point.corner_id}.spice"
     log_path = log_dir / f"{point.corner_id}.log"
-    deck_path.write_text(compose_deck(tb, pdk, point))
+    deck_path.write_text(compose(tb, pdk, point))
     # #216: force single-threaded ngspice via a per-run .spiceinit so this
     # harness's own process-level `-j` parallelism doesn't contend with a
     # nested OpenMP team inside each ngspice process. Every point in a grid
