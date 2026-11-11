@@ -32,7 +32,7 @@ _None._
 
 Issues currently being built (`loom:building`).
 
-- **#443**: Remove run_mc_point: near-verbatim duplicate of runner.run_point
+_None._
 
 ## PRs Awaiting Review
 
@@ -59,7 +59,6 @@ Issues carrying `loom:curated`.
 - **#400**: Bump klayout-tools pin 0.6.0, 0.7.0 → 0.8.0 *(curated)*
 - **#416**: POR threshold rows: N=500 cannot demonstrate the 99.73 % [3σ] yield; need a larger campaign *(curated)*
 - **#417**: Item 6: sampled negative control for the Monte Carlo yield campaigns *(curated)*
-- **#443**: Remove run_mc_point: near-verbatim duplicate of runner.run_point *(curated)*
 
 ## Proposed (Architect / Hermit)
 
@@ -77,10 +76,10 @@ _None._
 | Very important | 0 |
 | Important | 2 |
 | Ready (`loom:issue`) | 0 |
-| In Progress (`loom:building`) | 1 |
+| In Progress (`loom:building`) | 0 |
 | PRs awaiting review | 0 |
 | Approved PRs awaiting merge | 0 |
-| Curated | 10 |
+| Curated | 9 |
 | Architect / Hermit proposals | 1 |
 | Active epics | 0 |
 <!-- guide:plan-body:end -->
