@@ -2,6 +2,10 @@
 
 Merged PRs and closed issues from the initial 30-day snapshot (2026-09-07 onward).
 
+### 2026-11-12
+
+- **PR #449**: Bump Repo Skills 0.25.10 -> 0.26.1
+
 ### 2026-11-10
 
 - **PR #445**: refactor(sim): route Monte Carlo samples through run_point via compose=
