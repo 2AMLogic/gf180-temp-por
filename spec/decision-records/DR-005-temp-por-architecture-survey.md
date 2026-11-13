@@ -1,6 +1,6 @@
 # DR-005: Temp sensor + POR architecture survey (topology selection)
 
-- **Status**: proposed
+- **Status**: proposed (superseded in part by [DR-031](DR-031-temp-core-chopped-amplifier-and-gain-fix.md): the wave-1 rejection of chopping only)
 - **Date**: 2026-07-30
 - **Decided by**: Loom Builder agent, issue #3
 
