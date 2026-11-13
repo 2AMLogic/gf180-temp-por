@@ -211,6 +211,9 @@ def run(args: argparse.Namespace) -> int:
         started_utc=started.isoformat(timespec="seconds"), wall_seconds=wall_seconds,
         n_per_point=n, seed_base=seed_base, derived_measures=derived,
         claim=args.claim, supersedes=args.supersedes, git=git,
+        # On batch the models came from the fleet runner's image, not this
+        # host's install: record what the runner read (#468).
+        batch=klt_batch.batch_provenance(batch_cfg) if batch_cfg else None,
     )
 
     print()

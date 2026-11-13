@@ -340,6 +340,9 @@ def run(args: argparse.Namespace) -> int:
         statistical_convention=args.statistical_convention,
         subset_reason=args.subset_reason,
         git=git,
+        # On batch the models came from the fleet runner's image, not this
+        # host's install: record what the runner read (#468).
+        batch=klt_batch.batch_provenance(batch_cfg) if batch_cfg else None,
     )
 
     print()

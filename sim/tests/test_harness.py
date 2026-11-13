@@ -1019,7 +1019,10 @@ class RecordRenderingTests(unittest.TestCase):
             runner.PointResult(point=p, status="ok", measurements={"vout": 1.0 + i * 0.01})
             for i, p in enumerate(self.points)
         ]
-        self.record = report.build_record(
+        self.record = self._record()
+
+    def _record(self, **extra):
+        return report.build_record(
             tb=self.tb,
             pdk=self.pdk,
             points=self.points,
@@ -1030,7 +1033,77 @@ class RecordRenderingTests(unittest.TestCase):
             started_utc="2026-07-29T15:30:00+00:00",
             wall_seconds=9.5,
             claim="spec/temp-por.md#example",
+            **extra,
         )
+
+    #: What `klt_batch.batch_provenance()` hands the record builder (#468).
+    BATCH_PROVENANCE = {
+        "backend": "batch",
+        "models_lib_sha256": "f6f4a96e18fc5ad11270ad3451aaecc7ac37fc81eb61e15b0d7d94c7bc594a24",
+        "models_lib_comparison": "match",
+        "jobs": [{
+            "job_id": "klt-sim-8613ddc8115a",
+            "runner_models_lib_sha256":
+                "f6f4a96e18fc5ad11270ad3451aaecc7ac37fc81eb61e15b0d7d94c7bc594a24",
+            "models_lib_sha256":
+                "f6f4a96e18fc5ad11270ad3451aaecc7ac37fc81eb61e15b0d7d94c7bc594a24",
+            "comparison": {"status": "match"},
+            "klt_models_lib_comparison": "match",
+        }],
+    }
+
+    def test_a_local_backend_record_is_unchanged_by_the_batch_provenance_field(self):
+        """#468 adds `environment.batch` for a fleet run only: a local record
+        must be identical in JSON and in markdown, not merely similar."""
+        self.assertNotIn("batch", self.record["environment"])
+        explicit_local = self._record(batch=None)
+        self.assertEqual(explicit_local, self.record)
+        self.assertEqual(report.render_record(explicit_local, "smoke-bias"),
+                         report.render_record(self.record, "smoke-bias"))
+        self.assertNotIn("fleet runner", report.render_record(self.record, "smoke-bias"))
+
+    def test_a_batch_record_names_the_pdk_the_fleet_runner_read(self):
+        record = self._record(batch=self.BATCH_PROVENANCE)
+        self.assertEqual(record["environment"]["batch"], self.BATCH_PROVENANCE)
+        # the ONLY JSON difference from the local record is that one key
+        env = dict(record["environment"])
+        env.pop("batch")
+        self.assertEqual(env, self.record["environment"])
+        self.assertEqual({k: v for k, v in record.items() if k != "environment"},
+                         {k: v for k, v in self.record.items() if k != "environment"})
+
+        text = report.render_record(record, "smoke-bias")
+        local_lines = report.render_record(self.record, "smoke-bias").splitlines()
+        lines = text.splitlines()
+        # the new lines sit directly under `- PDK:`, and nothing else moved
+        pdk_at = next(i for i, ln in enumerate(lines) if ln.startswith("- PDK: "))
+        added = lines[pdk_at + 1:pdk_at + 4]
+        self.assertEqual(lines[:pdk_at + 1] + lines[pdk_at + 4:], local_lines)
+        self.assertIn("f6f4a96e18fc5ad11270ad3451aaecc7ac37fc81eb61e15b0d7d94c7bc594a24",
+                      added[0])
+        self.assertIn("PDK the fleet runner read: match", added[1])
+        self.assertIn("klt-sim-8613ddc8115a", added[2])
+        self.assertIn("match", added[2])
+
+    def test_a_batch_record_that_could_not_compare_says_so_rather_than_match(self):
+        provenance = {
+            "backend": "batch",
+            "models_lib_sha256": None,
+            "models_lib_comparison": "not_comparable",
+            "jobs": [{
+                "job_id": "klt-sim-older-runner",
+                "runner_models_lib_sha256": None,
+                "models_lib_sha256": None,
+                "comparison": {"status": "not_comparable",
+                               "reason": "runner_hash_unavailable"},
+                "klt_models_lib_comparison": None,
+            }],
+        }
+        text = report.render_record(self._record(batch=provenance), "smoke-bias")
+        self.assertIn("PDK the fleet runner read: not_comparable", text)
+        self.assertIn("runner_hash_unavailable", text)
+        self.assertIn("not reported", text)
+        self.assertIn("- PDK model library sha256 (this host): `unavailable`", text)
 
     def test_every_ratified_field_is_present_and_in_order(self):
         text = report.render_record(self.record, "smoke-bias")

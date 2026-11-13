@@ -256,18 +256,31 @@ def source_provenance(experiment_dir: Path, record_id: str) -> str:
     return f"unknown — {path} states no **Netlist provenance** field"
 
 
-def environment(pdk: Pdk, ngspice: str, repo_root: Path, git: dict | None = None) -> dict:
+def environment(
+    pdk: Pdk,
+    ngspice: str,
+    repo_root: Path,
+    git: dict | None = None,
+    batch: dict | None = None,
+) -> dict:
     """Reproducibility provenance for the record.
 
     ``git`` should be sampled *before* the run starts. The harness writes its
     own per-corner logs into the tracked evidence tree, so sampling afterwards
     would report every record as taken against a dirty tree.
+
+    ``batch`` is ``klt_batch.batch_provenance(cfg)`` for a run that went to
+    the Spot fleet, and ``None`` for a local one (#468). On batch the models
+    come from the fleet runner's own PDK image, so ``pdk`` alone names an
+    install the simulation need not have read; the ``batch`` block names what
+    the runner reported reading, per fleet job. A local-backend record is
+    unchanged: the key is absent, not empty.
     """
     try:
         user = getpass.getuser()
     except Exception:  # pragma: no cover - unusual environments
         user = "unknown"
-    return {
+    env = {
         "harness_version": HARNESS_VERSION,
         "ngspice": ngspice,
         "python": sys.version.split()[0],
@@ -277,6 +290,9 @@ def environment(pdk: Pdk, ngspice: str, repo_root: Path, git: dict | None = None
         "pdk": pdk.provenance(),
         "git": git if git is not None else git_provenance(repo_root),
     }
+    if batch is not None:
+        env["batch"] = batch
+    return env
 
 
 def matrix_conformance(tb: Testbench, points: list[PvtPoint]) -> dict:
@@ -353,6 +369,7 @@ def build_record(
     statistical_convention: str = "",
     subset_reason: str = "",
     git: dict | None = None,
+    batch: dict | None = None,
 ) -> dict:
     measure_names = list(tb.measure)
     summary = summarize(results, measure_names)
@@ -391,7 +408,7 @@ def build_record(
         "subset_reason": subset_reason,
         "matrix": matrix_conformance(tb, points),
         "testbench": tb.provenance(),
-        "environment": environment(pdk, ngspice, repo_root, git),
+        "environment": environment(pdk, ngspice, repo_root, git, batch),
         "grid": {
             "corners": corners,
             "temperatures_c": sorted({p.temp_c for p in points}),
@@ -547,6 +564,40 @@ def _evidence_link_lines(record: dict, experiment: str, record_id: str, logs_lab
     ]
 
 
+def _batch_pdk_lines(env: dict) -> list[str]:
+    """The ``## Environment`` lines naming what the fleet runner simulated.
+
+    Empty for a local-backend record (no ``environment.batch`` block), so a
+    local record renders byte-for-byte as before. For a batch record the
+    aggregate verdict and one line per fleet job sit directly under the
+    ``- PDK:`` line, because on batch that line names an install resolved on
+    the submitting host while the models came from the runner's image (#468).
+    A ``mismatch`` cannot appear here: such a report is rejected, never
+    recorded.
+    """
+    batch = env.get("batch")
+    if not isinstance(batch, dict):
+        return []
+    local = batch.get("models_lib_sha256")
+    lines = [
+        f"- PDK model library sha256 (this host): `{local or 'unavailable'}`",
+        f"- PDK the fleet runner read: {batch.get('models_lib_comparison', 'unknown')}"
+        f" ({len(batch.get('jobs') or [])} fleet job(s), backend"
+        f" {batch.get('backend', 'batch')})",
+    ]
+    for job in batch.get("jobs") or []:
+        comparison = job.get("comparison") or {}
+        status = comparison.get("status", "unknown")
+        reason = comparison.get("reason")
+        runner_hash = job.get("runner_models_lib_sha256")
+        lines.append(
+            f"  - `{job.get('job_id', 'unknown')}`: runner model library sha256 "
+            f"`{runner_hash or 'not reported'}` — {status}"
+            + (f" ({reason})" if reason else "")
+        )
+    return lines
+
+
 def render_record_document(
     record: dict,
     experiment: str,
@@ -618,6 +669,7 @@ def render_record_document(
         "",
         f"- PDK: {pdk.get('variant')} @ open_pdks `{pdk.get('open_pdks_version')}`"
         f" ({pdk.get('path')}, found via {pdk.get('discovered_via')})",
+        *_batch_pdk_lines(env),
         f"- ngspice: {env['ngspice']}",
         f"- Harness: sim/harness {env['harness_version']}, python {env['python']}",
         f"- git: `{git['commit']}` on `{git['branch']}`"
