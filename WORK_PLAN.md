@@ -7,7 +7,7 @@ Current workflow state, maintained by Guide.
 
 Judge-approved PRs under a hold (`loom:blocked` or `loom:operator`) — only a human merge decision is missing.
 
-_None._
+- **#457**: feat(temp_core): chop the amplifier, widen the gain mirror, halve the trim ladder (DR-031)
 
 ## Very Important
 
@@ -21,6 +21,7 @@ _None._
 
 - **#336**: Live batch-fleet verification of a control grid via klt_batch (blocked: fleet runner klt 0.5.0 vs client 0.6.0)
 - **#400**: Bump klayout-tools pin 0.6.0, 0.7.0 → 0.8.0
+- **#452**: temp_core: implement amplifier chop/auto-zero, gain mirror fix and trim re-balance (#415 step 2/3)
 
 ## Ready
 
@@ -32,24 +33,25 @@ _None._
 
 Issues currently being built (`loom:building`).
 
-- **#451**: temp_core: decision record superseding DR-005's no-chopping rejection (#415 step 1/3)
+- **#452**: temp_core: implement amplifier chop/auto-zero, gain mirror fix and trim re-balance (#415 step 2/3)
 
 ## PRs Awaiting Review
 
 PRs waiting on Judge (`loom:review-requested`).
 
-- **#454**: temp_core: decision record superseding DR-005's no-chopping rejection (#415 step 1/3)
+_None._
 
 ## Approved (Awaiting Merge)
 
 PRs that passed review and are queued for Champion auto-merge (`loom:pr`).
 
-_None._
+- **#457**: feat(temp_core): chop the amplifier, widen the gain mirror, halve the trim ladder (DR-031)
 
 ## Proposed
 
 Issues carrying `loom:curated`.
 
+- **#295**: Champion: Merge-Risk Hold Digest *(curated)*
 - **#321**: run_net_attribution.py's 60-deck grid has no off-host execution path, so the post-#314 re-run cannot be taken from a dispatch worker *(curated)*
 - **#324**: Regenerate the deglitch dwell sweep against the star extraction: the post-layout slowest crossing moved from 20.77 to 22.34 µs *(curated)*
 - **#331**: sim/harness/runner.py: batch (klt sim) execution path so control grids can run off dispatch workers (mechanism question from #321) *(curated)*
@@ -59,7 +61,7 @@ Issues carrying `loom:curated`.
 - **#400**: Bump klayout-tools pin 0.6.0, 0.7.0 → 0.8.0 *(curated)*
 - **#416**: POR threshold rows: N=500 cannot demonstrate the 99.73 % [3σ] yield; need a larger campaign *(curated)*
 - **#417**: Item 6: sampled negative control for the Monte Carlo yield campaigns *(curated)*
-- **#451**: temp_core: decision record superseding DR-005's no-chopping rejection (#415 step 1/3) *(curated)*
+- **#452**: temp_core: implement amplifier chop/auto-zero, gain mirror fix and trim re-balance (#415 step 2/3) *(curated)*
 
 ## Proposed (Architect / Hermit)
 
@@ -73,14 +75,14 @@ _None._
 
 | Bucket | Count |
 |------|-------|
-| Operator merge-risk holds | 0 |
+| Operator merge-risk holds | 1 |
 | Very important | 0 |
-| Important | 2 |
+| Important | 3 |
 | Ready (`loom:issue`) | 0 |
 | In Progress (`loom:building`) | 1 |
-| PRs awaiting review | 1 |
-| Approved PRs awaiting merge | 0 |
-| Curated | 10 |
+| PRs awaiting review | 0 |
+| Approved PRs awaiting merge | 1 |
+| Curated | 11 |
 | Architect / Hermit proposals | 1 |
 | Active epics | 0 |
 <!-- guide:plan-body:end -->
