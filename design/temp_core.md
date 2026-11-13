@@ -69,6 +69,14 @@ budget below is written so #15 knew exactly how much room it had left.
 > longer the whole story.** The "Against the targets" section carries the
 > mismatch-inclusive numbers.
 
+> **Revision note (DR-031, issue #452).** The schematic now carries the chopped
+> amplifier, the widened gain mirror/resistors and the halved trim ladder
+> described in [DR-031 revision](#dr-031-revision-chopped-amplifier-gain-fix-and-trim-re-balance)
+> at the end of this file. Every measurement and size quoted in the sections
+> *above* that one describes the **pre-DR-031 netlist** and is kept as the
+> "before" evidence (nothing is deleted); the sizing tables below are
+> superseded where the revision section says so.
+
 ## Topology
 
 ```
@@ -998,3 +1006,99 @@ slug resolves to the schematic `testbench/` sibling, which is the point of
 keeping both. `postlayout_delta.py` exits non-zero if any check regressed from
 the schematic-level record to the extracted one, so a regression cannot be
 scrolled past; on this cell it exits 0.
+
+## DR-031 revision: chopped amplifier, gain fix and trim re-balance
+
+Issue #452 (step 2 of 3 under #415) implements
+[DR-031](../spec/decision-records/DR-031-temp-core-chopped-amplifier-and-gain-fix.md)
+in `design/temp_core.sch`. No pin, port or spec row changed.
+
+### Topology added
+
+```
+ NA ─CI1(P1)─ GA ──┐                 ┌── D1 ─CO1(P1)─ N1 (diode)
+ NB ─CI2(P1)─ GB ──┤  XMI1 / XMI2    │   D2 ─CO2(P1)─ N2 (output)
+ NA ─CI3(P2)─ GB ──┤  PMOS pair      │   D1 ─CO3(P2)─ N2
+ NB ─CI4(P2)─ GA ──┘                 └── D2 ─CO4(P2)─ N1
+```
+
+* **Commutators** `XCI1..XCI4` (input) and `XCO1..XCO4` (output): eight NMOS
+  switches, 0.5 µm / 0.5 µm, bulk on `VSS`. Continuous-time, no hold
+  capacitor, no sampling phase (DR-031 §1). `XMI1`/`XMI2` gates are now `GA`/`GB`
+  and their drains `D1`/`D2`; everything else in the loop is unchanged.
+* **Clock.** `XMOSC` (pfet 2.5/4 µm, gate `PB`) is a local 1:8 replica of the
+  `XMT` tail (not a tap on `IBIAS`), mirrored into `NOB` by the diode `XMON`.
+  Three current-starved inverter stages (`R0`..`R2`, 72 fF each, `XCR0..2`)
+  form the ring; starved buffers give `CKB`/`CK`; two cross-coupled starved NORs
+  (`XPBG1`.. / `XPBG2`..) produce the non-overlapping phases `P1`/`P2`.
+  Every stage is starved on both rails, so no gate can draw more than its
+  bias current whatever the input slope. A first unstarved-buffer design
+  was rejected on paper: a slow ring edge into a minimum inverter spends
+  microamps in shoot-through.
+* **Disabled state.** With `EN` low `XMDNOB` pulls `NOB` to `VSS` (every
+  starve device off, so no DC path) and `XMDP1`/`XMDP2` pull `P1`/`P2` to `VSS`
+  (all switches open). `IBIAS` is still only a mirror-gate load (DR-010).
+* **Post-filter.** `XCF`, 100 µm × 100 µm MIM (about 20 pF, **about 10 000 µm²**),
+  on the `PTAT` pad node. `PTAT` is driven through `R2` (about 516 kΩ), so this
+  is a ≈15 µs RC against the chop ripple, and it sits outside the `NA`/`NB`
+  loop. DR-031 estimated the chopper area in hundreds of µm²; the filter
+  alone is far above that. It is about 1 % of the measured 1.059 mm²
+  footprint, which already misses the ≤0.05 mm² planning bound. The `area`
+  row is **not** re-measured here (no layout).
+
+### Sizing changes (DR-031 §3, §4)
+
+| Device | Before | After | Note |
+| --- | --- | --- | --- |
+| `XMP1`/`XMP2`/`XMP3` | 8/4 µm | 16/8 µm | `XMPC*` left at 8/1 µm (DR-031: "where warranted"; not changed) |
+| `XR1` | 2 × 119.47 µm | 4 × 242.41 µm | same ≈21.5 kΩ |
+| `XR2F` | 2 × 2652.6 µm | 4 × 5600.45 µm | absorbs half of the shorted trim segments' resistance |
+| `XR2T5..XR2T0` | 2 × 229.71 … 6.85 µm | 4 × 232.71 … 6.95 µm | each segment's resistance halved |
+
+Lengths come from a two-point fit of the PDK `ppolyf_u` model at 27 °C TT
+(`R = 179.55·L + 62 Ω` at 2 µm, `88.62·L + 30 Ω` at 4 µm), chosen so that `R1`
+and nominal `R2` keep their old values (R2/R1 = 24.0). The fit is not an
+end-of-line proof: the designer-check `rtrim_*` rows are the check.
+
+### Single-corner debug probes (NOT evidence records)
+
+These were taken with local single-point `ngspice` runs while sizing. They
+are **not** minted under `sim/` and carry no PVT claim:
+
+| Point | `PTAT` mean | ripple pk-pk at `PTAT` | chop frequency | Iq |
+| --- | --- | --- | --- | --- |
+| TT, 27 °C, 3.30 V (designer-check stimulus) | 1.29255 V (pre-DR-031: 1.29334 V) | 0.76 mV | 110 kHz | 11.41 µA (pre-DR-031 probe: 11.00 µA) |
+| SS, −40 °C, 2.97 V (probe deck) | 1.0025 V | not extracted | not extracted | 8.49 µA |
+| FF, +125 °C, 3.63 V (probe deck) | 1.7153 V | not extracted | not extracted | 16.74 µA |
+
+At TT the added Iq is +0.41 µA, inside DR-031's 0.4–0.6 µA estimate. The
+FF/+125 °C figure has no like-for-like pre-DR-031 number from the same deck,
+so no delta is claimed for it. Ripple at `PTAT` is **solver-sensitive**
+(a 1e-3 `reltol` deck read 2.4 mV on the same netlist), which is why the
+designer-check bench carries `reltol=1e-4`.
+
+Ripple is a glitch train at the commutation edges (charge injection), not a
+sine at the chop frequency. In probes it fell from 3.6 mV (1 µm switches, 5 pF)
+to 1.4 mV (0.5 µm switches, 10 pF) to 0.76 mV (0.5 µm switches, 20 pF), so the
+≤1 mV requirement is met at TT only by a large filter capacitor. Whether it
+holds across the PVT grid is what the (not yet recorded) designer-check
+`ptat_ripple_mv` row will say.
+
+### Loop stability moved (measured, single point)
+
+`sim/temp-core-loop-stability`, TT / 27 °C / 3.30 V, chopper held in static
+phase 1: crossover 0.74 MHz, phase margin **25.4°** against **32.4°** in the
+last committed record (`20260910-020408-c0e4d87`), gain margin 4.0 dB against
+6.0 dB. The bench's only phase check is the trivial −180..180° window, so
+nothing "fails", but the margin got worse. The cause is not isolated; the
+4× larger mirror gate capacitance on `PG` is the first suspect. Not fixed here.
+
+### Status of the evidence for this revision
+
+The PVT-grid records for `temp-core-designer-check`, `temp-core-startup`,
+`temp-core-loop-stability` and `temp-por-top-release`, the `temp-iq` /
+`por-iq` Iq deltas and the residual-offset figure are **not recorded yet**:
+the Spot batch fleet refused every submission for vCPU budget (see the PR).
+The numbers above are single-point probes only. Residual offset at 3σ needs
+the Monte Carlo of #453; the deterministic benches can only show the
+systematic part (`aoffs_uv`).
