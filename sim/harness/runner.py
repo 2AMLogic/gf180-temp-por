@@ -758,8 +758,9 @@ def run_grid(
     ``backend="batch"`` (with a ``klt_batch.BatchConfig``) sends the grid
     through ``klt sim --backend batch`` (#331) via :func:`run_batch_grid`. It
     never falls through to the local loop. Points differing only in supply
-    share one request (``vdd_val`` rides klt's supply axis); ``jobs`` bounds
-    concurrent requests.
+    share one request (``vdd_val`` rides klt's parameter axis, ``corners.params``:
+    it is a ``.param``, not a voltage source, so klt's ``supply_v`` axis
+    refuses it -- see #464); ``jobs`` bounds concurrent requests.
     """
     if _require_batch(backend, batch):
         return run_batch_grid(
