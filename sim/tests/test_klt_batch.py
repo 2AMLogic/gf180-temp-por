@@ -9,6 +9,7 @@ No PDK, no ngspice, no klt, no network: a fake ``klt`` executable (and a fake
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import stat
@@ -156,11 +157,33 @@ env = {"engine": "ngspice"}
 if mode != "no_remote":
     env["remote"] = {"provider": "aws-batch-fleet", "job_id": "klt-sim-fake",
                      "runner_compatibility": "match"}
+    # The model card the runner executed, in klt 0.9.2's shape: a lowercase
+    # 64-hex string or null, plus klt's own client-vs-runner comparison
+    # (`match` / `mismatch` / `not_comparable` + reason).
+    sha = os.environ.get("FAKE_KLT_RUNNER_MODELS_SHA", "")
+    env["remote"]["runner_models_lib_sha256"] = sha or None
+    env["remote"]["models_lib_comparison"] = json.loads(
+        os.environ.get("FAKE_KLT_MODELS_COMPARISON", json.dumps(
+            {"status": "match"} if sha
+            else {"status": "not_comparable", "reason": "runner_hash_unavailable"})))
     if mode == "mismatch":
         env["remote"].update(runner_compatibility="mismatch", runner_klt_version="0.0.1",
                              client_klt_version="0.0.0+fake")
     if mode == "legacy_remote":   # an older client that does not report the comparison
         del env["remote"]["runner_compatibility"]
+        del env["remote"]["runner_models_lib_sha256"]
+        del env["remote"]["models_lib_comparison"]
+    if mode == "fleet_members":
+        # A multi-job submission: klt attaches the comparison per fleet
+        # member rather than on `environment.remote` itself.
+        env["remote"]["fleet"] = [
+            {"job_id": "klt-sim-fake-a", "runner_models_lib_sha256": sha or None,
+             "models_lib_comparison": env["remote"]["models_lib_comparison"]},
+            {"job_id": "klt-sim-fake-b", "runner_models_lib_sha256": sha or None,
+             "models_lib_comparison": env["remote"]["models_lib_comparison"]},
+        ]
+        del env["remote"]["runner_models_lib_sha256"]
+        del env["remote"]["models_lib_comparison"]
 print(json.dumps({"schema_version": 3, "status": "pass", "corner_count": len(corners),
                    "environment": env, "corners": corners}))
 '''
@@ -238,6 +261,10 @@ class BatchTestCase(unittest.TestCase):
         (self.root / "home").mkdir()
         self.pdk = fake_pdk(self.root / "gf180mcuD")
         (self.pdk.ngspice_dir / "design.ngspice").write_text(".param sw_stat_global=0\n")
+        # By default the fake runner reports the model library THIS fixture
+        # resolved, the way a correctly-matched fleet image does (#468).
+        self.local_models_sha = hashlib.sha256(self.pdk.model_lib.read_bytes()).hexdigest()
+        os.environ["FAKE_KLT_RUNNER_MODELS_SHA"] = self.local_models_sha
         self.control = self.root / "control"
         (self.control / "decks").mkdir(parents=True)
         (self.control / "frag.spice").write_text("* fragment\nr1 a b 1k\n")
@@ -791,6 +818,131 @@ class FailureMatrixTests(BatchTestCase):
         self.mode("legacy_remote")
         (out,) = klt_batch.run_units([self.unit()], self.cfg(), tolerate_absent=True)
         self.assertTrue(out.ok, out.message)
+
+    # ---- the PDK the fleet runner actually read (#468) -------------------
+    #
+    # On batch the models come from the runner's own image, so a report is
+    # only accepted when the model library it executed is the one this host
+    # resolved -- otherwise the record would name a build the simulation
+    # never read.
+
+    def test_runner_pdk_matching_this_host_is_accepted_and_recorded(self):
+        cfg = self.cfg()
+        (out,) = klt_batch.run_units([self.unit()], cfg, tolerate_absent=True)
+        self.assertTrue(out.ok, out.message)
+        self.assertEqual(cfg.provenance, [{
+            "job_id": "klt-sim-fake",
+            "runner_models_lib_sha256": self.local_models_sha,
+            "models_lib_sha256": self.local_models_sha,
+            "comparison": {"status": "match"},
+            "klt_models_lib_comparison": "match",
+        }])
+        self.assertEqual(klt_batch.batch_provenance(cfg), {
+            "backend": "batch",
+            "models_lib_sha256": self.local_models_sha,
+            "models_lib_comparison": "match",
+            "jobs": cfg.provenance,
+        })
+
+    def test_runner_pdk_differing_from_this_host_is_rejected_and_halts_the_run(self):
+        other = "a" * 64
+        os.environ["FAKE_KLT_RUNNER_MODELS_SHA"] = other
+        units = [self.unit("a"), self.unit("b", template=CONTROL_DECK.replace("0.02", "0.03", 1))]
+        cfg = self.cfg()
+        outs = klt_batch.run_units(units, cfg, tolerate_absent=True)
+        self.assertEqual([o.status for o in outs], ["error", "error"])
+        self.assertIn(other, outs[0].message)                  # both hashes named
+        self.assertIn(self.local_models_sha, outs[0].message)
+        self.assertIn(str(self.pdk.model_lib), outs[0].message)  # the local path
+        self.assertIn("PDK_ROOT", outs[0].message)               # and the fix
+        self.assertIn("not submitted", outs[1].message)
+        self.assertEqual(len(self.calls()), 1)                 # the second request never left
+        self.assertTrue(cfg.halted)
+        self.assertEqual(cfg.provenance, [])                   # nothing recorded
+        self.assertFalse((self.control / "logs" / "a.log").exists())
+        with self.assertRaises(BatchError):                    # same config, later deck
+            runner.run_deck_raw("r", self.deck(), self.control, backend="batch", batch=cfg)
+        self.assertEqual(len(self.calls()), 1)
+        self.assertNoLocalNgspice()
+
+    def test_klt_own_models_lib_mismatch_verdict_is_rejected_the_same_way(self):
+        # klt compares the runner against the install *klt* resolved, which
+        # need not be the one find_pdk() resolved: its verdict is fatal even
+        # when the hash it reports equals ours.
+        os.environ["FAKE_KLT_MODELS_COMPARISON"] = json.dumps(
+            {"status": "mismatch", "warning": "runner models differ from client"})
+        cfg = self.cfg()
+        (out,) = klt_batch.run_units([self.unit()], cfg, tolerate_absent=True)
+        self.assertEqual(out.status, "error")
+        self.assertIn("models_lib_comparison='mismatch'", out.message)
+        self.assertIn("runner models differ from client", out.message)
+        self.assertTrue(cfg.halted)
+        self.assertEqual(cfg.provenance, [])
+        self.assertNoLocalNgspice()
+
+    def test_no_usable_runner_hash_is_accepted_as_not_comparable_never_a_match(self):
+        for label, sha in (("null", ""), ("not 64-hex", "deadbeef"), ("uppercase junk", "ZZ")):
+            with self.subTest(label):
+                os.environ["FAKE_KLT_RUNNER_MODELS_SHA"] = sha
+                os.environ["FAKE_KLT_MODELS_COMPARISON"] = json.dumps(
+                    {"status": "not_comparable", "reason": "runner_hash_unavailable"})
+                cfg = self.cfg()
+                (out,) = klt_batch.run_units([self.unit()], cfg, tolerate_absent=True)
+                self.assertTrue(out.ok, out.message)
+                self.assertFalse(cfg.halted)
+                (row,) = cfg.provenance
+                self.assertIsNone(row["runner_models_lib_sha256"])
+                self.assertEqual(row["comparison"],
+                                 {"status": "not_comparable", "reason": "runner_hash_unavailable"})
+                self.assertEqual(klt_batch.batch_provenance(cfg)["models_lib_comparison"],
+                                 "not_comparable")
+
+    def test_an_older_runner_reporting_no_models_fields_at_all_is_accepted(self):
+        self.mode("legacy_remote")
+        cfg = self.cfg()
+        (out,) = klt_batch.run_units([self.unit()], cfg, tolerate_absent=True)
+        self.assertTrue(out.ok, out.message)
+        (row,) = cfg.provenance
+        self.assertIsNone(row["runner_models_lib_sha256"])
+        self.assertIsNone(row["klt_models_lib_comparison"])
+        self.assertEqual(row["comparison"]["status"], "not_comparable")
+
+    def test_a_model_library_this_host_cannot_read_is_not_comparable_not_a_match(self):
+        unit = self.unit()
+        self.pdk.model_lib.unlink()
+        cfg = self.cfg()
+        (out,) = klt_batch.run_units([unit], cfg, tolerate_absent=True)
+        self.assertTrue(out.ok, out.message)
+        (row,) = cfg.provenance
+        self.assertIsNone(row["models_lib_sha256"])
+        self.assertEqual(row["comparison"],
+                         {"status": "not_comparable", "reason": "client_hash_unavailable"})
+
+    def test_a_multi_job_report_is_gated_and_recorded_per_fleet_member(self):
+        self.mode("fleet_members")
+        cfg = self.cfg()
+        (out,) = klt_batch.run_units([self.unit()], cfg, tolerate_absent=True)
+        self.assertTrue(out.ok, out.message)
+        self.assertEqual([r["job_id"] for r in cfg.provenance],
+                         ["klt-sim-fake-a", "klt-sim-fake-b"])
+        self.assertEqual({r["comparison"]["status"] for r in cfg.provenance}, {"match"})
+        self.assertEqual(klt_batch.batch_provenance(cfg)["models_lib_comparison"], "match")
+        # ... and one differing member condemns the report
+        os.environ["FAKE_KLT_RUNNER_MODELS_SHA"] = "b" * 64
+        bad = self.cfg()
+        (out,) = klt_batch.run_units([self.unit("b")], bad, tolerate_absent=True)
+        self.assertEqual(out.status, "error")
+        self.assertIn("klt-sim-fake-a", out.message)
+        self.assertTrue(bad.halted)
+        self.assertEqual(bad.provenance, [])
+
+    def test_batch_provenance_of_a_run_that_accepted_nothing_says_so(self):
+        self.mode("refuse")
+        cfg = self.cfg()
+        (out,) = klt_batch.run_units([self.unit()], cfg, tolerate_absent=True)
+        self.assertEqual(out.status, "error")
+        self.assertEqual(klt_batch.batch_provenance(cfg)["models_lib_comparison"],
+                         "no_accepted_report")
 
     def test_klt_client_is_selectable(self):
         other = self.bin / "klt-runner-build"

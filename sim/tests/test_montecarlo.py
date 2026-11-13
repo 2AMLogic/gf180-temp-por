@@ -363,6 +363,37 @@ class RecordRenderingTests(unittest.TestCase):
             positions.append(text.index(marker))
         self.assertEqual(positions, sorted(positions), "fields are out of ratified order")
 
+    def test_a_local_mc_record_carries_no_batch_block_and_a_batch_one_does(self):
+        """#468: on the batch backend the models come from the fleet runner's
+        image, so the MC record names what the runner read; a local record is
+        unchanged."""
+        self.assertNotIn("batch", self.record["environment"])
+        text = mc_report.render_mc_record(self.record, "mc-experiment")
+        self.assertNotIn("fleet runner", text)
+
+        provenance = {
+            "backend": "batch",
+            "models_lib_sha256": "a" * 64,
+            "models_lib_comparison": "match",
+            "jobs": [{"job_id": "klt-sim-mc-1", "runner_models_lib_sha256": "a" * 64,
+                      "models_lib_sha256": "a" * 64,
+                      "comparison": {"status": "match"},
+                      "klt_models_lib_comparison": "match"}],
+        }
+        batch_record = mc_report.build_mc_record(
+            tb=self.tb, pdk=self.pdk, binding_points=self.binding_points,
+            points=self.points, results=self.results, summary=self.summary,
+            ngspice="batch via klt sim", repo_root=SIM_DIR,
+            record_id="20260802-153000-1a7ef76",
+            started_utc="2026-08-02T15:30:00+00:00", wall_seconds=120.0,
+            n_per_point=500, seed_base=1, derived_measures=[],
+            claim="spec/target-spec.md#example", batch=provenance,
+        )
+        self.assertEqual(batch_record["environment"]["batch"], provenance)
+        batch_text = mc_report.render_mc_record(batch_record, "mc-experiment")
+        self.assertIn("PDK the fleet runner read: match", batch_text)
+        self.assertIn("klt-sim-mc-1", batch_text)
+
     def test_binding_points_are_named_not_a_grid(self):
         text = mc_report.render_mc_record(self.record, "mc-experiment")
         self.assertIn("`a`: corner `tt`", text)

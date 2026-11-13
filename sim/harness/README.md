@@ -426,6 +426,37 @@ field names the batch backend and klt version instead of a local ngspice.
   `bash sim/selftest.sh --klt-pin 0.5.0` on a `KLT_SIM_BACKEND=batch` host
   whose runner is on 0.5.0. A pin that still disagrees with the runner is
   refused exactly as before; the full PVT smoke grid is unchanged.
+* PDK skew (#468): on batch the device models come from the **fleet runner's
+  own PDK image**, not from the install `harness.pdk.find_pdk()` resolved on
+  this host — and the two can differ (two `gf180mcuD` installs on the same
+  worker, different open_pdks builds). A report is accepted only when the
+  model library the runner executed is the one this host resolved: the
+  SHA-256 of `pdk.model_lib` is compared with
+  `environment.remote.runner_models_lib_sha256`, and klt's own
+  client-vs-runner verdict `models_lib_comparison: "mismatch"` is refused
+  too. Either way the whole run halts — later requests are refused without
+  being submitted, like a `runner_compatibility` mismatch — and the error
+  names both digests, the local path, and the fix: point `PDK_ROOT` (or
+  `sim/pdk.local.json`) at the install the runner uses. A report that carries
+  no usable runner digest (an older runner, staged models, a model library
+  this host cannot read) is **accepted and recorded as not comparable**,
+  never as a match. The gate is in the one seam every batch path passes
+  through, so the ~20 control scripts that write their own `pdk=` line from
+  the local `Pdk` object are true without being edited: a batch result can
+  only be accepted when the local model library is the runner's. Not covered:
+  `design.ngspice`, which `translate_deck` inlines from the local install and
+  klt reports no digest for.
+* Record fields (#468): a batch-backend record carries
+  `environment.batch` — `{backend, models_lib_sha256, models_lib_comparison,
+  jobs[]}`, one `jobs[]` entry per accepted fleet job with its `job_id`, the
+  runner's digest and the per-job comparison (`match` /
+  `not_comparable` + reason; `mismatch` cannot appear, such a report is never
+  recorded). The rendered record shows them directly under its `- PDK:` line,
+  so a reader sees both the install this host resolved and the build the
+  simulation actually read. A **local**-backend record is byte-for-byte
+  unchanged: the key is absent, not empty. `klt_batch.batch_provenance(cfg)`
+  builds the block; `run_corners.py` / `run_mc.py` pass it to the record
+  builders.
 * An aborted analysis is never an absent measurement: a corner whose raw log
   carries ngspice's `simulation(s) aborted` trailer, or for which no requested
   measurement produced a value at all, is an `error` even where an absent
@@ -463,8 +494,9 @@ callers rather than re-implementing request staging.
 
 Before a full grid goes to the fleet, submit one deck first (for example
 `run_dwell_sweep.py --backend batch --smoke`) and compare it with the
-committed local log of the same deck. A runner/client mismatch or a request
-shape that does not translate then shows up after one job instead of 324.
+committed local log of the same deck. A runner/client mismatch, a runner whose
+PDK image is not the install this host resolved, or a request shape that does
+not translate then shows up after one job instead of 324.
 
 ## smoke-bias
 

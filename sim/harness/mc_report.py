@@ -70,6 +70,7 @@ def build_mc_record(
     supersedes: str = "",
     statistical_convention: str = "",
     git: dict | None = None,
+    batch: dict | None = None,
 ) -> dict:
     n_ok = sum(1 for r in results if r.status == "ok")
 
@@ -112,7 +113,7 @@ def build_mc_record(
         "supersedes": supersedes,
         "statistical_convention": statistical_convention,
         "testbench": tb.provenance(),
-        "environment": environment(pdk, ngspice, repo_root, git),
+        "environment": environment(pdk, ngspice, repo_root, git, batch),
         "binding_points": [
             {
                 "label": bp.label,

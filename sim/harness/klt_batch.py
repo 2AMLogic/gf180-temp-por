@@ -35,6 +35,15 @@ Invariants (all covered by ``sim/tests/test_klt_batch.py``):
 * A report from a fleet runner whose ``klt`` is not the client's build
   (``environment.remote.runner_compatibility`` other than ``match``) is
   rejected, and the rest of that run is refused without being submitted.
+* So is a report whose fleet runner read a different PDK model library than
+  the one this host resolved (``environment.remote.runner_models_lib_sha256``
+  against the SHA-256 of ``cfg.pdk.model_lib``, or klt's own
+  ``models_lib_comparison: mismatch``): on batch the models come from the
+  runner's image, so an accepted result must have been simulated against the
+  build the record is about to name. A report that carries no usable runner
+  hash is accepted and recorded as *not comparable* -- never as a match.
+  What the runner did read is carried out on :attr:`BatchConfig.provenance`
+  for the evidence record (:func:`batch_provenance`).
 * ``--backend batch`` is always passed explicitly. ``klt`` otherwise steps
   back to ``local`` for a single-unit run when the backend came from
   ``$KLT_SIM_BACKEND``; the report must also carry ``environment.remote``
@@ -105,6 +114,8 @@ _CAP_REFUSAL = "exceeds BATCH_MAX_CONCURRENT_INSTANCES"
 ABSENT_MEASUREMENT_CODES = frozenset({"measurement", "no_such_vector"})
 #: ngspice's own marker for an analysis that stopped before completing.
 _ABORTED = "simulation(s) aborted"
+#: A SHA-256 digest as klt reports it (lowercase hex).
+_SHA256_RE = re.compile(r"\A[0-9a-f]{64}\Z")
 
 
 class BatchError(RuntimeError):
@@ -128,10 +139,23 @@ class BatchResultError(BatchError):
     """The report is valid JSON but does not account for the requested units."""
 
 
-class BatchRunnerMismatch(BatchResultError):
+class BatchRunFatal(BatchResultError):
+    """A rejection that condemns the whole run, not just one report: every
+    later request would reach the same fleet runner, so it is refused without
+    being submitted (:attr:`BatchConfig.halted`)."""
+
+
+class BatchRunnerMismatch(BatchRunFatal):
     """The fleet runner's ``klt`` is not the submitting client's build, so the
     request may have been run with options ignored (or not run at all). Fatal
     for the whole run: later submissions would hit the same runner."""
+
+
+class BatchPdkMismatch(BatchRunFatal):
+    """The fleet runner read a different PDK model library than the one this
+    host resolved, so a record naming the local install would name a build the
+    simulation never used. Fatal for the whole run: the runner's image does
+    not change between requests."""
 
 
 # --------------------------------------------------------------------------
@@ -611,11 +635,30 @@ class BatchConfig:
     max_in_flight: int = 4
     wait_for_capacity_s: int = 600
     capacity_retries: int = 3
-    #: Set once a run-wide fatal condition (runner/client ``klt`` mismatch) is
-    #: seen; every later request in the same run is then refused without
-    #: being submitted, so a grid does not burn one fleet job per deck on a
-    #: runner that cannot run it.
+    #: Set once a run-wide fatal condition (runner/client ``klt`` mismatch, a
+    #: runner PDK that is not the local one) is seen; every later request in
+    #: the same run is then refused without being submitted, so a grid does
+    #: not burn one fleet job per deck on a runner that cannot run it.
     halted: str | None = field(default=None, init=False)
+    #: One row per accepted report, naming what the fleet actually simulated:
+    #: ``{job_id, runner_models_lib_sha256, models_lib_sha256, comparison}``.
+    #: :func:`batch_provenance` turns it into the evidence record's
+    #: ``environment.batch`` block.
+    provenance: list[dict] = field(default_factory=list, init=False)
+    #: Memo for :meth:`local_model_lib_sha256`; ``""`` means "tried, could
+    #: not read it" (distinct from "not computed yet").
+    _model_lib_sha256: str | None = field(default=None, init=False, repr=False)
+
+    def local_model_lib_sha256(self) -> str | None:
+        """SHA-256 of ``pdk.model_lib``, hashed once per run, or ``None`` if
+        it cannot be read. This is the digest the fleet runner's own hash is
+        compared against -- not klt's `models_lib_comparison`, which compares
+        the runner against the install *klt* resolved, which need not be the
+        one ``harness.pdk.find_pdk()`` resolved (#468)."""
+        if self._model_lib_sha256 is None:
+            # A benign race between group threads recomputes the same digest.
+            self._model_lib_sha256 = _sha256_file(self.pdk.model_lib) or ""
+        return self._model_lib_sha256 or None
 
 
 @dataclass
@@ -848,6 +891,139 @@ def invoke_klt_set(reqs: list[Path], outdir: Path, cfg: BatchConfig, timeout_s: 
     )
 
 
+def _sha256_file(path: Path) -> str | None:
+    """``path``'s SHA-256 as lowercase hex, or ``None`` if it cannot be read.
+
+    Unreadable is not an error here: it makes the runner comparison *not
+    comparable*, which is recorded as such rather than passed off as a match.
+    """
+    digest = hashlib.sha256()
+    try:
+        with open(path, "rb") as fh:
+            for chunk in iter(lambda: fh.read(1 << 20), b""):
+                digest.update(chunk)
+    except OSError:
+        return None
+    return digest.hexdigest()
+
+
+def _hex64(value) -> str | None:
+    """``value`` as a lowercase 64-hex digest, else ``None``.
+
+    Absent, JSON ``null``, a non-string or anything that is not a SHA-256
+    digest all mean "no usable hash" -- never guessed at, and never allowed to
+    compare equal to a real digest.
+    """
+    if not isinstance(value, str):
+        return None
+    text = value.strip().lower()
+    return text if _SHA256_RE.match(text) else None
+
+
+def _remote_jobs(remote: dict) -> list[dict]:
+    """The per-fleet-job records in ``environment.remote``.
+
+    A single-job report carries ``job_id`` / ``runner_models_lib_sha256`` /
+    ``models_lib_comparison`` on ``remote`` itself; a submission that fanned
+    out to several jobs carries one entry per member under ``remote.fleet``
+    (klt 0.9.2). Both shapes are gated and recorded the same way.
+    """
+    fleet = remote.get("fleet")
+    members = [m for m in fleet if isinstance(m, dict)] if isinstance(fleet, list) else []
+    return members or [remote]
+
+
+def _klt_comparison(value) -> tuple[str | None, str]:
+    """klt's own ``models_lib_comparison`` -> ``(status, reason)``.
+
+    ``status`` is ``None`` for a field that is absent or not an object, so a
+    malformed comparison is never read as a verdict either way.
+    """
+    if not isinstance(value, dict):
+        return None, ""
+    status = value.get("status")
+    reason = value.get("reason") or value.get("warning") or ""
+    return (status if isinstance(status, str) else None), str(reason)[:300]
+
+
+def _models_lib_rows(remote: dict, job_id: str, cfg: BatchConfig) -> list[dict]:
+    """Gate a report's fleet jobs on the PDK the runner actually read, and
+    return one provenance row per job.
+
+    Fail closed, exactly as ``runner_compatibility`` already does: a runner
+    digest that differs from this host's ``pdk.model_lib``, or klt's own
+    client-vs-runner ``mismatch`` verdict, raises :class:`BatchPdkMismatch`
+    (so no unit of the report is ``ok`` and the run halts). A job with no
+    usable runner digest -- an older runner, staged models, a model library
+    this host cannot read -- is accepted and recorded as not comparable.
+    """
+    local = cfg.local_model_lib_sha256()
+    why = "a record of it would name a PDK build the simulation never read"
+    fix = (
+        "point PDK_ROOT (or sim/pdk.local.json) at the install the fleet runner uses, "
+        f"instead of {cfg.pdk.path} (found via {cfg.pdk.source})"
+    )
+    rows: list[dict] = []
+    for job_rec in _remote_jobs(remote):
+        job = str(job_rec.get("job_id") or job_id)
+        runner_hash = _hex64(job_rec.get("runner_models_lib_sha256"))
+        klt_status, klt_reason = _klt_comparison(job_rec.get("models_lib_comparison"))
+        if klt_status == "mismatch":
+            raise BatchPdkMismatch(
+                f"fleet job {job}: klt reports models_lib_comparison='mismatch' -- the "
+                "runner did not read the model library the client resolved"
+                + (f": {klt_reason}" if klt_reason else "")
+                + f"; its result is not accepted, because {why} -- {fix}"
+            )
+        if runner_hash is not None and local is not None and runner_hash != local:
+            raise BatchPdkMismatch(
+                f"fleet job {job}: the runner read model library sha256 {runner_hash}, "
+                f"but this host resolved {local} ({cfg.pdk.model_lib}); its result is "
+                f"not accepted, because {why} -- {fix}"
+            )
+        if runner_hash is None:
+            comparison = {"status": "not_comparable", "reason": "runner_hash_unavailable"}
+        elif local is None:
+            comparison = {"status": "not_comparable", "reason": "client_hash_unavailable"}
+        else:
+            comparison = {"status": "match"}
+        rows.append({
+            "job_id": job,
+            "runner_models_lib_sha256": runner_hash,
+            "models_lib_sha256": local,
+            "comparison": comparison,
+            "klt_models_lib_comparison": klt_status,
+        })
+    return rows
+
+
+def batch_provenance(cfg: BatchConfig) -> dict:
+    """What the fleet actually simulated, for the evidence record (#468).
+
+    One entry per accepted report in ``cfg.provenance`` plus an aggregate
+    verdict: ``match`` only when every job's runner digest was compared and
+    equal, otherwise ``not_comparable`` (``mismatch`` cannot appear -- such a
+    report is rejected before it is recorded). ``no_accepted_report`` when the
+    run accepted none, so an all-failed batch run does not render as a local
+    one. Callers pass the result to ``report.build_record`` /
+    ``mc_report.build_mc_record`` as ``batch=``.
+    """
+    jobs = list(cfg.provenance)
+    statuses = {str(j.get("comparison", {}).get("status")) for j in jobs}
+    if not jobs:
+        overall = "no_accepted_report"
+    elif statuses == {"match"}:
+        overall = "match"
+    else:
+        overall = "not_comparable"
+    return {
+        "backend": BACKEND_BATCH,
+        "models_lib_sha256": cfg.local_model_lib_sha256(),
+        "models_lib_comparison": overall,
+        "jobs": jobs,
+    }
+
+
 def _finite(value) -> float | None:
     """``value`` as a float if it is a finite JSON number, else ``None``.
     Booleans (a JSON ``true`` is a Python ``int``) and strings are refused."""
@@ -879,7 +1055,7 @@ def _match(report_corners: list[dict], unit: BatchUnit) -> list[dict]:
 
 
 def _collect_group(
-    units: list[BatchUnit], report: dict, tolerate_absent: bool, stage: Path
+    units: list[BatchUnit], report: dict, tolerate_absent: bool, cfg: BatchConfig
 ) -> list[UnitOutcome]:
     remote = (report.get("environment") or {}).get("remote")
     if not isinstance(remote, dict) or not remote.get("job_id"):
@@ -897,6 +1073,10 @@ def _collect_group(
             "submit with a klt client that matches the fleet runner (--klt), or "
             "update the runner image"
         )
+    # What the runner's PDK image actually provided, before any corner is
+    # judged: an accepted result must have been simulated against the model
+    # library the record is about to name (#468).
+    provenance = _models_lib_rows(remote, job_id, cfg)
     corners = report.get("corners")
     if not isinstance(corners, list):
         raise BatchResultError("report 'corners' is not a list")
@@ -923,6 +1103,9 @@ def _collect_group(
             f"report contains {len(unmatched)} corner(s) that match no requested unit "
             f"(e.g. {unmatched[0].get('corner_id')!r})"
         )
+    # Accepted: record what the fleet read. `list.append` from the group
+    # threads needs no lock; the rows are only read once the run is over.
+    cfg.provenance.extend(provenance)
     return outcomes
 
 
@@ -1084,7 +1267,7 @@ def run_units(
             shutil.copyfile(req_path, cfg.evidence_dir / f"klt-{name}.request.json")
             shutil.copyfile(req_path.parent / "report.json",
                             cfg.evidence_dir / f"klt-{name}.report.json")
-        return _collect_group(members, report, tolerate_absent, req_path.parent)
+        return _collect_group(members, report, tolerate_absent, cfg)
 
     def deliver(indices: list[int], outs: list[UnitOutcome]) -> None:
         for i, out in zip(indices, outs):
@@ -1100,7 +1283,7 @@ def run_units(
         name = group_name(members)
         try:
             if cfg.halted:
-                raise BatchRunnerMismatch(f"not submitted: {cfg.halted}")
+                raise BatchRunFatal(f"not submitted: {cfg.halted}")
             req_path, request = _stage(members, cfg.pdk, cfg, name)
             n_corners = len(members) + len(request.get("exclude", []))
             poll = cfg.poll_timeout_s or (members[0].timeout_s * n_corners + 1800 + 120)
@@ -1108,7 +1291,7 @@ def run_units(
             outs = record(members, name, req_path, report)
         except KltMissing:
             raise
-        except BatchRunnerMismatch as exc:
+        except BatchRunFatal as exc:
             if not cfg.halted:
                 cfg.halted = f"an earlier request in this run was rejected: {exc}"
             outs = [UnitOutcome(u, "error", str(exc)) for u in members]
@@ -1159,6 +1342,11 @@ def run_units(
                     raise BatchResultError(f"request {req_path.name}: report is not a corner report")
                 outs = record(members, name, req_path, report)
             except (BatchError, OSError, json.JSONDecodeError) as exc:
+                # The whole set was already submitted in one klt call, so
+                # halting cannot un-submit a member -- but it still refuses a
+                # later `run_units` on this config, as `do_group` does.
+                if isinstance(exc, BatchRunFatal) and not cfg.halted:
+                    cfg.halted = f"an earlier request in this run was rejected: {exc}"
                 outs = [UnitOutcome(u, "error", str(exc)) for u in members]
             deliver(b, outs)
 
