@@ -32,13 +32,13 @@ _None._
 
 Issues currently being built (`loom:building`).
 
-_None._
+- **#451**: temp_core: decision record superseding DR-005's no-chopping rejection (#415 step 1/3)
 
 ## PRs Awaiting Review
 
 PRs waiting on Judge (`loom:review-requested`).
 
-_None._
+- **#454**: temp_core: decision record superseding DR-005's no-chopping rejection (#415 step 1/3)
 
 ## Approved (Awaiting Merge)
 
@@ -59,6 +59,7 @@ Issues carrying `loom:curated`.
 - **#400**: Bump klayout-tools pin 0.6.0, 0.7.0 → 0.8.0 *(curated)*
 - **#416**: POR threshold rows: N=500 cannot demonstrate the 99.73 % [3σ] yield; need a larger campaign *(curated)*
 - **#417**: Item 6: sampled negative control for the Monte Carlo yield campaigns *(curated)*
+- **#451**: temp_core: decision record superseding DR-005's no-chopping rejection (#415 step 1/3) *(curated)*
 
 ## Proposed (Architect / Hermit)
 
@@ -76,10 +77,10 @@ _None._
 | Very important | 0 |
 | Important | 2 |
 | Ready (`loom:issue`) | 0 |
-| In Progress (`loom:building`) | 0 |
-| PRs awaiting review | 0 |
+| In Progress (`loom:building`) | 1 |
+| PRs awaiting review | 1 |
 | Approved PRs awaiting merge | 0 |
-| Curated | 9 |
+| Curated | 10 |
 | Architect / Hermit proposals | 1 |
 | Active epics | 0 |
 <!-- guide:plan-body:end -->
