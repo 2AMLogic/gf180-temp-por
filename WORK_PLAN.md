@@ -51,7 +51,6 @@ PRs that passed review and are queued for Champion auto-merge (`loom:pr`).
 
 Issues carrying `loom:curated`.
 
-- **#295**: Champion: Merge-Risk Hold Digest *(curated)*
 - **#321**: run_net_attribution.py's 60-deck grid has no off-host execution path, so the post-#314 re-run cannot be taken from a dispatch worker *(curated)*
 - **#324**: Regenerate the deglitch dwell sweep against the star extraction: the post-layout slowest crossing moved from 20.77 to 22.34 µs *(curated)*
 - **#331**: sim/harness/runner.py: batch (klt sim) execution path so control grids can run off dispatch workers (mechanism question from #321) *(curated)*
@@ -65,7 +64,9 @@ Issues carrying `loom:curated`.
 
 ## Proposed (Architect / Hermit)
 
-- **#435**: Scrub or remove ratification/market-key before public visibility flip *(hermit)*
+- **#465**: Remove the retired #97 drift fallback from TempPorTopAssemblyTest.test_reference_matches_the_committed_file *(hermit)*
+- **#470**: Give run_por_edge_check.py its own results file: remove the §7 splice into net_attribution_results.md *(hermit)*
+- **#474**: Remove tolerated pre-pin card shapes from layout/postlayout.py's extracted-netlist reader *(hermit)*
 
 ## Epics
 
@@ -82,7 +83,7 @@ _None._
 | In Progress (`loom:building`) | 1 |
 | PRs awaiting review | 0 |
 | Approved PRs awaiting merge | 1 |
-| Curated | 11 |
-| Architect / Hermit proposals | 1 |
+| Curated | 10 |
+| Architect / Hermit proposals | 3 |
 | Active epics | 0 |
 <!-- guide:plan-body:end -->
