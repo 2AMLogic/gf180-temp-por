@@ -101,10 +101,6 @@ PARENT_TRAMP_S = 4.0e-3
 PARENT_RATE_V_PER_S = (3.63 - 2.0) / PARENT_TRAMP_S       # 407.5 V/s, 3.63 V column
 PARENT_SLOWEST_RATE_V_PER_S = (2.97 - 2.0) / PARENT_TRAMP_S  # 242.5 V/s, 2.97 V column
 
-#: (RTOP+RBOT)/RBOT, from design/por_comparator.md's sizing table -- the factor
-#: that refers an input-referred (SNS) error out to VDD.
-DIVIDER_RATIO = 2.16667
-
 #: The parent record's own numbers at this corner, quoted for cross-check.
 PARENT_V_HYS_MV = {2.97: 211.382, 3.30: 238.555, 3.63: 261.092}
 PARENT_VPOR_RISE_V = {2.97: 2.62809, 3.30: 2.63855, 3.63: 2.64873}
