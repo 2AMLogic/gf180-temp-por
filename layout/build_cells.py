@@ -1913,8 +1913,10 @@ POR_COMPARATOR_NMOS = (
 #: shared source (``TN``) directly below both -- so ``XMINA``'s and
 #: ``XMINB``'s routing differs by exactly one 0.8 um track pitch, which is the
 #: "short and symmetric routing from SNS and VREF" the floorplan asks for.
-#: ``SNS`` and ``SNSB`` are the two nets the (undrawn) sense divider taps, so
-#: both tracks are also run out to the reserved divider region.
+#: ``SNS`` and ``SNSB`` are the two nets the sense divider taps. The divider
+#: is drawn, so neither track may cross it on Poly2 -- that would bridge the
+#: folded resistor legs. Both run east to just past the device row instead,
+#: escape onto Metal2 there, and reach the divider's terminals on that layer.
 POR_COMPARATOR_TRACKS = (
     "TN",
     "SNS",
