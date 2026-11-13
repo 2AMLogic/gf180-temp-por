@@ -101,7 +101,7 @@ if mode == "cap_then_ok" and not (state / "capped").exists():
 
 c = req["corners"]
 procs = [p["name"] if isinstance(p, dict) else p for p in c.get("process", [None])]
-sv = c.get("supply_v", {})
+sv = c.get("params", {})
 keys = list(sv)
 rows = [dict(zip(keys, vals)) for vals in zip(*[sv[k] for k in keys])] if keys else [{}]
 excl = req.get("exclude", [])
@@ -109,7 +109,7 @@ corners = []
 for p in procs:
     for row in rows:
         for t in c["temperature_c"]:
-            if any(e.get("process", p) == p and e.get("supply_v", row) == row for e in excl):
+            if any(e.get("process", p) == p and e.get("params", row) == row for e in excl):
                 continue
             cid = f"{p}/{row}/{t}"
             d = outdir / ("c%d" % len(corners)); d.mkdir(parents=True, exist_ok=True)
@@ -137,7 +137,8 @@ for p in procs:
                 diags = [{"severity": "error", "code": "measurement", "message": "no value"}]
             if mode == "timeout_corner":
                 status, diags = "error", [{"severity": "error", "code": "batch_poll_timeout", "message": "t"}]
-            corner = {"corner_id": cid, "process": p, "supply_v": row, "temperature_c": t,
+            corner = {"corner_id": cid, "process": p, "supply_v": {}, "temperature_c": t,
+                       **({"params": row} if row else {}),
                        "status": status, "runtime_s": 1.5, "measurements": meas, "diagnostics": diags,
                        "artifacts": {"log": None if mode == "no_log" else str(log), "raw": None,
                                       "waveform": None, "deck": None}}
@@ -409,7 +410,7 @@ class TranslationTests(BatchTestCase):
         )
         self.assertEqual(u.analysis, ("op", ""))
         self.assertEqual(u.measurements, (("m_vout", "expr", "v(out)"), ("m_iq", "expr", "-i(v1)")))
-        self.assertEqual(u.supply, (("vdd_val", 3.63),))
+        self.assertEqual(u.lifted, (("vdd_val", 3.63),))
         self.assertEqual(u.process, tuple(point.corner.sections))
         self.assertNotIn("vdd_val=3.63", u.body)
         self.assertIn(".param vdd_nom=3.3", u.body)
@@ -507,9 +508,63 @@ class RequestTests(BatchTestCase):
         self.assertTrue(all(o.ok for o in outs), [o.message for o in outs])
         self.assertEqual(len(self.calls()), 1)
         req = json.loads((self.state / "req-0.json").read_text())
-        self.assertEqual(req["corners"]["supply_v"], {"vdd_val": [2.97, 3.63]})
-        self.assertEqual(req["exclude"], [{"process": "ff", "supply_v": {"vdd_val": 3.63}}])
+        self.assertEqual(req["corners"]["params"], {"vdd_val": [2.97, 3.63]})
+        self.assertNotIn("supply_v", req["corners"])
+        self.assertEqual(req["exclude"], [{"process": "ff", "params": {"vdd_val": 3.63}}])
         self.assertEqual([o.unit.key for o in outs], ["ss_2.97", "ss_3.63", "ff_2.97"])
+
+    def test_lifted_param_rides_the_params_axis_with_a_declaration_kept(self):
+        """#464: klt's `supply_v` axis is an `alter` of a voltage *source*, so a
+        `.param` name on it addresses nothing and the request is refused. The
+        value must ride `corners.params` instead, and the body must keep a
+        top-level declaration for `alterparam` to rewrite."""
+        u = self.unit("s", lift_params=("vdd_val",))
+        self.assertEqual(u.lifted, (("vdd_val", 3.3),))
+        decls = [ln for ln in u.body.splitlines() if ln.startswith(".param vdd_val")]
+        self.assertEqual(decls, [f".param vdd_val={klt_batch._LIFTED_DEFAULT}"])
+        self.assertNotIn(".param vdd_val=3.3", u.body)
+        outs = klt_batch.run_units([u], self.cfg(), tolerate_absent=True)
+        self.assertTrue(all(o.ok for o in outs), [o.message for o in outs])
+        req = json.loads((self.state / "req-0.json").read_text())
+        self.assertEqual(req["corners"]["params"], {"vdd_val": [3.3]})
+        self.assertNotIn("supply_v", req["corners"])
+
+    def test_lifted_declaration_is_constant_so_points_still_share_one_request(self):
+        """The kept declaration must not carry the unit's own value: bodies
+        would then differ and every supply point would cost its own request."""
+        units = [self.unit(f"s{v}", lift_params=("vdd_val",),
+                           template=CONTROL_DECK.replace(".param vdd_val=3.3", f".param vdd_val={v}"))
+                 for v in (2.97, 3.3, 3.63)]
+        self.assertEqual(len({u.body for u in units}), 1)
+        outs = klt_batch.run_units(units, self.cfg(), tolerate_absent=True)
+        self.assertTrue(all(o.ok for o in outs), [o.message for o in outs])
+        self.assertEqual(len(self.calls()), 1)
+        req = json.loads((self.state / "req-0.json").read_text())
+        self.assertEqual(req["corners"]["params"], {"vdd_val": [2.97, 3.3, 3.63]})
+        self.assertEqual([o.unit.key for o in outs], ["s2.97", "s3.3", "s3.63"])
+
+    def test_no_lifted_params_builds_an_unchanged_axis_set(self):
+        """`lift_params=()` (sim/pex/build_requests.py) keeps the old shape:
+        no parameter axis, no declaration rewritten."""
+        u = self.unit("s")
+        self.assertEqual(u.lifted, ())
+        self.assertIn(".param vdd_val=3.3", u.body)
+        outs = klt_batch.run_units([u], self.cfg(), tolerate_absent=True)
+        self.assertTrue(all(o.ok for o in outs), [o.message for o in outs])
+        req = json.loads((self.state / "req-0.json").read_text())
+        self.assertNotIn("params", req["corners"])
+        self.assertNotIn("supply_v", req["corners"])
+
+    def test_request_does_not_pin_models_pdk_root(self):
+        """#464: klt refuses a `models.pdk_root` that is a directory on the
+        submitting host (`models_pdk_root_host_path`), because the field is
+        forwarded to the fleet runner verbatim. It is refused at submit time,
+        which `--dry-run` never reaches, so the guard has to live here."""
+        klt_batch.run_units([self.unit("s", lift_params=("vdd_val",))], self.cfg(),
+                            tolerate_absent=True)
+        req = json.loads((self.state / "req-0.json").read_text())
+        self.assertEqual(req["models"]["pdk"], self.pdk.variant)
+        self.assertNotIn("pdk_root", req["models"])
 
     def test_distinct_decks_are_distinct_requests(self):
         units = [self.unit("a"), self.unit("b", template=CONTROL_DECK.replace("0.02", "0.03", 1))]
@@ -983,11 +1038,25 @@ class ResultValidationTests(BatchTestCase):
         self.patch(corner={"status": None})
         self.assertRejected("status")
 
-    def test_malformed_supply_value_is_a_batch_failure(self):
+    def test_corner_matched_by_param_value_not_by_supply_v(self):
+        """A report corner is matched back to its unit on `params`. A corner
+        carrying the right value under the old `supply_v` key matches nothing,
+        so a klt that ignored the axis can never be read as `ok`."""
+        u = self.unit("s", lift_params=("vdd_val",))
+        self.patch(corner={"params": {"vdd_val": 9.99}})
+        (out,) = klt_batch.run_units([u], self.cfg(), tolerate_absent=True)
+        self.assertEqual(out.status, "error")
+        self.assertIn("match no requested unit", out.message)
+        self.patch(corner={"params": None, "supply_v": {"vdd_val": 3.3}})
+        (out,) = klt_batch.run_units([u], self.cfg(), tolerate_absent=True)
+        self.assertEqual(out.status, "error")
+        self.assertNoLocalNgspice()
+
+    def test_malformed_param_value_is_a_batch_failure(self):
         lift = {"lift_params": ("vdd_val",)}
         for sv in ({"vdd_val": "abc"}, ["vdd_val"], "vdd_val"):
             with self.subTest(sv=sv):
-                self.patch(corner={"supply_v": sv})
+                self.patch(corner={"params": sv})
                 for tolerate in (False, True):
                     (out,) = klt_batch.run_units([self.unit("s", **lift)], self.cfg(),
                                                  tolerate_absent=tolerate)
