@@ -1,34 +1,73 @@
 {
   "name": "temp-core-designer-check",
-  "description": "Designer-level PVT check of design/temp_core.sch: PTAT/CTAT transfer and output headroom, systematic temperature error, supply sensitivity, Iq, disabled-state draw, pad-load sensitivity and trim-ladder range/LSB.",
+  "description": "Designer-level PVT check (transient, windowed means, since DR-031's chopper made `op` meaningless) of design/temp_core.sch: PTAT/CTAT transfer and output headroom, systematic temperature error, supply sensitivity, Iq, disabled-state draw, pad-load sensitivity and trim-ladder range/LSB.",
   "claim": "spec/target-spec.md#temp-vt-transfer -- design-intent slope and output range for the PTAT/CTAT pads, the row target-spec.md tags [TBD-#9] and this issue owns. Also substantiates, at the systematic level only: #temp-accuracy-untrimmed (+/-3 C), #temp-supply-sensitivity (<=0.5 C/V, i.e. <=0.33 C over the +/-10 % window), #temp-iq (<20 uA) and #temp-trim-strategy (1-point 25 C gain trim -- range and LSB measured here). Deterministic corners only: design.ngspice sets sw_stat_mismatch=0, so this bounds the SYSTEMATIC error and cannot see the mismatch share the [3sigma] rows require -- that is issue #15's Monte Carlo job, and target-spec.md marks those rows 'conditional #15' for exactly this reason. Published measured values ([TBD-#13]) and full spec-row coverage remain issue #13's.",
   "netlist": "tb_temp_core.spice",
   "nominal_supply_v": 3.3,
   "supply_tolerance": 0.1,
-  "temperatures_c": [-40, -15, 10, 25, 27, 60, 90, 125],
-  "corners": ["full"],
-  "analyses": ["op"],
+  "temperatures_c": [
+    -40,
+    -15,
+    10,
+    25,
+    27,
+    60,
+    90,
+    125
+  ],
+  "corners": [
+    "full"
+  ],
+  "analyses": [
+    "tran 50n 0.8m",
+    "meas tran a_ptat avg v(ptat) from=0.5m to=0.8m",
+    "meas tran a_ctat avg v(ctat) from=0.5m to=0.8m",
+    "meas tran a_ptatn avg v(ptatn) from=0.5m to=0.8m",
+    "meas tran a_vdd avg v(vdd) from=0.5m to=0.8m",
+    "meas tran a_isup avg i(vsup) from=0.5m to=0.8m",
+    "meas tran a_isupd avg i(vsupd) from=0.5m to=0.8m",
+    "meas tran a_ibd avg i(vibd) from=0.5m to=0.8m",
+    "meas tran a_ibiasd avg v(ibiasd) from=0.5m to=0.8m",
+    "meas tran a_ptatd avg v(ptatd) from=0.5m to=0.8m",
+    "meas tran a_ctatd avg v(ctatd) from=0.5m to=0.8m",
+    "meas tran a_ptatl avg v(ptatl) from=0.5m to=0.8m",
+    "meas tran a_tk avg v(tk) from=0.5m to=0.8m",
+    "meas tran a_nd avg v(xdut.nd) from=0.5m to=0.8m",
+    "meas tran a_nl32 avg v(nl32) from=0.5m to=0.8m",
+    "meas tran a_nl33 avg v(nl33) from=0.5m to=0.8m",
+    "meas tran a_nl00 avg v(nl00) from=0.5m to=0.8m",
+    "meas tran a_nl63 avg v(nl63) from=0.5m to=0.8m",
+    "meas tran a_dvbe avg v(nprb_dvbe) from=0.5m to=0.8m",
+    "meas tran a_aoffs avg v(nprb_aoffs) from=0.5m to=0.8m",
+    "meas tran a_hdr avg v(nprb_hdr) from=0.5m to=0.8m",
+    "meas tran p_max max v(ptat) from=0.5m to=0.8m",
+    "meas tran p_min min v(ptat) from=0.5m to=0.8m",
+    "meas tran tck1 when v(xdut.ck)=v(nhalf) rise=1 td=0.45m",
+    "meas tran tck6 when v(xdut.ck)=v(nhalf) rise=6 td=0.45m"
+  ],
   "measure": {
-    "vptat": "v(ptat)",
-    "vctat": "v(ctat)",
-    "ptat_k_mvk": "v(ptat)/v(tk)*1e3",
-    "terr_untrim_c": "v(ptat)/4.308842e-3 - v(tk)",
-    "terr_supply_c": "(v(ptat)-v(ptatn))/4.308842e-3",
-    "vout_margin_v": "min(min(v(ptat)-0.2,v(ctat)-0.2),min(v(vdd)-0.2-v(ptat),v(vdd)-0.2-v(ctat)))",
-    "iq_ua": "-i(vsup)*1e6",
-    "iq_dis_ua": "-i(vsupd)*1e6",
-    "ibias_dis_na": "i(vibd)*1e9",
-    "vibias_dis_v": "v(ibiasd)",
-    "vptat_dis_mv": "v(ptatd)*1e3",
-    "vctat_dis_mv": "v(ctatd)*1e3",
-    "load10m_err_pct": "(v(ptatl)-v(ptat))/v(ptat)*100",
-    "dvbe_mv": "(v(xdut.nb)-v(xdut.nc))*1e3",
-    "aoffs_uv": "(v(xdut.na)-v(xdut.nb))*1e6",
-    "vnd_mv": "v(xdut.nd)*1e3",
-    "mp3_hdr_v": "v(vdd)-v(xdut.m3d)",
-    "rtrim_nom_k": "v(nl32)/2.5u*1e-3",
-    "rtrim_lsb_pct": "(v(nl32)-v(nl33))/v(nl32)*100",
-    "rtrim_range_pct": "(v(nl00)-v(nl63))/v(nl32)*100"
+    "vptat": "a_ptat",
+    "vctat": "a_ctat",
+    "ptat_k_mvk": "a_ptat/a_tk*1e3",
+    "terr_untrim_c": "a_ptat/4.308842e-3 - a_tk",
+    "terr_supply_c": "(a_ptat-a_ptatn)/4.308842e-3",
+    "vout_margin_v": "min(min(a_ptat-0.2,a_ctat-0.2),min(a_vdd-0.2-a_ptat,a_vdd-0.2-a_ctat))",
+    "iq_ua": "-a_isup*1e6",
+    "iq_dis_ua": "-a_isupd*1e6",
+    "ibias_dis_na": "a_ibd*1e9",
+    "vibias_dis_v": "a_ibiasd",
+    "vptat_dis_mv": "a_ptatd*1e3",
+    "vctat_dis_mv": "a_ctatd*1e3",
+    "load10m_err_pct": "(a_ptatl-a_ptat)/a_ptat*100",
+    "dvbe_mv": "a_dvbe*1e3",
+    "aoffs_uv": "a_aoffs*1e6",
+    "vnd_mv": "a_nd*1e3",
+    "mp3_hdr_v": "a_hdr",
+    "rtrim_nom_k": "a_nl32/2.5u*1e-3",
+    "rtrim_lsb_pct": "(a_nl32-a_nl33)/a_nl32*100",
+    "rtrim_range_pct": "(a_nl00-a_nl63)/a_nl32*100",
+    "ptat_ripple_mv": "(p_max-p_min)*1e3",
+    "fchop_khz": "5/(tck6-tck1)*1e-3"
   },
   "checks": {
     "vptat": {
@@ -38,7 +77,7 @@
       "description": "PTAT output over -40..125 C; the spread floor proves .temp actually applied (a flat PTAT output is broken, not perfect)"
     },
     "vctat": {
-      "min": 0.40,
+      "min": 0.4,
       "max": 0.85,
       "min_spread_pct": 30.0,
       "description": "CTAT output = VEB of XQ1; falls ~1.86 mV/C"
@@ -62,7 +101,7 @@
       "description": "spec/target-spec.md#temp-iq (<20 uA). Conservative against the row as written: target-spec.md §5 rule 1 charges shared-bias-core current that must be live before POR to #por-iq, but this number includes the whole 0.5 uA IBIAS reference pushed into the pin"
     },
     "iq_dis_ua": {
-      "max": 0.10,
+      "max": 0.1,
       "description": "EN low (pre-POR): the cell's own draw from its VDD pin must be negligible"
     },
     "ibias_dis_na": {
@@ -95,19 +134,28 @@
       "description": "VDD - V(M3D): headroom left for the PTAT leg's cascode stack at the worst (hot, low-rail) corner"
     },
     "rtrim_lsb_pct": {
-      "min": 0.18,
-      "max": 0.30,
-      "description": "one trim LSB as a fraction of R2 (design 0.25 %, reduced by switch Ron)"
+      "min": 0.09,
+      "max": 0.15,
+      "description": "DR-031 s4: the trim LSB is halved from 0.23 % to about 0.12 % of R2 (was 0.18..0.30)."
     },
     "rtrim_range_pct": {
-      "min": 14.0,
-      "max": 17.0,
-      "description": "full trim range (design 15.75 %, i.e. +/-7.9 % about the nominal code) -- must cover a +/-4 mV amplifier offset"
+      "min": 6.5,
+      "max": 9.0,
+      "description": "DR-031 s4: full trim range halved from +/-7.8 % (15.6 % total) to about +/-3.9 % (7.8 % total) (was 14..17)."
     },
     "load10m_err_pct": {
       "min": -12.0,
       "max": 0.0,
       "description": "gain error from a 10 Mohm pad load. Not a pass/fail on the design -- it is the measured cost of having no output buffer (DR-005's temp_buffer cell), and the reason the pad spec is Rload >= 1 Gohm."
+    },
+    "ptat_ripple_mv": {
+      "max": 1.0,
+      "description": "DR-031 s2 REQUIREMENT, not an observation: peak-to-peak chop ripple at the PTAT pad (4.31 mV/K, so 1 mV is about 0.23 C). Reported whether or not it is met; no limit elsewhere is edited to make it pass."
     }
-  }
+  },
+  "options": [
+    "reltol=1e-4",
+    "abstol=1e-13",
+    "vntol=1e-7"
+  ]
 }

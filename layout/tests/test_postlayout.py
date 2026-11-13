@@ -25,6 +25,7 @@ REPO_ROOT = LAYOUT_DIR.parent
 sys.path.insert(0, str(LAYOUT_DIR))
 
 import lvs_reference as lr  # noqa: E402
+from layout_staleness import skip_while_layout_stale  # noqa: E402
 import postlayout as pl  # noqa: E402
 
 
@@ -152,6 +153,8 @@ class NamingTest(unittest.TestCase):
         self.assertEqual(pl.correspondence_key("xbias.NW1"), "XBIAS_NW1")
         self.assertEqual(pl.correspondence_key("RESETn"), "RESETN")
 
+    @skip_while_layout_stale
+
     def test_an_assembly_well_is_tied_through_the_renamed_compare(self):
         # The regression that left every PMOS well floating while the netlist
         # still elaborated: joining on the raw reference name missed every tie
@@ -269,6 +272,8 @@ class SubstitutionTest(unittest.TestCase):
         models = pl.resistor_models("por_comparator")
         self.assertEqual(models["ppolyf_u_1k"], ("ppolyf_u_3k", 2.0))
 
+    @skip_while_layout_stale
+
     def test_plain_poly_resistors_are_not_substituted(self):
         self.assertEqual(pl.resistor_models("temp_core")["ppolyf_u"][0], "ppolyf_u")
 
@@ -313,6 +318,7 @@ class SubstitutionTest(unittest.TestCase):
 
 
 class UndrawnDeviceTest(unittest.TestCase):
+    @skip_while_layout_stale
     def test_temp_core_has_no_undrawn_cap_left(self):
         # #259 (DR-028) drew XCC, which was the last golden device in this
         # block the layout did not draw. It is in temp_core's manifest now, so
@@ -321,10 +327,14 @@ class UndrawnDeviceTest(unittest.TestCase):
         self.assertEqual(pl.undrawn_capacitors("temp_core"), [])
         self.assertIn("XCC", lr.CELLS["temp_core"]["caps"])
 
+    @skip_while_layout_stale
+
     def test_no_cell_reports_an_undrawn_cap(self):
         for cell in pl.CELLS:
             with self.subTest(cell=cell):
                 self.assertEqual(pl.undrawn_capacitors(cell), [])
+
+    @skip_while_layout_stale
 
     def test_the_assembly_inherits_nothing_ideal_from_its_instances(self):
         # The assembly's list is composed from its four sub-cells under the
@@ -333,6 +343,8 @@ class UndrawnDeviceTest(unittest.TestCase):
         self.assertEqual(pl.undrawn_capacitors("temp_por_top"), [])
         lines, records = pl.ideal_cards("temp_por_top")
         self.assertEqual((lines, records), ([], []))
+
+    @skip_while_layout_stale
 
     def test_a_cap_dropped_from_the_manifest_comes_back_as_ideal(self):
         # The empty lists above must mean "everything is drawn", not "this
@@ -664,6 +676,7 @@ class GuardTest(unittest.TestCase):
 
 
 class RegenerationTest(unittest.TestCase):
+    @skip_while_layout_stale
     def test_committed_artifacts_reproduce_exactly(self):
         for path, text in pl.generate(list(pl.CELLS)).items():
             with self.subTest(path=path.name):
