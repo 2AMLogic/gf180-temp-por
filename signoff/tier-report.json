@@ -33,7 +33,7 @@
         "command": null,
         "kind": "generic",
         "check_status": "pass",
-        "content_hash": "sha256:ab0fdeb3edc95c6c884a23f7af8aae6e5c5504ef55f4bb7a692e58ce78aa9436",
+        "content_hash": "sha256:4e5c875fb7f458d8e33f976c600279b2194d91b809fcc55d39070fc5bb9cf98c",
         "input_verified": true,
         "exit_status": 0,
         "artifact_binding": {
@@ -42,7 +42,7 @@
             "path": "signoff/evidence/inventory-design-sources.json",
             "scope": "repo"
           },
-          "content_hash": "sha256:ab0fdeb3edc95c6c884a23f7af8aae6e5c5504ef55f4bb7a692e58ce78aa9436",
+          "content_hash": "sha256:4e5c875fb7f458d8e33f976c600279b2194d91b809fcc55d39070fc5bb9cf98c",
           "input_verified": true,
           "summary": "Audited inventory for T1 item 1 (Design sources): 5 xschem schematics and 5 derived netlists, regeneration gate 'python3 design/netlist.py --check'. Every member file is listed with its sha256 and signoff/check.py re-derives the inventory from the live tree, so the bound hash proves the inventory is current and the member hashes prove the files it describes are. It does not run a simulation or re-derive any measured value.",
           "source": "signoff/evidence/inventory-design-sources.json"
@@ -340,7 +340,7 @@
         "command": null,
         "kind": "generic",
         "check_status": "pass",
-        "content_hash": "sha256:363d8d05e3378059cfd3a6e24794e693572cf0f5ab2a195810220a81cb74b4de",
+        "content_hash": "sha256:ffc45a708f2dc5e110531e56a9ef53c0af50f883cab20a67515e70af3a97ff04",
         "input_verified": true,
         "exit_status": 0,
         "artifact_binding": {
@@ -349,7 +349,7 @@
             "path": "signoff/evidence/inventory-testbenches.json",
             "scope": "repo"
           },
-          "content_hash": "sha256:363d8d05e3378059cfd3a6e24794e693572cf0f5ab2a195810220a81cb74b4de",
+          "content_hash": "sha256:ffc45a708f2dc5e110531e56a9ef53c0af50f883cab20a67515e70af3a97ff04",
           "input_verified": true,
           "summary": "Audited inventory for T1 item 9 (Testbenches shipped): the committed testbench files of 24 sim/ experiments mapped to all 29 spec rows, the cold-start invocation and the pinned PDK revision. Every member file is listed with its sha256 and signoff/check.py re-derives the inventory from the live tree, so the bound hash proves the inventory is current and the member hashes prove the files it describes are. It does not run a simulation or re-derive any measured value.",
           "source": "signoff/evidence/inventory-testbenches.json"
