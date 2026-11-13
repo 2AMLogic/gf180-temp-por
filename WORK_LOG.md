@@ -2,8 +2,25 @@
 
 Merged PRs and closed issues from the initial 30-day snapshot (2026-09-07 onward).
 
+## Archives
+
+- [2026-09](work_log/WORK_LOG_2026-09.md)
+
 ### 2026-11-13
 
+- **PR #473**: feat(sim): refuse a batch result whose runner read a different PDK build
+- **PR #472**: fix(sim): pass --wait-for-capacity on the single-request batch submit path
+- **PR #471**: fix(pex): refuse a swept supply axis under either klt request key
+- **PR #466**: fix(sim): sweep the lifted vdd_val on klt's parameter axis, not its supply axis
+- **PR #463**: refactor(sim): add runner.run_decks and call it from the seven control-script pools
+- **PR #461**: docs: name the ratification keys as the Publication rule's one exception
+- **Issue #475** (closed): Batch backend: the inlined design.ngspice is not covered by the runner-PDK gate or the evidence record
+- **Issue #469** (closed): sim/pex/build_requests.py: the 'unexpected supply axis' guard still reads corners.supply_v, which the harness no longer emits
+- **Issue #468** (closed): sim evidence: batch results record the submitting host's PDK, not the build the fleet runner actually simulated
+- **Issue #467** (closed): sim harness: the single-request batch path never passes --wait-for-capacity, so a full fleet fails the run outright
+- **Issue #464** (closed): sim harness batch backend: klt refuses the lifted vdd_val supply axis, and requests do not pin the PDK root the harness resolved
+- **Issue #462** (closed): Dedupe the seven copies of the control scripts' thread-pool run_deck loop into runner.run_decks
+- **Issue #435** (closed): Scrub or remove ratification/market-key before public visibility flip
 - **PR #454**: docs(spec): DR-031 chopped temp_core amplifier, gain-term fix, trim re-balance
 - **Issue #451** (closed): temp_core: decision record superseding DR-005's no-chopping rejection (#415 step 1/3)
 
@@ -175,12 +192,3 @@ Merged PRs and closed issues from the initial 30-day snapshot (2026-09-07 onward
 - **PR #302**: signoff: commit a klt signoff block manifest as the T1 verdict of record
 - **Issue #301** (closed): Commit a klt signoff block manifest so this block's T1 state is graded, not hand-read
 
-### 2026-09-10
-
-- **PR #299**: sim: post-layout re-run of temp_core's loop-stability testbench (#298)
-- **Issue #298** (closed): sim: post-layout re-run of temp_core's .ac loop-stability testbench against layout/postlayout/temp_core.spice (closes the one temp_core testbench without an extracted sibling)
-
-### 2026-09-09
-
-- **Issue #297** (closed): Champion: Merge-Risk Hold Digest
-- **Issue #145** (closed): Track the gap to T1 sim-validated / bronze (klayout-tools design-evidence tiers)
