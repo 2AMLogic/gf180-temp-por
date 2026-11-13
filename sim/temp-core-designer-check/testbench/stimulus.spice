@@ -24,9 +24,23 @@
 *            -> trim range, LSB size and monotonicity across the whole PVT
 *               grid, without needing six schematic variants.
 *
+* DR-031 chopper: the DUT now contains a free-running clock, so a DC `op` has
+* no meaningful answer (the oscillator sits at its metastable point and the
+* loop can rest in its degenerate state). The bench is therefore a transient:
+* EN rises at 1-2 us from the disabled state exactly as POR would release it,
+* and every number is a mean over a window of many chop periods
+* (from 0.5 ms to 0.8 ms), taken long after the loop has settled.
+*
 * Absolute-temperature probe: `temper` is not reachable from a measure
 * expression, so it is published as a node voltage (1 V per kelvin).
 
+* Difference probes on the enabled DUT, published as node voltages so a
+* transient `meas ... avg` can window them like any other node.
+Bdvbe nprb_dvbe 0 v='v(xdut.nb)-v(xdut.nc)'
+Baoffs nprb_aoffs 0 v='v(xdut.na)-v(xdut.nb)'
+Bhdr nprb_hdr 0 v='v(vdd)-v(xdut.m3d)'
+
+Bhalf nhalf 0 v='vdd_val/2'
 Btk tk 0 v='temper + 273.15'
 Rtk tk 0 1G
 
@@ -35,7 +49,7 @@ Rtk tk 0 1G
 * iq_ua is the conservative number: it includes the 0.5 uA reference that
 * bias_core pushes into the pin (see design/temp_core.md, Iq budget).
 vsup  vdd 0 dc {vdd_val}
-ven   en  0 dc {vdd_val}
+ven   en  0 PWL(0 0 1u 0 2u {vdd_val})
 xdut  vdd 0 ibias en ptat ctat temp_core
 ibref vdd ibias dc 500n
 Rlp   ptat 0 1T
@@ -78,7 +92,7 @@ Rlcd  ctatd 0 1T
 * construction. EN gets its own vdd_nom-referenced driver so this copy is
 * never driven above its own rail.
 vsupn vddn 0 dc {vdd_nom}
-venn  enn  0 dc {vdd_nom}
+venn  enn  0 PWL(0 0 1u 0 2u {vdd_nom})
 xnom  vddn 0 ibiasn enn ptatn ctatn temp_core
 ibrfn vddn ibiasn dc 500n
 Rlpn  ptatn 0 1T
@@ -94,13 +108,13 @@ Rlcl  ctatl 0 10meg
 * ---- 5. trim ladder, standalone, four codes ---------------------------
 * Same devices and same r_length values as the ladder inside temp_core.
 .subckt trimlad top vss b5 b4 b3 b2 b1 b0
-XR2F  top t5   vss ppolyf_u r_width=2u r_length=2652.6u m=1
-XR2T5 t5  t4   vss ppolyf_u r_width=2u r_length=229.71u m=1
-XR2T4 t4  t3   vss ppolyf_u r_width=2u r_length=114.69u m=1
-XR2T3 t3  t2   vss ppolyf_u r_width=2u r_length=57.18u  m=1
-XR2T2 t2  t1   vss ppolyf_u r_width=2u r_length=28.42u  m=1
-XR2T1 t1  t0   vss ppolyf_u r_width=2u r_length=14.03u  m=1
-XR2T0 t0  vss  vss ppolyf_u r_width=2u r_length=6.85u   m=1
+XR2F  top t5   vss ppolyf_u r_width=4u r_length=5600.45u m=1
+XR2T5 t5  t4   vss ppolyf_u r_width=4u r_length=232.71u m=1
+XR2T4 t4  t3   vss ppolyf_u r_width=4u r_length=116.19u m=1
+XR2T3 t3  t2   vss ppolyf_u r_width=4u r_length=57.93u  m=1
+XR2T2 t2  t1   vss ppolyf_u r_width=4u r_length=28.80u  m=1
+XR2T1 t1  t0   vss ppolyf_u r_width=4u r_length=14.22u  m=1
+XR2T0 t0  vss  vss ppolyf_u r_width=4u r_length=6.95u   m=1
 XSW5  t5  b5 t4  vss nfet_03v3 W=32u L=0.5u nf=1 m=1
 XSW4  t4  b4 t3  vss nfet_03v3 W=32u L=0.5u nf=1 m=1
 XSW3  t3  b3 t2  vss nfet_03v3 W=32u L=0.5u nf=1 m=1

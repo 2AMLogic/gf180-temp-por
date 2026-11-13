@@ -1,13 +1,23 @@
 {
   "name": "temp-core-startup",
-  "description": "Transient startup and brownout-restart check of design/temp_core.sch: cold start from 0 V with EN gated by POR, pre-enable quiescent draw, and identical settling after a rail collapse (proves the DVBE loop has no reachable dead state).",
+  "description": "Transient startup and brownout-restart check of design/temp_core.sch: cold start from 0 V with EN gated by POR, pre-enable quiescent draw, and identical settling after a rail collapse (proves the DVBE loop has no reachable dead state). Since DR-031 the running-state readings are 100 us window means (the chopper's ripple makes an instantaneous sample meaningless); the pre-POR (disabled) readings are unchanged.",
   "claim": "Designer-level startup check for the temp-sensing core (issue #9). Substantiates DR-005 startup ordering step 6 (the sensor's enable is gated by POR's output and is never required to be valid before POR) and the freedom-from-degenerate-state property the PTAT/CTAT transfer records in sim/temp-core-designer-check/ implicitly assume. Deterministic corners only -- mismatch between the detector's replica leg and the mirror is issue #15's Monte Carlo job.",
   "netlist": "tb_temp_core_startup.spice",
   "nominal_supply_v": 3.3,
   "supply_tolerance": 0.1,
-  "temperatures_c": [-40, 27, 125],
-  "corners": ["full"],
-  "options": ["reltol=1e-5", "abstol=1e-15", "vntol=1e-9"],
+  "temperatures_c": [
+    -40,
+    27,
+    125
+  ],
+  "corners": [
+    "full"
+  ],
+  "options": [
+    "reltol=1e-5",
+    "abstol=1e-15",
+    "vntol=1e-9"
+  ],
   "analyses": [
     "tran 2u 5m",
     "meas tran vpre find v(ptat) at=1.4m",
@@ -15,11 +25,11 @@
     "meas tran ibpre find i(vib) at=1.4m",
     "meas tran ibdpre find i(vibd) at=1.4m",
     "meas tran vibpre find v(ibias) at=1.4m",
-    "meas tran vrun1 find v(ptat) at=2.4m",
-    "meas tran irun1 find i(vsup) at=2.4m",
-    "meas tran vcrun1 find v(ctat) at=2.4m",
-    "meas tran vrun2 find v(ptat) at=4.9m",
-    "meas tran vcrun2 find v(ctat) at=4.9m",
+    "meas tran vrun1 avg v(ptat) from=2.3m to=2.4m",
+    "meas tran irun1 avg i(vsup) from=2.3m to=2.4m",
+    "meas tran vcrun1 avg v(ctat) from=2.3m to=2.4m",
+    "meas tran vrun2 avg v(ptat) from=4.8m to=4.9m",
+    "meas tran vcrun2 avg v(ctat) from=4.8m to=4.9m",
     "meas tran tcross when v(ptat)=0.5 rise=1 td=1.5m"
   ],
   "measure": {
@@ -43,7 +53,7 @@
       "description": "cold-start settled PTAT; the spread floor proves .temp applied (a PTAT output that does not move with temperature is broken, not perfect) and that every point really did start"
     },
     "vctat_run1": {
-      "min": 0.40,
+      "min": 0.4,
       "max": 0.85,
       "min_spread_pct": 30.0,
       "description": "cold-start settled CTAT = VEB of XQ1"
@@ -63,7 +73,7 @@
       "description": "pre-POR window (EN low, rail up): PTAT pad held at VSS, not floating"
     },
     "iq_pre_own_ua": {
-      "max": 0.10,
+      "max": 0.1,
       "description": "pre-POR window: what the cell draws from its OWN VDD pin before POR releases it (DR-005 step 6), i.e. i(vsup) minus the IBIAS reference metered by vib"
     },
     "iq_pre_pin_ua": {
