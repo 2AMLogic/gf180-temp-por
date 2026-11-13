@@ -8,6 +8,10 @@ Merged PRs and closed issues from the initial 30-day snapshot (2026-09-07 onward
 
 ### 2026-11-13
 
+- **PR #484**: refactor(sim): drop the unreachable commit-the-bytes write path from the harness
+- **PR #483**: docs: describe the drawn divider in the SNS/SNSB track comment
+- **Issue #481** (closed): Remove the unreachable pre-DR-030 commit-the-bytes write path from the sim harness (stage=False, reserve=True)
+- **Issue #480** (closed): Stale comment in layout/build_cells.py still calls the sense divider undrawn
 - **PR #479**: refactor: drop unused RESERVED layer, add_cell and RESISTOR_MODEL
 - **PR #478**: test(layout): drop the retired #97 drift fallback from the temp_por_top assembly check
 - **Issue #477** (closed): Remove retired reservation-layer and sibling-top-cell leftovers from layout/build_cells.py (RESERVED, add_cell) and dead RESISTOR_MODEL
