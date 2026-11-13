@@ -34,7 +34,6 @@ _None._
 Issues currently being built (`loom:building`).
 
 - **#452**: temp_core: implement amplifier chop/auto-zero, gain mirror fix and trim re-balance (#415 step 2/3)
-- **#480**: Stale comment in layout/build_cells.py still calls the sense divider undrawn
 
 ## PRs Awaiting Review
 
@@ -62,13 +61,12 @@ Issues carrying `loom:curated`.
 - **#416**: POR threshold rows: N=500 cannot demonstrate the 99.73 % [3σ] yield; need a larger campaign *(curated)*
 - **#417**: Item 6: sampled negative control for the Monte Carlo yield campaigns *(curated)*
 - **#452**: temp_core: implement amplifier chop/auto-zero, gain mirror fix and trim re-balance (#415 step 2/3) *(curated)*
-- **#480**: Stale comment in layout/build_cells.py still calls the sense divider undrawn *(curated)*
 
 ## Proposed (Architect / Hermit)
 
 - **#470**: Give run_por_edge_check.py its own results file: remove the §7 splice into net_attribution_results.md *(hermit)*
 - **#474**: Remove tolerated pre-pin card shapes from layout/postlayout.py's extracted-netlist reader *(hermit)*
-- **#481**: Remove the unreachable pre-DR-030 commit-the-bytes write path from the sim harness (stage=False, reserve=True) *(hermit)*
+- **#485**: Remove sim/selftest.sh --quick: the single-point mode always fails the harness's own min_spread_pct checks *(hermit)*
 
 ## Epics
 
@@ -82,10 +80,10 @@ _None._
 | Very important | 0 |
 | Important | 3 |
 | Ready (`loom:issue`) | 0 |
-| In Progress (`loom:building`) | 2 |
+| In Progress (`loom:building`) | 1 |
 | PRs awaiting review | 0 |
 | Approved PRs awaiting merge | 1 |
-| Curated | 11 |
+| Curated | 10 |
 | Architect / Hermit proposals | 3 |
 | Active epics | 0 |
 <!-- guide:plan-body:end -->
