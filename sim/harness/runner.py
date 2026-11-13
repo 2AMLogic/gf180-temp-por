@@ -451,6 +451,49 @@ def run_deck(
     )
 
 
+def run_decks(
+    jobs: list[tuple[str, str]],
+    control_dir: Path,
+    workers: int,
+    backend: str = klt_batch.BACKEND_LOCAL,
+    batch: "klt_batch.BatchConfig | None" = None,
+) -> dict[str, dict[str, float]]:
+    """Run every ``(name, text)`` deck in ``jobs`` through :func:`run_deck`,
+    at most ``workers`` at a time, and return ``{name: measurements}`` in
+    ``jobs`` order.
+
+    ``workers`` is clamped to ``max(1, min(workers, len(jobs)))``, so a caller
+    may pass its own cap unconditionally and an empty ``jobs`` list is a
+    no-op returning ``{}`` rather than a ``ThreadPoolExecutor`` error.
+    ``backend="batch"`` (with a ``klt_batch.BatchConfig``) sends each deck
+    through ``klt sim --backend batch`` -- decks, measurements and parsing
+    unchanged -- and any failure other than an absent measurement aborts the
+    run, with no local fallback.
+
+    Shared home for the per-experiment "run a list of named decks in a thread
+    pool and key the measurements by deck name" loop that used to be
+    redefined around :func:`run_deck` in all seven of
+    sim/por-brownout/control/run_recovery_reassert.py,
+    sim/por-brownout/control/run_dip_rootcause.py,
+    sim/por-brownout-slew/control/run_postlayout_margin.py,
+    sim/por-brownout-slew/control/run_band_mechanism.py,
+    sim/por-brownout-slew/control/run_por_edge_check.py,
+    sim/por-brownout-slew/control/run_net_attribution.py and
+    sim/por-output-chain-deglitch/control/run_dwell_sweep.py, differing only
+    in the worker cap and in whether the backend arguments were forwarded.
+    """
+    with ThreadPoolExecutor(max_workers=max(1, min(workers, len(jobs)))) as pool:
+        return dict(
+            zip(
+                [name for name, _ in jobs],
+                pool.map(
+                    lambda job: run_deck(*job, control_dir, backend=backend, batch=batch),
+                    jobs,
+                ),
+            )
+        )
+
+
 def find_crossings(
     rows: list[tuple[float, ...]],
     col: int,
