@@ -78,7 +78,6 @@ from __future__ import annotations
 
 import importlib.util
 import sys
-from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 CONTROL_DIR = Path(__file__).resolve().parent
@@ -152,13 +151,7 @@ def main(argv: list[str] | None = None) -> int:
             f"{len(band.SUPPLIES_V)} supplies) at {band.CORNER} /"
             f" {band.TEMP_C} C ..."
         )
-        with ThreadPoolExecutor(max_workers=min(8, len(jobs))) as pool:
-            results = dict(
-                zip(
-                    [name for name, _ in jobs],
-                    pool.map(lambda job: runner.run_deck(*job, CONTROL_DIR), jobs),
-                )
-            )
+        results = runner.run_decks(jobs, CONTROL_DIR, 8)
 
     write_results(pdk, results)
     print(f"wrote {CONTROL_DIR / 'postlayout_margin_results.md'}")

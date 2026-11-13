@@ -106,7 +106,6 @@ from __future__ import annotations
 
 import os
 import sys
-from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 CONTROL_DIR = Path(__file__).resolve().parent
@@ -228,13 +227,7 @@ def main() -> int:
             jobs.append((name, deck(pdk, options, corner_name, temp_c, vdd, fragment)))
 
     print(f"running {len(jobs)} decks ({len(ARMS)} arms x {len(POINTS)} points) ...")
-    with ThreadPoolExecutor(max_workers=min(8, len(jobs))) as pool:
-        results = dict(
-            zip(
-                [name for name, _ in jobs],
-                pool.map(lambda job: runner.run_deck(*job, CONTROL_DIR), jobs),
-            )
-        )
+    results = runner.run_decks(jobs, CONTROL_DIR, 8)
     for name in results:
         print(f"  {name}: {len(results[name])} measurements")
 

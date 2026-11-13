@@ -18,7 +18,7 @@ from unittest import mock
 SIM_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(SIM_DIR))
 
-from harness import cli, cliutil, corners, montecarlo, report, runner, testbench  # noqa: E402
+from harness import cli, cliutil, corners, klt_batch, montecarlo, report, runner, testbench  # noqa: E402
 from harness.pdk import PdkNotFound  # noqa: E402
 from testutil import fake_pdk  # noqa: E402
 
@@ -478,6 +478,74 @@ class RunDeckRawTimeoutTests(unittest.TestCase):
 
     def test_timeout_is_forwarded(self):
         self.assertEqual(self._run(timeout_s=900)["timeout"], 900)
+
+
+class RunDecksTests(unittest.TestCase):
+    """:func:`runner.run_decks` -- the shared thread-pool loop the seven
+    control scripts in sim/*/control/ call instead of each redefining it."""
+
+    JOB = ("d_a", "* x\n.end\n")
+
+    def _max_workers(self, n_jobs: int, workers: int) -> int:
+        """The ``max_workers`` the helper actually opens its pool with."""
+        captured = {}
+        real = runner.ThreadPoolExecutor
+
+        def spy(max_workers):
+            captured["max_workers"] = max_workers
+            return real(max_workers=max_workers)
+
+        jobs = [(f"d{i}", "* x\n.end\n") for i in range(n_jobs)]
+        with mock.patch.object(runner, "ThreadPoolExecutor", spy), \
+                mock.patch.object(runner, "run_deck", return_value={}):
+            runner.run_decks(jobs, Path("/nonexistent"), workers)
+        return captured["max_workers"]
+
+    def test_results_are_keyed_by_deck_name_in_jobs_order(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            control = Path(tmp)
+            proc = mock.Mock(stdout="t_rst = 1.0e-06\n", stderr="", returncode=0)
+            jobs = [("d_b", "* b\n.end\n"), ("d_a", "* a\n.end\n")]
+            with mock.patch.object(runner.subprocess, "run", return_value=proc):
+                out = runner.run_decks(jobs, control, 2)
+            # Keyed by deck name, in jobs order -- not completion order.
+            self.assertEqual(list(out), ["d_b", "d_a"])
+            self.assertEqual(out["d_a"], {"t_rst": 1e-06})
+            self.assertEqual((control / "decks" / "d_b.spice").read_text(), "* b\n.end\n")
+
+    def test_worker_count_is_clamped_to_the_job_count(self):
+        # A caller passing a bare cap of 8 must not open 8 threads for 3 decks.
+        self.assertEqual(self._max_workers(3, 8), 3)
+
+    def test_a_cap_below_the_job_count_is_honoured(self):
+        self.assertEqual(self._max_workers(10, 4), 4)
+
+    def test_an_empty_job_list_does_not_open_a_zero_worker_pool(self):
+        # ThreadPoolExecutor(max_workers=0) raises; the max(1, ...) clamp is
+        # what lets every caller pass its cap unconditionally.
+        self.assertEqual(self._max_workers(0, 8), 1)
+
+    def test_an_empty_job_list_returns_no_results(self):
+        self.assertEqual(runner.run_decks([], Path("/nonexistent"), 8), {})
+
+    def test_the_default_backend_is_local(self):
+        with mock.patch.object(runner, "run_deck", return_value={}) as run_deck:
+            runner.run_decks([self.JOB], Path("/nonexistent"), 1)
+        self.assertEqual(run_deck.call_args.kwargs["backend"], klt_batch.BACKEND_LOCAL)
+        self.assertIsNone(run_deck.call_args.kwargs["batch"])
+
+    def test_backend_and_batch_are_forwarded_to_run_deck(self):
+        cfg = mock.sentinel.batch_config
+        with mock.patch.object(runner, "run_deck", return_value={}) as run_deck:
+            runner.run_decks(
+                [self.JOB], Path("/nonexistent"), 1,
+                backend=klt_batch.BACKEND_BATCH, batch=cfg,
+            )
+        self.assertEqual(
+            run_deck.call_args.args, ("d_a", "* x\n.end\n", Path("/nonexistent"))
+        )
+        self.assertEqual(run_deck.call_args.kwargs["backend"], klt_batch.BACKEND_BATCH)
+        self.assertIs(run_deck.call_args.kwargs["batch"], cfg)
 
 
 class ParseBareMeasurementsTests(unittest.TestCase):

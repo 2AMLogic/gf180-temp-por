@@ -155,7 +155,6 @@ import argparse
 import importlib.util
 import re
 import sys
-from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
 from typing import NamedTuple
@@ -548,20 +547,11 @@ def main(argv: list[str] | None = None) -> int:
             f"{len(SLEWS_MVUS)} rungs x {len(band.SUPPLIES_V)} supplies) at "
             f"{band.CORNER} / {band.TEMP_C:g} C ..."
         )
-        with ThreadPoolExecutor(max_workers=min(8, len(jobs))) as pool:
-            results = dict(
-                zip(
-                    [name for name, _ in jobs],
-                    pool.map(
-                        lambda job: runner.run_deck(
-                            *job, CONTROL_DIR,
-                            backend=klt_batch.BACKEND_BATCH if batch else klt_batch.BACKEND_LOCAL,
-                            batch=batch,
-                        ),
-                        jobs,
-                    ),
-                )
-            )
+        results = runner.run_decks(
+            jobs, CONTROL_DIR, 8,
+            backend=klt_batch.BACKEND_BATCH if batch else klt_batch.BACKEND_LOCAL,
+            batch=batch,
+        )
 
     missing = probe_gaps(variants, results)
     if missing:
