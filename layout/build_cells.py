@@ -42,23 +42,14 @@ Layers are the gf180mcu drawn layers ``klt``'s curated ``gf180mcu`` deck reads
                     (the vertical-bipolar marker, ``temp_core``'s PNP array
                     only, #93)
 
-plus one repo-local annotation layer that is **not** a gf180mcu drawn layer and
-is read by neither the DRC deck nor the extraction deck:
-
-    RESERVED 200/0  area reserved for devices the deck cannot represent
-                    (see ``bias_core``'s and ``por_comparator``'s docstrings;
-                    ``por_output_chain``'s MiM reservation is gone -- it draws
-                    those capacitors for real, #92)
-
 Device dimensions are never retyped here. The real sub-circuit cells
 (``bias_core``, ``por_comparator``, ``por_output_chain``) read every ``L``/``W``
 out of their ``design/netlist/*.spice`` through ``lvs_reference``'s parser --
 the same golden netlist the LVS reference is derived from -- so the layout and
 the reference cannot drift apart silently: move a size in the schematic and both
-``--check`` gates fail together. The same holds for the one reserved region
-whose size is load-bearing: the sense divider's footprint is folded from the
-golden netlist's own ``r_width`` / ``r_length``, not from a number typed in
-here.
+``--check`` gates fail together. The same holds for a drawn shape whose own
+size is load-bearing: the sense divider's legs are folded from the golden
+netlist's own ``r_width`` / ``r_length``, not from a number typed in here.
 """
 
 from __future__ import annotations
@@ -149,7 +140,6 @@ SAB = (49, 0)
 RESISTOR_ID = (62, 0)
 RES_MK = (110, 5)
 DRC_BJT = (127, 5)
-RESERVED = (200, 0)
 
 #: gf180mcu DRM "CO.1": contact is a fixed 0.22 x 0.22 um square.
 CONTACT_SIDE_UM = 0.22
@@ -270,16 +260,6 @@ class CellBuilder:
             )
         )
         return child
-
-    def add_cell(self, name: str) -> None:
-        """Start a second (sibling) top cell in the same stream.
-
-        ``klt drc`` checks **every** top cell in a stream, while ``klt
-        extract``/``klt lvs`` take a single ``--top``. That split is what lets
-        one stream carry both the LVS'd cell and structures the curated
-        extraction deck cannot model as devices (see ``temp_core`` below).
-        """
-        self.cell = self.layout.create_cell(name)
 
     def write(self, path: Path) -> None:
         options = self._kdb.SaveLayoutOptions()
@@ -2792,7 +2772,7 @@ def temp_core(b: CellBuilder) -> None:
 
 
 def _temp_core_body(b: CellBuilder) -> None:
-    """Everything ``temp_core`` draws, as a plain body with no ``add_cell``.
+    """Everything ``temp_core`` draws, as a plain cell body.
 
     Split out for ``temp_por_top`` (#72), which instances *this* into the
     block-level assembly rather than calling :func:`temp_core` -- a cell body

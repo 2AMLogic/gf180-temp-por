@@ -965,8 +965,8 @@ rule that could say whether MiM over the device row is legal.
 
 The 200/0 annotation rectangle this cell used to carry for that area is **gone**
 — `extract.json`'s `ignored_layers` is now empty for this cell. `bias_core`'s is
-gone too (#90); `por_comparator`'s sense-divider reservation is the last one
-left.
+gone too (#90), and `por_comparator`'s sense-divider reservation went with #91's
+drawn divider — no reserved region is left anywhere in the block.
 
 Recorded result (`layout/reports/por_output_chain/`):
 
