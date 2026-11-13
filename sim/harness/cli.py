@@ -260,13 +260,12 @@ def run(args: argparse.Namespace) -> int:
     records_dir = experiment_dir / report.RECORDS_DIR
 
     jobs = args.jobs or cliutil.default_jobs()
-    # Sample git state *before* the run: the harness writes its own per-corner
-    # logs into the tracked evidence tree, so sampling afterwards would mark
-    # every record as taken against a dirty tree. (cliutil.provision_record
-    # samples git first internally, preserving that ordering.)
+    # Sample git state *before* the run, so the record names the tree the
+    # simulation actually ran against rather than whatever the run itself
+    # left behind. (cliutil.provision_record samples git first internally,
+    # preserving that ordering.)
     record_id, workdir, log_dir, git, started = cliutil.provision_record(
-        REPO_ROOT, WORK_DIR, records_dir, experiment_dir, tb.experiment, args.no_write,
-        stage=True,
+        REPO_ROOT, WORK_DIR, records_dir, tb.experiment, args.no_write,
     )
 
     if not args.quiet:
@@ -387,7 +386,7 @@ def run(args: argparse.Namespace) -> int:
 
     return cliutil.finish_run(
         tb, record, experiment_dir, record_id, workdir, log_dir, args.no_write, report.write_record,
-        stage=True, repo_root=REPO_ROOT,
+        repo_root=REPO_ROOT,
     )
 
 

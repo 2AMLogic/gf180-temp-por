@@ -144,10 +144,8 @@ def provision_record(
     repo_root: Path,
     work_dir: Path,
     records_dir: Path,
-    experiment_dir: Path,
     experiment_name: str,
     no_write: bool,
-    stage: bool = False,
 ) -> tuple[str, Path, Path | None, dict, datetime]:
     """Allocate a record id and derive its workdir/log_dir, as both
     ``sim/run_corners.py`` (via ``sim/harness/cli.py``) and ``sim/run_mc.py``
@@ -156,39 +154,36 @@ def provision_record(
     Returns ``(record_id, workdir, log_dir, git, started)``. ``log_dir`` is
     ``None`` when ``no_write`` is set (debugging runs write no evidence).
 
-    With ``stage=True`` (what the entry points pass, DR-030) the run's raw
-    outputs are staged in the git-ignored ``<work_dir>/evidence-stage/`` tree
-    instead of ``<experiment>/corners/<record-id>/``: ``log_dir`` is then
-    ``<stage>/corners`` and ``finish_run(..., stage=True)`` ships the stage to
-    the artifact store. Nothing is reserved in the tracked tree, and the store
-    is checked up front so a worker that cannot publish fails before it
+    Per DR-030 a writing run always stages its raw outputs in the git-ignored
+    ``<work_dir>/evidence-stage/`` tree -- ``log_dir`` is ``<stage>/corners``
+    and ``finish_run`` ships the stage to the artifact store. Nothing is
+    reserved in the tracked tree (the committed ``<experiment>/corners/`` and
+    ``netlist-snapshots/`` directories hold pre-DR-030 evidence only), and the
+    store is checked up front so a worker that cannot publish fails before it
     simulates anything.
     """
     # Local import: sim/harness/report.py imports this module (for `fmt()`),
     # so importing it at module scope here would be circular.
     from . import report as report_mod
 
-    if stage and not no_write:
+    if not no_write:
         evidence_store.preflight()
     started = datetime.now(timezone.utc)
     git = report_mod.git_provenance(repo_root)
     when = started
-    staging = stage and not no_write
     stage_dir = None
     while True:
-        # Writing runs atomically reserve the record id (its raw-log
-        # directory) before any simulation starts; --no-write runs reserve
-        # nothing in the evidence tree.
-        record_id = report_mod.allocate_record_id(
-            repo_root, records_dir, when, git=git, reserve=not no_write and not staging
-        )
+        # Neither a staged run nor a --no-write run reserves anything in the
+        # tracked evidence tree; the id is claimed by the exclusive scratch
+        # (and, for a staged run, stage) directory created just below.
+        record_id = report_mod.allocate_record_id(repo_root, records_dir, when, git=git)
         workdir = work_dir / experiment_name / record_id
         # The scratch directory is claimed exclusively too, so two runs
         # (including --no-write ones) never share decks.
         workdir.parent.mkdir(parents=True, exist_ok=True)
         try:
             workdir.mkdir()
-            if staging:
+            if not no_write:
                 stage_dir = evidence_store.stage_dir_for(work_dir, experiment_name, record_id)
                 stage_dir.parent.mkdir(parents=True, exist_ok=True)
                 stage_dir.mkdir()
@@ -200,11 +195,9 @@ def provision_record(
             ) + timedelta(seconds=1)
     if no_write:
         log_dir = None
-    elif staging:
+    else:
         log_dir = stage_dir / evidence_store.STAGE_CORNERS
         log_dir.mkdir()
-    else:
-        log_dir = experiment_dir / report_mod.CORNERS_DIR / record_id
     return record_id, workdir, log_dir, git, started
 
 
@@ -226,8 +219,7 @@ def finish_run(
     log_dir: Path | None,
     no_write: bool,
     write_record: Callable[[dict, Path], Path],
-    stage: bool = False,
-    repo_root: Path | None = None,
+    repo_root: Path,
 ) -> int:
     """Write evidence to disk (or note that it wasn't written) and print the
     footer shared by ``sim/run_corners.py`` (via ``sim/harness/cli.py``) and
@@ -243,7 +235,7 @@ def finish_run(
     # so importing it at module scope here would be circular.
     from . import report as report_mod
 
-    if not no_write and stage:
+    if not no_write:
         # DR-030: the raw logs and the netlist snapshot go to the artifact
         # store; git gets the manifest and the summary record. Publish first
         # so a failed put leaves no record behind (fail closed, no fallback).
@@ -263,13 +255,6 @@ def finish_run(
         print()
         print(f"record    : {record_path}")
         print(f"manifest  : {manifest}")
-    elif not no_write:
-        snapshot = report_mod.write_netlist_snapshot(tb, experiment_dir, record_id)
-        record_path = write_record(record, experiment_dir)
-        print()
-        print(f"record    : {record_path}")
-        print(f"snapshot  : {snapshot}")
-        print(f"raw logs  : {log_dir}")
     else:
         print()
         print("evidence  : not recorded (--no-write)")

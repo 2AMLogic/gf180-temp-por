@@ -272,28 +272,38 @@ does not move with temperature is broken, not perfect.
 
 ## What a run writes
 
-One run mints one `<record-id>` (`<YYYYMMDD>-<HHMMSS>-<short-git-sha>`) and
-writes, under `sim/<experiment-slug>/`:
+One run mints one `<record-id>` (`<YYYYMMDD>-<HHMMSS>-<short-git-sha>`). Per
+[DR-030](../../spec/decision-records/DR-030-evidence-artifact-store.md) the raw
+bytes are **not** committed: the runner stages them under the git-ignored
+`sim/.work/evidence-stage/`, stores them with `klt artifact put`, and commits
+only the manifest and the summary record. One run therefore writes:
 
 | Path | Contents |
 |---|---|
-| `records/<record-id>.md` | the append-only summary record (the nine fields from `sim/README.md`, plus an Environment section with PDK / ngspice / harness / git provenance and the per-corner model sections) |
-| `netlist-snapshots/<record-id>.spice` | verbatim frozen copy of the testbench fragment, with its sha256 |
-| `corners/<record-id>/<corner-id>.log` | raw ngspice output, one file per PVT point |
+| `sim/<experiment-slug>/records/<record-id>.md` | the append-only summary record (the nine fields from `sim/README.md`, plus an Environment section with PDK / ngspice / harness / git provenance and the per-corner model sections); its **Links** field cites the manifest below |
+| `manifests/artifacts/<experiment-slug>-<record-id>.manifest.json` | each stored object by name, size, sha256 and `artifact:` URI — the netlist snapshot (`<record-id>.spice`, a verbatim frozen copy of the testbench fragment) and the raw ngspice output, one `<corner-id>.log` per PVT point |
+
+The store is checked before anything is simulated and the bytes are published
+before the record is written, so a worker that cannot publish records nothing:
+there is no fallback that commits the bytes. Fetch or check a record's raw
+bytes with `klt artifact get` / `klt artifact verify` — see "New records" in
+`sim/README.md`.
 
 Nothing is ever overwritten: the runner refuses to write over an existing
-record or snapshot, and mints a later record-id if one is somehow already
-taken. Corrections and re-runs get a new record-id and reference the prior one
-with `--supersedes <record-id>`. Do not edit or delete anything under
-`records/`, `netlist-snapshots/` or `corners/` — see the append-only rule in
+record or manifest, and mints a later record-id if one is somehow already
+taken (an id is occupied by a record, or by a pre-DR-030 snapshot or raw-log
+directory). Corrections and re-runs get a new record-id and reference the
+prior one with `--supersedes <record-id>`. Do not edit or delete anything
+under `records/`, `manifests/artifacts/`, or the pre-DR-030
+`netlist-snapshots/` and `corners/` directories — see the append-only rule in
 `sim/README.md`.
 
 **A run where every point failed writes nothing.** If not one point in the
 grid produced a measurement — most often because `--timeout` was too short
 for the deck's own transient span, so every point died from the same
 environmental cause rather than from anything about the circuit — the runner
-refuses to write `records/`, `netlist-snapshots/` or `corners/` at all,
-including any `--supersedes` the run was asked to record, and exits `3`. That
+refuses to publish or record anything at all — no record, no manifest,
+including any `--supersedes` the run was asked to record — and exits `3`. That
 mirrors the unjustified-subset gate above: a wall-clock timeout is a property
 of the machine and the flags, not of the circuit, so it is closer to an
 environment problem than to simulation evidence, and it must never be able to

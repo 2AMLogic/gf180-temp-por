@@ -38,9 +38,7 @@ from .cliutil import fmt as _fmt
 from .montecarlo import BindingPoint, McPoint
 from .pdk import Pdk
 from .report import (
-    CORNERS_DIR,
     RECORDS_DIR,
-    SNAPSHOT_DIR,
     TESTBENCH_DIR,
     RecordExists,
     environment,
