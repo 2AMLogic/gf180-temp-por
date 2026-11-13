@@ -8,6 +8,10 @@ Merged PRs and closed issues from the initial 30-day snapshot (2026-09-07 onward
 
 ### 2026-11-13
 
+- **PR #479**: refactor: drop unused RESERVED layer, add_cell and RESISTOR_MODEL
+- **PR #478**: test(layout): drop the retired #97 drift fallback from the temp_por_top assembly check
+- **Issue #477** (closed): Remove retired reservation-layer and sibling-top-cell leftovers from layout/build_cells.py (RESERVED, add_cell) and dead RESISTOR_MODEL
+- **Issue #465** (closed): Remove the retired #97 drift fallback from TempPorTopAssemblyTest.test_reference_matches_the_committed_file
 - **PR #473**: feat(sim): refuse a batch result whose runner read a different PDK build
 - **PR #472**: fix(sim): pass --wait-for-capacity on the single-request batch submit path
 - **PR #471**: fix(pex): refuse a swept supply axis under either klt request key
