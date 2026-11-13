@@ -581,11 +581,17 @@ class BatchConfig:
     #: Where to also copy request.json / report.json (evidence), if anywhere.
     evidence_dir: Path | None = None
     #: Submit every request of a run through ONE ``klt sim --batch-set`` call
-    #: (#440) instead of one blocking ``klt sim`` per request. The three knobs
-    #: below are forwarded as ``--max-in-flight`` / ``--wait-for-capacity`` /
-    #: ``--capacity-retries``.
+    #: (#440) instead of one blocking ``klt sim`` per request. ``max_in_flight``
+    #: and ``capacity_retries`` are forwarded as ``--max-in-flight`` /
+    #: ``--capacity-retries`` on that path only (klt documents both as
+    #: ``--batch-set``-specific).
     batch_set: bool = False
     max_in_flight: int = 4
+    #: Forwarded as ``--wait-for-capacity`` on BOTH paths (#467): how long klt
+    #: waits out a ``batch_no_capacity`` / ``batch_concurrency_cap`` launch
+    #: refusal before giving up. 0 means one attempt. Also added to the
+    #: client-side subprocess bound, since klt does not charge this wait to
+    #: the poll timeout.
     wait_for_capacity_s: int = 600
     capacity_retries: int = 3
     #: Set once a run-wide fatal condition (runner/client ``klt`` mismatch) is
@@ -721,14 +727,30 @@ def _stage(units: list[BatchUnit], pdk: Pdk, cfg: BatchConfig, name: str,
 
 def invoke_klt(req: Path, outdir: Path, cfg: BatchConfig, timeout_s: float) -> dict:
     """Run ``klt sim`` on ``req`` with the batch backend forced; return the
-    parsed report. Re-submits only on the fleet concurrency-cap refusal,
-    within ``cfg.max_cap_wait_s``; every other failure raises."""
+    parsed report.
+
+    ``--wait-for-capacity cfg.wait_for_capacity_s`` is always passed (#467):
+    the fleet is vCPU-budgeted, so a burst is refused routinely, and klt waits
+    the refusal out with backoff instead of failing the submit. Without it a
+    single-request run got one launch attempt. ``--capacity-retries`` is NOT
+    passed -- ``klt sim --help`` documents it as applying with ``--batch-set``
+    only.
+
+    ``timeout_s`` must therefore already include the capacity wait; see
+    :func:`run_units`. klt measures that wait on its own clock and does not
+    charge it to the request's ``batch.poll_timeout_s``, whose clock starts
+    once a launch succeeds.
+
+    Re-submits only on the fleet concurrency-cap refusal, within
+    ``cfg.max_cap_wait_s``; every other failure raises."""
     exe = shutil.which(cfg.klt)
     if not exe:
         raise KltMissing(
             f"'{cfg.klt}' not found on PATH; batch mode never falls back to a local ngspice run"
         )
-    cmd = [exe, "sim", str(req), "-o", str(outdir), "--format", "json", "--backend", BACKEND_BATCH]
+    cmd = [exe, "sim", str(req), "-o", str(outdir), "--format", "json",
+           "--wait-for-capacity", str(cfg.wait_for_capacity_s),
+           "--backend", BACKEND_BATCH]
     deadline = time.monotonic() + cfg.max_cap_wait_s
     delay = 60.0
     while True:
@@ -1061,7 +1083,13 @@ def run_units(
             req_path, request = _stage(members, cfg.pdk, cfg, name)
             n_corners = len(members) + len(request.get("exclude", []))
             poll = cfg.poll_timeout_s or (members[0].timeout_s * n_corners + 1800 + 120)
-            report = invoke_klt(req_path, req_path.parent / "klt", cfg, poll + cfg.client_slack_s)
+            # The capacity wait is additive, not part of ``poll`` (#467): klt
+            # runs it on its own clock before the poll clock starts, so a
+            # submit that waits out a full refusal window and then runs must
+            # not be killed by our own subprocess bound. Mirrors the
+            # ``cfg.wait_for_capacity_s * waves`` term in ``do_set``.
+            report = invoke_klt(req_path, req_path.parent / "klt", cfg,
+                                poll + cfg.wait_for_capacity_s + cfg.client_slack_s)
             outs = record(members, name, req_path, report)
         except KltMissing:
             raise
