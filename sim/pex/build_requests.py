@@ -24,9 +24,13 @@ MECHANICAL EDITS (all visible in the staged files)
    unchanged (`--dut`, default temp_por_top). `sim/pex/measure.py` swaps that
    file per leg.
 2. The supply is NOT a corner axis: one request per (temperature, supply),
-   `.param vdd_val` a literal in the body. The batch fleet runs klt 0.7.0,
-   whose `klt sim` silently drops `corners.params`, and 0.8.0 refuses
-   `supply_v` on a `.param`; per-request literals need neither.
+   `.param vdd_val` a literal in the body. A literal needs no swept axis at
+   all, so this holds whatever a given klt version does with one -- which is
+   the point: the two klt axes that could carry a lifted `.param`
+   (`corners.supply_v`, `corners.params`) have each been mishandled by some
+   klt version, and this path depends on neither. `refuse_swept_axis` below
+   fails the run if either axis (or a sparse-grid `exclude`) ever reaches a
+   staged request.
 3. The harness's derived `let`/`print` rows (`m_<name>`, e.g. `v_hys_mv`) are
    re-expressed as `.meas tran <name> param='<expr>'` cards, because a klt
    `expr` measurement cannot read a `.meas` result. On an `op` analysis (the
@@ -61,6 +65,33 @@ def stimulus_text(path: Path) -> str:
     return path.read_text() + '\n.include "dut.spice"\n'
 
 
+def refuse_swept_axis(slug: str, request: dict) -> None:
+    """Fail the run if a staged request still carries a swept supply axis.
+
+    `stage()` writes `.param vdd_val` as a literal into each request's body
+    and emits one request per (temperature, supply), so no supply/parameter
+    axis may survive into the request itself (item 2 above).
+
+    Which key a lifted `.param` lands under is an implementation detail of
+    `klt_batch._build_request`, and it has moved: it was `corners.supply_v`,
+    it is `corners.params` as of #466. Checking both keeps this guard live
+    across that move, and across a move back. `exclude` is a sparse-grid
+    carve-out, which only exists when the request has such an axis to carve.
+
+    Empty values pass: `{}` / `[]` carry no sweep (that is the state
+    `lift_params=()` produces today).
+    """
+    corners = request.get("corners") or {}
+    swept = [k for k in ("supply_v", "params") if corners.get(k)]
+    if request.get("exclude"):
+        swept.append("exclude")
+    if swept:
+        raise SystemExit(
+            f"{slug}: unexpected swept axis ({', '.join(swept)}); "
+            "vdd_val is a literal per request"
+        )
+
+
 def stage(slug: str, outdir: Path, temps: list[float] | None, dut: str) -> list[Path]:
     pdk = find_pdk()
     tb = testbench.load(REPO / "sim" / slug / "testbench")
@@ -90,8 +121,7 @@ def stage(slug: str, outdir: Path, temps: list[float] | None, dut: str) -> list[
         name = f"T{members[0].temp_c:g}C_V{vdd}"
         req_path, request = klt_batch._stage(members, pdk, cfg, name)
         request["backend"] = "batch"
-        if request["corners"].get("supply_v") or request.get("exclude"):
-            raise SystemExit(f"{slug}: unexpected supply axis; vdd_val is a literal per request")
+        refuse_swept_axis(slug, request)
         for m in request["measurements"]:
             if "expr" in m:
                 m["name"] = m["name"].removeprefix("m_")
