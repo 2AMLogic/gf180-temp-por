@@ -2,6 +2,11 @@
 
 Merged PRs and closed issues from the initial 30-day snapshot (2026-09-07 onward).
 
+### 2026-11-13
+
+- **PR #454**: docs(spec): DR-031 chopped temp_core amplifier, gain-term fix, trim re-balance
+- **Issue #451** (closed): temp_core: decision record superseding DR-005's no-chopping rejection (#415 step 1/3)
+
 ### 2026-11-12
 
 - **PR #449**: Bump Repo Skills 0.25.10 -> 0.26.1
