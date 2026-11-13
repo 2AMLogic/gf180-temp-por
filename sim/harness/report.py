@@ -100,21 +100,19 @@ def allocate_record_id(
     records_dir: Path,
     when: _dt.datetime | None = None,
     git: dict | None = None,
-    reserve: bool = False,
 ) -> str:
     """Mint a fresh, unused ``<record-id>``.
 
     Append-only: if the id is occupied (same second, same commit) we advance
     the timestamp until it is free rather than overwriting or inventing a
     non-conforming suffix. An id is occupied by a record, a netlist snapshot,
-    or a raw-log directory, so legacy interrupted runs are respected too.
+    or a raw-log directory, so evidence committed before DR-030 and legacy
+    interrupted runs are respected too. The experiment directory is
+    ``records_dir.parent``.
 
-    With ``reserve=True`` the id is claimed atomically by exclusively creating
-    the raw-log directory ``<experiment>/corners/<record-id>`` (``mkdir``
-    fails if it exists), so concurrent processes can never receive the same
-    id. A reservation is never reclaimed: an abandoned one keeps its id
-    occupied so interrupted evidence is not reused. The experiment directory
-    is ``records_dir.parent``.
+    Allocation claims nothing on disk. A run claims its id exclusively by
+    creating its scratch (and, when it writes, its staging) directory --
+    see ``cliutil.provision_record``.
     """
     when = when or _dt.datetime.now(_dt.timezone.utc)
     short_sha = (git or git_provenance(repo_root))["short"]
@@ -122,14 +120,7 @@ def allocate_record_id(
     while True:
         record_id = format_record_id(short_sha, when)
         if not _record_id_occupied(experiment_dir, records_dir, record_id):
-            if not reserve:
-                return record_id
-            (experiment_dir / CORNERS_DIR).mkdir(parents=True, exist_ok=True)
-            try:
-                (experiment_dir / CORNERS_DIR / record_id).mkdir()
-                return record_id
-            except FileExistsError:
-                pass  # lost the race; advance
+            return record_id
         when += _dt.timedelta(seconds=1)
 
 
@@ -448,15 +439,16 @@ def write_exclusive(path: Path, text: str) -> None:
 
 
 def write_netlist_snapshot(
-    tb: Testbench, experiment_dir: Path, record_id: str, out_dir: Path | None = None
+    tb: Testbench, experiment_dir: Path, record_id: str, out_dir: Path
 ) -> Path:
-    """Freeze the DUT netlist for this record.
+    """Freeze the DUT netlist for this record, as ``<out_dir>/<record-id>.spice``.
 
-    ``sim/README.md``: ``netlist-snapshots/<record-id>.spice`` is "the frozen
-    DUT netlist used for this record", so later edits to ``testbench/`` never
-    change what an existing record refers to.
+    ``sim/README.md``: the netlist snapshot is "the frozen DUT netlist used
+    for this record", so later edits to ``testbench/`` never change what an
+    existing record refers to. Since DR-030 ``out_dir`` is the run's staging
+    directory, whose contents go to the artifact store rather than into the
+    tracked tree.
     """
-    out_dir = out_dir if out_dir is not None else experiment_dir / SNAPSHOT_DIR
     out_dir.mkdir(parents=True, exist_ok=True)
     path = out_dir / f"{record_id}.spice"
     header = "\n".join(
@@ -549,18 +541,25 @@ def _result_lines(record: dict) -> list[str]:
     return lines
 
 
-def _evidence_link_lines(record: dict, experiment: str, record_id: str, logs_label: str) -> list[str]:
-    """Links to the run's raw bytes: the artifact manifest (DR-030) for a
-    record minted with the store, else the legacy committed paths."""
+def _evidence_link_lines(record: dict, logs_label: str) -> list[str]:
+    """Link to the run's raw bytes: the artifact manifest (DR-030).
+
+    Every record this harness renders was minted through
+    ``cliutil.finish_run``, which publishes the staged bytes and sets
+    ``evidence_manifest`` before the record is rendered. A record without
+    that key never had its bytes stored, so there is nothing to cite and
+    nothing to fall back to -- DR-030 leaves no path that commits them.
+    """
     manifest = record.get("evidence_manifest")
-    if manifest:
-        return [
-            f"  - Artifact manifest (netlist snapshot + {logs_label.lower()}, "
-            f"stored in the artifact store by sha256): `{manifest}`"
-        ]
+    if not manifest:
+        raise ValueError(
+            f"record {record.get('record_id')!r} has no 'evidence_manifest'; "
+            "a record is only rendered after its raw bytes are published to "
+            "the artifact store (DR-030)"
+        )
     return [
-        f"  - Netlist snapshot: `sim/{experiment}/{SNAPSHOT_DIR}/{record_id}.spice`",
-        f"  - {logs_label}: `sim/{experiment}/{CORNERS_DIR}/{record_id}/`",
+        f"  - Artifact manifest (netlist snapshot + {logs_label.lower()}, "
+        f"stored in the artifact store by sha256): `{manifest}`"
     ]
 
 
@@ -659,7 +658,7 @@ def render_record_document(
         "- **Links**:",
         f"  - Testbench: `sim/{experiment}/{testbench_dir}/{tb['netlist']}`, "
         f"`sim/{experiment}/{testbench_dir}/tb.json`",
-        *_evidence_link_lines(record, experiment, record_id, logs_label),
+        *_evidence_link_lines(record, logs_label),
         f"- **Timestamp / author**: {record['started_utc']}, {env['user']}",
         f"- **Supersedes**: {record['supersedes'] or '(none)'}",
         "",

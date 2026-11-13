@@ -113,8 +113,7 @@ class ProvisionTests(unittest.TestCase):
                 env.pop(es.BROKER_ENV, None)
                 with self.assertRaises(es.EvidenceStoreError):
                     cliutil.provision_record(
-                        SIM_DIR, work, experiment / report.RECORDS_DIR, experiment,
-                        "exp", False, stage=True,
+                        SIM_DIR, work, experiment / report.RECORDS_DIR, "exp", False,
                     )
             self.assertFalse((experiment / report.CORNERS_DIR).exists())
             self.assertFalse(work.exists())
@@ -127,9 +126,9 @@ class ProvisionTests(unittest.TestCase):
             work = Path(tmp) / "work"
             with mock.patch.object(es, "preflight"):
                 a = cliutil.provision_record(
-                    SIM_DIR, work, experiment / report.RECORDS_DIR, experiment, "exp", False, stage=True)
+                    SIM_DIR, work, experiment / report.RECORDS_DIR, "exp", False)
                 b = cliutil.provision_record(
-                    SIM_DIR, work, experiment / report.RECORDS_DIR, experiment, "exp", False, stage=True)
+                    SIM_DIR, work, experiment / report.RECORDS_DIR, "exp", False)
             self.assertNotEqual(a[0], b[0])
             self.assertTrue(a[2].is_dir() and a[2].name == es.STAGE_CORNERS)
             self.assertTrue(str(a[2]).startswith(str(work)))

@@ -20,7 +20,7 @@ sys.path.insert(0, str(SIM_DIR))
 
 from harness import cli, cliutil, corners, klt_batch, montecarlo, report, runner, testbench  # noqa: E402
 from harness.pdk import PdkNotFound  # noqa: E402
-from testutil import fake_pdk  # noqa: E402
+from testutil import fake_pdk, published  # noqa: E402
 
 
 class CornerTests(unittest.TestCase):
@@ -789,45 +789,37 @@ class RecordIdTests(unittest.TestCase):
         (experiment / report.RECORDS_DIR).mkdir(parents=True)
         return experiment
 
-    def test_reserve_claims_distinct_ids_for_same_second(self):
-        when = datetime.datetime(2026, 10, 8, 12, 0, 0, tzinfo=datetime.timezone.utc)
-        git = {"short": "abcdef0"}
-        with tempfile.TemporaryDirectory() as tmp:
-            records = self._experiment(tmp) / report.RECORDS_DIR
-            first = report.allocate_record_id(SIM_DIR, records, when, git=git, reserve=True)
-            second = report.allocate_record_id(SIM_DIR, records, when, git=git, reserve=True)
-            self.assertEqual(first, "20261008-120000-abcdef0")
-            self.assertEqual(second, "20261008-120001-abcdef0")
-            self.assertTrue((records.parent / report.CORNERS_DIR / first).is_dir())
-
-    def test_reserve_is_exclusive_across_processes(self):
+    def test_provision_claims_ids_exclusively_across_processes(self):
+        """`allocate_record_id` reserves nothing, so the exclusive scratch
+        directory is what keeps two concurrent runs off one record id."""
         import subprocess
         import sys
-
-        code = (
-            "import sys, datetime\n"
-            "from pathlib import Path\n"
-            f"sys.path.insert(0, {str(SIM_DIR)!r})\n"
-            "from harness import report\n"
-            "when = datetime.datetime(2026,10,8,12,0,0,tzinfo=datetime.timezone.utc)\n"
-            "while __import__('time').time() < float(sys.argv[2]): pass\n"
-            "print(report.allocate_record_id(Path('.'), Path(sys.argv[1]), when,"
-            " git={'short':'abcdef0'}, reserve=True))\n"
-        )
         import time
 
+        code = (
+            "import sys\n"
+            "from pathlib import Path\n"
+            f"sys.path.insert(0, {str(SIM_DIR)!r})\n"
+            "from harness import cliutil, report\n"
+            "while __import__('time').time() < float(sys.argv[3]): pass\n"
+            "print(cliutil.provision_record(Path(sys.argv[1]), Path(sys.argv[2]),"
+            " Path(sys.argv[1]) / report.RECORDS_DIR, 'an-experiment', True)[0])\n"
+        )
         with tempfile.TemporaryDirectory() as tmp:
-            records = self._experiment(tmp) / report.RECORDS_DIR
+            experiment = self._experiment(tmp)
             go = str(time.time() + 1.5)
             procs = [
                 subprocess.Popen(
-                    [sys.executable, "-I", "-c", code, str(records), go],
+                    [sys.executable, "-I", "-c", code,
+                     str(experiment), str(Path(tmp) / "work"), go],
                     stdout=subprocess.PIPE, text=True,
                 )
                 for _ in range(2)
             ]
             ids = [p.communicate()[0].strip() for p in procs]
             self.assertEqual(len(set(ids)), 2, ids)
+            # ...and no run left anything behind in the tracked evidence tree.
+            self.assertFalse((experiment / report.CORNERS_DIR).exists())
 
     def test_existing_logs_or_snapshot_without_summary_block_reuse(self):
         when = datetime.datetime(2026, 10, 8, 12, 0, 0, tzinfo=datetime.timezone.utc)
@@ -848,25 +840,11 @@ class RecordIdTests(unittest.TestCase):
             experiment = self._experiment(tmp)
             work = Path(tmp) / "work"
             rid, workdir, log_dir, _, _ = cliutil.provision_record(
-                SIM_DIR, work, experiment / report.RECORDS_DIR, experiment, "an-experiment", True
+                SIM_DIR, work, experiment / report.RECORDS_DIR, "an-experiment", True
             )
             self.assertIsNone(log_dir)
             self.assertTrue(workdir.is_dir())
             self.assertFalse((experiment / report.CORNERS_DIR).exists())
-
-    def test_provision_schematic_and_extracted_get_distinct_ids(self):
-        from harness import cliutil
-
-        with tempfile.TemporaryDirectory() as tmp:
-            experiment = self._experiment(tmp)
-            work = Path(tmp) / "work"
-            args = (SIM_DIR, work, experiment / report.RECORDS_DIR, experiment, "an-experiment", False)
-            a = cliutil.provision_record(*args)
-            b = cliutil.provision_record(*args)
-            self.assertNotEqual(a[0], b[0])
-            self.assertNotEqual(a[1], b[1])
-            self.assertNotEqual(a[2], b[2])
-            self.assertTrue(a[2].is_dir() and b[2].is_dir())
 
     def test_snapshot_and_derived_writes_are_exclusive(self):
         from harness import cliutil
@@ -1022,7 +1000,7 @@ class RecordRenderingTests(unittest.TestCase):
         self.record = self._record()
 
     def _record(self, **extra):
-        return report.build_record(
+        return published(report.build_record(
             tb=self.tb,
             pdk=self.pdk,
             points=self.points,
@@ -1034,7 +1012,7 @@ class RecordRenderingTests(unittest.TestCase):
             wall_seconds=9.5,
             claim="spec/temp-por.md#example",
             **extra,
-        )
+        ), "smoke-bias")
 
     #: What `klt_batch.batch_provenance()` hands the record builder (#468).
     BATCH_PROVENANCE = {
@@ -1115,10 +1093,25 @@ class RecordRenderingTests(unittest.TestCase):
         self.assertEqual(positions, sorted(positions), "fields are out of ratified order")
 
     def test_links_point_at_the_ratified_paths(self):
+        """Post-DR-030 a record's raw bytes are cited as one artifact
+        manifest; the tracked `corners/` and `netlist-snapshots/` paths of a
+        pre-DR-030 record are never emitted for a new one."""
         text = report.render_record(self.record, "smoke-bias")
         self.assertIn("sim/smoke-bias/testbench/x.spice", text)
-        self.assertIn("sim/smoke-bias/netlist-snapshots/20260729-153000-1a7ef75.spice", text)
-        self.assertIn("sim/smoke-bias/corners/20260729-153000-1a7ef75/", text)
+        self.assertIn(
+            "manifests/artifacts/smoke-bias-20260729-153000-1a7ef75.manifest.json", text
+        )
+        self.assertNotIn("sim/smoke-bias/netlist-snapshots/", text)
+        self.assertNotIn("sim/smoke-bias/corners/", text)
+
+    def test_rendering_a_record_with_no_published_manifest_is_refused(self):
+        """DR-030 leaves no fallback that cites uncommitted tracked-tree
+        paths: a record whose bytes were never published must fail loudly."""
+        unpublished = dict(self.record)
+        del unpublished["evidence_manifest"]
+        with self.assertRaises(ValueError) as caught:
+            report.render_record(unpublished, "smoke-bias")
+        self.assertIn("evidence_manifest", str(caught.exception))
 
     def test_result_table_uses_corner_ids_and_reports_overall_verdict(self):
         text = report.render_record(self.record, "smoke-bias")
@@ -1197,12 +1190,17 @@ class RecordRenderingTests(unittest.TestCase):
 
     def test_netlist_snapshot_is_frozen_and_append_only(self):
         experiment = self.tb.experiment_dir
-        path = report.write_netlist_snapshot(self.tb, experiment, "20260729-153000-1a7ef75")
-        self.assertEqual(path.parent.name, report.SNAPSHOT_DIR)
+        out_dir = experiment / "stage" / "netlist-snapshots"
+        path = report.write_netlist_snapshot(
+            self.tb, experiment, "20260729-153000-1a7ef75", out_dir=out_dir
+        )
+        self.assertEqual(path.parent, out_dir)
         self.assertIn("v1 out 0 dc {vdd_val}", path.read_text())
         self.assertIn(self.tb.netlist_sha256, path.read_text())
         with self.assertRaises(report.RecordExists):
-            report.write_netlist_snapshot(self.tb, experiment, "20260729-153000-1a7ef75")
+            report.write_netlist_snapshot(
+                self.tb, experiment, "20260729-153000-1a7ef75", out_dir=out_dir
+            )
 
 
 class ExtractedProvenanceRenderingTests(unittest.TestCase):
@@ -1237,7 +1235,7 @@ class ExtractedProvenanceRenderingTests(unittest.TestCase):
             runner.PointResult(point=p, status="ok", measurements={"vout": 1.0})
             for p in points
         ]
-        self.record = report.build_record(
+        self.record = published(report.build_record(
             tb=self.tb,
             pdk=self.pdk,
             points=points,
@@ -1249,7 +1247,7 @@ class ExtractedProvenanceRenderingTests(unittest.TestCase):
             wall_seconds=1.0,
             claim="spec/target-spec.md#por-reset-pulse",
             git={"commit": "f" * 40, "short": "fffffff", "branch": "main", "dirty": False},
-        )
+        ), "por-output-chain-pulse")
 
     def test_provenance_line_says_extracted_and_carries_the_caveat(self):
         text = report.render_record(self.record, "por-output-chain-pulse")
