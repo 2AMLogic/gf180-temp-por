@@ -737,7 +737,10 @@ class FailureMatrixTests(BatchTestCase):
         self.assertFails("empty", "no JSON report")
 
     def test_timeout(self):
-        self.assertFails("timeout", "did not finish", poll_timeout_s=1, client_slack_s=0.5)
+        # wait_for_capacity_s=0 because the client-side bound now includes it
+        # (#467); the default 600 would make this test wait out that window.
+        self.assertFails("timeout", "did not finish",
+                         poll_timeout_s=1, client_slack_s=0.5, wait_for_capacity_s=0)
 
     def test_failed_corner(self):
         self.assertFails("failed_corner", "netlist")
@@ -882,6 +885,92 @@ class FailureMatrixTests(BatchTestCase):
         (out,) = klt_batch.run_units([self.unit()], self.cfg(max_cap_wait_s=0), tolerate_absent=True)
         self.assertEqual(out.status, "error")
         self.assertIn("CONCURRENT", out.message)
+
+
+class CapacityWaitTests(BatchTestCase):
+    """The single-request submit path passes ``--wait-for-capacity`` and
+    bounds its own subprocess with room for that wait (#467). Before this,
+    only the ``--batch-set`` path passed the flag, so a ``run_corners.py``
+    batch run got one launch attempt and failed outright on a full fleet."""
+
+    def sim_calls(self):
+        return [c for c in self.calls() if c[:1] == ["sim"]]
+
+    def flag(self, args, name):
+        self.assertIn(name, args, f"{name} missing from {args}")
+        return args[args.index(name) + 1]
+
+    def submit(self, **cfg_kw):
+        (out,) = klt_batch.run_units([self.unit()], self.cfg(**cfg_kw), tolerate_absent=True)
+        self.assertTrue(out.ok, out.message)
+        (call,) = self.sim_calls()
+        return call
+
+    def test_default_capacity_wait_is_passed(self):
+        self.assertEqual(BatchConfig.wait_for_capacity_s, 600)
+        self.assertEqual(self.flag(self.submit(), "--wait-for-capacity"), "600")
+
+    def test_non_default_capacity_wait_is_forwarded(self):
+        self.assertEqual(
+            self.flag(self.submit(wait_for_capacity_s=120), "--wait-for-capacity"), "120")
+
+    def test_zero_capacity_wait_is_forwarded_not_dropped(self):
+        # klt documents 0 as "one attempt" -- an explicit opt-out, which only
+        # reaches klt if the flag is still passed.
+        self.assertEqual(
+            self.flag(self.submit(wait_for_capacity_s=0), "--wait-for-capacity"), "0")
+
+    def test_capacity_retries_is_not_passed_on_this_path(self):
+        # klt documents --capacity-retries as applying "with --batch-set" only.
+        self.assertNotIn("--capacity-retries", self.submit())
+
+    def test_backend_is_still_forced_to_batch(self):
+        self.assertEqual(self.flag(self.submit(), "--backend"), klt_batch.BACKEND_BATCH)
+
+    def test_subprocess_timeout_includes_the_capacity_wait(self):
+        # klt measures the capacity wait on its own clock and does not charge
+        # it to poll_timeout_s, so our bound must carry it on top: a submit
+        # that waits out the window and then runs must not be killed here.
+        seen = []
+        real = klt_batch.subprocess.run
+
+        def spy(cmd, **kw):
+            if "sim" in cmd:
+                seen.append(kw.get("timeout"))
+            return real(cmd, **kw)
+
+        with mock.patch.object(klt_batch.subprocess, "run", spy):
+            (out,) = klt_batch.run_units(
+                [self.unit()],
+                self.cfg(poll_timeout_s=100, wait_for_capacity_s=42, client_slack_s=7),
+                tolerate_absent=True)
+        self.assertTrue(out.ok, out.message)
+        self.assertEqual(seen, [100 + 42 + 7])
+
+    def test_capacity_wait_does_not_shorten_the_bound_when_it_is_zero(self):
+        seen = []
+        real = klt_batch.subprocess.run
+
+        def spy(cmd, **kw):
+            if "sim" in cmd:
+                seen.append(kw.get("timeout"))
+            return real(cmd, **kw)
+
+        with mock.patch.object(klt_batch.subprocess, "run", spy):
+            (out,) = klt_batch.run_units(
+                [self.unit()],
+                self.cfg(poll_timeout_s=100, wait_for_capacity_s=0, client_slack_s=7),
+                tolerate_absent=True)
+        self.assertTrue(out.ok, out.message)
+        self.assertEqual(seen, [107])
+
+    def test_request_content_is_unchanged_by_the_flag(self):
+        # Rejected alternative: writing batch.capacity_wait_s into the request.
+        # The staged request.json is copied into the evidence directory, so it
+        # stays byte-stable; the wait is a command-line concern only.
+        self.submit(wait_for_capacity_s=120)
+        req = json.loads((self.state / "req-0.json").read_text())
+        self.assertNotIn("batch", req)
 
 
 class ResultValidationTests(BatchTestCase):
