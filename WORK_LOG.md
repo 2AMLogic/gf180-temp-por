@@ -8,6 +8,10 @@ Merged PRs and closed issues from the initial 30-day snapshot (2026-09-07 onward
 
 ### 2026-11-13
 
+- **PR #489**: refactor(sim): drop selftest.sh --quick, whose single point always fails the grid checks
+- **PR #488**: refactor(sim): drop five unread constants from three sim control scripts
+- **Issue #485** (closed): Remove sim/selftest.sh --quick: the single-point mode always fails the harness's own min_spread_pct checks
+- **Issue #487** (closed): Remove five unread constants from three sim control scripts (the decks hardcode the same literals)
 - **PR #484**: refactor(sim): drop the unreachable commit-the-bytes write path from the harness
 - **PR #483**: docs: describe the drawn divider in the SNS/SNSB track comment
 - **Issue #481** (closed): Remove the unreachable pre-DR-030 commit-the-bytes write path from the sim harness (stage=False, reserve=True)
