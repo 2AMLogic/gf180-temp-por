@@ -7,6 +7,7 @@ import shutil
 import sys
 import time
 from pathlib import Path
+from typing import NamedTuple
 
 from . import HARNESS_VERSION, cliutil, corners as corners_mod, klt_batch, report, runner, testbench as tb_mod
 from .pdk import PdkNotFound, find_pdk
@@ -28,6 +29,7 @@ def build_parser() -> argparse.ArgumentParser:
         epilog=(
             "Examples:\n"
             "  python3 sim/run_corners.py smoke-bias\n"
+            "  python3 sim/run_corners.py por-vth --emit-request /tmp/por-vth-req\n"
             "  python3 sim/run_corners.py smoke-bias --corners tt --temps 27 \\\n"
             "      --subset-reason 'debugging convergence, not evidence'\n"
             "  python3 sim/run_corners.py smoke-bias --corner-set mos -j 4\n"
@@ -127,6 +129,17 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="run but do not record evidence (debugging only)",
     )
+    parser.add_argument(
+        "--emit-request",
+        metavar="DIR",
+        help="build this experiment's `klt sim` request(s) for the corner grid "
+        "into DIR and exit WITHOUT submitting anything: no ngspice, no klt, no "
+        "fleet, no evidence record. Each request carries the ratified per-"
+        "measurement limits (and spec-row ids) from the manifest's 'checks', so "
+        "the fleet grades every corner instead of returning ungraded numbers. "
+        "Validate what it wrote with `klt sim <request> --dry-run`. The request "
+        "shape is always the batch backend's, whatever --backend says",
+    )
     klt_batch.add_backend_argument(parser)
     parser.add_argument("--quiet", action="store_true", help="only print the summary")
     parser.add_argument(
@@ -217,6 +230,127 @@ def cmd_print_env() -> int:
 _fmt = cliutil.fmt
 
 
+class Grid(NamedTuple):
+    """The PVT grid one invocation asks for."""
+
+    corners: list
+    temperatures: list[float]
+    nominal_v: float
+    tolerance: float
+    supplies: list[float]
+    points: list
+
+
+def resolve_grid(tb: tb_mod.Testbench, args: argparse.Namespace) -> Grid:
+    """The manifest's PVT grid with this invocation's overrides applied.
+
+    One home for the ``--corners``/``--corner-set``/``--temps``/``--supply``/
+    ``--supply-tol`` precedence, so a run and an ``--emit-request`` of the
+    same arguments cover exactly the same points.
+    """
+    corner_names = args.corners or ([args.corner_set] if args.corner_set else list(tb.corners))
+    corner_list = corners_mod.resolve_corners(corner_names)
+    temperatures = args.temps if args.temps is not None else list(tb.temperatures_c)
+    nominal = args.supply if args.supply is not None else tb.nominal_supply_v
+    tolerance = args.supply_tol if args.supply_tol is not None else tb.supply_tolerance
+    supplies = corners_mod.supply_points(nominal, tolerance)
+    return Grid(
+        corners=corner_list,
+        temperatures=temperatures,
+        nominal_v=nominal,
+        tolerance=tolerance,
+        supplies=supplies,
+        points=corners_mod.build_grid(corner_list, temperatures, supplies),
+    )
+
+
+def _print_experiment(tb: tb_mod.Testbench, pdk) -> None:
+    """The two "what is being simulated" header lines, shared by a run and an
+    ``--emit-request`` (which interleave different fields after them)."""
+    print(f"experiment: {tb.experiment}"
+          + (f"  ({tb.description})" if tb.description else ""))
+    print(f"pdk       : {pdk.variant} @ {pdk.version}  ({pdk.path})")
+
+
+def _print_axes(grid: Grid, points_suffix: str = "") -> None:
+    """The PVT-axis header lines, shared by a run and an ``--emit-request``."""
+    print(f"corners   : {', '.join(c.name for c in grid.corners)}")
+    print(f"temps (C) : {', '.join(_fmt(t) for t in grid.temperatures)}")
+    print(f"supply (V): {', '.join(_fmt(v) for v in grid.supplies)} "
+          f"(nominal {_fmt(grid.nominal_v)} +/-{grid.tolerance * 100:g}%)")
+    print(f"points    : {len(grid.points)}{points_suffix}")
+
+
+def cmd_emit_request(args: argparse.Namespace) -> int:
+    """``--emit-request DIR``: build the experiment's ``klt sim`` requests and
+    write them out, submitting nothing (#496).
+
+    Writes no evidence record -- a request is not a result -- so it does not
+    provision one, and the PVT-subset refusal that guards a *recorded* run
+    does not apply here; a subset is reported instead.
+    """
+    tb = tb_mod.load(cliutil.resolve_tb_path(args.testbench, SIM_DIR))
+    outdir = Path(args.emit_request).expanduser().resolve()
+    requests_dir = outdir / "requests"
+    if requests_dir.exists() and any(requests_dir.iterdir()):
+        print(
+            f"error: {requests_dir} already holds staged requests.\n"
+            "Refusing to mix a new request set with an old one -- a leftover request "
+            "from a wider\ngrid is indistinguishable from part of this one once both "
+            "are in the directory.\nRemove it, or emit into a fresh directory.",
+            file=sys.stderr,
+        )
+        return EXIT_ENVIRONMENT
+
+    try:
+        pdk = find_pdk()
+    except PdkNotFound as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_ENVIRONMENT
+
+    grid = resolve_grid(tb, args)
+    try:
+        specs = runner.batch_measurement_specs(tb)
+    except klt_batch.BatchError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_ENVIRONMENT
+
+    if not args.quiet:
+        _print_experiment(tb, pdk)
+        _print_axes(grid)
+        rows = sorted({s.spec_row for s in specs if s.spec_row})
+        print(f"graded    : {len(specs)} measurement(s) carry ratified limits"
+              + (f"; {len(rows)} spec row(s): {', '.join(rows)}" if rows
+                 else "; no measurement maps to a spec row"))
+        conformance = report.matrix_conformance(tb, grid.points)
+        if not conformance["full"]:
+            print("subset    : NOT the full mandated PVT matrix -- "
+                  + "; ".join(conformance["missing"]))
+        print()
+
+    cfg = klt_batch.BatchConfig(pdk=pdk, stage_root=requests_dir, evidence_dir=None)
+    try:
+        staged = runner.stage_batch_grid(
+            tb, pdk, grid.points, outdir / "decks", cfg, timeout_s=args.timeout,
+        )
+    except klt_batch.BatchError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_ENVIRONMENT
+
+    total = sum(s.unit_count for s in staged)
+    print(f"requests  : {len(staged)} file(s), {total} unit(s) total "
+          f"(of {len(grid.points)} grid points)")
+    for s in staged:
+        print(f"  {s.path}  ({s.unit_count} units, {_fmt(s.temperature_c)} C)")
+    print(f"decks     : {outdir / 'decks'}  (the local-equivalent deck per point)")
+    print()
+    print("Nothing was submitted and no evidence was recorded. Validate each "
+          "request without a fleet:")
+    for s in staged:
+        print(f"  klt sim {s.path} --dry-run --format json")
+    return EXIT_OK
+
+
 def run(args: argparse.Namespace) -> int:
     tb_path = cliutil.resolve_tb_path(args.testbench, SIM_DIR)
     tb = tb_mod.load(tb_path)
@@ -234,13 +368,8 @@ def run(args: argparse.Namespace) -> int:
         print(f"error: {exc}", file=sys.stderr)
         return EXIT_ENVIRONMENT
 
-    corner_names = args.corners or ([args.corner_set] if args.corner_set else list(tb.corners))
-    corner_list = corners_mod.resolve_corners(corner_names)
-    temperatures = args.temps if args.temps is not None else list(tb.temperatures_c)
-    nominal = args.supply if args.supply is not None else tb.nominal_supply_v
-    tolerance = args.supply_tol if args.supply_tol is not None else tb.supply_tolerance
-    supplies = corners_mod.supply_points(nominal, tolerance)
-    points = corners_mod.build_grid(corner_list, temperatures, supplies)
+    grid = resolve_grid(tb, args)
+    points = grid.points
 
     # sim/README.md: an evidence record must cover the full mandated PVT
     # matrix unless it states why a subset was used. Refuse to record a thin
@@ -269,16 +398,10 @@ def run(args: argparse.Namespace) -> int:
     )
 
     if not args.quiet:
-        print(f"experiment: {tb.experiment}"
-              + (f"  ({tb.description})" if tb.description else ""))
-        print(f"pdk       : {pdk.variant} @ {pdk.version}  ({pdk.path})")
+        _print_experiment(tb, pdk)
         print(f"backend   : {backend}")
         print(f"ngspice   : {ngspice}")
-        print(f"corners   : {', '.join(c.name for c in corner_list)}")
-        print(f"temps (C) : {', '.join(_fmt(t) for t in temperatures)}")
-        print(f"supply (V): {', '.join(_fmt(v) for v in supplies)} "
-              f"(nominal {_fmt(nominal)} +/-{tolerance * 100:g}%)")
-        print(f"points    : {len(points)}  (jobs={jobs})")
+        _print_axes(grid, f"  (jobs={jobs})")
         print(f"record id : {record_id}")
         print()
 
@@ -403,4 +526,6 @@ def main(argv: list[str] | None = None) -> int:
     if not args.testbench:
         parser.print_help()
         return EXIT_ENVIRONMENT
+    if args.emit_request is not None:
+        return cliutil.run_and_report(cmd_emit_request, args)
     return cliutil.run_and_report(run, args)
