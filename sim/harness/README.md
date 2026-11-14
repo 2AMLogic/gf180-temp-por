@@ -499,8 +499,70 @@ field names the batch backend and klt version instead of a local ngspice.
   / the script's worker count; a fleet concurrency-cap refusal is retried with
   bounded jittered backoff.
 
+### Building a request without submitting it (`--emit-request DIR`)
+
+`python3 sim/run_corners.py <testbench> --emit-request DIR` builds the `klt
+sim` request(s) for the experiment's corner grid, writes them under `DIR`, and
+stops. Nothing is submitted, no evidence record is minted, and the path needs
+no `klt`, no fleet and no local ngspice — only the PDK, because the design
+include is inlined and the `.lib` sections are resolved against it.
+
+```bash
+python3 sim/run_corners.py por-vth --emit-request /tmp/por-vth-req
+# DIR/requests/<group>/<group>.json   the request, plus its body.spice
+# DIR/decks/<corner-id>.spice         the local-equivalent deck per point
+
+klt sim /tmp/por-vth-req/requests/<group>/<group>.json --dry-run --format json
+# -> {"status": "valid", "unit_count": 27, "warnings": []}
+```
+
+* The request shape is always the batch backend's, whatever `--backend` says:
+  it is `--backend batch`'s request without the submit. `--corners` /
+  `--corner-set` / `--temps` / `--supply` / `--supply-tol` select the grid
+  exactly as they do for a run; a grid narrower than the mandated PVT matrix
+  is reported (`subset :`) rather than refused, because nothing is recorded.
+* Packaging is the submit path's, not a second one: `klt_batch.group_units()`
+  and `klt_batch.stage_requests()` do the grouping and staging for both, so a
+  staged request is byte-for-byte what a submit would have sent. For `por-vth`
+  that is **81 units in 3 request files** — one request per temperature (a
+  `klt sim` request carries one `corners.temperature_c`), each a 9-process ×
+  3-supply matrix.
+* Each request's `measurements[]` carries the ratified bounds the manifest's
+  `checks` declare as `limits` (`min`/`max`, each present only where `tb.json`
+  declares it — never a `null`), so the fleet grades every corner itself:
+  klt returns a per-corner `status` plus a signed `margin`, and in the rollup
+  the binding corner (`worst_case.corner_id`) and the true `min`/`max`
+  extremes. A check with neither bound (a grid-level `max_spread_pct`)
+  contributes no `limits` at all — an empty `limits` would read as "never
+  fails".
+* A measurement that substantiates a ratified spec row also carries
+  `spec_row`, which klt consumes for row coverage. The row id is read from the
+  **leading** `spec/target-spec.md#<row-id>` reference of the check's
+  `description` — there is no structured field for it. A row cited in prose
+  further in ("at the fast end of `spec/target-spec.md#por-ramp-rate`") is not
+  tagged: that check does not measure that row's bound. For `por-vth` exactly
+  three measurements are tagged (`vpor_rise_v` → `por-vth-rise`, `vpor_fall_v`
+  → `por-vth-fall`, `v_hys_mv` → `por-hysteresis`); the nine guard/integrity
+  checks carry `limits` and no `spec_row`, which is the correct outcome. A
+  `description` naming a row `spec/target-spec.md` does not ratify is an
+  error, not a request claiming a row that does not exist.
+* A deck `translate_deck` cannot express **fails the whole emit** rather than
+  producing a request set with a hole in it — a 2-request set for a 3-request
+  grid looks like a complete one. (On the submit path the same deck is an
+  `error` result for that point, because the other points' results are still
+  evidence.)
+* A `DIR/requests` that already holds a request set is refused: a leftover
+  request from a wider grid is indistinguishable from part of the new one once
+  both are in the directory.
+
+The same limits ride the **submit** path too (`--backend batch`), so a fleet
+run returns graded corners rather than bare numbers. The harness still applies
+its own `checks` to the returned values (`report.evaluate_checks`); klt's
+grading is the fleet-side record of the same bounds, not a replacement for it.
+
 Reuse `klt_batch.translate_deck()` / `run_units()` for other `run_deck*`
-callers rather than re-implementing request staging.
+callers rather than re-implementing request staging, and
+`klt_batch.stage_requests()` when you need the request without the run.
 
 Before a full grid goes to the fleet, submit one deck first (for example
 `run_dwell_sweep.py --backend batch --smoke`) and compare it with the

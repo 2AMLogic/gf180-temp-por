@@ -9,7 +9,9 @@ No PDK, no ngspice, no klt, no network: a fake ``klt`` executable (and a fake
 
 from __future__ import annotations
 
+import contextlib
 import hashlib
+import io
 import json
 import os
 import stat
@@ -1312,6 +1314,298 @@ class ResultValidationTests(BatchTestCase):
         (out,) = klt_batch.run_units([u], self.cfg(), tolerate_absent=True)
         self.assertEqual(out.status, "error")
         self.assertIn("match no requested unit", out.message)
+
+
+# ---------------------------------------------------------------------------
+# request building with ratified spec limits (#496)
+# ---------------------------------------------------------------------------
+
+#: A `tb.json`-shaped `checks` block with every bound shape that matters:
+#: min+max, min-only, max-only, neither, and a check on a quantity no deck
+#: measures. Row ids are real `spec/target-spec.md` anchors, because
+#: `runner.batch_measurement_specs` cross-checks them against the file.
+CHECKS = {
+    "vout": {
+        "min": 1.0, "max": 2.0,
+        "description": "spec/target-spec.md#por-vth-rise -- the release threshold.",
+    },
+    "iq": {
+        "max": 5.0,
+        "description": "informative droop guard; mentions spec/target-spec.md#por-iq "
+                       "only in passing, so it is not evidence for that row.",
+    },
+    "ratio": {
+        "min": 0.4,
+        "description": "`spec/target-spec.md#por-reset-valid-floor` valid-low ratio.",
+    },
+    "spread_only": {
+        "max_spread_pct": 5.0,
+        "description": "a grid-level stability check, no per-corner bound at all.",
+    },
+    "derived_in_python": {
+        "min": 0.0, "max": 1.0,
+        "description": "computed after the run from the rows above; no deck vector.",
+    },
+}
+
+REQUEST_NAMES = {"vout": "m_vout", "iq": "m_iq", "ratio": "m_ratio",
+                 "spread_only": "m_spread_only"}
+
+
+def specs_of(request: dict) -> dict[str, tuple[dict | None, str | None]]:
+    """``name -> (limits, spec_row)`` for every measurement of ``request``."""
+    return {m["name"]: (m.get("limits"), m.get("spec_row"))
+            for m in request["measurements"]}
+
+
+class MeasurementSpecTests(unittest.TestCase):
+    """``tb.json`` ``checks`` -> the ``limits``/``spec_row`` klt grades (#496).
+
+    Pure dict-in/dataclass-out: no PDK, no deck, no klt.
+    """
+
+    def specs(self, **kw):
+        return klt_batch.measurement_specs(CHECKS, request_names=REQUEST_NAMES, **kw)
+
+    def test_only_declared_bounds_become_limits(self):
+        by_name = {s.name: s for s in self.specs()}
+        self.assertEqual(by_name["m_vout"].limits(), {"min": 1.0, "max": 2.0})
+        self.assertEqual(by_name["m_iq"].limits(), {"max": 5.0})
+        self.assertEqual(by_name["m_ratio"].limits(), {"min": 0.4})
+
+    def test_a_check_with_no_bound_contributes_no_spec(self):
+        """A grid-level `max_spread_pct` check has nothing klt can grade one
+        corner against; an empty `limits` would read as "never fails"."""
+        self.assertNotIn("m_spread_only", {s.name for s in self.specs()})
+
+    def test_a_check_with_no_request_measurement_is_skipped(self):
+        """`derived_in_python` is bounded, but no deck vector carries it (the
+        MC benches' `terr_trim_c` is the real case)."""
+        self.assertNotIn("derived_in_python", {s.name for s in self.specs()})
+        self.assertEqual(len(self.specs()), 3)
+
+    def test_only_a_leading_reference_is_a_spec_row(self):
+        """A row cited in prose is not a row this measurement substantiates."""
+        rows = {s.name: s.spec_row for s in self.specs()}
+        self.assertEqual(rows["m_vout"], "por-vth-rise")
+        self.assertEqual(rows["m_ratio"], "por-reset-valid-floor")   # backticked
+        self.assertEqual(rows["m_iq"], "")                           # prose mention
+        self.assertEqual(klt_batch.spec_row_of("see spec/target-spec.md#por-iq"), "")
+
+    def test_an_unratified_row_is_refused_not_emitted(self):
+        checks = {"vout": {"min": 1.0, "description": "spec/target-spec.md#no-such-row"}}
+        known = klt_batch.spec_row_ids('| <a id="por-vth-rise"></a>`por-vth-rise` |')
+        with self.assertRaises(klt_batch.BatchIncompatible) as cm:
+            klt_batch.measurement_specs(checks, request_names=REQUEST_NAMES,
+                                        known_rows=known)
+        self.assertIn("no-such-row", str(cm.exception))
+        # Without the cross-check it is emitted as written, not invented.
+        (spec,) = klt_batch.measurement_specs(checks, request_names=REQUEST_NAMES)
+        self.assertEqual(spec.spec_row, "no-such-row")
+
+    def test_spec_row_ids_reads_the_real_spec(self):
+        rows = runner.ratified_spec_rows()
+        self.assertIsNotNone(rows, "spec/target-spec.md unreadable from the repo")
+        for row in ("por-vth-rise", "por-vth-fall", "por-hysteresis"):
+            self.assertIn(row, rows)
+
+    def test_an_unreadable_spec_is_not_comparable_not_empty(self):
+        """`None` must mean "cannot cross-check", never "nothing is ratified"
+        -- an empty set would refuse every row."""
+        self.assertIsNone(runner.ratified_spec_rows(Path("/nonexistent/spec.md")))
+
+
+class SpecLimitRequestTests(BatchTestCase):
+    """The limits reach the staged request, and bound the request grouping."""
+
+    SPECS = (
+        klt_batch.MeasurementSpec("vdd_pre", 1.0, 2.0, "por-vth-rise"),
+        klt_batch.MeasurementSpec("t_praw", None, 0.5),
+        klt_batch.MeasurementSpec("vsg_min", -1.0, None),
+    )
+
+    def test_limits_and_spec_rows_land_on_the_right_measurements(self):
+        (staged,) = klt_batch.stage_requests([self.unit(specs=self.SPECS)], self.cfg())
+        seen = specs_of(staged.request)
+        self.assertEqual(seen["vdd_pre"], ({"min": 1.0, "max": 2.0}, "por-vth-rise"))
+        self.assertEqual(seen["t_praw"], ({"max": 0.5}, None))
+        self.assertEqual(seen["vsg_min"], ({"min": -1.0}, None))
+        # No null bound for an undeclared side, anywhere.
+        for limits, _ in seen.values():
+            self.assertNotIn(None, (limits or {}).values())
+
+    def test_a_unit_without_specs_builds_the_pre_496_request(self):
+        (plain,) = klt_batch.stage_requests([self.unit()], self.cfg())
+        for m in plain.request["measurements"]:
+            self.assertNotIn("limits", m)
+            self.assertNotIn("spec_row", m)
+
+    def test_units_differing_only_in_limits_do_not_share_a_request(self):
+        """`_build_request` reads `measurements[]` from the group's FIRST
+        member, so grouping two differently-bounded units would silently
+        grade one of them against the other's limits."""
+        loose = (klt_batch.MeasurementSpec("vdd_pre", 1.0, 9.0),)
+        tight = (klt_batch.MeasurementSpec("vdd_pre", 1.0, 2.0),)
+        a, b = self.unit("d1", specs=tight), self.unit("d2", specs=loose)
+        self.assertEqual(len(klt_batch.group_units([a, b])), 2)
+        # Same limits still share one request: only the bounds split them.
+        self.assertEqual(len(klt_batch.group_units([a, self.unit("d3", specs=tight)])), 1)
+        got = [specs_of(s.request)["vdd_pre"][0]
+               for s in klt_batch.stage_requests([a, b], self.cfg())]
+        self.assertEqual(got, [{"min": 1.0, "max": 2.0}, {"min": 1.0, "max": 9.0}])
+
+    def test_a_bound_on_an_unmeasured_vector_is_refused(self):
+        with self.assertRaises(klt_batch.BatchIncompatible) as cm:
+            self.unit(specs=(klt_batch.MeasurementSpec("not_measured", 1.0),))
+        self.assertIn("not_measured", str(cm.exception))
+
+    def test_staging_submits_nothing(self):
+        klt_batch.stage_requests([self.unit(specs=self.SPECS)], self.cfg())
+        self.assertEqual(self.calls(), [], "staging invoked klt")
+        self.assertNoLocalNgspice()
+
+    def test_staging_needs_no_klt_on_path(self):
+        (self.bin / "klt").unlink()
+        with mock.patch.dict(os.environ, {"PATH": str(self.bin)}):
+            (staged,) = klt_batch.stage_requests([self.unit()], self.cfg())
+        self.assertTrue(staged.path.is_file())
+        self.assertNoLocalNgspice()
+
+
+class EmitRequestCliTests(BatchTestCase):
+    """``run_corners.py <exp> --emit-request DIR`` (#496)."""
+
+    def setUp(self):
+        super().setUp()
+        self.out = self.root / "emit"
+        (self.root / "tb").mkdir()
+        (self.root / "tb" / "x.spice").write_text(
+            "v1 out 0 dc {vdd_val}\nr1 out 0 1k\n")
+        self.write_tb(CHECKS)
+
+    def write_tb(self, checks):
+        (self.root / "tb" / "tb.json").write_text(json.dumps({
+            "name": "x", "netlist": "x.spice", "corners": ["tt"],
+            "temperatures_c": [-40, 125], "analyses": ["tran 1e-6 1e-3"],
+            "measure": {"vout": "v(out)", "iq": "-i(v1)", "ratio": "v(out)/3.3"},
+            "checks": checks,
+        }))
+
+    def emit(self, *extra, testbench=None, out=None):
+        args = cli.build_parser().parse_args(
+            [testbench or str(self.root / "tb"),
+             "--emit-request", str(out or self.out), *extra])
+        with mock.patch.object(cli, "find_pdk", return_value=self.pdk):
+            with contextlib.redirect_stdout(io.StringIO()) as buf:
+                code = cli.cmd_emit_request(args)
+        return code, buf.getvalue()
+
+    def requests(self, out=None):
+        return sorted((out or self.out).glob("requests/*/*.json"))
+
+    def test_it_writes_requests_and_submits_nothing(self):
+        code, text = self.emit()
+        self.assertEqual(code, cli.EXIT_OK)
+        self.assertTrue(self.requests())
+        self.assertEqual(self.calls(), [], "--emit-request invoked klt")
+        self.assertNoLocalNgspice()
+        self.assertIn("Nothing was submitted", text)
+
+    def test_it_records_no_evidence(self):
+        self.emit()
+        self.assertEqual(list((self.root / "tb").glob("records/*")), [])
+        self.assertEqual(list(self.out.rglob("*.md")), [])
+
+    def test_one_request_per_temperature_carrying_the_ratified_limits(self):
+        self.emit()
+        paths = self.requests()
+        self.assertEqual(len(paths), 2)                     # -40 C and 125 C
+        for path in paths:
+            request = json.loads(path.read_text())
+            self.assertEqual(len(request["corners"]["temperature_c"]), 1)
+            seen = specs_of(request)
+            self.assertEqual(seen["m_vout"], ({"min": 1.0, "max": 2.0}, "por-vth-rise"))
+            self.assertEqual(seen["m_iq"], ({"max": 5.0}, None))
+            self.assertEqual(seen["m_ratio"], ({"min": 0.4}, "por-reset-valid-floor"))
+
+    def test_a_manifest_with_no_checks_still_builds(self):
+        self.write_tb({})
+        code, _ = self.emit()
+        self.assertEqual(code, cli.EXIT_OK)
+        for path in self.requests():
+            for m in json.loads(path.read_text())["measurements"]:
+                self.assertNotIn("limits", m)
+
+    def test_an_unratified_spec_row_is_an_environment_error(self):
+        self.write_tb({"vout": {"min": 1.0,
+                                "description": "spec/target-spec.md#not-a-real-row"}})
+        code, _ = self.emit()
+        self.assertEqual(code, cli.EXIT_ENVIRONMENT)
+        self.assertEqual(self.requests(), [])
+
+    def test_an_untranslatable_deck_is_refused_never_dropped(self):
+        """A request set with a hole in it is worse than no request set: it
+        looks like a complete grid. Mirrors the submit path's
+        `test_untranslatable_deck_becomes_an_error_point`, which instead
+        returns an error *result* per point."""
+        with mock.patch.object(runner, "compose_deck",
+                               return_value="* d\n.control\nwrite x\n.endc\n"):
+            code, _ = self.emit()
+        self.assertEqual(code, cli.EXIT_ENVIRONMENT)
+        self.assertEqual(self.requests(), [])
+        self.assertEqual(self.calls(), [])
+
+    def test_it_refuses_to_mix_with_an_existing_request_set(self):
+        self.assertEqual(self.emit()[0], cli.EXIT_OK)
+        before = {p: p.read_text() for p in self.requests()}
+        code, _ = self.emit("--temps", "27")
+        self.assertEqual(code, cli.EXIT_ENVIRONMENT)
+        self.assertEqual({p: p.read_text() for p in self.requests()}, before)
+
+    def test_the_grid_honours_the_cli_overrides(self):
+        self.emit("--temps", "27", "--supply-tol", "0")
+        (path,) = self.requests()
+        request = json.loads(path.read_text())
+        self.assertEqual(request["corners"]["temperature_c"], [27.0])
+        self.assertEqual(request["corners"]["params"], {"vdd_val": [3.3]})
+
+    def test_por_vth_is_81_units_in_3_requests(self):
+        """The acceptance criterion, on the committed manifest: 9 process x 3
+        supply x 3 temperature = 81 units, packaged one request per
+        temperature (`_unit_group_key` includes `temp_c`)."""
+        out = self.root / "por-vth"
+        code, text = self.emit(testbench="por-vth", out=out)
+        self.assertEqual(code, cli.EXIT_OK, text)
+        paths = self.requests(out)
+        self.assertEqual(len(paths), 3)
+        total = 0
+        for path in paths:
+            request = json.loads(path.read_text())
+            self.assertEqual(len(request["corners"]["temperature_c"]), 1)
+            self.assertEqual(len(request["corners"]["process"]), 9)
+            self.assertEqual(len(request["corners"]["params"]["vdd_val"]), 3)
+            self.assertEqual(request.get("exclude", []), [])
+            total += 9 * 3
+        self.assertEqual(total, 81)
+        self.assertIn("81 unit(s) total", text)
+        self.assertEqual(self.calls(), [])
+        self.assertNoLocalNgspice()
+
+    def test_por_vth_tags_exactly_the_three_ratified_rows(self):
+        out = self.root / "por-vth"
+        self.emit(testbench="por-vth", out=out)
+        request = json.loads(self.requests(out)[0].read_text())
+        seen = specs_of(request)
+        self.assertEqual(
+            {name: row for name, (_, row) in seen.items() if row},
+            {"m_vpor_rise_v": "por-vth-rise", "m_vpor_fall_v": "por-vth-fall",
+             "m_v_hys_mv": "por-hysteresis"},
+        )
+        # Every bounded check is graded; the one unbounded measure is not.
+        self.assertEqual(sum(1 for limits, _ in seen.values() if limits), 12)
+        self.assertIsNone(seen["m_v_hys_guard_mv"][0])
+        self.assertEqual(seen["m_rise_chatter_guard_ms"][0], {"min": 16.0})
+        self.assertEqual(seen["m_por_raw_hi_droop_mv"][0], {"max": 50.0})
 
 
 class ControlScriptWiringTests(BatchTestCase):

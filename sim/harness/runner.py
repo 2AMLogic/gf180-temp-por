@@ -20,6 +20,11 @@ from .testbench import Testbench
 NGSPICE = "ngspice"
 DEFAULT_TIMEOUT_S = 300
 
+#: ``spec/target-spec.md``, located from this file rather than from a CWD:
+#: the ratified row ids a testbench check may claim to be evidence for
+#: (:func:`ratified_spec_rows`).
+SPEC_PATH = Path(__file__).resolve().parents[2] / "spec" / "target-spec.md"
+
 # `print` output for a length-1 vector: "m_vout = 6.9043645202e-01"
 _MEAS_RE = re.compile(r"^\s*m_(\w+)\s*=\s*([-+]?[0-9.]+(?:[eE][-+]?[0-9]+)?)\s*$")
 _ERROR_RE = re.compile(r"^\s*(?:Error|ERROR|Fatal|fatal error|doAnalyses:)", re.MULTILINE)
@@ -773,6 +778,118 @@ def run_grid(
     )
 
 
+def ratified_spec_rows(path: Path = SPEC_PATH) -> frozenset[str] | None:
+    """Row ids ``spec/target-spec.md`` ratifies, or ``None`` if it is not
+    readable from here.
+
+    ``None`` means "cannot cross-check", not "nothing is ratified": the
+    harness is importable outside a repository checkout, and a spec file this
+    process cannot read must not stop a simulation -- only the cross-check it
+    would have enabled.
+    """
+    try:
+        return klt_batch.spec_row_ids(path.read_text())
+    except OSError:
+        return None
+
+
+def batch_measurement_specs(tb: Testbench) -> tuple[klt_batch.MeasurementSpec, ...]:
+    """The ratified bounds ``tb.json``'s ``checks`` declare, named as the
+    *request's* own measurements (#496).
+
+    ``compose_deck`` / ``montecarlo.compose_mc_deck`` surface harness
+    measurement ``X`` as the printed vector ``m_X``, so ``m_X`` -- not the
+    manifest's own check key -- is the name klt grades. A check on something
+    the deck does not measure at all (a Python-derived row such as the Monte
+    Carlo benches' ``terr_trim_c``) has no request measurement to attach to
+    and is left out; so is a check that declares no ``min``/``max``.
+    """
+    return klt_batch.measurement_specs(
+        tb.checks,
+        request_names={name: f"m_{name}" for name in tb.measure},
+        known_rows=ratified_spec_rows(),
+    )
+
+
+def _batch_units(
+    tb: Testbench,
+    pdk: Pdk,
+    points: list,
+    workdir: Path,
+    compose,
+    lift_params: tuple[str, ...],
+    timeout_s: int,
+    log_dir: Path,
+    specs: tuple[klt_batch.MeasurementSpec, ...],
+    strict: bool,
+) -> tuple[list["klt_batch.BatchUnit"], dict[str, int], list[tuple[int, PointResult]]]:
+    """Compose each point's deck and take it apart into a ``BatchUnit``.
+
+    The one compose-and-translate loop behind :func:`run_batch_grid` (which
+    submits) and :func:`stage_batch_grid` (which does not), so the two cannot
+    drift in what they ask the fleet for. Returns the units, a
+    ``corner_id -> point index`` map, and the points that could not be
+    expressed. ``strict`` re-raises :class:`klt_batch.BatchIncompatible`
+    instead of returning such a point as an ``error`` result: a request set
+    is all-or-nothing, so a point is never quietly missing from it.
+    """
+    init = klt_batch.compat_init_lines()
+    index_of: dict[str, int] = {}
+    units: list[klt_batch.BatchUnit] = []
+    failed: list[tuple[int, PointResult]] = []
+    for i, point in enumerate(points):
+        deck_path = workdir / f"{point.corner_id}.spice"
+        log_path = log_dir / f"{point.corner_id}.log"
+        text = compose(tb, pdk, point)
+        deck_path.write_text(text)
+        try:
+            unit = klt_batch.translate_deck(
+                text, key=point.corner_id, log_path=log_path, pdk=pdk, deck_dir=workdir,
+                lift_params=lift_params, extra_init=init, timeout_s=timeout_s, specs=specs,
+            )
+        except klt_batch.BatchIncompatible as exc:
+            if strict:
+                raise
+            failed.append((i, PointResult(
+                point=point, status="error", deck=deck_path.name,
+                message=f"not expressible as a klt sim request: {exc}")))
+            continue
+        index_of[point.corner_id] = i
+        units.append(unit)
+    return units, index_of, failed
+
+
+def stage_batch_grid(
+    tb: Testbench,
+    pdk: Pdk,
+    points: list,
+    workdir: Path,
+    batch: "klt_batch.BatchConfig",
+    compose=None,
+    lift_params: tuple[str, ...] = ("vdd_val",),
+    timeout_s: int = DEFAULT_TIMEOUT_S,
+) -> list["klt_batch.StagedRequest"]:
+    """Compose and stage every point's ``klt sim`` request, submitting nothing.
+
+    The request-building half of :func:`run_batch_grid` (#496): same
+    composer, same :func:`klt_batch.translate_deck`, same grouping and
+    staging, with the ratified per-measurement bounds
+    (:func:`batch_measurement_specs`) attached -- it just stops before
+    ``klt`` is invoked, so it needs no ``klt``, no fleet and no local
+    ngspice. Raises :class:`klt_batch.BatchIncompatible` for a deck that
+    cannot be expressed rather than emitting a request set with a hole in it.
+
+    ``compose`` defaults to :func:`compose_deck`, resolved on the call rather
+    than bound at definition so the default follows the module attribute.
+    """
+    workdir.mkdir(parents=True, exist_ok=True)
+    units, _, _ = _batch_units(
+        tb, pdk, points, workdir, compose or compose_deck, lift_params, timeout_s, workdir,
+        batch_measurement_specs(tb), strict=True,
+    )
+    return klt_batch.stage_requests(units, batch)
+
+
 def run_batch_grid(
     tb: Testbench,
     pdk: Pdk,
@@ -790,39 +907,29 @@ def run_batch_grid(
     ``montecarlo.run_mc_grid``.
 
     ``compose(tb, pdk, point)`` builds each point's deck text; ``lift_params``
-    is forwarded to :func:`klt_batch.translate_deck`. Results come back in
-    ``points`` order; anything klt did not return as a clean ``pass`` is an
+    is forwarded to :func:`klt_batch.translate_deck`, as are the ratified
+    per-measurement bounds the manifest declares
+    (:func:`batch_measurement_specs`), so the fleet grades each corner
+    against the spec instead of returning ungraded numbers. Results come back
+    in ``points`` order; anything klt did not return as a clean ``pass`` is an
     ``error``, never an ``ok``.
     """
     workdir.mkdir(parents=True, exist_ok=True)
     log_dir = workdir if log_dir is None else log_dir
     log_dir.mkdir(parents=True, exist_ok=True)
-    init = klt_batch.compat_init_lines()
     results: list[PointResult | None] = [None] * len(points)
-    index_of: dict[str, int] = {}
-    units: list[klt_batch.BatchUnit] = []
 
     def finish(i: int, result: PointResult) -> None:
         results[i] = result
         if on_result is not None:
             on_result(result)
 
-    for i, point in enumerate(points):
-        deck_path = workdir / f"{point.corner_id}.spice"
-        log_path = log_dir / f"{point.corner_id}.log"
-        text = compose(tb, pdk, point)
-        deck_path.write_text(text)
-        try:
-            unit = klt_batch.translate_deck(
-                text, key=point.corner_id, log_path=log_path, pdk=pdk, deck_dir=workdir,
-                lift_params=lift_params, extra_init=init, timeout_s=timeout_s,
-            )
-        except klt_batch.BatchIncompatible as exc:
-            finish(i, PointResult(point=point, status="error", deck=deck_path.name,
-                                  message=f"not expressible as a klt sim request: {exc}"))
-            continue
-        index_of[point.corner_id] = i
-        units.append(unit)
+    units, index_of, incompatible = _batch_units(
+        tb, pdk, points, workdir, compose, lift_params, timeout_s, log_dir,
+        batch_measurement_specs(tb), strict=False,
+    )
+    for i, result in incompatible:
+        finish(i, result)
 
     if batch.evidence_dir is None:
         batch.evidence_dir = log_dir
