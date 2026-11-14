@@ -29,7 +29,7 @@ which invalidated every prior hand-read in the fleet at a stroke.
 prose disagree — including #145's checkboxes — the report wins, and the prose
 is the thing that is wrong.
 
-## The current verdict: `tier: null`, 9 of 11 items met
+## The current verdict
 
 Rendered by `klt 0.9.1` against its bundled `docs/design-evidence-tiers.md`.
 Block `kind` is **`analog`**: a single analog partition with no synthesized
@@ -52,13 +52,15 @@ artifact, and there is no partition boundary to declare.
 | 10 | Repo hygiene | **`met`** | `evidence/t1-item-10-repo-hygiene.json`, bound to `evidence/inventory-repo-hygiene.json`: `README.md`, `LICENSE`, `spec/target-spec.md` and `.github/workflows/ci.yml`, each hashed, with four stated assertions re-checked on every run. **Binding limits below.** |
 | 11 | Power delivery (structural) | **`met`** | `layout/reports/temp_por_top/erc_supply.json` (a `klt erc` supply-spec run) plus `layout/reports/temp_por_top/lvs.json`, whose `net_correspondence` carries both supplies ([#300](https://github.com/2AMLogic/gf180-temp-por/issues/300), `ties[]` added by [#310](https://github.com/2AMLogic/gf180-temp-por/issues/310)). The report has `erc_finding_count: 0` — zero `erc.supply_short`, zero `erc.unconnected_net`, and zero `erc.missing_tie`, with all four declared `ties[]` entries graded `checked` (none `skipped`/degenerate) — pinned to `sha256:a119a12b…` (the committed GDS) and `sha256:773047b1…` (the committed spec). The grader reports all four ties as caller-asserted (`ties_checked_by_assertion`), three of them resting on an asserted well (`ties_checked_by_well_assertion`) — this is provenance, not a weaker bar; see `layout/README.md`'s "Item 11" section. **Produced with the released `klt 0.7.0`** (PR #351's operator ruling declined to grade item 11 on an earlier unreleased-build run; the report was regenerated on the released tool and the caveat retired — see below), with the spec's own declared coverage disclosed below. |
 
-**9 of 11 is a lower number than #145's 10/10, and both are honest reads of
-different questions.** #145 asked "does this repo contain the artifact the
-item describes?" and largely, it does. This report asks "is there a passing,
-fresh, machine-readable envelope of the kind this item accepts?" and for 3
-items (5, 6) there is not. Nothing regressed between the two reads; the second
-question is simply stricter, and it is the one a downstream consumer of this
-block can actually verify without taking our word for it.
+**This report grades fewer items `met` than #145's 10/10, and both are
+honest reads of different questions.** #145 asked "does this repo contain the
+artifact the item describes?" and largely, it does. This report asks "is there
+a passing, fresh, machine-readable envelope of the kind this item accepts?"
+and for some items there is not — the table above names which, and
+`tier-report.json` is the answer of record for how many. Nothing regressed
+between the two reads; the second question is simply stricter, and it is the
+one a downstream consumer of this block can actually verify without taking our
+word for it.
 
 ## Disclosures that travel with the `met` verdicts
 
@@ -209,7 +211,8 @@ The audits behind each `pass`:
 Consequence for the fleet roll-up
 ([2AMLogic/2am#956](https://github.com/2AMLogic/2am/issues/956)): the first
 unmet item is now 5, so `blocking_item` reports a real blocker rather than
-item 1. Items 5 and 6 are what stand between this block and T1.
+item 1. The items the table above still grades `unmet` are what stand
+between this block and T1.
 
 ## Item 7 — `klt pex` evidence, its `body_bias` status, and what was patched
 

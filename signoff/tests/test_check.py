@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Tests for signoff/check.py's freshness gates (supply ERC, anchored items 1/2/9/10).
+"""Tests for signoff/check.py's gates: supply ERC and anchored-item freshness,
+and the prose-count guard that keeps the T1 verdict out of hand-written prose.
 
 No klt/PDK needed.
 
@@ -365,3 +366,131 @@ class CitationHashDriftTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ProseCountTest(unittest.TestCase):
+    """No document restates the graded T1 verdict as a hand-written aggregate."""
+
+    # The exact sentences `main` carried at 7e3fd861, which drifted from
+    # tier-report.json's `t1_met_count: 8` without anything noticing.
+    STALE_README = (
+        "The verdict today is **`tier: null` — 9 of 11 items met** "
+        "(items 5 and 6 unmet)."
+    )
+    STALE_HEADING = "## The current verdict: `tier: null`, 9 of 11 items met"
+    # PR #490's hand-correction: right today, and still exactly the thing
+    # that goes stale next time an item moves.
+    CORRECTED_README = (
+        "The verdict today is **`tier: null` — 8 of 11 T1 items met** "
+        "(items 5, 6 and 7 unmet)."
+    )
+
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, self.tmp, True)
+        for rel in check.PROSE_COUNT_DOCS:
+            dst = self.tmp / rel
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy(REPO_ROOT / rel, dst)
+
+    def run_check(self) -> tuple[bool, str]:
+        out, err = io.StringIO(), io.StringIO()
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            ok = check.check_prose_counts(self.tmp)
+        return ok, err.getvalue()
+
+    def append(self, rel: str, text: str) -> None:
+        path = self.tmp / rel
+        path.write_text(path.read_text() + "\n" + text + "\n")
+
+    def assert_fails(self, *needles):
+        ok, err = self.run_check()
+        self.assertFalse(ok, err)
+        for needle in needles:
+            self.assertIn(needle, err)
+        return err
+
+    def assert_passes(self):
+        ok, err = self.run_check()
+        self.assertTrue(ok, err)
+
+    def test_committed_tree_passes(self):
+        self.assertTrue(check.check_prose_counts())
+
+    def test_copy_passes(self):
+        self.assert_passes()
+
+    def test_stale_readme_sentence_fails(self):
+        self.append("README.md", self.STALE_README)
+        self.assert_fails("README.md", "9 of 11 items")
+
+    def test_stale_signoff_heading_fails(self):
+        self.append("signoff/README.md", self.STALE_HEADING)
+        self.assert_fails("signoff/README.md", "9 of 11 items")
+
+    def test_corrected_count_still_fails(self):
+        """A right-today count is still an aggregate in prose."""
+        self.append("README.md", self.CORRECTED_README)
+        self.assert_fails("8 of 11 T1 items")
+
+    def test_bare_fraction_over_item_total_fails(self):
+        """The #145 comparison paragraph's form, with no "items" nearby."""
+        self.append("signoff/README.md", "**9 of 11 is a lower number.**")
+        self.assert_fails("9 of 11")
+
+    def test_slash_form_fails(self):
+        self.append("README.md", "The block sits at 8/11 items met.")
+        self.assert_fails("8/11 items")
+
+    def test_unmet_enumeration_fails(self):
+        self.append("signoff/README.md", "Items 5, 6 and 7 are unmet.")
+        self.assert_fails("Items 5, 6 and 7 are unmet")
+
+    def test_failure_names_the_report(self):
+        self.append("README.md", self.STALE_README)
+        self.assert_fails("signoff/tier-report.json")
+
+    def test_historical_ten_of_ten_survives(self):
+        """#145's hand-read is history, not a verdict aggregate."""
+        self.assertIn("10/10 pass", (self.tmp / "signoff/README.md").read_text())
+        self.assert_passes()
+
+    def test_legitimate_ratios_survive(self):
+        """Measurement ratios and deck layer numbers are not verdict counts."""
+        self.append(
+            "signoff/README.md",
+            "145/145 nets, 239/239 devices, 6/6 pins; 30/81 points; 48 of 9153 "
+            "rows; layers 117/5, 117/10, 110/5, 34/10; items 1/2/9/10; "
+            "500/500 samples; closing at **10/10 pass**.",
+        )
+        self.assert_passes()
+
+    def test_single_item_verdict_prose_survives(self):
+        """Per-item prose is the disclosure this repo wants, not an aggregate."""
+        self.append(
+            "signoff/README.md",
+            "Item 7 grades `unmet` / `check_failed`, and item 6 is `unmet` too.",
+        )
+        self.assert_passes()
+
+    def test_structural_item_lists_survive(self):
+        """Items 1, 2, 9 and 10 are named constantly; that is not a verdict."""
+        self.append(
+            "signoff/README.md",
+            "Items 1, 2, 9 and 10 are claims about what a repository contains, "
+            "and the hash items 3, 4 and 11 pin is the committed GDS.",
+        )
+        self.assert_passes()
+
+    def test_missing_document_fails(self):
+        (self.tmp / "README.md").unlink()
+        self.assert_fails("README.md", "unreadable")
+
+    def test_both_documents_are_checked(self):
+        ok, _ = self.run_check()
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(io.StringIO()):
+            check.check_prose_counts(self.tmp)
+        for rel in ("README.md", "signoff/README.md"):
+            self.assertIn(rel, out.getvalue())
+        self.assertTrue(ok)

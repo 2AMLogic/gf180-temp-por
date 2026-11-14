@@ -196,11 +196,14 @@ python3 signoff/check.py                        # re-grade; fails on evidence ro
 - [`signoff/README.md`](signoff/README.md) reads that verdict out item by item,
   with the coverage gaps and disclosed exceptions each `met` row carries.
 
-The verdict today is **`tier: null` — 9 of 11 items met** (items 5 and 6 unmet). That is deliberately
-a stricter question than "does the repo contain the artifact?", and the report,
-not any prose in this repo, is the answer of record. CI re-runs it on every
-push and pull request, so a claim citing an artifact that has since changed
-fails rather than quietly rotting.
+The verdict today is whatever
+[`signoff/tier-report.json`](signoff/tier-report.json) reports — read its
+`tier`, `t1_met_count` and per-item `status` fields rather than a count
+written into prose here, which drifts the moment any item moves. The report
+asks a deliberately stricter question than "does the repo contain the
+artifact?", and it, not any prose in this repo, is the answer of record. CI
+re-runs it on every push and pull request, so a claim citing an artifact that
+has since changed fails rather than quietly rotting.
 
 ## Independent verification (Chipalooza)
 
