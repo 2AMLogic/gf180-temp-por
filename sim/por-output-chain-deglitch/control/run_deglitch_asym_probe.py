@@ -272,11 +272,6 @@ def analyze_edge(rows, t_edge: float, pgdg_direction: str) -> dict:
     }
 
 
-GENERATED = tuple(
-    str((CONTROL_DIR / name).relative_to(REPO_ROOT)) for name in ("results.md", "decks", "logs", "traces")
-)
-
-
 def main() -> int:
     toolchain = cliutil.locate_toolchain()
     if toolchain is None:
