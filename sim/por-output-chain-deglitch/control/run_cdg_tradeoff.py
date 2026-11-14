@@ -50,8 +50,18 @@ EXPERIMENT_DIR = CONTROL_DIR.parent
 REPO_ROOT = CONTROL_DIR.parents[2]
 
 sys.path.insert(0, str(REPO_ROOT / "sim"))
+# CONTROL_DIR too, so the sibling _deglitch_criterion import below resolves
+# however this script was loaded -- sys.path[0] is only this directory when
+# it is run directly, and sim/tests/ loads controls by path (#493).
+sys.path.insert(0, str(CONTROL_DIR))
 
 from harness import HARNESS_VERSION, cliutil, corners as corners_mod, runner  # noqa: E402
+
+# The glitch-rejection verdict this script shares with
+# run_glitch_width_sweep.py, in its one shared home (#493). Both results
+# files publish the same rejected/partial/**through** names, so the
+# boundaries between them have to have one definition.
+from _deglitch_criterion import verdict  # noqa: E402
 
 FRAGMENT = CONTROL_DIR / "cdg_tradeoff.spice"
 POSTLAYOUT_NETLIST = REPO_ROOT / "layout" / "postlayout" / "por_output_chain.spice"
@@ -148,19 +158,6 @@ def compose_deck(
         "",
     ]
     return "\n".join(lines)
-
-
-def verdict(meas: dict[str, float]) -> str:
-    """Same functional criterion as run_glitch_width_sweep.py: TIM is the
-    read-out, because a glitch that reaches PGDG fires XMDIS and discharges the
-    one-shot. TIM only ever *rises* while the filter is rejecting, so any
-    material fall is a disturbance."""
-    lost = (meas["timbefore"] - meas["timafter"]) / meas["timbefore"]
-    if lost > 0.5:
-        return "**through**"
-    if lost > 0.01:
-        return "partial"
-    return "rejected"
 
 
 def main() -> int:

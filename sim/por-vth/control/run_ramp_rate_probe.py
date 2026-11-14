@@ -274,9 +274,19 @@ def run_one(pdk, corner, point) -> dict:
     }
 
 
-def _static_and_slope(rows: list[dict], key: str = "v_hys_mv") -> tuple[float, float]:
+def static_and_slope(rows: list[dict], key: str = "v_hys_mv") -> tuple[float, float]:
     """(zero-rate limit, slope) from the two slowest rows -- the local
-    gradient where the curve is closest to its static limit."""
+    gradient where the curve is closest to its static limit.
+
+    The single definition of the zero-rate extrapolation for this directory
+    (#493). ``run_rate_ladder.py`` -- the SECOND control under this
+    ``control/``, which cross-references this script's ``results.md`` -- used
+    to carry its own copy of these six lines with ``key`` hard-coded to
+    ``"v_hys_mv"``, so the selection rule ("the two slowest rows") behind the
+    static limit both controls publish could have moved in one file and not
+    the other. Public rather than ``_``-prefixed because that sibling imports
+    it.
+    """
     a, b = sorted(rows, key=lambda r: r["rate_v_per_s"])[:2]
     slope = (b[key] - a[key]) / (b["rate_v_per_s"] - a["rate_v_per_s"])
     return a[key] - slope * a["rate_v_per_s"], slope
@@ -387,9 +397,9 @@ def render(results: list[dict], pdk) -> str:
             continue
         out += [f"## {title}", "", blurb, "", LADDER_HEADER, LADDER_RULE]
         out += [_ladder_row(r) for r in sorted(rows, key=lambda r: -r["rate_v_per_s"])]
-        static, slope = _static_and_slope(rows)
+        static, slope = static_and_slope(rows)
         stats[arm] = (static, slope)
-        vref_static, vref_slope = _static_and_slope(rows, "vref_err_up_mv")
+        vref_static, vref_slope = static_and_slope(rows, "vref_err_up_mv")
         slowest = min(rows, key=lambda r: r["rate_v_per_s"])
         fastest = max(rows, key=lambda r: r["rate_v_per_s"])
         out += [
@@ -488,9 +498,9 @@ def render(results: list[dict], pdk) -> str:
             for r in rows_a:
                 r["lag_total_mv"] = r["lag_rise_mv"] + r["lag_fall_mv"]
             fast = max(rows_a, key=lambda r: r["rate_v_per_s"])
-            total0, _ = _static_and_slope(rows_a, "v_hys_mv")
-            input0, _ = _static_and_slope(rows_a, "v_hys_sns_mv")
-            lag0, _ = _static_and_slope(rows_a, "lag_total_mv")
+            total0, _ = static_and_slope(rows_a, "v_hys_mv")
+            input0, _ = static_and_slope(rows_a, "v_hys_sns_mv")
+            lag0, _ = static_and_slope(rows_a, "lag_total_mv")
             parts[arm] = {
                 "total": fast["v_hys_mv"],
                 "static": total0,

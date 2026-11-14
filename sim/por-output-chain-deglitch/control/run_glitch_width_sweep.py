@@ -47,8 +47,18 @@ EXPERIMENT_DIR = CONTROL_DIR.parent
 REPO_ROOT = CONTROL_DIR.parents[2]
 
 sys.path.insert(0, str(REPO_ROOT / "sim"))
+# CONTROL_DIR too, so the sibling _deglitch_criterion import below resolves
+# however this script was loaded -- sys.path[0] is only this directory when
+# it is run directly, and sim/tests/ loads controls by path (#493).
+sys.path.insert(0, str(CONTROL_DIR))
 
 from harness import HARNESS_VERSION, cliutil, corners as corners_mod, runner  # noqa: E402
+
+# The glitch-rejection verdict this script shares with run_cdg_tradeoff.py,
+# in its one shared home (#493): both results files publish the same
+# rejected/partial/**through** names, so the boundaries between them have to
+# have one definition.
+from _deglitch_criterion import verdict  # noqa: E402
 
 FRAGMENT = CONTROL_DIR / "glitch_width_sweep.spice"
 SCHEMATIC_NETLIST = REPO_ROOT / "design" / "netlist" / "por_output_chain.spice"
@@ -171,25 +181,6 @@ def compose_deck(
         "",
     ]
     return "\n".join(lines)
-
-
-def verdict(meas: dict[str, float]) -> str:
-    """Did the glitch get through the filter?
-
-    Functional criterion, not a voltage one: a glitch that reaches PGDG drives
-    PGDGB high, fires XMDIS, and discharges the one-shot's TIM -- which is
-    exactly what restarted the timer at 30/81 points in the historical
-    CDG = 98 fF failure. TIM only ever *rises* while the filter is rejecting
-    (XMPT is still charging it), so any material fall is XMDIS having
-    conducted, and the size of the fall says how far the pulse was set back.
-    PGDG merely drooping is not the failure; losing timer charge is.
-    """
-    lost = (meas["timbefore"] - meas["timafter"]) / meas["timbefore"]
-    if lost > 0.5:
-        return "**through**"
-    if lost > 0.01:
-        return "partial"
-    return "rejected"
 
 
 def write_results(results: dict, pdk, ngspice_version: str) -> None:
