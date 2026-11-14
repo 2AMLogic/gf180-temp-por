@@ -295,7 +295,7 @@ Instrumenting the generator, the off-grid shapes come from:
 | `por_comparator` | Metal1 | 4 | `terminal():2118`; `por_comparator():2443` |
 | `por_output_chain` | Contact | 846 | `_draw_guard_ring():1132,1133,1137,1138`; `por_output_chain():1791,1801` |
 | `temp_por_top` | Contact | 3740 | the above, through instantiation |
-| `temp_por_top` | Via1 | 40 | `CellBuilder.via1():3447` |
+| `temp_por_top` | Via1 | 40 | `_TopRoutes.via1():3447` |
 
 Every Contact site is a `b.contact()` whose centre comes from `_span()` or
 `_contact_rows()`, which confirms the mechanism rather than merely being
@@ -306,7 +306,7 @@ dominates a cell — `bias_core` 1850 × 4 = 7400; `por_output_chain` 846 × 4 =
 3384; `temp_por_top` Via1 40 × 4 = 160 — i.e. one marker per off-grid vertex
 of each rectangle.
 
-> **A latent instance of the same defect.** `CellBuilder.pad()` (`:3436-3438`)
+> **A latent instance of the same defect.** `_TopRoutes.pad()` (`:3436-3438`)
 > also draws off-grid shapes, 40 of them on Metal2 in `temp_por_top`. The deck
 > carries no `metal2.ongrid.*` rule, so this does not fire today. It is the
 > same bug and should be fixed in the same pass.
