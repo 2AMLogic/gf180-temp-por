@@ -109,7 +109,6 @@ TRIM_REFERENCE_K = 298.15  # 25 C, the trim point DR-005 ratified
 
 TARGET_TRIMMED_C = 1.5  # spec/target-spec.md#temp-accuracy-trimmed (stretch)
 TARGET_SUPPLY_C = 0.33  # spec/target-spec.md#temp-supply-sensitivity
-NOMINAL_SUPPLY_V = "3.30"
 
 def parse_corner_ids(points: dict[str, dict[str, float]]) -> dict[str, tuple[str, float, str]]:
     """Map each parseable corner id to its ``(process, temp_c, supply)``.

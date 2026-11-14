@@ -81,7 +81,6 @@ import sys
 from pathlib import Path
 
 CONTROL_DIR = Path(__file__).resolve().parent
-EXPERIMENT_DIR = CONTROL_DIR.parent
 REPO_ROOT = CONTROL_DIR.parents[2]
 
 sys.path.insert(0, str(REPO_ROOT / "sim"))

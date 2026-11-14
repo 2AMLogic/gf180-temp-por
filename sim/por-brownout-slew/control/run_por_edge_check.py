@@ -132,9 +132,8 @@ SLEWS_BY_ARM: dict[str, list[float]] = {
     "por": [BASELINE_SLEW_MVUS, *NEW_SLEWS_MVUS],
 }
 
-#: DR-019's ratified bound and the extracted netlist's own transition edge,
-#: quoted for orientation only -- nothing here re-derives or changes either.
-DR019_BOUND_MVUS = 2.30
+#: The extracted netlist's own transition edge, quoted for orientation only
+#: -- nothing here re-derives or changes it.
 EXT_EDGE_LO_MVUS, EXT_EDGE_HI_MVUS = 2.45, 2.50
 
 RESETN_RATIO_KEY = "resetn_ratio_min_in_dip"
