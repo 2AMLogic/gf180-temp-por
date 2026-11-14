@@ -339,7 +339,20 @@ agreement of any rule in this triage:
 | `temp_por_top` | 157 | 157 | 32752.70 µm² |
 
 In `temp_core`, 1849 µm² of the 5597 µm² of drawn COMP — a third of it — has
-no implant over it at all.
+no implant over it at all. **`temp_core` is the least affected cell, not the
+worst.** In the other four leaf cells the uncovered area equals the *total*
+drawn COMP area — `bias_core` 4875.40, `por_comparator` 2030.10,
+`por_output_chain` 1749.90, `…bias_okb_inv` 5.40 µm², each identical to its
+row above — so those four have no implant over COMP anywhere at all, rather
+than incomplete coverage. That follows from the generator without measuring
+anything: of the seven implant sites listed below, the four resistor sites
+(`:900`, `:2905`, `:3044`, `:3071`) draw `PPLUS` coincident with a `POLY2`
+body — implant over poly, never over COMP — and the only three that cover COMP
+(`:3109`, `:3143`, `:3150`) all sit in `_temp_core_pnp_array()`, which only
+`temp_core` instantiates (`:2952`). `temp_core` is therefore the one cell with
+any implant over COMP, which is exactly why it is the one cell whose coverage
+is partial. This bears on how #516 is scoped: four of the six cells need
+implant drawn from scratch, not an existing pattern extended.
 
 Example: `por_comparator_bias_okb_inv`, uncovered COMP at
 `(0.0, 0.0)..(1.8, 1.0) µm` — a plain 1.8 × 1.0 µm rectangle of bare
@@ -513,8 +526,8 @@ the nearest NCOMP-inside-Nwell material:
 | distance to nearest tap | PCOMP regions | verdict |
 |---:|---:|---|
 | **30.000 µm** | **1** | **violates** (limit 20) |
-| 16.000 µm | 9 | passes |
-| 2.000 µm | 15 | passes |
+| 16.000 µm | 8 | passes |
+| 2.000 µm | 16 | passes |
 
 Exactly one of the 25 regions exceeds 20 µm, matching `klt`'s count of 1 — and
 it is the region at `(514, 90)..(524, 100) µm`, exactly the one `klt` flagged.
@@ -536,10 +549,15 @@ fully determined by the array's own constants:
   `ring(COMP, 4.0, 2.0)` / `ring(NPLUS, 4.3, 2.6)` (`:3142-3143`)
 - one Nwell holds the whole array (`:3147`)
 
-The centre emitter's distance to the ring's inner edge is `2 × 14 + 2 =
-30 µm`, against a 20 µm limit. The nine mid-ring emitters measure exactly
-`14 + 2 = 16 µm`, which is why they pass — a 3 × 3 array at this pitch would
-have been clean, and a 5 × 5 cannot be.
+An emitter's distance to the ring's inner edge is set by how deep into the
+array it sits: `min(row, 4 - row, col, 4 - col) × 14 + 2 µm`. That partitions
+the 25 emitters into exactly three buckets. The **sixteen** perimeter emitters
+— every one with a row or column of `0` or `4`, which is `25 - 3 × 3` — sit
+`2 µm` from the ring. The remaining nine are the inner 3 × 3: **eight** of them
+measure exactly `14 + 2 = 16 µm` and pass, and the ninth — the centre —
+measures `2 × 14 + 2 = 30 µm`, against a 20 µm limit. So a 3 × 3 array at this
+pitch would have been clean, and a 5 × 5 cannot be: the centre is the one
+position a perimeter-only tap ring cannot reach.
 
 This is a well-biasing and latch-up robustness defect, not a cosmetic one: the
 centre of the array is the point whose well potential is least controlled.
