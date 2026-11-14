@@ -14,8 +14,8 @@ no longer exists.
 
 This script is what stops that. It re-runs the grader and refuses to pass on
 any drift between what is committed and what the current tree actually
-grades to. Six distinct checks, because `klt signoff` alone cannot cover all
-of them (see signoff/README.md, "What the grader cannot check"):
+grades to. Seven distinct checks, because `klt signoff` alone cannot cover
+all of them (see signoff/README.md, "What the grader cannot check"):
 
 1. **Hand-rolled evidence is self-consistent.** A generic evidence envelope
    (`"kind": "generic"`) is written by hand, and so is the `content_hash`
@@ -52,6 +52,12 @@ of them (see signoff/README.md, "What the grader cannot check"):
    `check_anchored_evidence` fails on any changed, missing or newly added
    member, and on a manifest/envelope/artifact disagreement.
 
+7. **No document restates the verdict as a hand-written count.** The grader
+   never reads prose, so a sentence saying "9 of 11 items met" rots silently
+   while the report beside it says 8. `check_prose_counts` forbids the
+   aggregate outright rather than policing its value: `tier-report.json` is
+   the answer of record, and prose should cite it, not copy it.
+
 Pure stdlib; no PDK, no xschem, no ngspice. Only `klt` on PATH.
 """
 
@@ -59,6 +65,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import shutil
 import subprocess
 import sys
@@ -79,6 +86,38 @@ EVIDENCE_DIR = SIGNOFF_DIR / "evidence"
 # tier T1, 3 is "ran fine, at least one item unmet". Anything else is a
 # malformed manifest / unparsable tiers doc / usage error.
 RAN_CLEAN = (0, 3)
+
+# Documents that describe the T1 verdict in prose. `tier-report.json` is the
+# answer of record; an aggregate copied into prose drifts the moment any
+# item's status moves, and is only ever caught by a human reading the two side
+# by side (#401 corrected one 8 -> 9; item 7 then reverted and #491 found both
+# documents stale again). So the rule is negative: state no aggregate at all.
+PROSE_COUNT_DOCS = ("README.md", "signoff/README.md")
+
+# The T1 item total. Only PROSE_COUNT_PATTERNS' bare-fraction leg needs it;
+# the counted leg ("N of M items") is independent of the total, so a checklist
+# that grows an item still has its prose policed by that leg.
+T1_ITEM_COUNT = 11
+
+# What an aggregate T1 verdict looks like in prose. Deliberately NOT a bare
+# `N/N`: both documents carry legitimate ratios that must keep passing --
+# #145's "10/10 pass", `klt lvs`'s "145/145 nets", "30/81 points", and deck
+# layer numbers such as "117/10". Single-item prose ("item 7 grades `unmet`")
+# is legitimate too; only a multi-item enumeration is an aggregate.
+PROSE_COUNT_PATTERNS = (
+    (
+        r"\b\d+\s*(?:of|/)\s*\d+\s+(?:T1\s+)?items?\b",
+        "an aggregate T1 item count",
+    ),
+    (
+        rf"\b\d+\s*(?:of|/)\s*{T1_ITEM_COUNT}\b",
+        f"a count against the {T1_ITEM_COUNT}-item T1 checklist",
+    ),
+    (
+        r"\bitems?\s+\d+(?:\s*,\s*\d+)*\s+and\s+\d+\s+(?:are\s+)?`?unmet`?",
+        "a hand-written enumeration of which items are unmet",
+    ),
+)
 
 
 def fail(msg: str) -> None:
@@ -240,6 +279,43 @@ def check_erc_supply_freshness(
                 ok = False
                 continue
             print(f"ok   {rel}: {field} matches {name}")
+    return ok
+
+
+def check_prose_counts(root: Path = REPO_ROOT) -> bool:
+    """No document restates the graded T1 verdict as a hand-written aggregate.
+
+    A *negative* check on purpose: it asserts that no aggregate count appears,
+    rather than parsing a sentence and comparing it with `t1_met_count`. There
+    is no regex contract about which number is correct, and nothing here can
+    itself go stale when an item's status moves.
+    """
+    ok = True
+    for rel in PROSE_COUNT_DOCS:
+        try:
+            text = (root / rel).read_text()
+        except OSError as exc:
+            fail(f"{rel}: unreadable ({exc})")
+            ok = False
+            continue
+        hits = []
+        for pattern, what in PROSE_COUNT_PATTERNS:
+            for match in re.finditer(pattern, text, re.IGNORECASE):
+                line = text.count("\n", 0, match.start()) + 1
+                hits.append((line, what, " ".join(match.group(0).split())))
+        if hits:
+            for line, what, snippet in sorted(hits):
+                fail(f"{rel}:{line}: {what} in prose: {snippet!r}")
+            print(
+                "     the T1 verdict belongs in signoff/tier-report.json "
+                "(tier, t1_met_count, per-item status), not in prose -- cite "
+                "the report instead of copying a number that goes stale the "
+                "moment an item moves",
+                file=sys.stderr,
+            )
+            ok = False
+        else:
+            print(f"ok   {rel}: states no hand-written T1 verdict aggregate")
     return ok
 
 
@@ -520,6 +596,7 @@ def main(argv: list[str] | None = None) -> int:
     ok = check_anchored_evidence() and ok
     ok = check_committed_report_hashes() and ok
     ok = check_erc_supply_freshness() and ok
+    ok = check_prose_counts() and ok
 
     report, ran = run_grader()
     if not ran:
