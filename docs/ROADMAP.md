@@ -4,7 +4,7 @@
 gf180mcu PDK, built with an open-source flow and used to find and report gaps
 in [klayout-tools](https://github.com/2AMLogic/klayout-tools).
 
-Status as of 2026-11-13, `main` @ `7e3fd861`. Queue state lives in
+Status as of 2026-11-14, `main` @ `daa202a4`. Queue state lives in
 [`WORK_PLAN.md`](../WORK_PLAN.md); the verdict of record is
 [`signoff/tier-report.json`](../signoff/tier-report.json), not this prose.
 
@@ -18,7 +18,7 @@ Position on the klayout-tools T1 ("sim-validated") checklist, read from
 | 1 | Design sources | met | 5 schematics + 5 netlists, hash-bound (`signoff/evidence/`) |
 | 2 | Layout | met | `layout/cells/temp_por_top.gds`, 4 sub-cells + top |
 | 3 | DRC clean | met | `layout/reports/temp_por_top/drc.json`; skipped rules disclosed in `signoff/README.md` |
-| 4 | LVS clean | met | 239/239 devices, 145/145 nets; body terminals not independently verified |
+| 4 | LVS clean | met | 239/239 devices, 143/143 nets; body terminals not independently verified |
 | 5 | Corner verification | unmet, `partial_coverage` | 81-point records exist as Markdown only; no `klt sim` envelope (#383, #388, #389) |
 | 6 | Monte Carlo | unmet, `check_failed` | temperature rows fail yield (#415); POR rows under-sampled at N=500 (#416); no negative control (#417) |
 | 7 | Post-layout | unmet, `check_failed` | `klt pex` report has 48 errored `por-brownout` rows at 8 corners; cause measured in `sim/por-brownout/control/schematic-nonreassert.md` (#405, closed) |
@@ -35,31 +35,35 @@ Position on the klayout-tools T1 ("sim-validated") checklist, read from
   gain mirror, halve the trim ladder. The schematic change is PR #457.
 - The sim harness has a batch backend (`sim/harness/klt_batch.py`), but no
   control grid has yet been reproduced on it in enforce mode (#336).
-- This is the first roadmap. It differs from `README.md` and the heading of
-  `signoff/README.md`, which say 9 of 11: the committed report has said 8,
-  with item 7 also unmet, since the `klt pex` extension in `72685113`.
+- This is the first roadmap. The committed report has said 8, with item 7
+  also unmet, since the `klt pex` extension in `72685113`. `README.md` was
+  corrected to match in `d21f266e` (merged as #490); `signoff/README.md` still
+  says 9 of 11 in two places, which is the drift Now item 1 below covers.
 
 ## Now
 
 Can start today; none needs a multi-corner simulation run.
 
-1. **Make the prose match the verdict.** Done when `README.md` and
-   `signoff/README.md` state 8 of 11 with items 5, 6 and 7 unmet, a test
-   fails if the headline count and `t1_met_count` disagree, and
-   `python3 signoff/check.py` passes after the inventories are regenerated.
-   No issue yet.
-2. **Request builder with per-row limits, dry-run only.** The first half of
-   #388, which its own Dependencies line says can proceed without the batch
-   backend. Done when a harness command emits a `klt sim` request for
-   `por-vth` with 81 units and the three ratified row limits, covered by unit
-   tests in `sim/tests/` that need neither ngspice nor the backend. The pilot
-   run stays in #388.
-3. **Triage the DRC result under a newer klt.** #400 stopped because
-   `layout/run_checks.sh --regen-all` on klt 0.8.0 turned all six committed
-   cells from clean to violating (`contact.ongrid.1`, `comp.coverage.1` and
-   others). Done when a committed note classifies each violated rule as a
-   layout defect or a deck change, with an example location, and each
-   deck-side finding is filed at klayout-tools. No pin moves. No issue yet.
+1. **Make the prose match the verdict.** `README.md` is already corrected;
+   `signoff/README.md` still says 9 of 11. Done when neither document carries a
+   hand-written aggregate T1 count — leaving `signoff/tier-report.json` as the
+   only place the verdict is written — a `signoff/check.py` check fails if one
+   reappears, and `python3 signoff/check.py` passes. **#491**
+   (`loom:building`, PR #498) owns the mechanism; **#495** is the same drift,
+   parked on it.
+2. **Request builder with per-row limits, dry-run only.** Filed as **#496**
+   (`loom:building`) — the first half of #388, which its own Dependencies line
+   says can proceed without the batch backend. Done when a harness command
+   emits a `klt sim` request for `por-vth` with 81 units and the three ratified
+   row limits, covered by unit tests in `sim/tests/` that need neither ngspice
+   nor the backend. The pilot run stays in #388.
+3. **Triage the DRC result under a newer klt.** Filed as **#497**
+   (`loom:issue`). #400 stopped because `layout/run_checks.sh --regen-all` on
+   klt 0.8.0 turned all six committed cells from clean to violating
+   (`contact.ongrid.1`, `comp.coverage.1` and others). Done when a committed
+   note classifies each violated rule as a layout defect or a deck change, with
+   an example location, and each deck-side finding is filed at klayout-tools.
+   No pin moves.
 
 ## Next
 
@@ -120,8 +124,9 @@ Direction, each with the question to answer first.
   owner is identified.
 - **Batch backend capacity** (#336) and **klayout-tools#4902** (#416), above.
 
-Every open, filed issue is blocked, in progress or awaiting a decision. Only
-the three Now items can start today, and two of them have no issue yet.
+Every item under **Next** is blocked, in progress or awaiting a decision.
+Only the three Now items can start today, and each one is filed: #491 with
+#495 (item 1), #496 (item 2), #497 (item 3).
 
 ## Not planned
 
