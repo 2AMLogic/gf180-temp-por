@@ -120,6 +120,16 @@ Moving the pin is a deliberate act: edit `layout/toolchain.json`, install that
 build, and run `bash layout/run_checks.sh --regen-all` to re-stamp every
 cell onto it in one go.
 
+**The pin cannot move past 0.6.0 right now.** Under `klt` 0.8.0 all six
+committed cells go from clean to violating — 16,753 violations on
+`temp_por_top` alone — because that deck adds 68 rules the pinned one does not
+contain, including the DRM's `*_OFFGRID` grid family, `DF.12` implant
+coverage, `SB.2`/`SB.10` and `DF.13_LV`. Every one of the eleven rules that
+fires is a **real layout defect**, not a deck change;
+[`drc-newer-klt-triage.md`](drc-newer-klt-triage.md) is the rule-by-rule
+ruling, with the measurements, the generator code responsible, and the five
+follow-up issues (#515–#519) that #400 — the pin bump — is waiting on.
+
 ### Prerequisites
 
 | Need | Why | Check |
@@ -308,6 +318,8 @@ They fail independently — that is why there are two, per klayout-tools'
 layout/
   run_checks.sh                  the repeatable invocation (source of truth)
   toolchain.json                 the pinned klt build + deck content hash
+  drc-newer-klt-triage.md        why the pin cannot move yet: the rule-by-rule
+                                  ruling on what klt 0.8.0+ reports (#497)
   build_cells.py                 builds cells/*.gds, byte-reproducibly
   lvs_reference.py               derives cells/*.reference.spice from design/netlist/
   postlayout.py                  derives postlayout/*.spice from the extraction
