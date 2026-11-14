@@ -370,10 +370,6 @@ def update_results_md(pdk, options: list[str], res: dict[str, dict[str, float]])
     lines.append("|---:|---|---:|---:|---:|---:|---:|---:|---|")
     ext_base_margin = margin_us(res, "ext", BASELINE_SLEW_MVUS)
 
-    def us_after_dip(name: str, key: str) -> float | None:
-        t = res.get(name, {}).get(key)
-        return None if t is None else (t - band.T_DIP_S) * 1e6
-
     def fmt_us(value: float | None) -> str:
         return "**never**" if value is None else f"{value:.1f}"
 
@@ -391,9 +387,9 @@ def update_results_md(pdk, options: list[str], res: dict[str, dict[str, float]])
             )
             lines.append(
                 f"| {slew:g} | `{arm}` | {close_us(slew):.1f} | "
-                f"{fmt_us(us_after_dip(name, 't_praw'))} | "
-                f"{fmt_us(us_after_dip(name, 't_pgdg'))} | "
-                f"{fmt_us(us_after_dip(name, 't_rst'))} | "
+                f"{fmt_us(band.us_after_dip(res.get(name, {}).get('t_praw')))} | "
+                f"{fmt_us(band.us_after_dip(res.get(name, {}).get('t_pgdg')))} | "
+                f"{fmt_us(band.us_after_dip(res.get(name, {}).get('t_rst')))} | "
                 + ("—" if m is None else f"{m:+.1f}")
                 + f" | {delta} | {verdict} |"
             )

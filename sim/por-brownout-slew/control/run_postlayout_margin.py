@@ -165,10 +165,6 @@ def write_results(pdk, res: dict[str, dict[str, float]]) -> None:
     def window_close_s(vdd: float, slew: float) -> float:
         return band.T_DIP_S + band.edge_s(vdd, slew) + band.T_DWELL_S
 
-    def us_after_dip(name, key):
-        t = g(name, key)
-        return None if t is None else (t - band.T_DIP_S) * 1e6
-
     def fmt_us(value, never="**never**"):
         return never if value is None else f"{value:.1f}"
 
@@ -220,7 +216,7 @@ def write_results(pdk, res: dict[str, dict[str, float]]) -> None:
             margins: dict[str, float | None] = {}
             for arm in ARMS:
                 name = variant_name(arm, vdd, slew)
-                t_rst = us_after_dip(name, "t_rst")
+                t_rst = band.us_after_dip(g(name, "t_rst"))
                 margins[arm] = None if t_rst is None else close_us - t_rst
             for arm in ARMS:
                 name = variant_name(arm, vdd, slew)
@@ -232,9 +228,9 @@ def write_results(pdk, res: dict[str, dict[str, float]]) -> None:
                 flag = "" if (m is not None and m > 0) else " **FAIL**"
                 lines.append(
                     f"| {slew:g} | {vdd:.2f} V | {arm} | {close_us:.1f} | "
-                    f"{fmt_us(us_after_dip(name, 't_praw'))} | "
-                    f"{fmt_us(us_after_dip(name, 't_pgdg'))} | "
-                    f"{fmt_us(us_after_dip(name, 't_rst'))} | "
+                    f"{fmt_us(band.us_after_dip(g(name, 't_praw')))} | "
+                    f"{fmt_us(band.us_after_dip(g(name, 't_pgdg')))} | "
+                    f"{fmt_us(band.us_after_dip(g(name, 't_rst')))} | "
                     f"{('—' if m is None else f'{m:+.1f}')}{flag} | {delta} |"
                 )
     lines.append("")
