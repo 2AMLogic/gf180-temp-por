@@ -6,6 +6,11 @@ Merged PRs and closed issues from the initial 30-day snapshot (2026-09-07 onward
 
 - [2026-09](work_log/WORK_LOG_2026-09.md)
 
+### 2026-11-14
+
+- **PR #503**: refactor: delete five unread constants from four control scripts and selftest.sh
+- **Issue #492** (closed): Remove four unread constants the #487 sweep missed (one is a stale copy of DR-019's bound)
+
 ### 2026-11-13
 
 - **PR #489**: refactor(sim): drop selftest.sh --quick, whose single point always fails the grid checks
