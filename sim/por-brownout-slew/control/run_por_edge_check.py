@@ -82,6 +82,7 @@ Stdlib only, no virtualenv required.
 
 from __future__ import annotations
 
+import argparse
 import datetime
 import importlib.util
 import re
@@ -165,8 +166,13 @@ def variant_name(arm: str, slew_mvus: float) -> str:
 
 
 def main(argv: list[str] | None = None) -> int:
-    argv = sys.argv[1:] if argv is None else argv
-    report_only = "--report-only" in argv
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--report-only", action="store_true",
+        help="regenerate the results files from the existing logs instead "
+             "of running the sweep",
+    )
+    report_only = parser.parse_args(argv).report_only
 
     toolchain = cliutil.locate_toolchain(need_ngspice=False)
     if toolchain is None:
