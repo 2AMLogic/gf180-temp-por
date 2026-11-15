@@ -5,7 +5,7 @@
   "top": "por_comparator",
   "dbu_um": 0.001,
   "netlist_path": "layout/reports/por_comparator/extracted.spice",
-  "netlist_sha256": "25ef8fd24463f5d490d80e5fe5ede84cc11cccb6f129b7ebc2f49e36621ad0fe",
+  "netlist_sha256": "8b17ddbb3bb07925b48458f171c3976b64a34460637cc3f65548365cca53eeed",
   "status": "extracted",
   "device_count": 21,
   "net_count": 18,
@@ -243,16 +243,16 @@
       "name": "$19",
       "class": "ppolyf_u_1k",
       "nets": {
-        "a": "\\$10",
-        "b": "VDD",
+        "a": "\\$14",
+        "b": "\\$10",
         "w": "vsubs"
       },
       "params": {
-        "r_ohm": 3948720.0,
-        "l_um": 7897.44,
+        "r_ohm": 3384615.0,
+        "l_um": 6769.23,
         "w_um": 2.0,
-        "area_um2": 15794.88,
-        "perimeter_um": 15798.88
+        "area_um2": 13538.46,
+        "perimeter_um": 13542.46
       },
       "instance_path": []
     },
@@ -279,23 +279,6 @@
       "name": "$20",
       "class": "ppolyf_u_1k",
       "nets": {
-        "a": "\\$14",
-        "b": "\\$10",
-        "w": "vsubs"
-      },
-      "params": {
-        "r_ohm": 3384615.0,
-        "l_um": 6769.23,
-        "w_um": 2.0,
-        "area_um2": 13538.46,
-        "perimeter_um": 13542.46
-      },
-      "instance_path": []
-    },
-    {
-      "name": "$21",
-      "class": "ppolyf_u_1k",
-      "nets": {
         "a": "VSS",
         "b": "\\$14",
         "w": "vsubs"
@@ -306,6 +289,23 @@
         "w_um": 2.0,
         "area_um2": 1550.0,
         "perimeter_um": 1554.0
+      },
+      "instance_path": []
+    },
+    {
+      "name": "$21",
+      "class": "ppolyf_u_1k",
+      "nets": {
+        "a": "\\$10",
+        "b": "VDD",
+        "w": "vsubs"
+      },
+      "params": {
+        "r_ohm": 3948720.0,
+        "l_um": 7897.44,
+        "w_um": 2.0,
+        "area_um2": 15794.88,
+        "perimeter_um": 15798.88
       },
       "instance_path": []
     },
@@ -805,7 +805,7 @@
   "pdk": null,
   "provenance": {
     "klt_version": "0.6.0",
-    "klayout_version": "0.30.12",
+    "klayout_version": "0.30.13",
     "pdk": null,
     "deck": {
       "name": "gf180mcu",
@@ -813,10 +813,10 @@
       "released": false
     },
     "input": {
-      "content_hash": "sha256:c60a2ef35e34d6d4e0e70ba0a9937467b37676cc94a041b325e2117d5da44412",
+      "content_hash": "sha256:3e3e22745affc61415973d4368a28b1984e30a7dad0772f21a0e4baef02f8dbe",
       "role": "layout"
     },
-    "gds_sha256": "c60a2ef35e34d6d4e0e70ba0a9937467b37676cc94a041b325e2117d5da44412"
+    "gds_sha256": "3e3e22745affc61415973d4368a28b1984e30a7dad0772f21a0e4baef02f8dbe"
   },
   "parasitics": null,
   "spef_path": null,

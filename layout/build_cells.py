@@ -70,6 +70,29 @@ import lvs_reference as lvsref  # noqa: E402  (needs LAYOUT_DIR on sys.path)
 
 DBU_UM = 0.001
 
+#: gf180mcu's manufacturing grid, in um -- the pitch every drawn coordinate
+#: must land on (DRM ``*_OFFGRID`` rules; modelled by the ``gf180mcu`` deck's
+#: ``*.ongrid.1`` checks from klayout-tools 0.8.0 on). Finer than this only in
+#: the sense that the layout DBU (1 nm) can *express* more: a coordinate exact
+#: in DBU can still sit between manufacturing-grid lines, which is the defect
+#: family #515 clears.
+MFG_GRID_UM = 0.005
+
+
+def _snap(v: float) -> float:
+    """Snap ``v`` to the nearest multiple of :data:`MFG_GRID_UM`.
+
+    Snap *centres* (and any other derived scalar) with this, then derive box
+    edges from the snapped value -- never snap a box's four corners
+    independently. Half-extents in this generator are all whole multiples of
+    the grid, so ``snap(c) ± half`` is on-grid *and* exactly the intended
+    size; rounding two edges separately is what lets them land closer
+    together than the rule width (the ``contact.width.1`` failure
+    :meth:`CellBuilder.contact`'s comment recounts).
+    """
+    return round(v / MFG_GRID_UM) * MFG_GRID_UM
+
+
 NWELL = (21, 0)
 COMP = (22, 0)
 POLY2 = (30, 0)
@@ -153,6 +176,11 @@ VIA_SIDE_UM = 0.26
 def _via_square(cx: float, cy: float) -> tuple[float, float, float, float]:
     """The DRM-fixed Via1/Via2 square centred at ``cx, cy``.
 
+    The centre is snapped to the manufacturing grid first (:func:`_snap`,
+    #515): callers pass :func:`_span`-derived centres that are arbitrary DBU
+    multiples, while ``VIA_SIDE_UM`` is a whole multiple of the grid, so the
+    snapped centre keeps the square exactly that size with every edge on-grid.
+
     The single derivation of that square's edges, and so -- per
     :data:`VIA_SIDE_UM` above, which no deck rule checks -- the single place
     the "by construction" guarantee is constructed. Every via drawer comes
@@ -163,6 +191,8 @@ def _via_square(cx: float, cy: float) -> tuple[float, float, float, float]:
 
     Returns ``(x0, y0, x1, y1)``, ready to splat into either ``box``.
     """
+    cx = _snap(cx)
+    cy = _snap(cy)
     half = VIA_SIDE_UM / 2.0
     return (cx - half, cy - half, cx + half, cy + half)
 
@@ -209,23 +239,35 @@ class CellBuilder:
         )
 
     def contact(self, cx: float, cy: float) -> None:
-        # Quantise the centre to the layout's own DBU grid *before* deriving
-        # the two edges: computing them straight from a `cx`/`cy` that is not
-        # already grid-exact (e.g. an `_span()`-derived centre, whose step is
-        # an arbitrary division and so is not, in general, an exact multiple
-        # of the grid) lets the two edges round independently and land 1 DBU
-        # closer together than `CONTACT_SIDE_UM` -- a `contact.width.1`
-        # violation despite every caller asking for the same fixed size
-        # (#91's sense divider first surfaced this on an unrelated,
-        # pre-existing `_span()` call it happened to shift).
-        dbu = self.layout.dbu
-        cx = round(cx / dbu) * dbu
-        cy = round(cy / dbu) * dbu
+        # Snap the centre to the PDK's 0.005 um manufacturing grid *before*
+        # deriving the two edges: computing them straight from a `cx`/`cy`
+        # that is not already grid-exact (e.g. an `_span()`-derived centre,
+        # whose step is an arbitrary division and so is not, in general, an
+        # exact multiple of the grid) lets the two edges round independently
+        # and land 1 DBU closer together than `CONTACT_SIDE_UM` -- a
+        # `contact.width.1` violation despite every caller asking for the
+        # same fixed size (#91's sense divider first surfaced this on an
+        # unrelated, pre-existing `_span()` call it happened to shift).
+        # Snapping the centre instead of each edge keeps that guarantee --
+        # both edges derive from one snapped centre, so they stay exactly
+        # `CONTACT_SIDE_UM` apart -- and additionally puts the whole shape
+        # on the manufacturing grid, which the deck's `contact.ongrid.1`
+        # rule checks and 1 nm quantisation never satisfied (#515).
+        cx = _snap(cx)
+        cy = _snap(cy)
         half = CONTACT_SIDE_UM / 2.0
         self.box(CONTACT, cx - half, cy - half, cx + half, cy + half)
 
     def via(self, spec, cx: float, cy: float) -> None:
-        """One DRM-sized Via1/Via2 square centred at ``cx, cy``."""
+        """One DRM-sized Via1/Via2 square centred at ``cx, cy``.
+
+        The centre is snapped to the manufacturing grid first, for the same
+        reason :meth:`contact` snaps its own (:func:`_span`-derived centres
+        are arbitrary DBU multiples otherwise; #515). ``VIA_SIDE_UM`` is a
+        whole multiple of the grid, so the snapped centre keeps the square
+        exactly that size. The snap lives in :func:`_via_square`, the single
+        derivation of the square's edges, so every via drawer inherits it.
+        """
         self.box(spec, *_via_square(cx, cy))
 
     def label(self, name: str, x: float, y: float, spec=METAL1_LABEL) -> None:
@@ -908,7 +950,14 @@ def _poly_resistor(
 
     Returns the two heads' centre x, in ``(first, last)`` order -- i.e. the
     golden netlist's own ``(a, b)`` node order.
+
+    The origin is snapped to the manufacturing grid first (#515) -- the leg
+    pitch and leg length are grid multiples (the latter via
+    ``lvs_reference.resistor_segments`` for the current netlist), so the
+    snapped origin is what puts every drawn vertex on-grid.
     """
+    x0 = _snap(x0)
+    y0 = _snap(y0)
     pitch = width + RES_SPACE_UM
     leg_x = [x0 + index * pitch for index in range(legs)]
 
@@ -971,13 +1020,22 @@ def _contact_rows(width_um: float) -> list[float]:
 
     Kept at >= 0.5 um pitch (DRM ``CO.2a`` asks 0.25) and inset far enough that
     ``CO.4``'s 0.07 um COMP overlap holds at both ends of the diffusion.
+
+    The pitch that fits ``count`` rows into ``high - low`` is an arbitrary
+    division, so each centre is snapped to the manufacturing grid (#515) --
+    the whole error is in the centre, every half-extent drawn from it is
+    already a grid multiple. The snap moves a centre at most half a grid
+    pitch (2.5 nm), far inside the insets the rule margins above leave.
     """
     low, high = CONT_INSET_UM, width_um - CONT_INSET_UM
     if high - low < 0.47:
-        return [width_um / 2.0]
+        # Narrow-device fallback: one contact, centred on the column. A
+        # width that is an odd multiple of 5 nm would centre it on a 2.5 nm
+        # offset -- snap like every other row.
+        return [_snap(width_um / 2.0)]
     count = int((high - low) / 0.5) + 1
     step = (high - low) / (count - 1)
-    return [low + index * step for index in range(count)]
+    return [_snap(low + index * step) for index in range(count)]
 
 
 def _poly2_landing_x1(contact_cx: float) -> float:
@@ -1001,12 +1059,17 @@ def _poly2_landing_x1(contact_cx: float) -> float:
 
 
 def _span(low: float, high: float, pitch: float) -> list[float]:
-    """Evenly spaced centres covering ``[low, high]`` at about ``pitch``."""
+    """Evenly spaced centres covering ``[low, high]`` at about ``pitch``.
+
+    The pitch that fits ``count`` centres into the span is an arbitrary
+    division, so each centre is snapped to the manufacturing grid (#515);
+    see :func:`_contact_rows` for why the error is confined to the centre.
+    """
     if high <= low:
-        return [(low + high) / 2.0]
+        return [_snap((low + high) / 2.0)]
     count = max(1, int((high - low) / pitch))
     step = (high - low) / count
-    return [low + index * step for index in range(count + 1)]
+    return [_snap(low + index * step) for index in range(count + 1)]
 
 
 def _place_tiles(devices: dict[str, dict], groups) -> list[dict]:
@@ -1028,11 +1091,18 @@ def _place_tiles(devices: dict[str, dict], groups) -> list[dict]:
             length = lvsref.to_um(device["params"]["l"])
             width = lvsref.to_um(device["params"]["w"])
             drain, gate, source, _body = device["nodes"]
+            # Netlist lengths are exact in DBU, not in general on the 5 nm
+            # manufacturing grid -- snap the tile origin so every contact
+            # column, gate strip and plate the tile derives from it starts
+            # on-grid (#515). The cursor advances from the snapped origin so
+            # no drift accumulates across the row; TILE_GAP_UM dwarfs the
+            # at-most-2.5 nm shift.
+            x0 = _snap(cursor)
             tiles.append(
                 {
                     "name": name,
                     "group": index,
-                    "x0": cursor,
+                    "x0": x0,
                     "l": length,
                     "w": width,
                     "d": drain,
@@ -1040,7 +1110,7 @@ def _place_tiles(devices: dict[str, dict], groups) -> list[dict]:
                     "s": source,
                 }
             )
-            cursor += 2 * SD_EXT_UM + length + TILE_GAP_UM
+            cursor = x0 + 2 * SD_EXT_UM + length + TILE_GAP_UM
     return tiles
 
 
@@ -2062,8 +2132,25 @@ def _resistor_leg_plan(length_um: float, leg_w: float) -> tuple[int, float, floa
     An odd leg count keeps the string's two open ends on opposite sides
     (see :func:`_resistor_string`), convenient for wiring one to each of two
     different nets without doubling back.
+
+    Both leg dimensions are also kept whole multiples of the 0.005 um
+    *manufacturing* grid (#515), not merely of the 1 nm DBU grid: the deck's
+    ``poly2/sab/res_mk/resistor.ongrid.1`` rules fire on every leg edge
+    otherwise (912 markers across ``por_comparator`` and its instantiation in
+    ``temp_por_top`` at the 0.8.0 triage). ``leg_len`` is therefore snapped
+    *down* to the grid and the per-leg remainder -- ``legs`` times up to one
+    grid pitch -- is folded into ``tail_extra_um`` with it, so the identity
+    above still holds bit-for-bit and the string's total marked area is
+    unchanged. That total is what the deck's resistor extractor solves R from
+    (``area / width * sheet_rho``; see :func:`_resistor_string`), so the
+    extracted resistance, width and length all move by exactly zero. The one
+    input this cannot absorb is an ``r_length`` that is itself not a whole
+    multiple of the grid: the identity then has an off-grid remainder no
+    redistribution can hide, and the plan fails loudly rather than draw a
+    string the newer deck would flag.
     """
     nm = round(1.0 / DBU_UM)  # DBU per micrometre (1000, i.e. a 1 nm grid)
+    grid_nm = round(MFG_GRID_UM * nm)  # the manufacturing-grid pitch, in nm
     length_nm = round(length_um * nm)
     space_nm = round(DIVIDER_LEG_SPACE_UM * nm)
     cap_nm = round(DIVIDER_CAP_UM * nm)
@@ -2077,10 +2164,19 @@ def _resistor_leg_plan(length_um: float, leg_w: float) -> tuple[int, float, floa
     # legs * leg_len + tail_extra - 2 * CAP + (legs - 1) * SPACE == length_um
     # (see _resistor_string's marked-area accounting), solved exactly in
     # integer nanometres so the identity holds bit-for-bit, not just to
-    # floating-point tolerance.
+    # floating-point tolerance. leg_len is floored to the manufacturing grid
+    # and tail_extra takes the whole per-leg remainder, so both stay on-grid
+    # and the identity is preserved exactly (#515).
     budget_nm = length_nm + 2 * cap_nm - (legs - 1) * space_nm
-    leg_len_nm = budget_nm // legs
-    tail_extra_nm = budget_nm - leg_len_nm * legs  # 0 <= tail_extra_nm < legs
+    if budget_nm % grid_nm:
+        raise ValueError(
+            f"resistor length {length_um} um folds to a budget of {budget_nm} nm, "
+            f"not a whole multiple of the {grid_nm} nm manufacturing grid, so no "
+            "on-grid leg plan can draw it exactly; make r_length in the golden "
+            "netlist a manufacturing-grid multiple"
+        )
+    leg_len_nm = budget_nm // legs // grid_nm * grid_nm
+    tail_extra_nm = budget_nm - leg_len_nm * legs  # a whole grid multiple too
     return legs, leg_len_nm / nm, tail_extra_nm / nm
 
 
@@ -2107,7 +2203,15 @@ def _resistor_string(
 
     Returns ``{"a": (x, y), "b": (x, y), "x0", "y0", "x1", "y1"}``: the two
     open ends' own contact points (for wiring) and the drawn bounding box.
+
+    The origin is snapped to the manufacturing grid first (#515): the caller
+    chains it off device-tile placement, whose steps are exact in DBU but not
+    in general on the 5 nm grid. Leg pitches and the leg dimensions out of
+    :func:`_resistor_leg_plan` are grid multiples, so a snapped origin puts
+    every drawn vertex on-grid.
     """
+    x0 = _snap(x0)
+    y0 = _snap(y0)
     pitch = leg_w + DIVIDER_LEG_SPACE_UM
     y1 = y0 + leg_len  # shared top for every leg except the last
     x1 = x0 + (legs - 1) * pitch + leg_w
@@ -3020,6 +3124,11 @@ def _temp_core_resistor_bank(
     deck can see it" move ``lvs_reference.py``'s ``fingers`` field already
     makes for a matched MOS pair.
 
+    The bank origin is snapped to the manufacturing grid first (#515): the
+    uniform leg pitch is a grid multiple and every segment length
+    ``lvs_reference.resistor_segments`` returns for the current netlist is
+    one too, so a snapped origin is what puts every drawn vertex on-grid.
+
     Matching, per ``layout/floorplan.md`` rank 2: every segment of every
     resistor is the same drawn **width**, the same flavour, the same
     orientation and the same end geometry, on one uniform pitch, with unmarked
@@ -3028,6 +3137,8 @@ def _temp_core_resistor_bank(
     uniform-length unit tile cannot build this ladder, and drawing one that
     pretends to would be the decorative array this bank replaces.
     """
+    x0 = _snap(x0)
+    y0 = _snap(y0)
     devices = lvsref.parse_passives(
         lvsref.subckt_body(
             (REPO_ROOT / "design" / "netlist" / "temp_core.spice").read_text(),
@@ -3445,13 +3556,20 @@ class _TopRoutes:
 
     def hwire(self, net: str, y: float, x0: float, x1: float, spec=METAL2) -> None:
         half = TOP_WIRE_W / 2.0
+        # Snap the derived axis to the manufacturing grid (#515); the
+        # half-width is a grid multiple, so both edges follow it onto the
+        # grid with the width preserved.
+        y = _snap(y)
         self.box(spec, net, min(x0, x1), y - half, max(x0, x1), y + half)
 
     def vwire(self, net: str, x: float, y0: float, y1: float, spec=METAL3) -> None:
         half = TOP_WIRE_W / 2.0
+        x = _snap(x)  # see hwire
         self.box(spec, net, x - half, min(y0, y1), x + half, max(y0, y1))
 
     def pad(self, spec, net: str, x: float, y: float) -> None:
+        x = _snap(x)
+        y = _snap(y)
         h = TOP_PAD_HALF
         self.box(spec, net, x - h, y - h, x + h, y + h)
 
@@ -3461,6 +3579,11 @@ class _TopRoutes:
         The Metal1 side is the sub-circuit's -- untouched, and already at
         least 0.30 um across at every pin label
         (:meth:`CellBuilder.labels_in`), so a 0.26 um via lands inside it.
+
+        The centre is snapped to the manufacturing grid before either shape
+        is drawn (#515): pin-label positions read back out of the instance
+        stream are exact in DBU, not in general on the 5 nm grid. One snap
+        keeps the via square and its landing pad concentric.
         """
         self.box(VIA1, net, *_via_square(x, y))
         self.pad(METAL2, net, x, y)

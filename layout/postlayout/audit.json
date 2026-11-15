@@ -54,13 +54,13 @@
       ],
       "provenance": {
         "klt_version": "0.6.0",
-        "klayout_version": "0.30.12",
+        "klayout_version": "0.30.13",
         "deck": {
           "name": "gf180mcu",
           "content_hash": "sha256:95c2eb9148b29ded02182aeca4222287ff57f813691d5e2f9f8d7a675f6cb637",
           "released": false
         },
-        "gds_sha256": "b2e68f8087bcf31cb329785109e93551ecc416b6659cc7c7d7b51ef79e4cdf96"
+        "gds_sha256": "41c0865a6b2d2e90a64d038d09fcfa340720249230ffb8aa75befb381c753698"
       },
       "lvs_status": "match"
     },
@@ -77,8 +77,8 @@
         "nets_total": 18,
         "nets_with_parasitics": 15,
         "fraction": 0.8333,
-        "total_resistance_ohm": 18283.0024,
-        "total_capacitance_ff": 526.365705,
+        "total_resistance_ohm": 18283.0924,
+        "total_capacitance_ff": 526.504287,
         "coupling_capacitance_ff": 0.056665,
         "distributed_rc": false,
         "critical_nets": []
@@ -109,13 +109,13 @@
       ],
       "provenance": {
         "klt_version": "0.6.0",
-        "klayout_version": "0.30.12",
+        "klayout_version": "0.30.13",
         "deck": {
           "name": "gf180mcu",
           "content_hash": "sha256:95c2eb9148b29ded02182aeca4222287ff57f813691d5e2f9f8d7a675f6cb637",
           "released": false
         },
-        "gds_sha256": "c60a2ef35e34d6d4e0e70ba0a9937467b37676cc94a041b325e2117d5da44412"
+        "gds_sha256": "3e3e22745affc61415973d4368a28b1984e30a7dad0772f21a0e4baef02f8dbe"
       },
       "lvs_status": "match"
     },
@@ -161,13 +161,13 @@
       ],
       "provenance": {
         "klt_version": "0.6.0",
-        "klayout_version": "0.30.12",
+        "klayout_version": "0.30.13",
         "deck": {
           "name": "gf180mcu",
           "content_hash": "sha256:95c2eb9148b29ded02182aeca4222287ff57f813691d5e2f9f8d7a675f6cb637",
           "released": false
         },
-        "gds_sha256": "25943ef873ddc2800a6108ed59bff2a8e6d5bdfb3fd1f435a6609c8156aef538"
+        "gds_sha256": "210b6b69977f917a1517b5a4b4f8fbe26733dcc59f4d256e4777425bcdade655"
       },
       "lvs_status": "match"
     },
@@ -218,7 +218,7 @@
       ],
       "provenance": {
         "klt_version": "0.6.0",
-        "klayout_version": "0.30.12",
+        "klayout_version": "0.30.13",
         "deck": {
           "name": "gf180mcu",
           "content_hash": "sha256:95c2eb9148b29ded02182aeca4222287ff57f813691d5e2f9f8d7a675f6cb637",
@@ -244,8 +244,8 @@
         "nets_total": 143,
         "nets_with_parasitics": 136,
         "fraction": 0.951,
-        "total_resistance_ohm": 283442.9881,
-        "total_capacitance_ff": 7165.772513,
+        "total_resistance_ohm": 283443.0707,
+        "total_capacitance_ff": 7165.911095,
         "coupling_capacitance_ff": 85.089052,
         "distributed_rc": false,
         "critical_nets": []
@@ -288,13 +288,13 @@
       ],
       "provenance": {
         "klt_version": "0.6.0",
-        "klayout_version": "0.30.12",
+        "klayout_version": "0.30.13",
         "deck": {
           "name": "gf180mcu",
           "content_hash": "sha256:95c2eb9148b29ded02182aeca4222287ff57f813691d5e2f9f8d7a675f6cb637",
           "released": false
         },
-        "gds_sha256": "a119a12b1fa2daff64772a4a804a0ea14f17c68dc9357fe167dfd287df0628fd"
+        "gds_sha256": "c7e4c0f4a552977d02e4556b132ef4079a112f3561678590c1b74f64d6702561"
       },
       "lvs_status": "match"
     }
