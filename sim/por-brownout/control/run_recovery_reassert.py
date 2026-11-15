@@ -211,7 +211,8 @@ def deck(pdk, options: list[str], corner_name: str, temp_c: float, vdd: float,
     return "\n".join(lines)
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
+    cliutil.parse_no_options(argv, __doc__)
     toolchain = cliutil.locate_toolchain(need_ngspice=False)
     if toolchain is None:
         return cliutil.EXIT_ENVIRONMENT
