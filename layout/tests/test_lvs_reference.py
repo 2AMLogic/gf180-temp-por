@@ -784,6 +784,26 @@ class GuardTest(unittest.TestCase):
         with self.assertRaises(lr.ReferenceError):
             lr.build(CELL)
 
+    def test_undeclared_cap_plate_net_is_an_error(self):
+        # Until #269 a drawn cap's plates were synthetic per-instance nets,
+        # undeclared by construction, so the cap builder had no guard to
+        # apply. cap_plate_nets now returns the golden card's own nodes --
+        # real schematic nets the manifest is supposed to declare -- so a cap
+        # whose plate lands on a net nothing else touches (the ordinary shape
+        # for a decoupling cap) is checked like every other device's nodes.
+        spec = lr.CELLS["por_output_chain"]
+        self.addCleanup(
+            lr.CELLS.__setitem__, "por_output_chain", lr.CELLS["por_output_chain"]
+        )
+        lr.CELLS["por_output_chain"] = {
+            **spec,
+            "internal": [net for net in spec.get("internal", []) if net != "TIM"],
+        }
+        with self.assertRaises(lr.ReferenceError) as caught:
+            lr.build_cap_cards("por_output_chain")
+        self.assertIn("XCTIM", str(caught.exception))
+        self.assertIn("TIM", str(caught.exception))
+
     def test_pmos_without_a_well_assignment_is_an_error(self):
         lr.CELLS[CELL] = {**self.spec, "wells": {}}
         with self.assertRaises(lr.ReferenceError):
