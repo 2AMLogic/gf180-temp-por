@@ -148,6 +148,25 @@ CONTACT_SIDE_UM = 0.22
 #: ``layout/README.md`` -> "Known deck limits"), so this size is held to the
 #: DRM by construction here rather than by a check.
 VIA_SIDE_UM = 0.26
+
+
+def _via_square(cx: float, cy: float) -> tuple[float, float, float, float]:
+    """The DRM-fixed Via1/Via2 square centred at ``cx, cy``.
+
+    The single derivation of that square's edges, and so -- per
+    :data:`VIA_SIDE_UM` above, which no deck rule checks -- the single place
+    the "by construction" guarantee is constructed. Every via drawer comes
+    through here: :meth:`CellBuilder.via` inserts the square itself, while
+    ``_TopRoutes.via1``/``_TopRoutes.via2`` take the coordinates alone,
+    because their own net-tagging ``_TopRoutes.box`` has to stay on the
+    insertion path.
+
+    Returns ``(x0, y0, x1, y1)``, ready to splat into either ``box``.
+    """
+    half = VIA_SIDE_UM / 2.0
+    return (cx - half, cy - half, cx + half, cy + half)
+
+
 #: gf180mcu DRM "CO.3": minimum Poly2 overlap of a contact, all round. A Poly2
 #: shape that a contact lands on has to extend at least this far past every
 #: edge of the contact, so the shortest Poly2 stub that can host a contact
@@ -207,8 +226,7 @@ class CellBuilder:
 
     def via(self, spec, cx: float, cy: float) -> None:
         """One DRM-sized Via1/Via2 square centred at ``cx, cy``."""
-        half = VIA_SIDE_UM / 2.0
-        self.box(spec, cx - half, cy - half, cx + half, cy + half)
+        self.box(spec, *_via_square(cx, cy))
 
     def label(self, name: str, x: float, y: float, spec=METAL1_LABEL) -> None:
         self.cell.shapes(self._layer(spec)).insert(
@@ -3444,14 +3462,12 @@ class _TopRoutes:
         least 0.30 um across at every pin label
         (:meth:`CellBuilder.labels_in`), so a 0.26 um via lands inside it.
         """
-        self.box(VIA1, net, x - VIA_SIDE_UM / 2.0, y - VIA_SIDE_UM / 2.0,
-                 x + VIA_SIDE_UM / 2.0, y + VIA_SIDE_UM / 2.0)
+        self.box(VIA1, net, *_via_square(x, y))
         self.pad(METAL2, net, x, y)
 
     def via2(self, net: str, x: float, y: float) -> None:
         """A Via2 with a landing pad on both of its levels."""
-        self.box(VIA2, net, x - VIA_SIDE_UM / 2.0, y - VIA_SIDE_UM / 2.0,
-                 x + VIA_SIDE_UM / 2.0, y + VIA_SIDE_UM / 2.0)
+        self.box(VIA2, net, *_via_square(x, y))
         self.pad(METAL2, net, x, y)
         self.pad(METAL3, net, x, y)
 
