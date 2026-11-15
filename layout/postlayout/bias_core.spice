@@ -7,7 +7,7 @@
 *   One star per net: <net> is the hub, <net>__t<k> each device
 *   terminal on it, R<net>_t<k> the arm between them.
 *   klt 0.6.0, deck gf180mcu,
-*   GDS sha256 b2e68f8087bcf31c...
+*   GDS sha256 41c0865a6b2d2e90...
 * Net names are the schematic's, restored through klt lvs's own net
 *   correspondence -- match, 50/50 nets, every one paired.
 *
@@ -23,9 +23,9 @@
 * --- drawn devices ---
 X1 VDD__t6 VDD__t5 KS1__t2 VSS nfet_03v3 L=8u W=1u nf=1 ad=0.8p as=0.8p pd=3.6u ps=3.6u m=1
 X2 KS1__t1 KS1__t0 KS2__t2 VSS nfet_03v3 L=8u W=1u nf=1 ad=0.8p as=0.8p pd=3.6u ps=3.6u m=1
-X3 KS2__t1 KS2__t0 KS3__t2 VSS nfet_03v3 L=8u W=1u nf=1 ad=0.8p as=0.8p pd=3.6u ps=3.6u m=1
-X4 KS3__t0 KS3__t1 KS4__t0 VSS nfet_03v3 L=8u W=1u nf=1 ad=0.8p as=0.8p pd=3.6u ps=3.6u m=1
-X5 KS4__t2 KS4__t1 NKG__t3 VSS nfet_03v3 L=8u W=1u nf=1 ad=0.8p as=0.8p pd=3.6u ps=3.6u m=1
+X3 KS2__t1 KS2__t0 KS3__t0 VSS nfet_03v3 L=8u W=1u nf=1 ad=0.8p as=0.8p pd=3.6u ps=3.6u m=1
+X4 KS3__t1 KS3__t2 KS4__t2 VSS nfet_03v3 L=8u W=1u nf=1 ad=0.8p as=0.8p pd=3.6u ps=3.6u m=1
+X5 KS4__t1 KS4__t0 NKG__t3 VSS nfet_03v3 L=8u W=1u nf=1 ad=0.8p as=0.8p pd=3.6u ps=3.6u m=1
 X6 PG__t3 NKG__t1 VSS__t4 VSS nfet_03v3 L=4u W=1u nf=1 ad=0.8p as=0.8p pd=3.6u ps=3.6u m=1
 X7 NBG__t3 NBG__t1 VSS__t0 VSS nfet_03v3 L=4u W=2u nf=1 ad=1.6p as=1.6p pd=5.6u ps=5.6u m=1
 X8 PB__t2 NBG__t2 VSS__t8 VSS nfet_03v3 L=4u W=2u nf=1 ad=1.6p as=1.6p pd=5.6u ps=5.6u m=1
@@ -39,7 +39,7 @@ X15 N2__t0 N1__t2 VSS__t7 VSS nfet_03v3 L=8u W=4u nf=1 ad=3.2p as=3.2p pd=9.6u p
 X16 BIAS_OK__t0 NOKX__t0 VSS__t6 VSS nfet_03v3 L=0.5u W=4u nf=1 ad=3.2p as=3.2p pd=9.6u ps=9.6u m=1
 X17 PG__t2 N2__t1 VSS__t2 VSS nfet_03v3 L=8u W=8u nf=1 ad=6.4p as=6.4p pd=17.6u ps=17.6u m=1
 X18 NKG__t0 NKM__t1 VSS__t3 VSS nfet_03v3 L=4u W=8u nf=1 ad=6.4p as=6.4p pd=17.6u ps=17.6u m=1
-X19 NKM__t0 PB__t1 VDD__t3 VDD pfet_03v3 L=4u W=1u nf=1 ad=0.8p as=0.8p pd=3.6u ps=3.6u m=1
+X19 NKM__t0 PB__t1 VDD__t2 VDD pfet_03v3 L=4u W=1u nf=1 ad=0.8p as=0.8p pd=3.6u ps=3.6u m=1
 X20 TOK__t0 PB__t4 VDD__t9 VDD pfet_03v3 L=4u W=1u nf=1 ad=0.8p as=0.8p pd=3.6u ps=3.6u m=1
 X21 NOKX__t3 PB__t3 VDD__t7 VDD pfet_03v3 L=4u W=1u nf=1 ad=0.8p as=0.8p pd=3.6u ps=3.6u m=1
 X22 BIAS_OK__t1 NOKX__t4 VDD__t8 VDD pfet_03v3 L=4u W=1u nf=1 ad=0.8p as=0.8p pd=3.6u ps=3.6u m=1
@@ -54,7 +54,7 @@ X30 NOKO__t3 NA__t3 TOK__t2 VDD pfet_03v3 L=4u W=8u nf=1 ad=6.4p as=6.4p pd=17.6
 X31 NOKL__t3 NBTOP__t2 TOK__t1 VDD pfet_03v3 L=4u W=8u nf=1 ad=6.4p as=6.4p pd=17.6u ps=17.6u m=1
 X32 N1__t0 NA__t1 NT__t0 VDD pfet_03v3 L=4u W=16u nf=1 ad=12.8p as=12.8p pd=33.6u ps=33.6u m=1
 X33 N2__t3 NB__t2 NT__t1 VDD pfet_03v3 L=4u W=16u nf=1 ad=12.8p as=12.8p pd=33.6u ps=33.6u m=1
-X34 IBIAS__t0 PB__t0 VDD__t2 VDD pfet_03v3 L=4u W=40u nf=1 ad=32p as=32p pd=81.6u ps=81.6u m=1
+X34 IBIAS__t0 PB__t0 VDD__t3 VDD pfet_03v3 L=4u W=40u nf=1 ad=32p as=32p pd=81.6u ps=81.6u m=1
 X35 VSS VSS EC__t2 pnp_10p00x10p00
 X36 VSS VSS EC__t5 pnp_10p00x10p00
 X37 VSS VSS EC__t3 pnp_10p00x10p00
@@ -139,13 +139,13 @@ R_19_t0 KS2__t0 KS2 1204.847775
 R_19_t1 KS2__t1 KS2 1204.847775
 R_19_t2 KS2__t2 KS2 2409.69555
 C_19 KS2 VSS 5.4548635e-14
-R_20_t0 KS3__t0 KS3 1204.98275
+R_20_t0 KS3__t0 KS3 2409.9655
 R_20_t1 KS3__t1 KS3 1204.98275
-R_20_t2 KS3__t2 KS3 2409.9655
+R_20_t2 KS3__t2 KS3 1204.98275
 C_20 KS3 VSS 5.4766704e-14
-R_21_t0 KS4__t0 KS4 2410.2355
+R_21_t0 KS4__t0 KS4 1205.11775
 R_21_t1 KS4__t1 KS4 1205.11775
-R_21_t2 KS4__t2 KS4 1205.11775
+R_21_t2 KS4__t2 KS4 2410.2355
 C_21 KS4 VSS 5.4984773e-14
 R_22_t0 NKG__t0 NKG 486.627728791
 R_22_t1 NKG__t1 NKG 276.439255717
@@ -272,8 +272,8 @@ RIBIAS_t0 IBIAS__t0 IBIAS 4663.4113
 CIBIAS IBIAS VSS 4.1483963e-14
 RVDD_t0 VDD__t0 VDD 33.1842935807
 RVDD_t1 VDD__t1 VDD 24.6021355575
-RVDD_t2 VDD__t2 VDD 19.4571330676
-RVDD_t3 VDD__t3 VDD 5.10070488619
+RVDD_t2 VDD__t2 VDD 5.10070488619
+RVDD_t3 VDD__t3 VDD 19.4571330676
 RVDD_t4 VDD__t4 VDD 98.2408181417
 RVDD_t5 VDD__t5 VDD 35.840106794
 RVDD_t6 VDD__t6 VDD 35.840106794

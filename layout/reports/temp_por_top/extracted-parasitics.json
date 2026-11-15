@@ -3,7 +3,7 @@
   "cell": "temp_por_top",
   "note": "recorded by layout/postlayout.py --extract; the committed extracted.spice/extract.json of the DRC/LVS flow are not touched by this run",
   "netlist_path": "layout/reports/temp_por_top/extracted-parasitics.spice",
-  "netlist_sha256": "75304625cd01aa3764fa80fd5c467acfa6863b3aa7bf3c48c4b93a103f2072f6",
+  "netlist_sha256": "a7ff53cec4d34222fa70f97d719632fb74ce98b3b732766f28a8ce2ff493e763",
   "top_cell_pins": true,
   "device_count": 239,
   "device_counts": {
@@ -261,8 +261,8 @@
     "nets_total": 143,
     "nets_with_parasitics": 136,
     "fraction": 0.951,
-    "total_resistance_ohm": 283442.9881,
-    "total_capacitance_ff": 7165.772513,
+    "total_resistance_ohm": 283443.0707,
+    "total_capacitance_ff": 7165.911095,
     "coupling_capacitance_ff": 85.089052,
     "distributed_rc": false,
     "critical_nets": []
@@ -277,13 +277,13 @@
   ],
   "provenance": {
     "klt_version": "0.6.0",
-    "klayout_version": "0.30.12",
+    "klayout_version": "0.30.13",
     "deck": {
       "name": "gf180mcu",
       "content_hash": "sha256:95c2eb9148b29ded02182aeca4222287ff57f813691d5e2f9f8d7a675f6cb637",
       "released": false
     },
-    "gds_sha256": "a119a12b1fa2daff64772a4a804a0ea14f17c68dc9357fe167dfd287df0628fd"
+    "gds_sha256": "c7e4c0f4a552977d02e4556b132ef4079a112f3561678590c1b74f64d6702561"
   },
   "lvs": {
     "status": "match",

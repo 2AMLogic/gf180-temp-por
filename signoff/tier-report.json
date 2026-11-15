@@ -64,7 +64,7 @@
         "command": null,
         "kind": "generic",
         "check_status": "pass",
-        "content_hash": "sha256:a119a12b1fa2daff64772a4a804a0ea14f17c68dc9357fe167dfd287df0628fd",
+        "content_hash": "sha256:c7e4c0f4a552977d02e4556b132ef4079a112f3561678590c1b74f64d6702561",
         "input_verified": true,
         "exit_status": 0,
         "artifact_binding": {
@@ -73,7 +73,7 @@
             "path": "layout/cells/temp_por_top.gds",
             "scope": "repo"
           },
-          "content_hash": "sha256:a119a12b1fa2daff64772a4a804a0ea14f17c68dc9357fe167dfd287df0628fd",
+          "content_hash": "sha256:c7e4c0f4a552977d02e4556b132ef4079a112f3561678590c1b74f64d6702561",
           "input_verified": true,
           "summary": "Layout for gf180-temp-por: the assembled top cell layout/cells/temp_por_top.gds (bound by hash; the same hash T1 items 3, 4 and 11 pin) plus the other cell layouts layout/cells/bias_core.gds, layout/cells/por_comparator.gds, layout/cells/por_comparator_bias_okb_inv.gds, layout/cells/por_output_chain.gds, layout/cells/temp_core.gds. Reproducibility gate: python3 layout/build_cells.py --check. This asserts the layout artifact exists and is the one the DRC, LVS and supply-ERC reports describe; it does not assert that the layout meets the area budget.",
           "source": "layout/cells/temp_por_top.gds"
@@ -95,7 +95,7 @@
         "command": null,
         "kind": "drc",
         "check_status": "clean",
-        "content_hash": "sha256:a119a12b1fa2daff64772a4a804a0ea14f17c68dc9357fe167dfd287df0628fd",
+        "content_hash": "sha256:c7e4c0f4a552977d02e4556b132ef4079a112f3561678590c1b74f64d6702561",
         "input_verified": true,
         "exit_status": 0,
         "coverage": {
@@ -147,7 +147,7 @@
         "command": null,
         "kind": "lvs",
         "check_status": "match",
-        "content_hash": "sha256:a119a12b1fa2daff64772a4a804a0ea14f17c68dc9357fe167dfd287df0628fd",
+        "content_hash": "sha256:c7e4c0f4a552977d02e4556b132ef4079a112f3561678590c1b74f64d6702561",
         "input_verified": null,
         "exit_status": 0
       }
@@ -405,7 +405,7 @@
         "command": null,
         "kind": "erc",
         "check_status": "not_checked",
-        "content_hash": "sha256:a119a12b1fa2daff64772a4a804a0ea14f17c68dc9357fe167dfd287df0628fd",
+        "content_hash": "sha256:c7e4c0f4a552977d02e4556b132ef4079a112f3561678590c1b74f64d6702561",
         "input_verified": true,
         "exit_status": 0,
         "parts": [
@@ -414,7 +414,7 @@
             "command": null,
             "kind": "erc",
             "check_status": "not_checked",
-            "content_hash": "sha256:a119a12b1fa2daff64772a4a804a0ea14f17c68dc9357fe167dfd287df0628fd",
+            "content_hash": "sha256:c7e4c0f4a552977d02e4556b132ef4079a112f3561678590c1b74f64d6702561",
             "input_verified": true,
             "exit_status": 0
           },
@@ -423,7 +423,7 @@
             "command": null,
             "kind": "lvs",
             "check_status": "match",
-            "content_hash": "sha256:a119a12b1fa2daff64772a4a804a0ea14f17c68dc9357fe167dfd287df0628fd",
+            "content_hash": "sha256:c7e4c0f4a552977d02e4556b132ef4079a112f3561678590c1b74f64d6702561",
             "input_verified": null,
             "exit_status": 0
           }
