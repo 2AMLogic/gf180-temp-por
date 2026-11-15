@@ -816,10 +816,6 @@ def write_results(
     )
     lines.append("|---:|---:|---|---:|---:|---:|---:|---:|---:|---|")
 
-    def us_after_dip(name, key):
-        t = g(name, key)
-        return None if t is None else (t - band.T_DIP_S) * 1e6
-
     def fmt_us(value):
         return "**never**" if value is None else f"{value:.1f}"
 
@@ -837,9 +833,9 @@ def write_results(
                 lines.append(
                     f"| {slew:g} | {vdd:.2f} V | `{variant.key}` | "
                     f"{close_us(vdd, slew):.1f} | "
-                    f"{fmt_us(us_after_dip(name, 't_praw'))} | "
-                    f"{fmt_us(us_after_dip(name, 't_pgdg'))} | "
-                    f"{fmt_us(us_after_dip(name, 't_rst'))} | "
+                    f"{fmt_us(band.us_after_dip(g(name, 't_praw')))} | "
+                    f"{fmt_us(band.us_after_dip(g(name, 't_pgdg')))} | "
+                    f"{fmt_us(band.us_after_dip(g(name, 't_rst')))} | "
                     + ("—" if m is None else f"{m:+.1f}")
                     + f" | {delta} | {verdict(variant.key, vdd, slew)} |"
                 )

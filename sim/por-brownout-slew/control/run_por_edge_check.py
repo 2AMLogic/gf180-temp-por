@@ -82,6 +82,7 @@ Stdlib only, no virtualenv required.
 
 from __future__ import annotations
 
+import argparse
 import datetime
 import importlib.util
 import re
@@ -165,8 +166,13 @@ def variant_name(arm: str, slew_mvus: float) -> str:
 
 
 def main(argv: list[str] | None = None) -> int:
-    argv = sys.argv[1:] if argv is None else argv
-    report_only = "--report-only" in argv
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--report-only", action="store_true",
+        help="regenerate the results files from the existing logs instead "
+             "of running the sweep",
+    )
+    report_only = parser.parse_args(argv).report_only
 
     toolchain = cliutil.locate_toolchain(need_ngspice=False)
     if toolchain is None:
@@ -369,10 +375,6 @@ def update_results_md(pdk, options: list[str], res: dict[str, dict[str, float]])
     lines.append("|---:|---|---:|---:|---:|---:|---:|---:|---|")
     ext_base_margin = margin_us(res, "ext", BASELINE_SLEW_MVUS)
 
-    def us_after_dip(name: str, key: str) -> float | None:
-        t = res.get(name, {}).get(key)
-        return None if t is None else (t - band.T_DIP_S) * 1e6
-
     def fmt_us(value: float | None) -> str:
         return "**never**" if value is None else f"{value:.1f}"
 
@@ -390,9 +392,9 @@ def update_results_md(pdk, options: list[str], res: dict[str, dict[str, float]])
             )
             lines.append(
                 f"| {slew:g} | `{arm}` | {close_us(slew):.1f} | "
-                f"{fmt_us(us_after_dip(name, 't_praw'))} | "
-                f"{fmt_us(us_after_dip(name, 't_pgdg'))} | "
-                f"{fmt_us(us_after_dip(name, 't_rst'))} | "
+                f"{fmt_us(band.us_after_dip(res.get(name, {}).get('t_praw')))} | "
+                f"{fmt_us(band.us_after_dip(res.get(name, {}).get('t_pgdg')))} | "
+                f"{fmt_us(band.us_after_dip(res.get(name, {}).get('t_rst')))} | "
                 + ("—" if m is None else f"{m:+.1f}")
                 + f" | {delta} | {verdict} |"
             )

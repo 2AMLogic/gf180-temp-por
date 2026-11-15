@@ -50,8 +50,18 @@ EXPERIMENT_DIR = CONTROL_DIR.parent
 REPO_ROOT = CONTROL_DIR.parents[2]
 
 sys.path.insert(0, str(REPO_ROOT / "sim"))
+# CONTROL_DIR too, so the sibling _deglitch_criterion import below resolves
+# however this script was loaded -- sys.path[0] is only this directory when
+# it is run directly, and sim/tests/ loads controls by path (#493).
+sys.path.insert(0, str(CONTROL_DIR))
 
 from harness import HARNESS_VERSION, cliutil, corners as corners_mod, runner  # noqa: E402
+
+# The glitch-rejection verdict this script shares with
+# run_glitch_width_sweep.py, in its one shared home (#493). Both results
+# files publish the same rejected/partial/**through** names, so the
+# boundaries between them have to have one definition.
+from _deglitch_criterion import verdict  # noqa: E402
 
 FRAGMENT = CONTROL_DIR / "cdg_tradeoff.spice"
 POSTLAYOUT_NETLIST = REPO_ROOT / "layout" / "postlayout" / "por_output_chain.spice"
@@ -80,6 +90,15 @@ FLOOR_POINTS: list[tuple[str, str, float, float]] = [
     ("ff_125c_2.97v", "ff", 125.0, 2.97),
     ("ff_125c_3.63v", "ff", 125.0, 3.63),
 ]
+
+# Paths a re-run is allowed to dirty (see runner.git_describe): this script's
+# own outputs plus its three siblings', which share this control directory's
+# results files, decks/ and logs/. No traces/: this script writes none.
+GENERATED = tuple(
+    str((CONTROL_DIR / n).relative_to(REPO_ROOT))
+    for n in ("results.md", "cdg_results.md", "dwell_results.md",
+              "width_results.md", "decks", "logs")
+)
 
 _CDG_RE = re.compile(r"^(X\d+\s+NDG\s+VSS\s+cap_mim\S*\s+)c_width=\S+\s+c_length=\S+(.*)$", re.M)
 
@@ -150,20 +169,8 @@ def compose_deck(
     return "\n".join(lines)
 
 
-def verdict(meas: dict[str, float]) -> str:
-    """Same functional criterion as run_glitch_width_sweep.py: TIM is the
-    read-out, because a glitch that reaches PGDG fires XMDIS and discharges the
-    one-shot. TIM only ever *rises* while the filter is rejecting, so any
-    material fall is a disturbance."""
-    lost = (meas["timbefore"] - meas["timafter"]) / meas["timbefore"]
-    if lost > 0.5:
-        return "**through**"
-    if lost > 0.01:
-        return "partial"
-    return "rejected"
-
-
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
+    cliutil.parse_no_options(argv, __doc__)
     toolchain = cliutil.locate_toolchain()
     if toolchain is None:
         return cliutil.EXIT_ENVIRONMENT
@@ -253,6 +260,7 @@ def write_results(ceiling: dict, floor: dict, pdk, ngspice_version: str) -> None
         f"- ngspice: `{ngspice_version}`",
         f"- PDK: `{pdk.variant}@{pdk.version}` ({pdk.source})",
         f"- harness: `{HARNESS_VERSION}`",
+        f"- git: `{runner.git_describe(REPO_ROOT, GENERATED)}`",
         "",
         "## Ceiling: `dwell_pgdg_halfib_us` vs. the ratified 10 us `T_dip,min`",
         "",

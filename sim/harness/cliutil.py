@@ -53,6 +53,22 @@ def locate_toolchain(*, need_ngspice: bool = True) -> tuple[Pdk, str | None] | N
     return pdk, version
 
 
+def parse_no_options(argv: list[str] | None, doc: str | None) -> None:
+    """Reject unrecognized argv for a control entry point that takes no options.
+
+    The ``--help``/typo guard for the ``sim/*/control/run_*.py`` grids that
+    read no argv (#512): before it, any argument -- including ``--help`` --
+    was silently ignored and ``main()`` proceeded straight into its local
+    ngspice sweep, with no usage message and no non-zero exit. Parsing an
+    empty option set makes ``--help`` print ``doc`` and exit 0, and any
+    unrecognized argument print usage and exit 2 -- both before the caller's
+    ``locate_toolchain()`` runs, so both work on a host with no PDK or
+    ngspice. A bare invocation parses nothing and returns, leaving the
+    caller's behavior unchanged.
+    """
+    argparse.ArgumentParser(description=doc).parse_args(argv)
+
+
 def load_manifest(path: Path) -> dict:
     """Load and parse a testbench manifest (``tb.json``) from ``path``."""
     return json.loads(path.read_text())
