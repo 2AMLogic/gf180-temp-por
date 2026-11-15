@@ -8,7 +8,7 @@ import sys
 import time
 from pathlib import Path
 
-from . import HARNESS_VERSION, cliutil, corners as corners_mod, klt_batch, report, runner, testbench as tb_mod
+from . import cliutil, corners as corners_mod, klt_batch, report, runner, testbench as tb_mod
 from .pdk import PdkNotFound, find_pdk
 from .runner import NgspiceMissing
 
@@ -82,15 +82,7 @@ def build_parser() -> argparse.ArgumentParser:
         metavar="FRAC",
         help="supply tolerance as a fraction, e.g. 0.10 (0 disables the V axis)",
     )
-    parser.add_argument(
-        "-j",
-        "--jobs",
-        type=int,
-        default=0,
-        help="parallel ngspice runs (default: half the host's logical cores, "
-        "min 1 -- a per-process default that does not account for other "
-        "concurrent invocations on the same host; see cliutil.default_jobs)",
-    )
+    cliutil.add_common_run_args(parser, "jobs")
     parser.add_argument(
         "--timeout",
         type=int,
@@ -122,16 +114,9 @@ def build_parser() -> argparse.ArgumentParser:
         help="why this run is not the full mandated PVT matrix; required before "
         "a subset run may be recorded as evidence",
     )
-    parser.add_argument(
-        "--no-write",
-        action="store_true",
-        help="run but do not record evidence (debugging only)",
-    )
+    cliutil.add_common_run_args(parser, "no_write")
     klt_batch.add_backend_argument(parser)
-    parser.add_argument("--quiet", action="store_true", help="only print the summary")
-    parser.add_argument(
-        "--version", action="version", version=f"gf180-temp-por harness {HARNESS_VERSION}"
-    )
+    cliutil.add_common_run_args(parser, "quiet", "version")
     return parser
 
 
