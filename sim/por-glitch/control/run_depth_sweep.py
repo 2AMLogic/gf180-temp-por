@@ -163,7 +163,7 @@ GENERATED = tuple(
 
 
 def run_one(args) -> tuple[str, dict]:
-    (pdk, options, deck_dir, log_dir, trace_dir, run_id, corner_name, temp_c, vdd, glitch_v,
+    (pdk, options, deck_dir, trace_dir, run_id, corner_name, temp_c, vdd, glitch_v,
      hold_s, arm, dut_rel) = args
     trace_name = f"{run_id}.csv"
     output = runner.run_deck_raw(
@@ -236,12 +236,12 @@ def main() -> int:
             for depth in DEPTHS_V:
                 run_id = f"{point_id}_d{depth:g}v__{arm}"
                 order.append(("depth", arm, point_id, run_id))
-                jobs.append((pdk, options, deck_dir, log_dir, trace_dir, run_id, corner_name,
+                jobs.append((pdk, options, deck_dir, trace_dir, run_id, corner_name,
                              temp_c, vdd, depth, 100e-9, arm, dut_path.name))
             for hold in HOLDS_S:
                 run_id = f"{point_id}_h{hold * 1e9:g}ns__{arm}"
                 order.append(("duration", arm, point_id, run_id))
-                jobs.append((pdk, options, deck_dir, log_dir, trace_dir, run_id, corner_name,
+                jobs.append((pdk, options, deck_dir, trace_dir, run_id, corner_name,
                              temp_c, vdd, 0.2, hold, arm, dut_path.name))
 
     results: dict[str, dict] = {}
