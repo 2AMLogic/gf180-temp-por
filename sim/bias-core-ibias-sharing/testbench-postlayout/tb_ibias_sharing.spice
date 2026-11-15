@@ -2,7 +2,7 @@
 * Do not edit. Sources:
 *   sim/bias-core-ibias-sharing/testbench/stimulus.spice
 *   layout/postlayout/bias_core.spice  (sha256 8e3b70ffd40338a7d820f3081b68939c54ef88915968a8af243aba8af6a7453c)
-*   layout/postlayout/temp_core.spice  (sha256 3478dd380f65b23d0a257c7b6948b24cbc395b475061bba1a584490570164e92)
+*   layout/postlayout/temp_core.spice  (sha256 ba98b3390092569a26161e3fadc85f1a9c718abe39d4843a7de435a74f15c286)
 *   layout/postlayout/por_comparator.spice  (sha256 9fa46cd0514dbb846cc566c81f2acce62916720841dd92600a5bd491c10e7aba)
 * Regenerate with:
 *   python3 sim/build_tb.py
@@ -400,7 +400,7 @@ Rvsubs_dctie VSS 0 1e+12
 *   One star per net: <net> is the hub, <net>__t<k> each device
 *   terminal on it, R<net>_t<k> the arm between them.
 *   klt 0.6.0, deck gf180mcu,
-*   GDS sha256 360bbbea3f065932...
+*   GDS sha256 f2243cac93bd36a5...
 * Net names are the schematic's, restored through klt lvs's own net
 *   correspondence -- match, 71/71 nets, every one paired.
 *
