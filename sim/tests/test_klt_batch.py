@@ -709,6 +709,42 @@ class GridTests(TbFixture):
         self.assertTrue(all(r.status == "error" and "klt sim request" in r.message for r in res))
         self.assertEqual(self.calls(), [])
 
+    def test_the_submit_path_attaches_no_limits_even_when_the_manifest_declares_them(self):
+        """The ratified bounds ride `--emit-request` only: on the submit path a
+        klt-graded `fail` corner is an error outcome whose values are dropped,
+        so limits here would record out-of-spec corners as run failures and
+        cut them out of a Monte Carlo yield denominator (the #496 review)."""
+        (self.root / "tb" / "tb.json").write_text(json.dumps({
+            "name": "x", "netlist": "x.spice",
+            "measure": {"vout": "v(out)", "iq": "-i(v1)"},
+            "checks": {"vout": {"min": 0.05, "max": 0.5,
+                                "description": "fixture bound, ratifies no row"}},
+        }))
+        self.tb = testbench.load(self.root / "tb")
+        self.assertEqual(len(runner.batch_measurement_specs(self.tb)), 1)
+        res, _ = self.grid()
+        self.assertTrue(all(r.status == "ok" for r in res), [r.message for r in res])
+        self.assertEqual(len(self.calls()), 2)           # -40 C and 125 C
+        for path in self.log_dir.glob("klt-*.request.json"):
+            req = json.loads(path.read_text())
+            for m in req["measurements"]:
+                self.assertNotIn("limits", m, path.name)
+                self.assertNotIn("spec_row", m, path.name)
+
+    def test_a_klt_graded_fail_corner_is_an_error_point_whose_values_are_dropped(self):
+        """`_judge`'s contract, pinned: any non-`pass` corner status is a run
+        error, never an ok -- which is exactly why the submit path must not
+        attach limits (a bound miss must not look like a failed simulation)."""
+        os.environ["FAKE_KLT_CORNER_PATCH"] = json.dumps({"status": "fail"})
+        self.addCleanup(os.environ.pop, "FAKE_KLT_CORNER_PATCH", None)
+        res, _ = self.grid()
+        self.assertEqual(len(res), len(self.points))
+        self.assertTrue(all(r.status == "error" for r in res))
+        self.assertTrue(all("klt corner status 'fail'" in (r.message or "") for r in res),
+                        [r.message for r in res])
+        self.assertTrue(all(not r.measurements for r in res))
+        self.assertNoLocalNgspice()
+
 
 class CliTests(TbFixture):
     def _args(self, *extra):

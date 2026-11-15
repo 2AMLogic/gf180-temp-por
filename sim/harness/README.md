@@ -555,10 +555,18 @@ klt sim /tmp/por-vth-req/requests/<group>/<group>.json --dry-run --format json
   request from a wider grid is indistinguishable from part of the new one once
   both are in the directory.
 
-The same limits ride the **submit** path too (`--backend batch`), so a fleet
-run returns graded corners rather than bare numbers. The harness still applies
-its own `checks` to the returned values (`report.evaluate_checks`); klt's
-grading is the fleet-side record of the same bounds, not a replacement for it.
+The **submit** path (`--backend batch`) deliberately sends no `limits`. A
+klt-graded `fail` corner is an error outcome there whose measured values are
+dropped (`klt_batch._judge` treats any non-`pass` corner status as a run
+failure), so attaching the bounds would record every out-of-spec corner as a
+simulation error — including the checks whose own manifests document them as
+expected to fail — and, in a Monte Carlo campaign, would remove the
+out-of-bounds samples from the yield denominator entirely: a yield that reads
+100% by construction. The harness's own `checks` (`report.evaluate_checks`)
+remain the only grading of a fleet run; whether the fleet's grade should join
+them, and what a graded `fail` should then be recorded as, is the submit
+half's open decision (#388). The bounds stay on `--emit-request`: a request
+file states what the fleet would be asked to grade.
 
 Reuse `klt_batch.translate_deck()` / `run_units()` for other `run_deck*`
 callers rather than re-implementing request staging, and

@@ -826,12 +826,15 @@ def _batch_units(
     """Compose each point's deck and take it apart into a ``BatchUnit``.
 
     The one compose-and-translate loop behind :func:`run_batch_grid` (which
-    submits) and :func:`stage_batch_grid` (which does not), so the two cannot
-    drift in what they ask the fleet for. Returns the units, a
-    ``corner_id -> point index`` map, and the points that could not be
-    expressed. ``strict`` re-raises :class:`klt_batch.BatchIncompatible`
-    instead of returning such a point as an ``error`` result: a request set
-    is all-or-nothing, so a point is never quietly missing from it.
+    submits, with ``specs`` deliberately empty -- see its docstring) and
+    :func:`stage_batch_grid` (which stages the same decks with the ratified
+    bounds attached), so deck composition and translation cannot drift
+    between the two; the bounds each caller attaches are its own documented
+    choice. Returns the units, a ``corner_id -> point index`` map, and the
+    points that could not be expressed. ``strict`` re-raises
+    :class:`klt_batch.BatchIncompatible` instead of returning such a point as
+    an ``error`` result: a request set is all-or-nothing, so a point is never
+    quietly missing from it.
     """
     init = klt_batch.compat_init_lines()
     index_of: dict[str, int] = {}
@@ -907,12 +910,18 @@ def run_batch_grid(
     ``montecarlo.run_mc_grid``.
 
     ``compose(tb, pdk, point)`` builds each point's deck text; ``lift_params``
-    is forwarded to :func:`klt_batch.translate_deck`, as are the ratified
-    per-measurement bounds the manifest declares
-    (:func:`batch_measurement_specs`), so the fleet grades each corner
-    against the spec instead of returning ungraded numbers. Results come back
-    in ``points`` order; anything klt did not return as a clean ``pass`` is an
-    ``error``, never an ``ok``.
+    is forwarded to :func:`klt_batch.translate_deck`. The request carries **no
+    measurement ``limits``**: a klt-graded ``fail`` corner is an error
+    outcome here whose measured values are dropped, so attaching the ratified
+    bounds (:func:`batch_measurement_specs`) would turn every out-of-spec
+    corner -- including the checks whose manifests document them as expected
+    to fail -- into a run error, and in a Monte Carlo campaign would remove
+    the out-of-bounds samples from the yield denominator altogether. The
+    bounds ride the staging path (:func:`stage_batch_grid`); whether the
+    fleet's grade or the harness's own ``checks`` is the verdict is the
+    submit half's open decision (#388). Results come back in ``points``
+    order; anything klt did not return as a clean ``pass`` is an ``error``,
+    never an ``ok``.
     """
     workdir.mkdir(parents=True, exist_ok=True)
     log_dir = workdir if log_dir is None else log_dir
@@ -926,7 +935,7 @@ def run_batch_grid(
 
     units, index_of, incompatible = _batch_units(
         tb, pdk, points, workdir, compose, lift_params, timeout_s, log_dir,
-        batch_measurement_specs(tb), strict=False,
+        (), strict=False,
     )
     for i, result in incompatible:
         finish(i, result)
