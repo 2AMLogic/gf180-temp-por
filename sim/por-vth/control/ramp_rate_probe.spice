@@ -34,8 +34,6 @@
 .param t2='t1+t_hold'
 .param t3='t2+tramp'
 .param t4='t3+t_tail'
-.param t_vref_early='t1+0.5m'
-.param t_vref_late='t2-0.1m'
 
 vsup vdd 0 PWL(0 0 {t_pre} 2.0 {t1} {vdd_val} {t2} {vdd_val} {t3} 2.0 {t4} 2.0)
 Cpp ptat 0 1p
