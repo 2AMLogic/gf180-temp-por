@@ -7,18 +7,18 @@
     "left": -5.5,
     "bottom": -9.700000000000001,
     "right": 439.5,
-    "top": 155.0,
+    "top": 155.5,
     "width": 445.0,
-    "height": 164.70000000000002
+    "height": 165.20000000000002
   },
   "total": {
-    "area_um2": 137539.4364,
-    "density": 1.8766082888193036,
+    "area_um2": 137541.0862,
+    "density": 1.8709509236335935,
     "polygon_count": 2566,
     "vertex_count": 10264
   },
   "layers": null,
   "provenance": {
-    "gds_sha256": "a5f84d5be0e35357c87413b4c63d553443095932d61a6c6ccdf5760e61ff20f0"
+    "gds_sha256": "82738c0999cb3864d5c76980afb110cc561aa3f145b02a51e307384c494e69a8"
   }
 }

@@ -3,7 +3,7 @@
   "cell": "por_comparator",
   "note": "recorded by layout/postlayout.py --extract; the committed extracted.spice/extract.json of the DRC/LVS flow are not touched by this run",
   "netlist_path": "layout/reports/por_comparator/extracted-parasitics.spice",
-  "netlist_sha256": "63a6f936d337b201118ca5d76f54ed74dec2d89ad137e18a7b276461c18f0495",
+  "netlist_sha256": "b6219f9759cb5d14a8097c631b97286aeb87b913748948ea7f35ff2b5892df56",
   "top_cell_pins": false,
   "device_count": 21,
   "device_counts": {
@@ -40,8 +40,8 @@
     "nets_total": 18,
     "nets_with_parasitics": 15,
     "fraction": 0.8333,
-    "total_resistance_ohm": 18283.0024,
-    "total_capacitance_ff": 526.365705,
+    "total_resistance_ohm": 18283.0924,
+    "total_capacitance_ff": 526.504287,
     "coupling_capacitance_ff": 0.056665,
     "distributed_rc": false,
     "critical_nets": []
@@ -60,7 +60,7 @@
       "content_hash": "sha256:95c2eb9148b29ded02182aeca4222287ff57f813691d5e2f9f8d7a675f6cb637",
       "released": false
     },
-    "gds_sha256": "a5f84d5be0e35357c87413b4c63d553443095932d61a6c6ccdf5760e61ff20f0"
+    "gds_sha256": "82738c0999cb3864d5c76980afb110cc561aa3f145b02a51e307384c494e69a8"
   },
   "lvs": {
     "status": "match",

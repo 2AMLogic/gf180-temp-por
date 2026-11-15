@@ -226,6 +226,36 @@ GF180MCU DRM rules, not `klt` inventions.
 `contact.ongrid.1`, `via1.ongrid.1`, `metal1.ongrid.1`, `poly2.ongrid.1`,
 `sab.ongrid.1`, `res_mk.ongrid.1`, `resistor.ongrid.1`.
 
+> **Resolved 2026-11-15 (#515).** Regenerating every cell and re-running this
+> same 0.8.0 deck reports **zero** `*.ongrid.1` markers on all six cells, with
+> every other rule's count in the table above unchanged. The fix is snapping at
+> the sites this section instrumented, plus one the tables under-localised:
+>
+> - `_span()` and `_contact_rows()` snap each returned centre to the 0.005 um
+>   grid, and `CellBuilder.contact()`/`via()` snap theirs — every Contact site
+>   in the table drew its centre from one of those (their quantise was 1 nm,
+>   one grid pitch too fine to satisfy these rules).
+> - `_TopRoutes.via1()`, `pad()`, `hwire()` and `vwire()` snap the coordinate
+>   they centre on — `temp_por_top`'s 40 off-grid Via1 shapes and the latent
+>   Metal2 pads.
+> - `_place_tiles()` snaps the tile origin it accumulates out of netlist
+>   lengths, so every tile-derived column starts on-grid.
+> - The `por_comparator` Poly2/SAB/RES_MK/Resistor sites are
+>   `_resistor_string`'s leg boxes, and the off-grid coordinate there was the
+>   leg **length** out of `_resistor_leg_plan` — a whole number of 1 nm DBU,
+>   not in general a grid multiple — not the string origin. The plan now
+>   floors `leg_len` to the grid and folds the per-leg remainder into the last
+>   leg, so the marked-body area the deck's extractor solves R from is
+>   preserved bit-for-bit (LVS still matches, including device properties)
+>   while every vertex lands on-grid. `por_comparator`'s 12 `metal1.ongrid.1`
+>   markers were that same remainder reaching the end terminals' Metal1.
+>
+> `_temp_core_resistor_bank` and `_poly_resistor` snap their bank origins the
+> same way; their `resistor_segments` leg lengths were already grid multiples
+> (all 77 measured). `layout/tests/test_grid.py` pins the generators so a
+> future netlist or pitch change cannot silently reopen the family between
+> deck runs.
+
 #### The rule
 
 All seven are the same check on a different layer, e.g.

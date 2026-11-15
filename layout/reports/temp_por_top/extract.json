@@ -5,7 +5,7 @@
   "top": "temp_por_top",
   "dbu_um": 0.001,
   "netlist_path": "layout/reports/temp_por_top/extracted.spice",
-  "netlist_sha256": "25e895460daec61823465ee9bd3514a1028aabad50a560838a057e74f8d19d77",
+  "netlist_sha256": "a9eef4745ed18f424827ab15531a28dcdf1e5e050b04c3c859b1fa2996f83010",
   "status": "extracted",
   "device_count": 239,
   "net_count": 143,
@@ -2831,28 +2831,6 @@
       "name": "$213",
       "class": "ppolyf_u_1k",
       "nets": {
-        "a": "\\$25",
-        "b": "VDD",
-        "w": "VSS"
-      },
-      "params": {
-        "r_ohm": 3948720.0,
-        "l_um": 7897.44,
-        "w_um": 2.0,
-        "area_um2": 15794.88,
-        "perimeter_um": 15798.88
-      },
-      "instance_path": [
-        {
-          "cell": "temp_por_top_por_comparator",
-          "array_index": null
-        }
-      ]
-    },
-    {
-      "name": "$214",
-      "class": "ppolyf_u_1k",
-      "nets": {
         "a": "\\$27",
         "b": "\\$25",
         "w": "VSS"
@@ -2872,7 +2850,7 @@
       ]
     },
     {
-      "name": "$215",
+      "name": "$214",
       "class": "ppolyf_u_1k",
       "nets": {
         "a": "VSS",
@@ -2885,6 +2863,28 @@
         "w_um": 2.0,
         "area_um2": 1550.0,
         "perimeter_um": 1554.0
+      },
+      "instance_path": [
+        {
+          "cell": "temp_por_top_por_comparator",
+          "array_index": null
+        }
+      ]
+    },
+    {
+      "name": "$215",
+      "class": "ppolyf_u_1k",
+      "nets": {
+        "a": "\\$25",
+        "b": "VDD",
+        "w": "VSS"
+      },
+      "params": {
+        "r_ohm": 3948720.0,
+        "l_um": 7897.44,
+        "w_um": 2.0,
+        "area_um2": 15794.88,
+        "perimeter_um": 15798.88
       },
       "instance_path": [
         {
@@ -5523,7 +5523,7 @@
       "name": "ENB",
       "pin": false,
       "device_count": 8,
-      "net_id": 79,
+      "net_id": 78,
       "pin_index": null,
       "label_positions_um": [
         {
@@ -5604,7 +5604,7 @@
       "name": "M2D",
       "pin": false,
       "device_count": 4,
-      "net_id": 86,
+      "net_id": 85,
       "pin_index": null,
       "label_positions_um": [
         {
@@ -5618,7 +5618,7 @@
       "name": "M3D",
       "pin": false,
       "device_count": 4,
-      "net_id": 87,
+      "net_id": 88,
       "pin_index": null,
       "label_positions_um": [
         {
@@ -5632,7 +5632,7 @@
       "name": "N1",
       "pin": false,
       "device_count": 8,
-      "net_id": 78,
+      "net_id": 77,
       "pin_index": null,
       "label_positions_um": [
         {
@@ -5674,7 +5674,7 @@
       "name": "NB",
       "pin": false,
       "device_count": 5,
-      "net_id": 85,
+      "net_id": 87,
       "pin_index": null,
       "label_positions_um": [
         {
@@ -5688,7 +5688,7 @@
       "name": "NBG",
       "pin": false,
       "device_count": 5,
-      "net_id": 81,
+      "net_id": 86,
       "pin_index": null,
       "label_positions_um": [
         {
@@ -5744,7 +5744,7 @@
       "name": "NT",
       "pin": false,
       "device_count": 12,
-      "net_id": 77,
+      "net_id": 79,
       "pin_index": null,
       "label_positions_um": [
         {
@@ -5772,7 +5772,7 @@
       "name": "PB",
       "pin": false,
       "device_count": 6,
-      "net_id": 88,
+      "net_id": 82,
       "pin_index": null,
       "label_positions_um": [
         {
@@ -5800,7 +5800,7 @@
       "name": "PG",
       "pin": false,
       "device_count": 12,
-      "net_id": 82,
+      "net_id": 81,
       "pin_index": null,
       "label_positions_um": [
         {
@@ -8923,10 +8923,10 @@
       "released": false
     },
     "input": {
-      "content_hash": "sha256:5660e928ac789f4423806095851d3a390fda47e05734d31795381bd1933fae90",
+      "content_hash": "sha256:804ccc619187b625a9672ecd90500e31b9a80ecd6e522071e3eac33dfc929071",
       "role": "layout"
     },
-    "gds_sha256": "5660e928ac789f4423806095851d3a390fda47e05734d31795381bd1933fae90"
+    "gds_sha256": "804ccc619187b625a9672ecd90500e31b9a80ecd6e522071e3eac33dfc929071"
   },
   "parasitics": null,
   "spef_path": null,

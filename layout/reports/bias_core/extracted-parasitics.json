@@ -3,7 +3,7 @@
   "cell": "bias_core",
   "note": "recorded by layout/postlayout.py --extract; the committed extracted.spice/extract.json of the DRC/LVS flow are not touched by this run",
   "netlist_path": "layout/reports/bias_core/extracted-parasitics.spice",
-  "netlist_sha256": "10b0b7fd6db054a73371dc425a002469482e0bd908418a346a745a8e37b18402",
+  "netlist_sha256": "1de3fc9fa11abd2a570039948f44bbee2f2a378b5bf13b857e7725de3e49e816",
   "top_cell_pins": false,
   "device_count": 70,
   "device_counts": {
@@ -109,7 +109,7 @@
       "content_hash": "sha256:95c2eb9148b29ded02182aeca4222287ff57f813691d5e2f9f8d7a675f6cb637",
       "released": false
     },
-    "gds_sha256": "8dff6b42792f9fd9c282a409c17db3bf3ba377a144b62b6dcc5ca94347ace1e3"
+    "gds_sha256": "ab406652db3868fe71662d8f249e3512c62fedccd40d9ce6e08d37542cfca8da"
   },
   "lvs": {
     "status": "match",

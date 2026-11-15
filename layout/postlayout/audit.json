@@ -60,7 +60,7 @@
           "content_hash": "sha256:95c2eb9148b29ded02182aeca4222287ff57f813691d5e2f9f8d7a675f6cb637",
           "released": false
         },
-        "gds_sha256": "8dff6b42792f9fd9c282a409c17db3bf3ba377a144b62b6dcc5ca94347ace1e3"
+        "gds_sha256": "ab406652db3868fe71662d8f249e3512c62fedccd40d9ce6e08d37542cfca8da"
       },
       "lvs_status": "match"
     },
@@ -77,8 +77,8 @@
         "nets_total": 18,
         "nets_with_parasitics": 15,
         "fraction": 0.8333,
-        "total_resistance_ohm": 18283.0024,
-        "total_capacitance_ff": 526.365705,
+        "total_resistance_ohm": 18283.0924,
+        "total_capacitance_ff": 526.504287,
         "coupling_capacitance_ff": 0.056665,
         "distributed_rc": false,
         "critical_nets": []
@@ -115,7 +115,7 @@
           "content_hash": "sha256:95c2eb9148b29ded02182aeca4222287ff57f813691d5e2f9f8d7a675f6cb637",
           "released": false
         },
-        "gds_sha256": "a5f84d5be0e35357c87413b4c63d553443095932d61a6c6ccdf5760e61ff20f0"
+        "gds_sha256": "82738c0999cb3864d5c76980afb110cc561aa3f145b02a51e307384c494e69a8"
       },
       "lvs_status": "match"
     },
@@ -167,7 +167,7 @@
           "content_hash": "sha256:95c2eb9148b29ded02182aeca4222287ff57f813691d5e2f9f8d7a675f6cb637",
           "released": false
         },
-        "gds_sha256": "25943ef873ddc2800a6108ed59bff2a8e6d5bdfb3fd1f435a6609c8156aef538"
+        "gds_sha256": "210b6b69977f917a1517b5a4b4f8fbe26733dcc59f4d256e4777425bcdade655"
       },
       "lvs_status": "match"
     },
@@ -244,8 +244,8 @@
         "nets_total": 143,
         "nets_with_parasitics": 136,
         "fraction": 0.951,
-        "total_resistance_ohm": 283442.9881,
-        "total_capacitance_ff": 7165.772513,
+        "total_resistance_ohm": 283443.0707,
+        "total_capacitance_ff": 7165.911095,
         "coupling_capacitance_ff": 85.089052,
         "distributed_rc": false,
         "critical_nets": []
@@ -294,7 +294,7 @@
           "content_hash": "sha256:95c2eb9148b29ded02182aeca4222287ff57f813691d5e2f9f8d7a675f6cb637",
           "released": false
         },
-        "gds_sha256": "5660e928ac789f4423806095851d3a390fda47e05734d31795381bd1933fae90"
+        "gds_sha256": "804ccc619187b625a9672ecd90500e31b9a80ecd6e522071e3eac33dfc929071"
       },
       "lvs_status": "match"
     }

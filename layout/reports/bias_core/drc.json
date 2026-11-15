@@ -202,10 +202,10 @@
       "released": false
     },
     "input": {
-      "content_hash": "sha256:8dff6b42792f9fd9c282a409c17db3bf3ba377a144b62b6dcc5ca94347ace1e3",
+      "content_hash": "sha256:ab406652db3868fe71662d8f249e3512c62fedccd40d9ce6e08d37542cfca8da",
       "role": "layout"
     },
     "klayout_version_mismatch": true,
-    "gds_sha256": "8dff6b42792f9fd9c282a409c17db3bf3ba377a144b62b6dcc5ca94347ace1e3"
+    "gds_sha256": "ab406652db3868fe71662d8f249e3512c62fedccd40d9ce6e08d37542cfca8da"
   }
 }
