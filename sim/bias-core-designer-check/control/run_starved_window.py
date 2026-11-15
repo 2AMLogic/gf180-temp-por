@@ -204,7 +204,8 @@ def us(seconds: float) -> str:
     return f"{seconds * 1e6:.1f} us"
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
+    cliutil.parse_no_options(argv, __doc__)
     toolchain = cliutil.locate_toolchain()
     if toolchain is None:
         return cliutil.EXIT_ENVIRONMENT

@@ -32,9 +32,14 @@ worth asserting:
 from __future__ import annotations
 
 import ast
+import contextlib
 import importlib.util
+import io
+import subprocess
 import sys
+import tempfile
 import unittest
+import unittest.mock
 from pathlib import Path
 
 SIM_DIR = Path(__file__).resolve().parents[1]
@@ -224,6 +229,167 @@ class UsAfterDipTests(unittest.TestCase):
         """None in, None out -- the callers render that as "**never**", which
         is a different statement from "at 0 µs"."""
         self.assertIsNone(self.mod.us_after_dip(None))
+
+
+# --------------------------------------------------------------------------
+# Control-script argv contract (#512).
+#
+# Every ``sim/*/control/run_*.py`` entry point used to fall into one of two
+# silent-argv traps: the twelve that read no argv at all ignored any argument
+# (``--help`` included) and ran their full local ngspice grid, and the three
+# that tested ``"--report-only" in argv`` silently *simulated* on any other
+# unrecognized flag. The contract now: ``--help`` prints usage and exits 0,
+# an unrecognized flag prints usage and exits non-zero, and neither ever
+# reaches the sweep.
+# --------------------------------------------------------------------------
+
+#: The control entry points that take no options at all. Order and membership
+#: mirror the issue's affected-files list; a new unparsed control script must
+#: be added here (and call ``cliutil.parse_no_options`` first in ``main()``).
+NO_OPTIONS_SCRIPTS = [
+    "bias-core-designer-check/control/run_starved_window.py",
+    "bias-core-startup/control/run_gmin_control.py",
+    "bias-core-startup/control/run_ok_dip_decay.py",
+    "por-brownout/control/run_dip_rootcause.py",
+    "por-brownout/control/run_recovery_reassert.py",
+    "por-glitch/control/run_depth_sweep.py",
+    "por-glitch/control/run_glitch_probe.py",
+    "por-output-chain-deglitch/control/run_cdg_tradeoff.py",
+    "por-output-chain-deglitch/control/run_deglitch_asym_probe.py",
+    "por-output-chain-deglitch/control/run_glitch_width_sweep.py",
+    "por-ramp-rate/control/run_chatter_probe.py",
+    "temp-accuracy-mc/control/run_mismatch_switch.py",
+]
+
+#: The control entry points whose one option is ``--report-only``.
+REPORT_ONLY_SCRIPTS = [
+    "por-brownout-slew/control/run_band_mechanism.py",
+    "por-brownout-slew/control/run_por_edge_check.py",
+    "por-brownout-slew/control/run_postlayout_margin.py",
+]
+
+
+def _tree_state(dirs: list[Path]) -> dict[str, tuple[int, int]]:
+    """``path -> (size, mtime_ns)`` for every file under ``dirs``.
+
+    A control script writes into directories resolved from its own ``__file__``,
+    not the CWD, so the "nothing was written" assertion has to snapshot the
+    script's own ``control/decks/`` and ``control/logs/`` before and after.
+    """
+    state: dict[str, tuple[int, int]] = {}
+    for d in dirs:
+        if not d.is_dir():
+            continue
+        for path in d.rglob("*"):
+            if path.is_file():
+                st = path.stat()
+                state[str(path)] = (st.st_size, st.st_mtime_ns)
+    return state
+
+
+class ParseNoOptionsUnitTests(unittest.TestCase):
+    """``cliutil.parse_no_options`` itself -- the guard every script calls."""
+
+    def test_empty_argv_is_accepted(self):
+        """A bare invocation returns normally; the caller runs its sweep."""
+        from harness import cliutil
+
+        self.assertIsNone(cliutil.parse_no_options([], "doc"))
+
+    def test_none_argv_reads_sys_argv(self):
+        """``argv=None`` means "parse the process argv", so it must reject a
+        bad one -- that is the path the real ``__main__`` invocation takes."""
+        from harness import cliutil
+
+        with unittest.mock.patch("sys.argv", ["prog"]):
+            cliutil.parse_no_options(None, "doc")
+        with unittest.mock.patch("sys.argv", ["prog", "--nope"]):
+            with self.assertRaises(SystemExit) as cm:
+                cliutil.parse_no_options(None, "doc")
+        self.assertEqual(cm.exception.code, 2)
+
+    def test_help_prints_the_description_and_exits_zero(self):
+        from harness import cliutil
+
+        out = io.StringIO()
+        with self.assertRaises(SystemExit) as cm:
+            with contextlib.redirect_stdout(out):
+                cliutil.parse_no_options(["--help"], "the docstring")
+        self.assertEqual(cm.exception.code, 0)
+        self.assertIn("usage:", out.getvalue())
+        self.assertIn("the docstring", out.getvalue())
+
+    def test_unknown_flag_exits_two_with_usage_on_stderr(self):
+        from harness import cliutil
+
+        err = io.StringIO()
+        with self.assertRaises(SystemExit) as cm:
+            with contextlib.redirect_stderr(err):
+                cliutil.parse_no_options(["--nope"], "the docstring")
+        self.assertEqual(cm.exception.code, 2)
+        self.assertIn("unrecognized arguments", err.getvalue())
+
+    def test_a_bare_dash_dash_is_rejected(self):
+        """``--`` is rejected too, not silently accepted.
+
+        With no option definitions there is no positional to consume the
+        end-of-options marker, so argparse reports ``--`` unrecognized.
+        That is the right contract for a script that takes no options:
+        ``script --`` never silently reads as "run the sweep".
+        """
+        from harness import cliutil
+
+        with self.assertRaises(SystemExit) as cm:
+            cliutil.parse_no_options(["--"], "doc")
+        self.assertEqual(cm.exception.code, 2)
+
+
+class ControlArgvContractTests(unittest.TestCase):
+    """The real ``__main__`` path of every covered control script.
+
+    Each invocation is a ``subprocess`` from a temp CWD, so the committed
+    script is exercised, not an in-process import of it. No test here ever
+    runs a grid: the guard exits before the sweep, and the tree-state
+    comparison proves no file under the script's own ``control/decks/`` or
+    ``control/logs/`` was created or modified. A bare (no-argument)
+    invocation is deliberately not exercised -- on a PDK-equipped host that
+    *is* the sweep; its unchanged acceptance is pinned by
+    ``ParseNoOptionsUnitTests.test_empty_argv_is_accepted`` instead.
+    """
+
+    def _run(self, rel: str, *argv: str) -> subprocess.CompletedProcess:
+        script = SIM_DIR / rel
+        control = script.parent
+        watch = [control / "decks", control / "logs"]
+        before = _tree_state(watch)
+        with tempfile.TemporaryDirectory() as cwd:
+            proc = subprocess.run(
+                [sys.executable, str(script), *argv],
+                capture_output=True, text=True, cwd=cwd, timeout=120,
+            )
+        self.assertEqual(
+            _tree_state(watch), before,
+            f"{script.name} {' '.join(argv)} wrote under control/decks|logs",
+        )
+        return proc
+
+    def test_help_prints_usage_and_exits_zero_without_simulating(self):
+        for rel in NO_OPTIONS_SCRIPTS + REPORT_ONLY_SCRIPTS:
+            with self.subTest(script=rel):
+                proc = self._run(rel, "--help")
+                self.assertEqual(proc.returncode, 0, proc.stderr)
+                self.assertIn("usage:", proc.stdout)
+
+    def test_an_unrecognized_flag_exits_nonzero_without_simulating(self):
+        """The #512 hazard: this used to be the path that started the sweep."""
+        for rel in NO_OPTIONS_SCRIPTS + REPORT_ONLY_SCRIPTS:
+            with self.subTest(script=rel):
+                proc = self._run(rel, "--nope")
+                self.assertNotEqual(
+                    proc.returncode, 0,
+                    f"{rel} ignored --nope and would have run the sweep",
+                )
+                self.assertIn("unrecognized arguments", proc.stderr)
 
 
 if __name__ == "__main__":

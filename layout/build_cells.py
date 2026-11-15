@@ -171,6 +171,32 @@ CONTACT_SIDE_UM = 0.22
 #: ``layout/README.md`` -> "Known deck limits"), so this size is held to the
 #: DRM by construction here rather than by a check.
 VIA_SIDE_UM = 0.26
+
+
+def _via_square(cx: float, cy: float) -> tuple[float, float, float, float]:
+    """The DRM-fixed Via1/Via2 square centred at ``cx, cy``.
+
+    The centre is snapped to the manufacturing grid first (:func:`_snap`,
+    #515): callers pass :func:`_span`-derived centres that are arbitrary DBU
+    multiples, while ``VIA_SIDE_UM`` is a whole multiple of the grid, so the
+    snapped centre keeps the square exactly that size with every edge on-grid.
+
+    The single derivation of that square's edges, and so -- per
+    :data:`VIA_SIDE_UM` above, which no deck rule checks -- the single place
+    the "by construction" guarantee is constructed. Every via drawer comes
+    through here: :meth:`CellBuilder.via` inserts the square itself, while
+    ``_TopRoutes.via1``/``_TopRoutes.via2`` take the coordinates alone,
+    because their own net-tagging ``_TopRoutes.box`` has to stay on the
+    insertion path.
+
+    Returns ``(x0, y0, x1, y1)``, ready to splat into either ``box``.
+    """
+    cx = _snap(cx)
+    cy = _snap(cy)
+    half = VIA_SIDE_UM / 2.0
+    return (cx - half, cy - half, cx + half, cy + half)
+
+
 #: gf180mcu DRM "CO.3": minimum Poly2 overlap of a contact, all round. A Poly2
 #: shape that a contact lands on has to extend at least this far past every
 #: edge of the contact, so the shortest Poly2 stub that can host a contact
@@ -239,12 +265,10 @@ class CellBuilder:
         reason :meth:`contact` snaps its own (:func:`_span`-derived centres
         are arbitrary DBU multiples otherwise; #515). ``VIA_SIDE_UM`` is a
         whole multiple of the grid, so the snapped centre keeps the square
-        exactly that size.
+        exactly that size. The snap lives in :func:`_via_square`, the single
+        derivation of the square's edges, so every via drawer inherits it.
         """
-        cx = _snap(cx)
-        cy = _snap(cy)
-        half = VIA_SIDE_UM / 2.0
-        self.box(spec, cx - half, cy - half, cx + half, cy + half)
+        self.box(spec, *_via_square(cx, cy))
 
     def label(self, name: str, x: float, y: float, spec=METAL1_LABEL) -> None:
         self.cell.shapes(self._layer(spec)).insert(
@@ -3561,18 +3585,12 @@ class _TopRoutes:
         stream are exact in DBU, not in general on the 5 nm grid. One snap
         keeps the via square and its landing pad concentric.
         """
-        x = _snap(x)
-        y = _snap(y)
-        self.box(VIA1, net, x - VIA_SIDE_UM / 2.0, y - VIA_SIDE_UM / 2.0,
-                 x + VIA_SIDE_UM / 2.0, y + VIA_SIDE_UM / 2.0)
+        self.box(VIA1, net, *_via_square(x, y))
         self.pad(METAL2, net, x, y)
 
     def via2(self, net: str, x: float, y: float) -> None:
         """A Via2 with a landing pad on both of its levels."""
-        x = _snap(x)
-        y = _snap(y)
-        self.box(VIA2, net, x - VIA_SIDE_UM / 2.0, y - VIA_SIDE_UM / 2.0,
-                 x + VIA_SIDE_UM / 2.0, y + VIA_SIDE_UM / 2.0)
+        self.box(VIA2, net, *_via_square(x, y))
         self.pad(METAL2, net, x, y)
         self.pad(METAL3, net, x, y)
 

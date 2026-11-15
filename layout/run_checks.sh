@@ -246,15 +246,10 @@ fi
 
 # --- cell selection ----------------------------------------------------------
 #
-# `--regen-all` regenerates every cell in layout/cells/.
+# `--regen-all` takes no cell argument (rejected above), so it falls through
+# to the no-argument arm and regenerates every cell in layout/cells/.
 
-if [ "$REGEN_ALL" -eq 1 ]; then
-  CELLS=()
-  for gds in layout/cells/*.gds; do
-    cell="$(basename "$gds" .gds)"
-    CELLS+=("$cell")
-  done
-elif [ "$#" -gt 0 ]; then
+if [ "$#" -gt 0 ]; then
   CELLS=("$@")
 else
   CELLS=()
@@ -310,11 +305,7 @@ if [ -z "$KLAYOUT_PY" ]; then
   red "no interpreter with the klayout module -- skipping the GDS staleness check"
   red "(install it, or run: uv run --with klayout python3 layout/build_cells.py --check)"
 fi
-if [ "$#" -gt 0 ]; then
-  stale_gate "$@"
-else
-  stale_gate
-fi
+stale_gate "$@"
 
 # --- deck-hash consistency gate -----------------------------------------------
 #
@@ -382,16 +373,10 @@ fi
 
 status=0
 
-# Record a failed check for the cell being processed.
-cell_failed() {
-  status=1
-}
-
 for cell in "${CELLS[@]}"; do
   gds="layout/cells/${cell}.gds"
   request="layout/cells/${cell}.lvs.json"
-  committed="$REPORTS/${cell}"
-  out="$committed"
+  out="$REPORTS/${cell}"
   mkdir -p "$out"
 
   info "==> $cell"
@@ -401,7 +386,7 @@ for cell in "${CELLS[@]}"; do
     green "    DRC   clean   ($out/drc.json)"
   else
     red "    DRC   FAILED  ($out/drc.json)"
-    cell_failed
+    status=1
     continue
   fi
 
@@ -427,7 +412,7 @@ print(json.load(open(sys.argv[1]))['layout'].get('top_cell_pins', False))
     green "    EXTR  ok      ($out/extracted.spice)"
   else
     red "    EXTR  FAILED  ($out/extract.json)"
-    cell_failed
+    status=1
     continue
   fi
 
@@ -436,7 +421,7 @@ print(json.load(open(sys.argv[1]))['layout'].get('top_cell_pins', False))
     green "    LVS   match   ($out/lvs.json)"
   else
     red "    LVS   FAILED  ($out/lvs.json)"
-    cell_failed
+    status=1
     continue
   fi
 
@@ -450,7 +435,7 @@ print(json.load(open(sys.argv[1]))['layout'].get('top_cell_pins', False))
     green "    STATS ok      ($out/stats.json)"
   else
     red "    STATS FAILED  ($out/stats.json)"
-    cell_failed
+    status=1
     continue
   fi
 
@@ -492,7 +477,7 @@ PY
       green "    CTRL  $corruption -> mismatch (expected)"
     else
       red "    CTRL  $corruption -> exit $code, expected 3 (mismatch)"
-      cell_failed
+      status=1
     fi
   done
   python3 - "$cell" "$control_dir" topology device-param passive-param \

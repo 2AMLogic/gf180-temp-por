@@ -298,7 +298,8 @@ def fmt(value, digits=4, unit="", missing="—"):
     return f"{value:.{digits}f}{unit}"
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
+    cliutil.parse_no_options(argv, __doc__)
     toolchain = cliutil.locate_toolchain(need_ngspice=False)
     if toolchain is None:
         return cliutil.EXIT_ENVIRONMENT

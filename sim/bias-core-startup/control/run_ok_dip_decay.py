@@ -129,7 +129,8 @@ def fmt_mv(value: float) -> str:
     return f"{value * 1e3:.4g} mV"
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
+    cliutil.parse_no_options(argv, __doc__)
     toolchain = cliutil.locate_toolchain()
     if toolchain is None:
         return cliutil.EXIT_ENVIRONMENT
