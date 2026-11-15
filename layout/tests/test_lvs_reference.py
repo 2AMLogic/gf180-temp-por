@@ -1108,6 +1108,19 @@ class TempCoreTest(ManifestReferenceTests, ControlCoverageTests, unittest.TestCa
         with self.assertRaises(lr.ReferenceError):
             lr.resistor_segments(1.0001)
 
+    def test_every_net_the_layout_routes_is_a_net_the_reference_declares(self):
+        # Every track this cell draws is labelled, and so is a pin
+        # (_Channel.draw), so the manifest has to declare all of them. Nothing
+        # compared the two lists before #499: a net added to one and not the
+        # other surfaced only as a `klt lvs` pin mismatch after a full GDS
+        # build and extraction. Unlike the sibling cells' versions, this is a
+        # bare set equality -- no `| {lr.SUBSTRATE_NET}` and no
+        # `spec["internal"]`: temp_core is in BODY_TIES_RESOLVED_CELLS and
+        # #312 deliberately leaves vsubs undeclared, and the manifest entry
+        # has no "internal" key at all.
+        spec = lr.CELLS[self.CELL]
+        self.assertEqual(set(bc._TEMP_CORE_NETS), set(spec["ports"]))
+
 
 class TempPorTopAssemblyTest(ControlCoverageTests, unittest.TestCase):
     """``temp_por_top`` (#72) is the one manifest entry with no devices of its
