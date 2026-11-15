@@ -6,6 +6,17 @@ Merged PRs and closed issues from the initial 30-day snapshot (2026-09-07 onward
 
 - [2026-09](work_log/WORK_LOG_2026-09.md)
 
+### 2026-11-15
+
+- **PR #529**: refactor(lvs_reference): one declared-net guard, now covering cap plates too
+- **PR #526**: refactor(layout): inline cell_failed() and drop three dead branches in run_checks.sh
+- **PR #520**: docs: classify every DRC rule the committed cells violate under klt 0.8.0
+- **PR #501**: refactor(sim): give three duplicated control helpers one definition per directory
+- **Issue #523** (closed): Collapse four leftovers in layout/run_checks.sh from the cell-freeze removal and --regen-all
+- **Issue #514** (closed): Collapse lvs_reference.py's three copies of the undeclared-net guard into one helper — and give the MiM cap builder the call site #269 never wrote
+- **Issue #497** (closed): Classify the DRC violations the committed cells show under klt 0.8.0 and later (unblocks #400)
+- **Issue #493** (closed): Three control-script helpers are duplicated within one experiment directory; consolidate per the _rung_record.py precedent
+
 ### 2026-11-14
 
 - **PR #503**: refactor: delete five unread constants from four control scripts and selftest.sh
