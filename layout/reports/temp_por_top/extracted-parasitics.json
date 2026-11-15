@@ -3,7 +3,7 @@
   "cell": "temp_por_top",
   "note": "recorded by layout/postlayout.py --extract; the committed extracted.spice/extract.json of the DRC/LVS flow are not touched by this run",
   "netlist_path": "layout/reports/temp_por_top/extracted-parasitics.spice",
-  "netlist_sha256": "75304625cd01aa3764fa80fd5c467acfa6863b3aa7bf3c48c4b93a103f2072f6",
+  "netlist_sha256": "c6e02b6c979ef8adab7361c4cd9c2c50f3070639383b0a91f58f53cd74344493",
   "top_cell_pins": true,
   "device_count": 239,
   "device_counts": {
@@ -277,13 +277,13 @@
   ],
   "provenance": {
     "klt_version": "0.6.0",
-    "klayout_version": "0.30.12",
+    "klayout_version": "0.30.13",
     "deck": {
       "name": "gf180mcu",
       "content_hash": "sha256:95c2eb9148b29ded02182aeca4222287ff57f813691d5e2f9f8d7a675f6cb637",
       "released": false
     },
-    "gds_sha256": "a119a12b1fa2daff64772a4a804a0ea14f17c68dc9357fe167dfd287df0628fd"
+    "gds_sha256": "5660e928ac789f4423806095851d3a390fda47e05734d31795381bd1933fae90"
   },
   "lvs": {
     "status": "match",

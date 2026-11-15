@@ -54,13 +54,13 @@
       ],
       "provenance": {
         "klt_version": "0.6.0",
-        "klayout_version": "0.30.12",
+        "klayout_version": "0.30.13",
         "deck": {
           "name": "gf180mcu",
           "content_hash": "sha256:95c2eb9148b29ded02182aeca4222287ff57f813691d5e2f9f8d7a675f6cb637",
           "released": false
         },
-        "gds_sha256": "b2e68f8087bcf31cb329785109e93551ecc416b6659cc7c7d7b51ef79e4cdf96"
+        "gds_sha256": "8dff6b42792f9fd9c282a409c17db3bf3ba377a144b62b6dcc5ca94347ace1e3"
       },
       "lvs_status": "match"
     },
@@ -109,13 +109,13 @@
       ],
       "provenance": {
         "klt_version": "0.6.0",
-        "klayout_version": "0.30.12",
+        "klayout_version": "0.30.13",
         "deck": {
           "name": "gf180mcu",
           "content_hash": "sha256:95c2eb9148b29ded02182aeca4222287ff57f813691d5e2f9f8d7a675f6cb637",
           "released": false
         },
-        "gds_sha256": "c60a2ef35e34d6d4e0e70ba0a9937467b37676cc94a041b325e2117d5da44412"
+        "gds_sha256": "a5f84d5be0e35357c87413b4c63d553443095932d61a6c6ccdf5760e61ff20f0"
       },
       "lvs_status": "match"
     },
@@ -161,7 +161,7 @@
       ],
       "provenance": {
         "klt_version": "0.6.0",
-        "klayout_version": "0.30.12",
+        "klayout_version": "0.30.13",
         "deck": {
           "name": "gf180mcu",
           "content_hash": "sha256:95c2eb9148b29ded02182aeca4222287ff57f813691d5e2f9f8d7a675f6cb637",
@@ -218,7 +218,7 @@
       ],
       "provenance": {
         "klt_version": "0.6.0",
-        "klayout_version": "0.30.12",
+        "klayout_version": "0.30.13",
         "deck": {
           "name": "gf180mcu",
           "content_hash": "sha256:95c2eb9148b29ded02182aeca4222287ff57f813691d5e2f9f8d7a675f6cb637",
@@ -288,13 +288,13 @@
       ],
       "provenance": {
         "klt_version": "0.6.0",
-        "klayout_version": "0.30.12",
+        "klayout_version": "0.30.13",
         "deck": {
           "name": "gf180mcu",
           "content_hash": "sha256:95c2eb9148b29ded02182aeca4222287ff57f813691d5e2f9f8d7a675f6cb637",
           "released": false
         },
-        "gds_sha256": "a119a12b1fa2daff64772a4a804a0ea14f17c68dc9357fe167dfd287df0628fd"
+        "gds_sha256": "5660e928ac789f4423806095851d3a390fda47e05734d31795381bd1933fae90"
       },
       "lvs_status": "match"
     }

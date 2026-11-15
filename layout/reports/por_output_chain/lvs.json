@@ -92,14 +92,14 @@
   ],
   "environment": {
     "engine": "klayout",
-    "engine_version": "0.30.12",
+    "engine_version": "0.30.13",
     "layout_sha256": "25943ef873ddc2800a6108ed59bff2a8e6d5bdfb3fd1f435a6609c8156aef538",
     "reference_sha256": "24ef3a5f6c774f59e19c05e54f8fb53b2878d466dea6c008febfcf38d4803cf1",
     "extracted_netlist": null
   },
   "provenance": {
     "klt_version": "0.6.0",
-    "klayout_version": "0.30.12",
+    "klayout_version": "0.30.13",
     "pdk": null,
     "deck": {
       "name": "gf180mcu",
