@@ -115,7 +115,7 @@ import json
 import re
 import shlex
 import sys
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from pathlib import Path
 from typing import NamedTuple
 
@@ -1337,12 +1337,7 @@ def build_cards(cell: str, rename=None, resolve_body: bool = False) -> list[Card
             body = well_of[name]
 
         nodes = [drain, gate, source_node, body]
-        unknown = [net for net in nodes if net not in known_nets]
-        if unknown:
-            raise ReferenceError(
-                f"{cell}: {name} touches undeclared net(s) {', '.join(unknown)} "
-                "-- add them to the manifest's ports/wells"
-            )
+        require_declared_nets(cell, name, nodes, known_nets)
 
         # A matched device drawn as N interleaved unit fingers extracts as N
         # devices: the curated deck runs no device-combination step, so N
@@ -1388,7 +1383,7 @@ def build_cards(cell: str, rename=None, resolve_body: bool = False) -> list[Card
         )
 
     cards.extend(build_passive_cards(cell, known_nets, out, resolve_body))
-    cards.extend(build_cap_cards(cell, out))
+    cards.extend(build_cap_cards(cell, out, known_nets))
     return cards
 
 
@@ -1474,12 +1469,7 @@ def build_passive_cards(
             raise ReferenceError(f"{cell}: {name} is not a 3-terminal resistor")
         require_unit_multiplier(cell, name, device)
         head, tail, bulk = device["nodes"]
-        for net in (head, tail):
-            if net not in known_nets:
-                raise ReferenceError(
-                    f"{cell}: {name} touches undeclared net {net} -- add it to "
-                    "the manifest's ports/internal"
-                )
+        require_declared_nets(cell, name, (head, tail), known_nets)
         if bulk != "VSS":
             raise ReferenceError(
                 f"{cell}: {name}'s bulk node is {bulk!r}; the deck ties every "
@@ -1514,11 +1504,7 @@ def build_passive_cards(
             raise ReferenceError(f"{cell}: {name} is not a 3-terminal bipolar")
         require_unit_multiplier(cell, name, device)
         collector, base, emitter = device["nodes"]
-        if emitter not in known_nets:
-            raise ReferenceError(
-                f"{cell}: {name} touches undeclared net {emitter} -- add it to "
-                "the manifest's ports/internal"
-            )
+        require_declared_nets(cell, name, (emitter,), known_nets)
         # Collector (substrate tie) and base (local Nwell tie) resolve
         # independently of each other -- two different pieces of drawn
         # geometry, two different flags. See BODY_TIES_RESOLVED_CELLS's own
@@ -1571,6 +1557,26 @@ def require_unit_multiplier(cell: str, name: str, device: dict) -> None:
         raise ReferenceError(
             f"{cell}: {name} has m={device['params']['m']}; the curated "
             "gf180mcu deck models no device multiplier"
+        )
+
+
+def require_declared_nets(
+    cell: str, name: str, nets: Iterable[str], known_nets: set[str]
+) -> None:
+    """Reject a device that touches a net the manifest never declared.
+
+    Every net any emitted card names has to be spelled out in the manifest --
+    ``ports``, ``wells``, ``internal`` or ``bjt_well`` -- so that, per the
+    ``CELLS`` comment above, ``internal`` stays "a real check rather than a
+    rubber stamp": a card naming an undeclared net emits a reference the
+    layout can never match, which reads as a layout bug. Guards only raise;
+    they never contribute a card.
+    """
+    unknown = [net for net in nets if net not in known_nets]
+    if unknown:
+        raise ReferenceError(
+            f"{cell}: {name} touches undeclared net(s) {', '.join(unknown)} "
+            "-- add them to the manifest's ports/wells/internal"
         )
 
 
@@ -1677,7 +1683,9 @@ def mim_side_um(
     return (-b + (b * b + 4.0 * a * capacitance_f) ** 0.5) / (2.0 * a)
 
 
-def build_cap_cards(cell: str, rename=None) -> list[Card]:
+def build_cap_cards(
+    cell: str, rename=None, known_nets: set[str] | None = None
+) -> list[Card]:
     """Every drawn-MiM card one manifest entry contributes, before numbering.
 
     Plate dimensions are read out of the golden netlist's own ``c_width`` /
@@ -1686,7 +1694,14 @@ def build_cap_cards(cell: str, rename=None) -> list[Card]:
     exactly what ``klt extract`` computes from the drawn geometry. So a plate
     drawn at the wrong size fails LVS on the value rather than passing against
     a number typed to agree with it. ``rename`` follows the same convention as
-    :func:`build_cards` -- used only by :func:`build_assembly`.
+    :func:`build_cards` -- used only by :func:`build_assembly`, and applied
+    *after* the plate-net guard below, so assembling a cell cannot launder an
+    undeclared plate net either. ``known_nets`` is the declared-net set the
+    plate nets are checked against (:func:`require_declared_nets`):
+    :func:`build_cards` threads the set it derives for its own guards, so the
+    cap guard can never see a different manifest than the rest of the build;
+    called without one (the per-cell tests are) it is derived from this
+    cell's own manifest exactly the same way.
 
     Every card also declares ``A``/``P`` -- the recognised plate overlap's
     area (um^2) and perimeter (um) -- because the pinned deck's
@@ -1703,6 +1718,17 @@ def build_cap_cards(cell: str, rename=None) -> list[Card]:
     names = spec.get("caps", [])
     if not names:
         return []
+    if known_nets is None:
+        # The same set build_cards derives for its own guards (the CELLS
+        # comment explains what belongs in each list); a caller holding one
+        # passes it, so every guard in one build answers the same manifest.
+        known_nets = (
+            set(spec["ports"])
+            | set(spec.get("wells", {}))
+            | set(spec.get("internal", []))
+        )
+        if spec.get("bjt_well"):
+            known_nets.add(spec["bjt_well"])
     source = NETLIST_DIR / spec["source"]
     caps = parse_capacitors(subckt_body(source.read_text(), spec["subckt"]))
 
@@ -1721,6 +1747,7 @@ def build_cap_cards(cell: str, rename=None) -> list[Card]:
         area_um2 = width_um * length_um
         perim_um = 2.0 * (width_um + length_um)
         nets = cap_plate_nets(cap)
+        require_declared_nets(cell, name, nets, known_nets)
         plates = [net if rename is None else rename(net) for net in nets]
         for _unit in range(1, units + 1):
             cards.append(
