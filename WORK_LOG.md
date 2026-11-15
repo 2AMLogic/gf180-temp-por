@@ -8,10 +8,25 @@ Merged PRs and closed issues from the initial 30-day snapshot (2026-09-07 onward
 
 ### 2026-11-15
 
+- **PR #549**: test(sim): assert por-vth control fragments stay card-identical; drop two dead .params
+- **PR #547**: test: assert temp_core's drawn track nets equal its manifest ports
+- **PR #542**: layout: snap generator coordinates to the 0.005 um manufacturing grid (31,928 *.ongrid.1 violations)
+- **PR #540**: fix(sim): reject unrecognized argv in every control entry point before its sweep
+- **PR #534**: feat(sim): record the commit behind deglitch control results via a - git: provenance line
+- **PR #524**: refactor: derive the DRM via square once in _via_square
+- **PR #504**: feat: build klt sim requests with per-row spec limits, without submitting
+- **PR #494**: docs: roadmap as of 2026-11-13
 - **PR #529**: refactor(lvs_reference): one declared-net guard, now covering cap plates too
 - **PR #526**: refactor(layout): inline cell_failed() and drop three dead branches in run_checks.sh
 - **PR #520**: docs: classify every DRC rule the committed cells violate under klt 0.8.0
 - **PR #501**: refactor(sim): give three duplicated control helpers one definition per directory
+- **Issue #515** (closed): Snap generator-derived coordinates to the 0.005 um manufacturing grid (31,928 *.ongrid.1 violations)
+- **Issue #512** (closed): Control scripts ignore unrecognized argv and run the full local sweep (overwriting committed evidence)
+- **Issue #511** (closed): Remove _TopRoutes.via1/via2's inline via-square arithmetic: the only via drawer that bypasses CellBuilder.via
+- **Issue #509** (closed): Remove ramp_rate_probe.spice's two dead .params, and assert the por-vth control fragments' cards agree
+- **Issue #507** (closed): run_deglitch_asym_probe.py's results.md carries no `- git:` provenance line, unlike its five peers
+- **Issue #499** (closed): Assert temp_core's drawn track list equals its manifest ports — the one leaf cell missing the sibling guard
+- **Issue #496** (closed): sim harness: build a klt sim request with per-row spec limits for one experiment (dry-run half of #388)
 - **Issue #523** (closed): Collapse four leftovers in layout/run_checks.sh from the cell-freeze removal and --regen-all
 - **Issue #514** (closed): Collapse lvs_reference.py's three copies of the undeclared-net guard into one helper — and give the MiM cap builder the call site #269 never wrote
 - **Issue #497** (closed): Classify the DRC violations the committed cells show under klt 0.8.0 and later (unblocks #400)
