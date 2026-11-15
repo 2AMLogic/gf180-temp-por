@@ -76,6 +76,15 @@ POINTS: list[tuple[str, str, float, float]] = [
     ("ff_125c_3.63v", "ff", 125.0, 3.63),
 ]
 
+# Paths a re-run is allowed to dirty (see runner.git_describe): this script's
+# own outputs plus its three siblings', which share this control directory's
+# results files, decks/ and logs/. No traces/: none are kept (see docstring).
+GENERATED = tuple(
+    str((CONTROL_DIR / n).relative_to(REPO_ROOT))
+    for n in ("results.md", "cdg_results.md", "dwell_results.md",
+              "width_results.md", "decks", "logs")
+)
+
 
 def main() -> int:
     toolchain = cliutil.locate_toolchain()
@@ -212,6 +221,7 @@ def write_results(results: dict, pdk, ngspice_version: str) -> None:
         f"- ngspice: `{ngspice_version}`",
         f"- PDK: `{pdk.variant}@{pdk.version}` ({pdk.source})",
         f"- harness: `{HARNESS_VERSION}`",
+        f"- git: `{runner.git_describe(REPO_ROOT, GENERATED)}`",
         "",
         "`rejected` = the one-shot's `TIM` keeps its charge (it loses under 1 %);"
         " `partial` = `TIM` lost 1-50 % of it, i.e. the pulse was set back but not"
