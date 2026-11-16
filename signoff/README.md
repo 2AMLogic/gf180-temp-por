@@ -431,6 +431,34 @@ python3 signoff/check.py
 python3 signoff/check.py --regen
 ```
 
+### On a host that must not install the pinned grader
+
+`check.py` runs whatever `klt` is first on `PATH`. A shared dispatch host must
+not install the pinned build, so use the throwaway form, which resolves
+`signoff/toolchain.json`'s pin through `uvx` and installs nothing host-wide:
+
+```bash
+python3 signoff/check.py --klt-pin           # grade with the pinned klt
+python3 signoff/check.py --klt-pin --regen   # re-anchor with the pinned klt
+python3 signoff/check.py --klt EXE           # or point at any grader executable
+```
+
+With it, `check.py` prints `ok   grader is the pinned klt 0.9.1`. Without it,
+an unpinned grader only produces the `warn grader is ...` line, which does not
+change the exit code and does not make the gate unusable. What the mismatch
+does and does not affect:
+
+- **A drift-only failure is real and re-anchorable on any host.** Citation-hash
+  drift is computed from file digests, not by the grader. Measured with an
+  unpinned dev build against a report rendered by the pinned one, the two
+  renders differed at 9 leaf paths, none a verdict (six `build.*` fields, two
+  tiers-doc prose fields, `source_doc_content_hash`), with 0 stale citation
+  hashes and an equal verdict projection.
+- **`--regen` is pin-sensitive.** On an unpinned grader it rewrites those same
+  `build.*` fields, the tiers-doc prose and `source_doc_content_hash`,
+  stamping the verdict of record with an unreleased build
+  (`is_release: false`). Regenerate with `--klt-pin --regen`.
+
 No PDK, no xschem, no ngspice — `klt signoff --manifest` only reads committed
 JSON envelopes, so this runs in the headless `checks` CI job on every push and
 PR.

@@ -364,6 +364,80 @@ class CitationHashDriftTest(unittest.TestCase):
         self.assertTrue(ok)
 
 
+class GraderSelectionTest(unittest.TestCase):
+    """--klt / --klt-pin: the grader is selectable and the warning stays a warning."""
+
+    def stub(self, version_line: str) -> str:
+        tmp = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, tmp, True)
+        exe = tmp / "klt"
+        exe.write_text(f'#!/bin/sh\necho "{version_line}"\n')
+        exe.chmod(0o755)
+        return str(exe)
+
+    def run_pin_check(self, klt):
+        out, err = io.StringIO(), io.StringIO()
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            ret = check.check_toolchain_pin(klt)
+        return ret, out.getvalue(), err.getvalue()
+
+    def test_stub_executable_is_used_not_bare_klt(self):
+        ret, _, err = self.run_pin_check(self.stub("klt 9.9.9"))
+        self.assertIsNone(ret)
+        self.assertIn("'klt 9.9.9'", err)
+
+    def test_mismatch_warns_classifies_and_names_remedy(self):
+        _, _, err = self.run_pin_check(self.stub("klt 9.9.9"))
+        self.assertTrue(err.startswith("warn"))
+        self.assertIn("NOT affected", err)
+        self.assertIn("--regen IS pin-sensitive", err)
+        self.assertIn("--klt-pin", err)
+
+    def test_match_is_ok_and_silent_on_stderr(self):
+        pinned = json.loads(check.TOOLCHAIN.read_text())["klt"]["version"]
+        ret, out, err = self.run_pin_check(self.stub(pinned))
+        self.assertIsNone(ret)
+        self.assertIn("ok   grader is the pinned", out)
+        self.assertEqual(err, "")
+
+    def test_run_grader_uses_given_executable(self):
+        exe = self.stub("klt x")
+        with contextlib.redirect_stderr(io.StringIO()):
+            report, ran = check.run_grader(exe)
+        # The stub emits no JSON, so output is rejected -- proving it was run.
+        self.assertFalse(ran)
+        self.assertEqual(report, {})
+
+    def test_pinned_klt_writes_uvx_wrapper(self):
+        path = Path(check.pinned_klt("0.9.1"))
+        self.addCleanup(shutil.rmtree, path.parent, True)
+        self.assertIn('uvx --from "klayout-tools==0.9.1" klt', path.read_text())
+        self.assertTrue(path.stat().st_mode & 0o100)
+
+    def test_malformed_version_rejected(self):
+        for bad in ("0.9.1; touch x", "", "$(x)", "v0.9.1"):
+            with self.assertRaises(ValueError):
+                check.pinned_klt(bad)
+
+    def test_toolchain_pin_is_single_sourced(self):
+        self.assertEqual(
+            check.toolchain_pin_version(),
+            json.loads(check.TOOLCHAIN.read_text())["klt"]["release"]["package_version"],
+        )
+
+    def test_cli_rejects_both_flags_and_bad_pin(self):
+        for argv in (["--klt", "x", "--klt-pin"], ["--klt-pin", "0;x"]):
+            with contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit) as cm:
+                check.main(argv)
+            self.assertEqual(cm.exception.code, 2)
+
+    def test_missing_executable_gives_guidance_not_traceback(self):
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err):
+            self.assertEqual(check.main(["--klt", "/nonexistent/klt"]), 1)
+        self.assertIn("not on PATH", err.getvalue())
+
+
 if __name__ == "__main__":
     unittest.main()
 

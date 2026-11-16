@@ -58,17 +58,20 @@ all of them (see signoff/README.md, "What the grader cannot check"):
    aggregate outright rather than policing its value: `tier-report.json` is
    the answer of record, and prose should cite it, not copy it.
 
-Pure stdlib; no PDK, no xschem, no ngspice. Only `klt` on PATH.
+Pure stdlib; no PDK, no xschem, no ngspice. Only `klt` on PATH
+(or `--klt EXE` / `--klt-pin`).
 """
 
 from __future__ import annotations
 
 import argparse
+import atexit
 import json
 import re
 import shutil
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -374,32 +377,77 @@ def regen_anchored_evidence(
     return True
 
 
-def check_toolchain_pin() -> None:
-    """Warn -- never fail -- when the grader on PATH is not the pinned one."""
+# A plain klayout-tools version, e.g. 0.9.1. Copied from
+# sim/harness/klt_batch.py (_PIN_RE) rather than imported: that module lives
+# in a package whose relative imports pull in PDK discovery, which would break
+# this file's "Pure stdlib; no PDK" contract and make the signoff gate depend
+# on the simulation harness.
+_PIN_RE = re.compile(r"^[0-9]+(\.[0-9]+)*([.+-]?[0-9A-Za-z.]+)?$")
+
+
+def pinned_klt(version: str) -> str:
+    """Path of a wrapper that runs ``klt`` at exactly ``version``.
+
+    The wrapper is ``uvx --from klayout-tools==<version> klt``: a throwaway
+    environment resolved by uv's cache, so the host's installed ``klt`` is
+    neither read nor modified. Deliberate, commented duplicate of
+    ``pinned_klt`` in ``sim/harness/klt_batch.py`` (the original) -- see the
+    ``_PIN_RE`` note above for why it is not imported.
+    """
+    if not _PIN_RE.match(version):
+        raise ValueError(
+            f"{version!r} is not a plain klayout-tools version (e.g. 0.9.1)"
+        )
+    base = Path(tempfile.mkdtemp(prefix="klt-pin-"))
+    atexit.register(shutil.rmtree, base, ignore_errors=True)
+    wrapper = base / "klt"
+    wrapper.write_text(
+        f'#!/bin/sh\nexec uvx --from "klayout-tools=={version}" klt "$@"\n'
+    )
+    wrapper.chmod(0o755)
+    return str(wrapper)
+
+
+def toolchain_pin_version() -> str:
+    """The bare package version signoff/toolchain.json pins (e.g. ``0.9.1``)."""
+    return json.loads(TOOLCHAIN.read_text())["klt"]["release"]["package_version"]
+
+
+def check_toolchain_pin(klt: str = "klt") -> None:
+    """Warn -- never fail -- when the grader in use is not the pinned one."""
     try:
         pinned = json.loads(TOOLCHAIN.read_text())["klt"]["version"]
     except (OSError, ValueError, KeyError):
         print(f"warn {TOOLCHAIN.name}: no readable klt version pin", file=sys.stderr)
         return
-    proc = subprocess.run(["klt", "--version"], capture_output=True, text=True)
+    proc = subprocess.run([klt, "--version"], capture_output=True, text=True)
     actual = proc.stdout.strip() or proc.stderr.strip()
     if actual != pinned:
         print(
             f"warn grader is {actual!r}, signoff/toolchain.json pins {pinned!r}.\n"
             "     Not a failure: a newer grader is how a newly-added T1 item "
             "reaches this repo.\n"
-            "     The report-drift check below is what turns that into an "
-            "actionable failure.",
+            "     Which failures this affects:\n"
+            "       - citation-hash drift is computed from file digests and is "
+            "NOT affected by this mismatch;\n"
+            "         a drift failure below is real and can be re-anchored on "
+            "this host.\n"
+            "       - only a *verdict* difference is pin-sensitive.\n"
+            "       - --regen IS pin-sensitive: it rewrites tier-report.json "
+            "with this grader's build\n"
+            "         identity. Run it with the pinned grader instead (installs "
+            "nothing host-wide):\n"
+            "           python3 signoff/check.py --klt-pin --regen",
             file=sys.stderr,
         )
     else:
         print(f"ok   grader is the pinned {actual}")
 
 
-def run_grader() -> tuple[dict, bool]:
+def run_grader(klt: str = "klt") -> tuple[dict, bool]:
     proc = subprocess.run(
         [
-            "klt",
+            klt,
             "signoff",
             "--manifest",
             str(MANIFEST.relative_to(REPO_ROOT)),
@@ -576,18 +624,45 @@ def main(argv: list[str] | None = None) -> int:
             "comparing against it"
         ),
     )
+    pin = parser.add_mutually_exclusive_group()
+    pin.add_argument(
+        "--klt",
+        metavar="EXE",
+        default="klt",
+        help="grader executable to run (default: klt on PATH)",
+    )
+    pin.add_argument(
+        "--klt-pin",
+        nargs="?",
+        const="",
+        default=None,
+        metavar="VERSION",
+        help=(
+            "grade with klayout-tools==VERSION from a throwaway `uvx` "
+            "environment, installing nothing host-wide; VERSION defaults to "
+            "signoff/toolchain.json's pin"
+        ),
+    )
     args = parser.parse_args(argv)
 
-    if shutil.which("klt") is None:
+    klt = args.klt
+    if args.klt_pin is not None:
+        try:
+            klt = pinned_klt(args.klt_pin or toolchain_pin_version())
+        except (ValueError, OSError, KeyError) as exc:
+            parser.error(f"--klt-pin: {exc}")
+
+    if shutil.which(klt) is None:
         fail(
-            "klt is not on PATH. Install the pinned grader:\n"
+            f"klt is not on PATH ({klt!r}). Install the pinned grader:\n"
             "       uv tool install --force 'klayout-tools[yield]==0.9.1'\n"
+            "     or, without touching the host: python3 signoff/check.py --klt-pin\n"
             "     (see signoff/toolchain.json for why this pin is separate "
             "from layout/toolchain.json's)"
         )
         return 1
 
-    check_toolchain_pin()
+    check_toolchain_pin(klt)
 
     if args.regen and not regen_anchored_evidence():
         return 1
@@ -598,7 +673,7 @@ def main(argv: list[str] | None = None) -> int:
     ok = check_erc_supply_freshness() and ok
     ok = check_prose_counts() and ok
 
-    report, ran = run_grader()
+    report, ran = run_grader(klt)
     if not ran:
         return 1
 
