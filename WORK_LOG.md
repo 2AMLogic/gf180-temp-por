@@ -8,6 +8,12 @@ Merged PRs and closed issues from the initial 30-day snapshot (2026-09-07 onward
 
 ### 2026-11-16
 
+- **PR #536**: Consolidate the two CLIs' byte-identical argparse flags into cliutil
+- **PR #575**: docs: correct GoldenNetlistTests docstring to the measured drift behavior
+- **PR #562**: layout: add interior Nwell tap stripes to temp_core's PNP array
+- **Issue #521** (closed): Move run_mc.py's four byte-identical argparse flags into cliutil, and stop hardcoding the timeout default
+- **Issue #570** (closed): Correct GoldenNetlistTests' docstring: the pre-refactor CELL drift was caught, just by the wrong assertions
+- **Issue #519** (closed): temp_core PNP array: centre emitter 30 um from the Nwell tap ring where DF.13_LV allows 20 um
 - **PR #561**: fix: run the deglitch controls on the star extraction — CDG regex, citations, design-doc reconciliation
 - **PR #571**: test: require the emitted - git: literal in the provenance wiring detector
 - **PR #564**: refactor(layout-tests): one golden-netlist accessor and one MiM-cap mixin instead of per-class copies
