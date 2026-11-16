@@ -145,7 +145,7 @@ class DetectorDriftTests(unittest.TestCase):
         )
         self.assertTrue(
             _wires_git(
-                wired_but_unemitted + '-lines.append(f"- git: {description}")\n'
+                wired_but_unemitted + 'lines.append(f"- git: {description}")\n'
             ),
             "a source that wires git_describe AND emits the `- git:` line "
             "must count as wired -- the tightening above must not become a "
