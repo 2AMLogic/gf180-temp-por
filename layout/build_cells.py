@@ -822,7 +822,8 @@ def _cap_via(
     pad: float = CAP_ROUTE_W_UM,
 ) -> None:
     """One via at ``(x, y)``, plus a ``pad``-square on each of the two metal
-    layers it connects.
+    layers it connects. ``pad`` is a *full* size, not a half -- a caller
+    holding a half-size constant must pass it doubled.
 
     A wire built by :func:`_cap_wire` stops exactly at the via it lands on,
     so relying on the wire's own edge for enclosure leaves the via uncovered
@@ -2587,8 +2588,7 @@ def por_comparator(b: CellBuilder) -> None:
     # Metal1 riser on a different layer with no via is not a connection.
     def _via1_pad(cx: float, cy: float) -> None:
         b.via(VIA1, cx, cy)
-        pad = 0.25
-        b.box(METAL2, cx - pad, cy - pad, cx + pad, cy + pad)
+        _cap_pad(b, METAL2, cx, cy)
 
     for net in ("SNS", "SNSB"):
         y = track_y[net]
@@ -2863,7 +2863,7 @@ class _Channel:
         back the ``(x, y)`` the route takes as its anchor. Draws nothing
         itself: the route owns every shape it lands.
         """
-        self._reach[net] = max(self._reach[net], x_center + CAP_ROUTE_W_UM / 2.0)
+        self._reach[net] = max(self._reach[net], x_center + _VIA_PAD_HALF)
         return (x_center, self.track_y[net])
 
     def draw(self) -> None:
@@ -3244,10 +3244,7 @@ def _m2_v(b: CellBuilder, x: float, y0: float, y1: float) -> None:
 
 def _m1_to_m2(b: CellBuilder, x: float, y: float) -> None:
     """One Via1 with its own landing pad on both levels."""
-    half = _VIA_PAD_HALF
-    b.box(METAL1, x - half, y - half, x + half, y + half)
-    b.box(METAL2, x - half, y - half, x + half, y + half)
-    b.via(VIA1, x, y)
+    _cap_via(b, VIA1, METAL1, METAL2, x, y, pad=_VIA_PAD_HALF * 2.0)
 
 
 def _r_segment(b: CellBuilder, x: float, y: float, width: float, length: float) -> float:
