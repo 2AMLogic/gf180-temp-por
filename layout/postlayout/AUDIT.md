@@ -15,8 +15,8 @@ for where this sits in the flow.
 | `bias_core` | 70 | 0 | 301 | 47/47 (100.0 %) | 130878 Ω | 1961.6 fF | 0.585 fF |
 | `por_comparator` | 21 | 0 | 101 | 15/16 (93.8 %) | 18283 Ω | 526.5 fF | 0.057 fF |
 | `por_output_chain` | 33 | 0 | 159 | 18/18 (100.0 %) | 66418 Ω | 901.4 fF | 81.195 fF |
-| `temp_core` | 115 | 0 | 512 | 69/71 (97.2 %) | 66008 Ω | 1652.9 fF | 1.076 fF |
-| `temp_por_top` | 239 | 0 | 1078 | 136/139 (97.8 %) | 283443 Ω | 7165.9 fF | 85.089 fF |
+| `temp_core` | 115 | 0 | 512 | 69/71 (97.2 %) | 66012 Ω | 1670.4 fF | 1.284 fF |
+| `temp_por_top` | 239 | 0 | 1078 | 136/139 (97.8 %) | 283450 Ω | 7183.4 fF | 85.297 fF |
 
 `nets with parasitics` is the klayout-tools#283 sanity check: a run
 that silently loaded nothing reads 0 here, and `--extract` refuses to

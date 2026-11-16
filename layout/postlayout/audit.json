@@ -186,9 +186,9 @@
         "nets_total": 71,
         "nets_with_parasitics": 69,
         "fraction": 0.9718,
-        "total_resistance_ohm": 66008.326,
-        "total_capacitance_ff": 1652.94544,
-        "coupling_capacitance_ff": 1.075888,
+        "total_resistance_ohm": 66012.2504,
+        "total_capacitance_ff": 1670.396795,
+        "coupling_capacitance_ff": 1.283663,
         "distributed_rc": false,
         "critical_nets": []
       },
@@ -224,7 +224,7 @@
           "content_hash": "sha256:95c2eb9148b29ded02182aeca4222287ff57f813691d5e2f9f8d7a675f6cb637",
           "released": false
         },
-        "gds_sha256": "a3a3b2fc54b0d88a42857c5b91a04fe394bedc3d81f75974a26fbe76fb51ae2e"
+        "gds_sha256": "22052adc7a73420a61bd4279e6f42d07e825645ccdf8fd6a8df1da764367b9d7"
       },
       "lvs_status": "match"
     },
@@ -244,9 +244,9 @@
         "nets_total": 139,
         "nets_with_parasitics": 136,
         "fraction": 0.9784,
-        "total_resistance_ohm": 283443.0707,
-        "total_capacitance_ff": 7165.911095,
-        "coupling_capacitance_ff": 85.089052,
+        "total_resistance_ohm": 283449.6596,
+        "total_capacitance_ff": 7183.36245,
+        "coupling_capacitance_ff": 85.296827,
         "distributed_rc": false,
         "critical_nets": []
       },
@@ -294,7 +294,7 @@
           "content_hash": "sha256:95c2eb9148b29ded02182aeca4222287ff57f813691d5e2f9f8d7a675f6cb637",
           "released": false
         },
-        "gds_sha256": "5a7fa6b7affd5bd96b49d859cfceca6e09df68dc865c9472e7cdc91fd74f74a6"
+        "gds_sha256": "e1a3a089f45327182cadb7d372982f16c05544627c9af1503a971320c3ac6b72"
       },
       "lvs_status": "match"
     }

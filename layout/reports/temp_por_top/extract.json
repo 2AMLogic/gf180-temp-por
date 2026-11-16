@@ -5504,7 +5504,7 @@
       "name": "CTAT",
       "pin": true,
       "device_count": 2,
-      "net_id": 93,
+      "net_id": 92,
       "pin_index": 0,
       "label_positions_um": [
         {
@@ -5523,7 +5523,7 @@
       "name": "ENB",
       "pin": false,
       "device_count": 8,
-      "net_id": 77,
+      "net_id": 75,
       "pin_index": null,
       "label_positions_um": [
         {
@@ -5590,7 +5590,7 @@
       "name": "M1D",
       "pin": false,
       "device_count": 4,
-      "net_id": 82,
+      "net_id": 76,
       "pin_index": null,
       "label_positions_um": [
         {
@@ -5604,7 +5604,7 @@
       "name": "M2D",
       "pin": false,
       "device_count": 4,
-      "net_id": 81,
+      "net_id": 79,
       "pin_index": null,
       "label_positions_um": [
         {
@@ -5632,7 +5632,7 @@
       "name": "N1",
       "pin": false,
       "device_count": 8,
-      "net_id": 78,
+      "net_id": 82,
       "pin_index": null,
       "label_positions_um": [
         {
@@ -5646,7 +5646,7 @@
       "name": "N2",
       "pin": false,
       "device_count": 7,
-      "net_id": 83,
+      "net_id": 73,
       "pin_index": null,
       "label_positions_um": [
         {
@@ -5674,7 +5674,7 @@
       "name": "NB",
       "pin": false,
       "device_count": 5,
-      "net_id": 79,
+      "net_id": 78,
       "pin_index": null,
       "label_positions_um": [
         {
@@ -5688,7 +5688,7 @@
       "name": "NBG",
       "pin": false,
       "device_count": 5,
-      "net_id": 73,
+      "net_id": 83,
       "pin_index": null,
       "label_positions_um": [
         {
@@ -5772,7 +5772,7 @@
       "name": "PB",
       "pin": false,
       "device_count": 6,
-      "net_id": 75,
+      "net_id": 81,
       "pin_index": null,
       "label_positions_um": [
         {
@@ -5786,7 +5786,7 @@
       "name": "PCAS",
       "pin": false,
       "device_count": 9,
-      "net_id": 76,
+      "net_id": 77,
       "pin_index": null,
       "label_positions_um": [
         {
@@ -5833,7 +5833,7 @@
       "name": "PTAT",
       "pin": true,
       "device_count": 4,
-      "net_id": 92,
+      "net_id": 93,
       "pin_index": 2,
       "label_positions_um": [
         {
@@ -8751,10 +8751,10 @@
       "released": false
     },
     "input": {
-      "content_hash": "sha256:5a7fa6b7affd5bd96b49d859cfceca6e09df68dc865c9472e7cdc91fd74f74a6",
+      "content_hash": "sha256:e1a3a089f45327182cadb7d372982f16c05544627c9af1503a971320c3ac6b72",
       "role": "layout"
     },
-    "gds_sha256": "5a7fa6b7affd5bd96b49d859cfceca6e09df68dc865c9472e7cdc91fd74f74a6"
+    "gds_sha256": "e1a3a089f45327182cadb7d372982f16c05544627c9af1503a971320c3ac6b72"
   },
   "parasitics": null,
   "spef_path": null,

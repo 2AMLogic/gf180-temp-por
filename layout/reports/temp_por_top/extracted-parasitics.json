@@ -3,7 +3,7 @@
   "cell": "temp_por_top",
   "note": "recorded by layout/postlayout.py --extract; the committed extracted.spice/extract.json of the DRC/LVS flow are not touched by this run",
   "netlist_path": "layout/reports/temp_por_top/extracted-parasitics.spice",
-  "netlist_sha256": "1a7e470091f1f2dd8aa133f8b4474474ae6613d8249a839ae47102ce20eb0d0a",
+  "netlist_sha256": "ee612e990f7baeb7e58d0c889d92dbe3018dfebef7e6d3f5f72d068809a08186",
   "top_cell_pins": true,
   "device_count": 239,
   "device_counts": {
@@ -261,9 +261,9 @@
     "nets_total": 139,
     "nets_with_parasitics": 136,
     "fraction": 0.9784,
-    "total_resistance_ohm": 283443.0707,
-    "total_capacitance_ff": 7165.911095,
-    "coupling_capacitance_ff": 85.089052,
+    "total_resistance_ohm": 283449.6596,
+    "total_capacitance_ff": 7183.36245,
+    "coupling_capacitance_ff": 85.296827,
     "distributed_rc": false,
     "critical_nets": []
   },
@@ -283,7 +283,7 @@
       "content_hash": "sha256:95c2eb9148b29ded02182aeca4222287ff57f813691d5e2f9f8d7a675f6cb637",
       "released": false
     },
-    "gds_sha256": "5a7fa6b7affd5bd96b49d859cfceca6e09df68dc865c9472e7cdc91fd74f74a6"
+    "gds_sha256": "e1a3a089f45327182cadb7d372982f16c05544627c9af1503a971320c3ac6b72"
   },
   "lvs": {
     "status": "match",

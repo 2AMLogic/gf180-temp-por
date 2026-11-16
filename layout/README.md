@@ -397,7 +397,19 @@ summarises all four.
 python3 layout/postlayout.py --extract   # re-run klt (needs klt + the deck)
 python3 layout/postlayout.py             # regenerate layout/postlayout/
 python3 layout/postlayout.py --check     # committed artifacts current? (stdlib only)
+python3 sim/build_tb.py                  # regenerate the sim/ fragments that
+                                         # inline a postlayout/*.spice verbatim
+                                         # (CI gates this with --check; see
+                                         # sim/README.md)
 ```
+
+The last line is part of the layout regen checklist, not a sim/ concern:
+every `sim/*/testbench-postlayout/` fragment inlines its
+`layout/postlayout/<cell>.spice` source with the source's sha256 in its
+header, so a regenerated export leaves those fragments stale until
+`sim/build_tb.py` rewrites them. The hand-forked exception is
+`sim/temp-core-loop-stability/testbench-postlayout/`, which
+`sim/tests/test_postlayout_forks.py` guards instead.
 
 ### How it is built, and why there is a build step at all
 
@@ -582,6 +594,20 @@ Consequences to carry forward, stated so nobody has to re-derive them:
   ([klayout-tools#303](https://github.com/2AMLogic/klayout-tools/issues/303)):
   that `VSS` is the right net to tie them to, and that the rings are
   unbroken.
+- **The PNP array's interior tap stripes (#519) extend the *resolved* tie,
+  not an unchecked one.** The two interior tap stripes #519 drew through the
+  array merge into the tap ring's own COMP/Metal1 — they are more of the same
+  drawn, `Nplus`-carrying tie the table below already shows resolving the
+  base, so the extraction sees them exactly as it sees the ring. What they
+  exist to satisfy — the DRM's 20 µm `DF.13_LV` maximum tap distance, which
+  the array's interior emitters violated — is invisible to the deck this
+  flow pins (CI pins `klt 0.7.0`, which carries no `comp.tap_distance.*`
+  rule; the family only appears in 0.8.0+ decks, where an out-of-band run
+  shows the one interior `comp.tap_distance.nwell.lv.1` marker gone on both
+  cells). Between deck generations that distance is pinned by the
+  generator-level unit test
+  `layout/tests/test_lvs_reference.py::test_every_pnp_emitter_is_within_the_drms_tap_distance`,
+  which fails if any emitter sits farther than 20 µm from drawn tap COMP.
 - **MiM plates now own the schematic's own net.** At the deck this repo's
   evidence was first produced against, `klt` registered a recognised
   capacitor's plates outside its own metal/via stack, so no drawn routing
@@ -1874,7 +1900,7 @@ This repo had neither the spec nor the report until #300; both now exist —
   toolchain note below).
 - [`layout/reports/temp_por_top/erc_supply.json`](reports/temp_por_top/erc_supply.json)
   — the committed run, `provenance.input.content_hash ==
-  sha256:5a7fa6b7affd5bd96b49d859cfceca6e09df68dc865c9472e7cdc91fd74f74a6`,
+  sha256:e1a3a089f45327182cadb7d372982f16c05544627c9af1503a971320c3ac6b72`,
   matching the committed `layout/cells/temp_por_top.gds` (`shasum -a 256`),
   and `provenance.spec.content_hash ==
   sha256:773047b13bc8e858ee6a284d0f6e00843a727bd0bb177267ca8bca24d616b170`,
