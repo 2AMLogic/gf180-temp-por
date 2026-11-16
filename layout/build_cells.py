@@ -2731,7 +2731,7 @@ def por_comparator(b: CellBuilder) -> None:
         # The Metal2 trunk itself, all the way across the divider region.
         # Each resistor terminal's own Metal1 riser (below) meets it with its
         # own Via1, not by touching this trunk's Metal1 predecessor.
-        b.box(METAL2, div_trunk_x0, y - TRACK_W_UM / 2.0, div_x1, y + TRACK_W_UM / 2.0)
+        _cap_wire(b, METAL2, div_trunk_x0, y, div_x1, y, width=TRACK_W_UM)
 
     # --- Nwell, and its tie strap ------------------------------------------
     b.box(NWELL, p_x0 - 1.0, -2.6, p_x1 + 1.0, max_pw + 1.5)
