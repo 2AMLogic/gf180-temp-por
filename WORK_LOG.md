@@ -8,6 +8,14 @@ Merged PRs and closed issues from the initial 30-day snapshot (2026-09-07 onward
 
 ### 2026-11-16
 
+- **PR #586**: test: discover control scripts by glob in the argv-contract guard
+- **PR #584**: signoff: re-stamp tier-report build provenance with pinned klt 0.9.1
+- **PR #583**: refactor: draw the por_comparator Metal2 divider trunk via _cap_wire
+- **PR #580**: feat: let signoff/check.py grade with a selectable or pinned klt
+- **Issue #546** (closed): Control-script argv contract is pinned by hand-maintained lists, so script #21 is uncovered by construction
+- **Issue #581** (closed): signoff/tier-report.json's committed build.* provenance is an unreleased dev build, not the toolchain.json pin
+- **Issue #558** (closed): A third straight-Metal2-wire site still re-derives _cap_wire inline: the divider trunk in build_cells.py
+- **Issue #543** (closed): signoff: the grader-pin warning reads as a blocker, so drift-only failures get deferred to CI
 - **PR #578**: refactor: single-source declared-net set for reference-netlist guards
 - **Issue #538** (closed): lvs_reference: the declared-net-set derivation is now spelled out twice, and the guard's message omits bjt_well
 - **PR #536**: Consolidate the two CLIs' byte-identical argparse flags into cliutil
