@@ -1028,9 +1028,12 @@ geometry is *checked* rather than merely tolerated:
 - No new warning of any kind: `extract.json`'s `warnings` array is the same
   single #288 entry, with the same count (see the next section).
 
-Note the deck has **no `metal4` width rule at all** — `mim.space.1` is the only
-thing standing over `Metal4` geometry — so bottom-plate width is held to the DRM
-by construction here, not by a check. Same posture as the Via1/Via2 sizes.
+Metal4 width is not held by construction: `metal4.width.1` (0.28 um minimum,
+DRM "Mn.1") checks it — the generic Metaln rule, not a MiM-specific
+bottom-plate rule — and `mim.space.1` plus the two `mim.enclosing.*`
+enclosures remain the deck's only MiM-specific rules. (Via widths are checked
+by the same generic pattern: `via1.width.1`–`via4.width.1` check each level's
+minimum width.)
 
 ### `temp_core` — the PTAT/CTAT sensing core (#71, passives folded in by #93)
 
@@ -1721,8 +1724,20 @@ filed upstream per this repo's friction protocol.
   geometry that finally drew their layers. Clean here still means clean against
   *that subset*: there is no rule at all for `Pplus`, `SAB`, `RES_MK` or the
   `Resistor` ID layer, so nothing in this flow checks a drawn resistor's own
-  DRM rules. It is not a tapeout-grade signoff, and no claim in this repo
-  should be written as if it were.
+  DRM rules; the via rules are approximations too — `via1.width.1`–
+  `via4.width.1` are minimum-only, so an oversized via square is unchecked
+  against the DRM's min/max Vn.1 — and a via landed wholly off its pad passes
+  the `metalN.enclosing.viaN.1` enclosure rules: their zero-overlap escape
+  term (#327's fix, the struck-through entry below) considers only vias
+  that touch the pad somewhere — deliberate, since a cut with no contact at
+  all to this rule's conductor may belong to a different rule's population
+  (Contact is the enclosed side of both the Poly2 and Comp rules) — and that
+  deliberate scope is the gap
+  [klayout-tools#5737](https://github.com/2AMLogic/klayout-tools/issues/5737)
+  leaves; `build_cells.py`'s build-time via-in-metal assert backstops it for
+  Via1/Via2 only, so Via3/Via4 (the MiM caps' vias) have no such backstop.
+  It is not a tapeout-grade signoff, and no claim in this repo should be
+  written as if it were.
 - **~~`"enclosing"`/`"enclosed"` checks missed zero-overlap escapes.~~ Fixed
   upstream, found via `por_comparator` (#102/#103).** `klt drc`'s `"enclosing"`
   check kind (`poly2.enclosing.contact.1` among others) used to dispatch
@@ -2252,7 +2267,7 @@ unlike `gf180-drone-fc`'s digital flow (whose fill-tie cell's own `VNW`/
 PDK-marked well/tap geometry to cite directly — is why `substrate_tie`
 above asserts the ring geometry with `well_boxes` instead of selecting a
 drawn well layer. `layout/build_cells.py`'s own `_top_assert_connected`
-build-time check (every via this cell draws is asserted to land inside
+build-time check (every Via1/Via2 this cell draws is asserted to land inside
 metal on both of the levels it bridges) and LVS's independent confirmation
 of the same vias are unaffected and still apply.
 
