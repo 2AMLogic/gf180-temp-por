@@ -4269,7 +4269,9 @@ def temp_por_top(b: CellBuilder) -> None:
 
 
 def _top_assert_connected(b: CellBuilder) -> None:
-    """Every via this cell drew lands inside metal on both of its levels.
+    """Every Via1/Via2 this cell's hierarchy drew lands inside metal on both
+    of its levels (Via3/Via4 -- the MiM caps' vias -- are not covered; see
+    ``layout/README.md`` -> "DRC is a curated subset").
 
     A via drawn off its landing pad produces an open, not a short. The deck's
     enclosure rules catch the partial case -- ``metal1.enclosing.via1.1``/

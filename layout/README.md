@@ -2267,7 +2267,7 @@ unlike `gf180-drone-fc`'s digital flow (whose fill-tie cell's own `VNW`/
 PDK-marked well/tap geometry to cite directly — is why `substrate_tie`
 above asserts the ring geometry with `well_boxes` instead of selecting a
 drawn well layer. `layout/build_cells.py`'s own `_top_assert_connected`
-build-time check (every via this cell draws is asserted to land inside
+build-time check (every Via1/Via2 this cell draws is asserted to land inside
 metal on both of the levels it bridges) and LVS's independent confirmation
 of the same vias are unaffected and still apply.
 
