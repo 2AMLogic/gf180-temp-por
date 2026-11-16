@@ -2414,6 +2414,12 @@ def _resistor_string(
     :func:`_resistor_leg_plan` are grid multiples, so a snapped origin puts
     every drawn vertex on-grid.
     """
+    # SB.2 budget (#517): neighbouring legs' SABs face each other across
+    # DIVIDER_LEG_SPACE_UM, each overhanging toward the other -- the same
+    # budget _poly_resistor asserts against RES_SPACE_UM. Fail here, at
+    # generator time, rather than as a DRC violation three constants from
+    # now.
+    assert DIVIDER_LEG_SPACE_UM - 2 * SAB_OVERHANG_UM >= SAB_SPACE_MIN_UM
     x0 = _snap(x0)
     y0 = _snap(y0)
     pitch = leg_w + DIVIDER_LEG_SPACE_UM
@@ -2444,7 +2450,7 @@ def _resistor_string(
     # DIVIDER_BASE_Y_UM (grid-exact), so its snap is a no-op; the top row is
     # the one that moves.
     nm = round(1.0 / DBU_UM)
-    grid_nm = round(0.005 * nm)  # 5 nm -- sab.ongrid.1's manufacturing grid
+    grid_nm = round(MFG_GRID_UM * nm)  # sab.ongrid.1's manufacturing-grid pitch
     y0_nm = round(y0 * nm)
     y1_nm = round(y1 * nm)
     sab_row_y0 = math.floor((y0_nm - round(SAB_OVERHANG_UM * nm)) / grid_nm) * grid_nm / nm
