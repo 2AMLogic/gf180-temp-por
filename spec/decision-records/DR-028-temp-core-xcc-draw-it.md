@@ -164,6 +164,14 @@ Measured on the result (`klt 0.2.0`, deck
 | drawn area (`klt stats`) | `temp_core` 77 689.5 → 78 352.9 µm², `temp_por_top` 372 409.9 → 373 073.3 µm² — **+663.4 µm²**, not the ≈144 µm² this record predicted, because `klt stats`' total sums every drawn layer: the 12 × 12 µm plate is counted once each on `FuseTop`, `CAP_MK` and `MIM_L_MK` (3 × 144), the `Metal4` bottom plate adds 13.4² = 179.6, and the Via3/Via4/Metal2–Metal5 escape adds the rest |
 | footprint | **unchanged** — `temp_por_top`'s bounding box is still 1334 × 794 µm (1.059 mm²) and `temp_core`'s still 569.25 × 211.355 µm; the plate sits inside both. `spec/target-spec.md#area` re-stamped from `klt stats` accordingly (its parenthetical drawn-polygon figure moves 0.372 → 0.373 mm²) |
 
+*(Annotated 2026-11-16: the two LVS rows above record the counts at this
+decision, and were correct when it was made. `e6768f06` — "layout:
+re-transcribe `lvs_reference.py` for klt 0.6.0's gf180mcu deck", 2026-10-01 —
+later moved both cells' counts; the committed reports now read `temp_core`
+115 devices / 71 nets / 29 pins and `temp_por_top` 239 devices / 143 nets /
+5 pins. The decision is unaffected; `layout/reports/` is the current answer
+of record.)*
+
 What this record predicted and did **not** get is worth stating too: the
 `m3m4` → `m4m5` substitution stays (klayout-tools#315 is closed without the
 `m3m4` variant being modelled), and re-running the campaigns whose provenance
