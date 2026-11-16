@@ -1018,6 +1018,35 @@ RES_SPACE_UM = 1.0
 #: contact, because two or more would trip klayout-tools#288's resistor-body
 #: heuristic on the head itself (see ``layout/README.md``).
 RES_HEAD_UM = 4.0
+#: How far the SAB (salicide block) marker hangs past the marked poly leg,
+#: per side, in um (#517). gf180mcu DRM ``SB.10`` asks for 0.22 um of Poly2
+#: beyond related SAB; drawing SAB coincident with the leg left every leg
+#: side at 0.000 um and fired ``poly2.enclosing.sab.1`` on each. Making SAB
+#: the *wider* layer takes the rule out of play instead of satisfying it --
+#: where SAB encloses Poly2 there is no "Poly2 beyond SAB" edge for the
+#: deck's enclosing check to measure, which is exactly why ``_r_segment()``'s
+#: wider-than-poly SAB reports zero. The recognised body is the intersection
+#: ``Poly2 & RES_MK & Pplus & SAB``, so an SAB overhang in ``x`` is
+#: extraction-neutral: the intersection stays bounded by the unmoved
+#: ``RES_MK``/``Pplus`` at the leg rectangle, and the extracted ``L``/``W``
+#: -- hence every resistance -- is bit-identical.
+#:
+#: The overhang's ceiling is ``SB.2`` (deck rule ``sab.space.1``, 0.42 um
+#: minimum SAB-to-SAB space): two neighbouring legs' SABs face each other
+#: across ``RES_SPACE_UM`` (``_poly_resistor``) and ``DIVIDER_LEG_SPACE_UM``
+#: (``_resistor_string``), each overhanging toward the other, so
+#: ``space - 2 * SAB_OVERHANG_UM >= 0.42`` caps the overhang at 0.29 um.
+#: 0.25 is on the 0.005 um grid, leaves 0.50 um of SAB space, and keeps a
+#: 0.08 um margin to the cap. (``_r_segment()``'s 0.4 um overhang would
+#: leave 0.20 um here -- that is issue #518's own defect, not a number to
+#: copy.)
+SAB_OVERHANG_UM = 0.25
+#: Minimum SAB-to-SAB space, in um -- gf180mcu DRM ``SB.2`` (deck rule
+#: ``sab.space.1``). Not a drawing dimension: this is the budget the
+#: overhang above spends, asserted against both leg spaces in the two
+#: constructions that draw a widened SAB, so a future change to any of the
+#: three numbers fails at generator time instead of as a DRC violation.
+SAB_SPACE_MIN_UM = 0.42
 
 
 def _poly_resistor(
@@ -1033,10 +1062,17 @@ def _poly_resistor(
     heads at the bottom edge so each terminal risers straight down to its
     routing track with nothing to cross.
 
-    The marker rectangles are the legs *exactly*: the deck's recognised body is
-    ``Poly2 & RES_MK & SAB & Resistor``, and KLayout derives the device's
-    ``L``/``W`` from that region's own area and perimeter, so a marker that
-    overshot a leg into a bend would silently lengthen the extracted resistor.
+    The unmarked-for-recognition layers (``PPLUS``, ``RESISTOR_ID``, ``RES_MK``)
+    are the leg rectangle *exactly*; ``SAB`` hangs :data:`SAB_OVERHANG_UM`
+    past them per side in ``x`` (#517 -- why is on the constant). The deck's
+    recognised body is ``Poly2 & RES_MK & SAB & Resistor``, and KLayout
+    derives the device's ``L``/``W`` from that region's own area and
+    perimeter, so the body is still the leg rectangle exactly: the
+    intersection stays bounded by the marker layers that did not move. It is
+    the Poly2/``RES_MK`` rectangles that must never overshoot into a bend --
+    that would silently lengthen the extracted resistor; an SAB ``x``-overhang
+    cannot, because the bends and heads are above/below the legs, not beside
+    them.
 
     Returns the two heads' centre x, in ``(first, last)`` order -- i.e. the
     golden netlist's own ``(a, b)`` node order.
@@ -1046,6 +1082,11 @@ def _poly_resistor(
     ``lvs_reference.resistor_segments`` for the current netlist), so the
     snapped origin is what puts every drawn vertex on-grid.
     """
+    # SB.2 budget (#517): neighbouring legs' SABs face each other across
+    # RES_SPACE_UM, each overhanging toward the other. Keep the deck's
+    # sab.space.1 minimum between them -- fail here, at generator time,
+    # rather than as a DRC violation three constants from now.
+    assert RES_SPACE_UM - 2 * SAB_OVERHANG_UM >= SAB_SPACE_MIN_UM
     x0 = _snap(x0)
     y0 = _snap(y0)
     pitch = width + RES_SPACE_UM
@@ -1053,9 +1094,19 @@ def _poly_resistor(
 
     for x in leg_x:
         b.box(POLY2, x, y0, x + width, y0 + leg)
-        # Marked body: coincident on all four layers, from one rectangle.
-        for spec in (PPLUS, SAB, RESISTOR_ID, RES_MK):
+        # Marked body: the marker layers sit exactly on the leg rectangle --
+        # except SAB, drawn below with the #517 overhang.
+        for spec in (PPLUS, RESISTOR_ID, RES_MK):
             b.box(spec, x, y0, x + width, y0 + leg)
+        # #517: SAB strictly contains every other marker layer in x, so each
+        # leg side presents SB.10 with SAB as the wider layer instead of a
+        # coincident Poly2 edge at 0.000 um extension (the source of all 48
+        # bias_core poly2.enclosing.sab.1 violations before #517: two per
+        # leg, both lateral). If SAB ever moves back into the coincident
+        # loop above, this invariant breaks with it.
+        sab_x0, sab_x1 = x - SAB_OVERHANG_UM, x + width + SAB_OVERHANG_UM
+        assert sab_x0 < x and x + width < sab_x1
+        b.box(SAB, sab_x0, y0, sab_x1, y0 + leg)
 
     for index in range(legs - 1):
         x = leg_x[index]
@@ -2348,7 +2399,11 @@ def _resistor_string(
     body's area exactly reconstructs the segment's schematic length. Each
     leg is fully marked except a :data:`DIVIDER_CAP_UM` unmarked cap at the
     string's two open (leg 0's bottom, the last leg's top) ends, where a
-    contact lands.
+    contact lands. ``SAB`` hangs :data:`SAB_OVERHANG_UM` past the other
+    marker layers per side in ``x`` (#517, on the legs and on the turns) --
+    that makes SAB the wider layer, so ``SB.10`` has no coincident Poly2
+    edge to measure on the lateral boundaries, and the recognised body
+    (``RES_MK``-bounded) still reconstructs the schematic length exactly.
 
     Returns ``{"a": (x, y), "b": (x, y), "x0", "y0", "x1", "y1"}``: the two
     open ends' own contact points (for wiring) and the drawn bounding box.
@@ -2366,6 +2421,35 @@ def _resistor_string(
     x1 = x0 + (legs - 1) * pitch + leg_w
     last_top = y1 + tail_extra
 
+    # #517, row lines first. SB.10 pairs a Poly2 edge with a facing SAB edge
+    # and reports the Poly2 edge's points within 0.22 um of it; a SAB edge
+    # lying *on* the same line as a Poly2 boundary edge (same side) is
+    # therefore a 0.000 um "Poly2 beyond SAB" violation even though SAB
+    # touches Poly2 -- and every row line of this serpentine (the legs' and
+    # turns' shared top y1 and bottom y0) is exactly such a line. So the SAB
+    # must cross both row lines strictly, everywhere except the two capped
+    # ends (there the unmarked cap already gives Poly2 0.8 um beyond SAB,
+    # and the cap is where the contact lives). The x-overhang on the leg
+    # sides (below) removes the lateral-leg-edge violations, which were the
+    # bulk of the 454 before #517.
+    #
+    # The row heights come from _resistor_leg_plan's exact-nanometre
+    # arithmetic and are generally NOT on the 0.005 um manufacturing grid
+    # (#515's family -- por_comparator's y1 is e.g. 150.402), so a plain
+    # 0.25 um row overhang would put new SAB vertices off-grid and mint
+    # sab.ongrid.1 violations. Snap each row boundary outward to the next
+    # 0.005 um grid point instead: the snap only ever *increases* the
+    # overhang, so SB.10 stays inapplicable, and every SAB coordinate this
+    # function emits stays on the grid. The bottom row sits at
+    # DIVIDER_BASE_Y_UM (grid-exact), so its snap is a no-op; the top row is
+    # the one that moves.
+    nm = round(1.0 / DBU_UM)
+    grid_nm = round(0.005 * nm)  # 5 nm -- sab.ongrid.1's manufacturing grid
+    y0_nm = round(y0 * nm)
+    y1_nm = round(y1 * nm)
+    sab_row_y0 = math.floor((y0_nm - round(SAB_OVERHANG_UM * nm)) / grid_nm) * grid_nm / nm
+    sab_row_y1 = math.ceil((y1_nm + round(SAB_OVERHANG_UM * nm)) / grid_nm) * grid_nm / nm
+
     for i in range(legs):
         lx0 = x0 + i * pitch
         lx1 = lx0 + leg_w
@@ -2373,16 +2457,51 @@ def _resistor_string(
         b.box(POLY2, lx0, y0, lx1, leg_top)
         mark_y0 = y0 + DIVIDER_CAP_UM if i == 0 else y0
         mark_y1 = leg_top - DIVIDER_CAP_UM if i == legs - 1 else leg_top
-        for spec in (SAB, RES_MK, DIVIDER_RESISTOR_MK):
+        for spec in (RES_MK, DIVIDER_RESISTOR_MK):
             b.box(spec, lx0, mark_y0, lx1, mark_y1)
+        # SAB strictly wider than the other marker layers in x (#517), and
+        # beyond both row lines it touches (see the row block above) -- but
+        # never over a cap: the cap's unmarked poly is the device terminal,
+        # and the contact's SB.4 clearance to SAB is set by the unchanged
+        # vertical gap, which the x-overhang only widens.
+        sab_y0 = sab_row_y0 if i > 0 else mark_y0
+        sab_y1 = sab_row_y1 if i < legs - 1 else mark_y1
+        assert lx0 - SAB_OVERHANG_UM < lx0 and lx1 < lx1 + SAB_OVERHANG_UM
+        assert sab_y0 <= mark_y0 and sab_y1 >= mark_y1
+        b.box(SAB, lx0 - SAB_OVERHANG_UM, sab_y0, lx1 + SAB_OVERHANG_UM, sab_y1)
 
     for i in range(legs - 1):
         lx0 = x0 + i * pitch
         gx0, gx1 = lx0 + leg_w, lx0 + pitch
         gy0, gy1 = (y1 - leg_w, y1) if i % 2 == 0 else (y0, y0 + leg_w)
         b.box(POLY2, gx0, gy0, gx1, gy1)
-        for spec in (SAB, RES_MK, DIVIDER_RESISTOR_MK):
+        for spec in (RES_MK, DIVIDER_RESISTOR_MK):
             b.box(spec, gx0, gy0, gx1, gy1)
+        # Same x-overhang as the legs, and out past BOTH of the turn's own
+        # row lines: a turn's top and bottom Poly2 edges are exposed
+        # field-facing boundary, and a SAB edge sitting on either line
+        # measures 0.000 um -- the x-only variant left one pair per turn row
+        # edge (224 on por_comparator), crossing only the outer line left
+        # the inner ones (112). The inner-line overhang snaps outward to the
+        # 0.005 um grid like the rows above, for the same reason: the row
+        # heights are nm-exact, not grid-exact. Outward is free -- no other
+        # SAB lies beyond a turn's outer edge, and the caps/contacts sit
+        # inside the legs, x-clear of it. (_r_segment() grows SAB past its
+        # poly on all four sides for the same reason -- SB.10 has no edge
+        # left to measure.)
+        assert gx0 - SAB_OVERHANG_UM < gx0 and gx1 < gx1 + SAB_OVERHANG_UM
+        gy0_nm, gy1_nm = round(gy0 * nm), round(gy1 * nm)
+        if i % 2 == 0:
+            turn_y0 = (
+                math.floor((gy0_nm - round(SAB_OVERHANG_UM * nm)) / grid_nm) * grid_nm / nm
+            )
+            turn_y1 = sab_row_y1
+        else:
+            turn_y0 = sab_row_y0
+            turn_y1 = (
+                math.ceil((gy1_nm + round(SAB_OVERHANG_UM * nm)) / grid_nm) * grid_nm / nm
+            )
+        b.box(SAB, gx0 - SAB_OVERHANG_UM, turn_y0, gx1 + SAB_OVERHANG_UM, turn_y1)
 
     def terminal(cy0: float, cy1: float, cx: float) -> tuple[float, float]:
         mid = (cy0 + cy1) / 2.0

@@ -7,7 +7,7 @@
 *   One star per net: <net> is the hub, <net>__t<k> each device
 *   terminal on it, R<net>_t<k> the arm between them.
 *   klt 0.6.0, deck gf180mcu,
-*   GDS sha256 f16588f1ab1483a0...
+*   GDS sha256 1ee4e15f2fd85df4...
 * Net names are the schematic's, restored through klt lvs's own net
 *   correspondence -- match, 16/16 nets, every one paired.
 *

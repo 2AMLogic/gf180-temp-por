@@ -4,7 +4,7 @@
     python3 sim/por-output-chain-deglitch/control/run_deglitch_asym_probe.py
 
 Diagnoses the schematic-vs-post-layout delta recorded in
-`records/20260811-055634-d0ee17d.md` (post-layout) against
+`records/20261002-180956-d4369b3.md` (post-layout, star extraction) against
 `records/20260802-205904-bdc077d.md` (schematic): the POR_RAW-**falling**
 deglitch dwell -- the one `spec/target-spec.md#por-brownout` depends on --
 **shrinks** 28-36 % at the fast corners, while the POR_RAW-**rising** dwell
@@ -107,17 +107,22 @@ POINTS: list[tuple[str, str, float, float]] = [
     ("ss_-40c_2.97v", "ss", -40.0, 2.97),
 ]
 
-# The two records' dwell_pgdg_1x_us at those points, for the cross-check that
-# this shorter deck reproduces the recorded numbers.
+# The two records' dwells at those points, for the cross-check that this
+# shorter deck reproduces the recorded numbers: dwell_pgdg_1x_us /
+# dwell_rise_1x_us from records/20261002-180956-d4369b3.md (post-layout,
+# star extraction) and records/20260802-205904-bdc077d.md (schematic; still
+# canonical for the schematic level). The record generations changed the
+# extraction in between (#269, then the star model), so only the post-layout
+# halves moved -- the schematic netlist has not changed since #101.
 RECORDED_US: dict[str, dict[str, float]] = {
-    "ff_125c_3.63v": {"schematic": 2.01, "postlayout": 1.28},
-    "tt_27c_3.30v": {"schematic": 3.11, "postlayout": 2.60},
-    "ss_-40c_2.97v": {"schematic": 4.41, "postlayout": 4.17},
+    "ff_125c_3.63v": {"schematic": 2.01, "postlayout": 1.45},
+    "tt_27c_3.30v": {"schematic": 3.11, "postlayout": 2.84},
+    "ss_-40c_2.97v": {"schematic": 4.41, "postlayout": 4.48},
 }
 RECORDED_RISE_US: dict[str, dict[str, float]] = {
-    "ff_125c_3.63v": {"schematic": 10.7191, "postlayout": 12.4069},
-    "tt_27c_3.30v": {"schematic": 10.2709, "postlayout": 11.5561},
-    "ss_-40c_2.97v": {"schematic": 9.3447, "postlayout": 10.2313},
+    "ff_125c_3.63v": {"schematic": 10.7191, "postlayout": 13.2526},
+    "tt_27c_3.30v": {"schematic": 10.2709, "postlayout": 12.3006},
+    "ss_-40c_2.97v": {"schematic": 9.3447, "postlayout": 10.864},
 }
 
 # Paths a re-run is allowed to dirty (see runner.git_describe): this script's
@@ -403,7 +408,7 @@ def write_results(results: dict, pdk, ngspice_version: str) -> None:
         lines += ["", "Cross-check against the two records at the same corners:", ""]
         lines += [
             "| corner | this probe, `schematic` | record `20260802-205904-bdc077d` |"
-            " this probe, `postlayout` | record `20260811-055634-d0ee17d` |",
+            " this probe, `postlayout` | record `20261002-180956-d4369b3` |",
             "| --- | ---: | ---: | ---: | ---: |",
         ]
         for point_id, _, _, _ in POINTS:

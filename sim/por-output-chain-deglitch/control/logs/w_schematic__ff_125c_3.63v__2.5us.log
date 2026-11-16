@@ -37,161 +37,67 @@ vib1#branch                                  0
 vpr#branch                                   0
 vsup#branch                       -6.77468e-28
 
- Reference value :  1.07856e-05
- Reference value :  2.33256e-05
- Reference value :  3.39056e-05
- Reference value :  4.72656e-05
- Reference value :  5.93856e-05
- Reference value :  7.04372e-05
- Reference value :  8.17172e-05
- Reference value :  9.43572e-05
- Reference value :  1.07863e-04
- Reference value :  1.20523e-04
- Reference value :  1.31383e-04
- Reference value :  1.32283e-04
- Reference value :  1.32343e-04
- Reference value :  1.32423e-04
- Reference value :  1.32483e-04
- Reference value :  1.32563e-04
- Reference value :  1.32623e-04
- Reference value :  1.32683e-04
- Reference value :  1.32763e-04
- Reference value :  1.32823e-04
- Reference value :  1.32883e-04
- Reference value :  1.32963e-04
- Reference value :  1.37003e-04
- Reference value :  1.40203e-04
- Reference value :  1.44243e-04
- Reference value :  1.46943e-04
- Reference value :  1.47023e-04
- Reference value :  1.47103e-04
- Reference value :  1.50103e-04
- Reference value :  1.52963e-04
- Reference value :  1.53263e-04
- Reference value :  1.60183e-04
- Reference value :  1.73823e-04
- Reference value :  1.86483e-04
- Reference value :  1.91083e-04
- Reference value :  1.91983e-04
- Reference value :  1.97043e-04
- Reference value :  2.10203e-04
- Reference value :  2.22843e-04
- Reference value :  2.27963e-04
- Reference value :  2.30623e-04
- Reference value :  2.33823e-04
- Reference value :  2.45023e-04
- Reference value :  2.57203e-04
- Reference value :  2.69963e-04
- Reference value :  2.77563e-04
- Reference value :  2.79563e-04
- Reference value :  2.81523e-04
- Reference value :  2.87643e-04
- Reference value :  3.00016e-04
- Reference value :  3.02634e-04
- Reference value :  3.03974e-04
- Reference value :  3.11129e-04
- Reference value :  3.24129e-04
- Reference value :  3.36969e-04
- Reference value :  3.50349e-04
- Reference value :  3.61969e-04
- Reference value :  3.70749e-04
- Reference value :  3.73469e-04
- Reference value :  3.80569e-04
- Reference value :  3.93329e-04
- Reference value :  4.04909e-04
- Reference value :  4.18309e-04
- Reference value :  4.28909e-04
- Reference value :  4.42429e-04
- Reference value :  4.49329e-04
- Reference value :  4.56189e-04
- Reference value :  4.69509e-04
- Reference value :  4.81529e-04
- Reference value :  4.95149e-04
- Reference value :  5.05709e-04
- Reference value :  5.19089e-04
- Reference value :  5.21809e-04
- Reference value :  5.31889e-04
- Reference value :  5.45429e-04
- Reference value :  5.58089e-04
- Reference value :  5.71609e-04
- Reference value :  5.80429e-04
- Reference value :  5.93809e-04
- Reference value :  6.07169e-04
- Reference value :  6.18389e-04
- Reference value :  6.20949e-04
- Reference value :  6.27389e-04
- Reference value :  6.40129e-04
- Reference value :  6.51789e-04
- Reference value :  6.65269e-04
- Reference value :  6.78849e-04
- Reference value :  6.90329e-04
- Reference value :  6.93049e-04
- Reference value :  6.98869e-04
- Reference value :  7.00009e-04
- Reference value :  7.02889e-04
- Reference value :  7.11129e-04
- Reference value :  7.17909e-04
- Reference value :  7.17969e-04
- Reference value :  7.20649e-04
- Reference value :  7.24729e-04
- Reference value :  7.25649e-04
- Reference value :  7.32689e-04
- Reference value :  7.46169e-04
- Reference value :  7.58149e-04
- Reference value :  7.71509e-04
- Reference value :  7.85069e-04
- Reference value :  7.92149e-04
- Reference value :  7.96349e-04
- Reference value :  8.06949e-04
- Reference value :  8.19489e-04
- Reference value :  8.19549e-04
- Reference value :  8.19629e-04
- Reference value :  8.19709e-04
- Reference value :  8.19789e-04
- Reference value :  8.19869e-04
- Reference value :  8.21109e-04
- Reference value :  8.21189e-04
- Reference value :  8.21269e-04
- Reference value :  8.21349e-04
- Reference value :  8.21429e-04
- Reference value :  8.21549e-04
- Reference value :  8.21629e-04
- Reference value :  8.25529e-04
- Reference value :  8.25609e-04
- Reference value :  8.25709e-04
- Reference value :  8.25789e-04
- Reference value :  8.25869e-04
- Reference value :  8.25929e-04
- Reference value :  8.25989e-04
- Reference value :  8.26069e-04
- Reference value :  8.26449e-04
- Reference value :  8.26509e-04
- Reference value :  8.26569e-04
- Reference value :  8.29709e-04
- Reference value :  8.31409e-04
- Reference value :  8.36589e-04
- Reference value :  8.49729e-04
- Reference value :  8.62029e-04
- Reference value :  8.74489e-04
- Reference value :  8.88089e-04
- Reference value :  9.00369e-04
- Reference value :  9.12769e-04
- Reference value :  9.13809e-04
- Reference value :  9.17329e-04
- Reference value :  9.30129e-04
- Reference value :  9.42249e-04
- Reference value :  9.54609e-04
- Reference value :  9.66229e-04
- Reference value :  9.73849e-04
- Reference value :  9.81149e-04
- Reference value :  9.94729e-04
- Reference value :  1.00251e-03
- Reference value :  1.01114e-03
- Reference value :  1.02494e-03
- Reference value :  1.03712e-03
- Reference value :  1.05068e-03
- Reference value :  1.06308e-03
- Reference value :  1.07628e-03
+ Reference value :  1.42856e-05
+ Reference value :  3.12256e-05
+ Reference value :  4.81056e-05
+ Reference value :  6.17972e-05
+ Reference value :  7.82172e-05
+ Reference value :  9.45172e-05
+ Reference value :  1.11603e-04
+ Reference value :  1.28983e-04
+ Reference value :  1.47503e-04
+ Reference value :  1.65283e-04
+ Reference value :  1.83563e-04
+ Reference value :  2.01983e-04
+ Reference value :  2.19003e-04
+ Reference value :  2.37363e-04
+ Reference value :  2.53983e-04
+ Reference value :  2.70183e-04
+ Reference value :  2.85803e-04
+ Reference value :  3.00089e-04
+ Reference value :  3.13229e-04
+ Reference value :  3.30209e-04
+ Reference value :  3.46209e-04
+ Reference value :  3.64149e-04
+ Reference value :  3.82949e-04
+ Reference value :  4.01869e-04
+ Reference value :  4.19329e-04
+ Reference value :  4.37589e-04
+ Reference value :  4.56249e-04
+ Reference value :  4.74649e-04
+ Reference value :  4.92169e-04
+ Reference value :  5.10449e-04
+ Reference value :  5.27409e-04
+ Reference value :  5.44829e-04
+ Reference value :  5.62029e-04
+ Reference value :  5.79789e-04
+ Reference value :  5.97349e-04
+ Reference value :  6.13989e-04
+ Reference value :  6.32249e-04
+ Reference value :  6.49409e-04
+ Reference value :  6.67869e-04
+ Reference value :  6.86249e-04
+ Reference value :  7.04629e-04
+ Reference value :  7.22589e-04
+ Reference value :  7.42029e-04
+ Reference value :  7.60829e-04
+ Reference value :  7.80009e-04
+ Reference value :  7.98429e-04
+ Reference value :  8.16489e-04
+ Reference value :  8.34989e-04
+ Reference value :  8.52789e-04
+ Reference value :  8.71469e-04
+ Reference value :  8.89889e-04
+ Reference value :  9.07969e-04
+ Reference value :  9.27189e-04
+ Reference value :  9.44109e-04
+ Reference value :  9.61429e-04
+ Reference value :  9.81249e-04
+ Reference value :  9.99917e-04
+ Reference value :  1.00914e-03
+ Reference value :  1.02814e-03
+ Reference value :  1.04748e-03
+ Reference value :  1.06538e-03
 No. of Data Rows : 54433
 
   Measurements for Transient Analysis
@@ -202,18 +108,18 @@ pgdgbmax            =  3.63002e+00 at=  1.00252e-03
 timafter            =  -7.50242e-04 at=  1.00287e-03
 
 
-Total analysis time (seconds) = 6.8227
+Total analysis time (seconds) = 1.97288
 
-Total elapsed time (seconds) = 6.868 
+Total elapsed time (seconds) = 2.008 
 
-Total DRAM available = 15700.234 MB.
-DRAM currently available = 8108.215 MB.
-Maximum ngspice program size =   79.531 MB.
-Current ngspice program size =   17.473 MB.
+Total DRAM available = 63253.434 MB.
+DRAM currently available = 16909.754 MB.
+Maximum ngspice program size =   82.309 MB.
+Current ngspice program size =   18.137 MB.
 
-Shared ngspice pages =    8.781 MB.
-Text (code) pages =    6.355 MB.
+Shared ngspice pages =    9.328 MB.
+Text (code) pages =    6.375 MB.
 Stack = 0 bytes.
-Library pages =   64.848 MB.
+Library pages =   64.910 MB.
 
 

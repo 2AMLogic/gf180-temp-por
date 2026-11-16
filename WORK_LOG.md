@@ -6,8 +6,32 @@ Merged PRs and closed issues from the initial 30-day snapshot (2026-09-07 onward
 
 - [2026-09](work_log/WORK_LOG_2026-09.md)
 
+### 2026-11-16
+
+- **PR #535**: layout: grow resistor SAB markers past Poly2 so SB.10 has no coincident edge
+- **PR #559**: docs: correct the via comments' false "no deck rule" claim to the deck's real via rules
+- **PR #567**: docs: refresh roadmap Now section to the 2026-11-16 anchor
+- **PR #566**: refactor(layout): draw all Via1 landing pads through _cap_via/_cap_pad
+- **PR #554**: refactor: drop four dead arguments from control deck composers and job tuples
+- **PR #498**: feat(signoff): forbid hand-written T1 verdict counts in prose
+- **PR #556**: feat(layout): draw the missing Nplus/Pplus implants on every COMP site
+- **PR #539**: refactor(sim): drop dead report.py imports from mc_report and correct its reuse docstring
+- **PR #541**: refactor(layout): delegate _m2_h/_m2_v to _cap_wire, the one fixed-width-wire primitive
+- **Issue #517** (closed): Poly resistors draw SAB coincident with Poly2: zero extension where SB.10 requires 0.22 um
+- **Issue #531** (closed): Via3/Via4 are drawn at VIA_SIDE_UM, a constant whose own comment cites only DRM V1.1/V2.1
+- **Issue #548** (closed): docs/ROADMAP.md: refresh the Now section — item 3 is already complete, and the sub-cell count disagrees with itself
+- **Issue #505** (closed): Three independent implementations of one Via1-with-landing-pads primitive in layout/build_cells.py
+- **Issue #495** (closed): README and signoff/README.md say 9 of 11 T1 items met; the committed tier report says 8
+- **Issue #502** (closed): Remove four dead arguments threaded into control-script deck composers and job tuples
+- **Issue #491** (closed): README's T1 verdict count drifts from signoff/tier-report.json, and the docs-PR path cannot carry the fix
+- **Issue #516** (closed): MOS source/drain and guard-ring COMP are drawn with no Nplus/Pplus implant (DF.12, all six cells)
+- **Issue #525** (closed): Remove three dead report.py imports from sim/harness/mc_report.py, and the docstring claim they fossilise
+- **Issue #506** (closed): _m2_h/_m2_v re-derive _cap_wire's straight-wire branches — the wire counterpart to #505's via drift
+
 ### 2026-11-15
 
+- **PR #544**: control scripts: drop arguments their workers never read
+- **Issue #522** (closed): Remove the dead name and log_dir/deck_dir arguments three control scripts thread into their workers
 - **PR #549**: test(sim): assert por-vth control fragments stay card-identical; drop two dead .params
 - **PR #547**: test: assert temp_core's drawn track nets equal its manifest ports
 - **PR #542**: layout: snap generator coordinates to the 0.005 um manufacturing grid (31,928 *.ongrid.1 violations)
