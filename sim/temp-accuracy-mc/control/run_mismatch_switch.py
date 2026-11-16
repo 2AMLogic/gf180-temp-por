@@ -164,7 +164,8 @@ def identical(a: dict[str, float], b: dict[str, float]) -> bool:
     return all(a[expr] == b[expr] for expr, _, _ in PROBES)
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
+    cliutil.parse_no_options(argv, __doc__)
     toolchain = cliutil.locate_toolchain()
     if toolchain is None:
         return cliutil.EXIT_ENVIRONMENT

@@ -38,36 +38,22 @@
     "finding_count": 0
   },
   "body_verification": {
-    "status": "unverified",
+    "status": "verified",
     "reason": null,
-    "device_classes": [
-      "nfet",
-      "pfet"
-    ],
-    "device_count": 34,
-    "findings": [
-      {
-        "class": "nfet",
-        "device_count": 18
-      },
-      {
-        "class": "pfet",
-        "device_count": 16
-      }
-    ],
-    "finding_count": 2
+    "device_classes": [],
+    "device_count": 0,
+    "findings": [],
+    "finding_count": 0
   },
-  "mismatch_count": 2,
+  "mismatch_count": 0,
   "error_count": 0,
-  "category_counts": {
-    "device.body_unverified": 2
-  },
+  "category_counts": {},
   "category_error_counts": {},
   "counts": {
     "nets": {
-      "layout": 50,
-      "reference": 50,
-      "matched": 50
+      "layout": 47,
+      "reference": 47,
+      "matched": 47
     },
     "devices": {
       "layout": 70,
@@ -75,9 +61,9 @@
       "matched": 70
     },
     "pins": {
-      "layout": 6,
-      "reference": 6,
-      "matched": 6
+      "layout": 5,
+      "reference": 5,
+      "matched": 5
     }
   },
   "device_classes": [
@@ -91,14 +77,14 @@
   ],
   "environment": {
     "engine": "klayout",
-    "engine_version": "0.30.12",
-    "layout_sha256": "b2e68f8087bcf31cb329785109e93551ecc416b6659cc7c7d7b51ef79e4cdf96",
-    "reference_sha256": "26cb27bff3a6255ac25587ea3ff791ec32fffb2451d90c922ef6ca631c43cc91",
+    "engine_version": "0.30.13",
+    "layout_sha256": "d7380cd0dcf59989d35a0e5ec64b21da808a4e5f2033b4c3f4acb2de92c3faf1",
+    "reference_sha256": "410171f7aecb25fa3ab10fd44e0753e8f95de8311726cee18ac9aad60fe5448a",
     "extracted_netlist": null
   },
   "provenance": {
     "klt_version": "0.6.0",
-    "klayout_version": "0.30.12",
+    "klayout_version": "0.30.13",
     "pdk": null,
     "deck": {
       "name": "gf180mcu",
@@ -106,47 +92,12 @@
       "released": false
     },
     "input": {
-      "content_hash": "sha256:b2e68f8087bcf31cb329785109e93551ecc416b6659cc7c7d7b51ef79e4cdf96",
+      "content_hash": "sha256:d7380cd0dcf59989d35a0e5ec64b21da808a4e5f2033b4c3f4acb2de92c3faf1",
       "role": "layout"
     },
     "klayout_version_mismatch": true
   },
-  "mismatches": [
-    {
-      "category": "device.body_unverified",
-      "severity": "warning",
-      "description": "18 NMOS device body terminal(s) were compared against the 'vsubs' deck-synthesized substrate net, not a real schematic net -- no drawn substrate-tap geometry resolved these device(s)' body terminal to a real net (see docs/cli/extract.md, \"Coverage\")",
-      "side": "layout",
-      "net": null,
-      "device": {
-        "layout": null,
-        "reference": null,
-        "class": "nfet"
-      },
-      "property": null,
-      "details": null,
-      "circuit": null,
-      "instance": null,
-      "subcircuit": null
-    },
-    {
-      "category": "device.body_unverified",
-      "severity": "warning",
-      "description": "16 PMOS device body terminal(s) were compared against an anonymous, KLayout-synthesized well net, not a real schematic net -- no drawn or derived well-tap geometry resolved these device(s)' body terminal to a real net (see docs/cli/extract.md, \"Coverage\")",
-      "side": "layout",
-      "net": null,
-      "device": {
-        "layout": null,
-        "reference": null,
-        "class": "pfet"
-      },
-      "property": null,
-      "details": null,
-      "circuit": null,
-      "instance": null,
-      "subcircuit": null
-    }
-  ],
+  "mismatches": [],
   "net_correspondence": [
     {
       "layout": "BIAS_OK",
@@ -159,7 +110,7 @@
       "pin": false
     },
     {
-      "layout": "\\$37",
+      "layout": "\\$36",
       "reference": "ER",
       "pin": false
     },
@@ -249,16 +200,6 @@
       "pin": false
     },
     {
-      "layout": "\\$38",
-      "reference": "NW1",
-      "pin": false
-    },
-    {
-      "layout": "\\$27",
-      "reference": "NWQ",
-      "pin": false
-    },
-    {
       "layout": "\\$26",
       "reference": "NZ",
       "pin": false
@@ -294,107 +235,102 @@
       "pin": true
     },
     {
-      "layout": "vsubs",
-      "reference": "VSUBS",
-      "pin": true
-    },
-    {
-      "layout": "\\$39",
+      "layout": "\\$37",
       "reference": "XR1_1",
       "pin": false
     },
     {
-      "layout": "\\$44",
+      "layout": "\\$43",
       "reference": "XR2_1",
       "pin": false
     },
     {
-      "layout": "\\$31",
+      "layout": "\\$30",
       "reference": "XR2_10",
       "pin": false
     },
     {
-      "layout": "\\$43",
+      "layout": "\\$46",
       "reference": "XR2_11",
       "pin": false
     },
     {
-      "layout": "\\$30",
+      "layout": "\\$29",
       "reference": "XR2_12",
       "pin": false
     },
     {
-      "layout": "\\$42",
+      "layout": "\\$45",
       "reference": "XR2_13",
       "pin": false
     },
     {
-      "layout": "\\$29",
+      "layout": "\\$28",
       "reference": "XR2_14",
       "pin": false
     },
     {
-      "layout": "\\$49",
+      "layout": "\\$44",
       "reference": "XR2_15",
       "pin": false
     },
     {
-      "layout": "\\$35",
+      "layout": "\\$34",
       "reference": "XR2_2",
       "pin": false
     },
     {
-      "layout": "\\$45",
+      "layout": "\\$42",
       "reference": "XR2_3",
       "pin": false
     },
     {
-      "layout": "\\$34",
+      "layout": "\\$33",
       "reference": "XR2_4",
       "pin": false
     },
     {
-      "layout": "\\$46",
+      "layout": "\\$41",
       "reference": "XR2_5",
       "pin": false
     },
     {
-      "layout": "\\$33",
+      "layout": "\\$32",
       "reference": "XR2_6",
       "pin": false
     },
     {
-      "layout": "\\$47",
+      "layout": "\\$40",
       "reference": "XR2_7",
       "pin": false
     },
     {
-      "layout": "\\$32",
+      "layout": "\\$31",
       "reference": "XR2_8",
       "pin": false
     },
     {
-      "layout": "\\$48",
+      "layout": "\\$47",
       "reference": "XR2_9",
       "pin": false
     },
     {
-      "layout": "\\$36",
+      "layout": "\\$35",
       "reference": "XRT_1",
       "pin": false
     },
     {
-      "layout": "\\$41",
+      "layout": "\\$39",
       "reference": "XRZ_1",
       "pin": false
     },
     {
-      "layout": "\\$28",
+      "layout": "\\$27",
       "reference": "XRZ_2",
       "pin": false
     },
     {
-      "layout": "\\$40",
+      "layout": "\\$38",
       "reference": "XRZ_3",
       "pin": false
     }

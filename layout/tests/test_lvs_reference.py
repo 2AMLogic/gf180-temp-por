@@ -33,6 +33,19 @@ import lvs_reference as lr  # noqa: E402
 CELL = "por_comparator_bias_okb_inv"
 
 
+def substrate_suffix(cell: str) -> set[str]:
+    """The synthetic substrate net's contribution to a declared-net set.
+
+    Only a cell whose own substrate is still synthetic declares
+    ``SUBSTRATE_NET``: #516 put implants on the three always-on cells' rings
+    and straps, so bias_core/por_comparator/por_output_chain resolve every
+    body and bulk to the real VSS and no longer declare it, exactly as
+    temp_core/temp_por_top have not since #312. The one cell left is the
+    tap-less inverter.
+    """
+    return set() if cell in lr.BODY_TIES_RESOLVED_CELLS else {lr.SUBSTRATE_NET}
+
+
 class ParsingTest(unittest.TestCase):
     def test_continuations_are_joined(self):
         text = "* comment\nXM1 d g s b nfet_03v3 L=1u\n+ W=2u nf=1\n\n.ends\n"
@@ -255,7 +268,7 @@ class BiasCoreManifestTest(ManifestReferenceTests, TopologyControlManifestTests,
             | set(bc.BIAS_CORE_PASSIVE_TRACKS)
             | {"VDD", "VSS"}
         )
-        self.assertEqual(routed | {lr.SUBSTRATE_NET}, declared)
+        self.assertEqual(routed | substrate_suffix(self.CELL), declared)
 
     def passives(self, kind=None):
         golden = (REPO_ROOT / "design" / "netlist" / "bias_core.spice").read_text()
@@ -265,7 +278,13 @@ class BiasCoreManifestTest(ManifestReferenceTests, TopologyControlManifestTests,
         return {n: c for n, c in parsed.items() if c["kind"] == kind}
 
     def res_cards(self):
-        return [card for card in lr.build_cards(self.CELL) if card.prefix == "R"]
+        return [
+            card
+            for card in lr.build_cards(
+                self.CELL, resolve_body=self.CELL in lr.BODY_TIES_RESOLVED_CELLS
+            )
+            if card.prefix == "R"
+        ]
 
     def test_the_reference_covers_every_non_mos_device_in_the_schematic(self):
         # The whole point of #90: no device in design/bias_core.sch is outside
@@ -419,7 +438,7 @@ class PorComparatorManifestTest(ManifestReferenceTests, TopologyControlManifestT
         spec = lr.CELLS[self.CELL]
         declared = set(spec["ports"]) | set(spec["internal"])
         routed = set(bc.POR_COMPARATOR_TRACKS) | {"VDD", "VSS"}
-        self.assertEqual(routed | {lr.SUBSTRATE_NET}, declared)
+        self.assertEqual(routed | substrate_suffix(self.CELL), declared)
 
     def test_bias_okb_is_a_pin_because_the_instanced_sub_cell_labels_it(self):
         # Not cosmetic: the sub-cell is reused as-is, labels included, so the
@@ -655,7 +674,7 @@ class PorOutputChainManifestTest(ManifestReferenceTests, TopologyControlManifest
         declared = set(lr.CELLS[self.CELL]["ports"]) | set(
             lr.CELLS[self.CELL]["internal"]
         )
-        self.assertEqual(mos_nets | {lr.SUBSTRATE_NET}, declared)
+        self.assertEqual(mos_nets | substrate_suffix(self.CELL), declared)
 
     def test_the_always_on_ibias_diode_is_ungated(self):
         # DR-010: at least one always-on diode-connected input must remain on
@@ -713,7 +732,7 @@ class PorOutputChainManifestTest(ManifestReferenceTests, TopologyControlManifest
         spec = lr.CELLS[self.CELL]
         declared = set(spec["ports"]) | set(spec["internal"])
         routed = set(bc.POR_OUTPUT_CHAIN_TRACKS) | {"VDD", "VSS"}
-        self.assertEqual(routed | {lr.SUBSTRATE_NET}, declared)
+        self.assertEqual(routed | substrate_suffix(self.CELL), declared)
 
     def test_the_drawn_mim_plates_are_the_golden_plate_sizes(self):
         # Plate area *is* the capacitance, so a plate drawn at a size the
@@ -783,6 +802,26 @@ class GuardTest(unittest.TestCase):
         lr.CELLS[CELL] = {**self.spec, "ports": ["BIAS_OK", lr.SUBSTRATE_NET]}
         with self.assertRaises(lr.ReferenceError):
             lr.build(CELL)
+
+    def test_undeclared_cap_plate_net_is_an_error(self):
+        # Until #269 a drawn cap's plates were synthetic per-instance nets,
+        # undeclared by construction, so the cap builder had no guard to
+        # apply. cap_plate_nets now returns the golden card's own nodes --
+        # real schematic nets the manifest is supposed to declare -- so a cap
+        # whose plate lands on a net nothing else touches (the ordinary shape
+        # for a decoupling cap) is checked like every other device's nodes.
+        spec = lr.CELLS["por_output_chain"]
+        self.addCleanup(
+            lr.CELLS.__setitem__, "por_output_chain", lr.CELLS["por_output_chain"]
+        )
+        lr.CELLS["por_output_chain"] = {
+            **spec,
+            "internal": [net for net in spec.get("internal", []) if net != "TIM"],
+        }
+        with self.assertRaises(lr.ReferenceError) as caught:
+            lr.build_cap_cards("por_output_chain")
+        self.assertIn("XCTIM", str(caught.exception))
+        self.assertIn("TIM", str(caught.exception))
 
     def test_pmos_without_a_well_assignment_is_an_error(self):
         lr.CELLS[CELL] = {**self.spec, "wells": {}}
@@ -1088,6 +1127,19 @@ class TempCoreTest(ManifestReferenceTests, ControlCoverageTests, unittest.TestCa
         with self.assertRaises(lr.ReferenceError):
             lr.resistor_segments(1.0001)
 
+    def test_every_net_the_layout_routes_is_a_net_the_reference_declares(self):
+        # Every track this cell draws is labelled, and so is a pin
+        # (_Channel.draw), so the manifest has to declare all of them. Nothing
+        # compared the two lists before #499: a net added to one and not the
+        # other surfaced only as a `klt lvs` pin mismatch after a full GDS
+        # build and extraction. Unlike the sibling cells' versions, this is a
+        # bare set equality -- no `| {lr.SUBSTRATE_NET}` and no
+        # `spec["internal"]`: temp_core is in BODY_TIES_RESOLVED_CELLS and
+        # #312 deliberately leaves vsubs undeclared, and the manifest entry
+        # has no "internal" key at all.
+        spec = lr.CELLS[self.CELL]
+        self.assertEqual(set(bc._TEMP_CORE_NETS), set(spec["ports"]))
+
 
 class TempPorTopAssemblyTest(ControlCoverageTests, unittest.TestCase):
     """``temp_por_top`` (#72) is the one manifest entry with no devices of its
@@ -1182,30 +1234,33 @@ class TempPorTopAssemblyTest(ControlCoverageTests, unittest.TestCase):
     def test_bjt_collector_and_base_resolve_independently(self):
         # #312: BODY_TIES_RESOLVED_CELLS (the substrate/collector tie) and
         # BJT_WELL_RESOLVED_CELLS (the local Nwell/base tie) are independent
-        # facts about the drawn geometry, not one flag -- bias_core's own
-        # bipolar array has no local Nwell tap even though temp_por_top's
-        # seam ring resolves its collector (and every other substrate-tied
-        # terminal) for real. Collapsing the two into one flag reproduced
-        # false device.unmatched/net.split findings against a live `klt lvs`
-        # run the first time this was tried (see BODY_TIES_RESOLVED_CELLS's
-        # own docstring for the measured extraction this encodes).
+        # facts about the drawn geometry, not one flag -- they are checked
+        # differently (per built sub-cell vs per top-level build call) and
+        # moved independently for years: pre-#516 this cell was the measured
+        # proof, bias_core's collector resolving through the seam ring while
+        # its base stayed the anonymous bjt_well net. #516 put implants on
+        # the drawn taps, and bias_core's own array ring now carries Nplus,
+        # so it resolves its base the way temp_core always has
+        # (BJT_WELL_RESOLVED_CELLS names both) -- every bipolar in this
+        # compare resolves collector and base to the same real VSS, and the
+        # manifest's NWQ net is gone from it.
         q_cards = [
             line.split()
             for line in lr.build(self.CELL).splitlines()
             if line[:1] == "Q"
         ]
-        # bias_core's 10 PNPs (AE=100P, the manifest's emitter window):
-        # collector resolves to VSS, base stays the anonymous bjt_well net.
-        bias_cards = [card for card in q_cards if card[1] == "VSS" and card[2] != "VSS"]
+        # bias_core's 10 PNPs and temp_core's 9, told apart by which
+        # instance's emitter nets they land on.
+        bias_cards = [card for card in q_cards if card[3].startswith("xbias.")]
+        temp_cards = [card for card in q_cards if card[3].startswith("xtemp.")]
         self.assertEqual(len(bias_cards), 10)
-        for card in bias_cards:
-            self.assertEqual(card[2], "xbias.NWQ")
-        # temp_core's 9 PNPs: both collector and base resolve to VSS -- it
-        # draws its own Nwell tap (BJT_WELL_RESOLVED_CELLS), independent of
-        # the assembly's own seam-ring tie.
-        temp_cards = [card for card in q_cards if card[1] == "VSS" and card[2] == "VSS"]
         self.assertEqual(len(temp_cards), 9)
         self.assertEqual(len(bias_cards) + len(temp_cards), len(q_cards))
+        # Both ties resolve for real on every one of them.
+        for card in q_cards:
+            self.assertEqual(card[1], "VSS", card)
+            self.assertEqual(card[2], "VSS", card)
+        self.assertNotIn("xbias.NWQ", {n for c in q_cards for n in c[1:4]})
 
     def test_shared_nets_are_one_net_across_instances(self):
         # The whole point of the assembly: IBIAS is one node all four
@@ -1248,8 +1303,15 @@ class TempPorTopAssemblyTest(ControlCoverageTests, unittest.TestCase):
             self.assertNotIn(net, nodes, f"{net} leaked out of its instance")
         self.assertIn("xbias.PG", nodes)
         self.assertIn("xtemp.PG", nodes)
-        self.assertIn("xcmp.NW1", nodes)
-        self.assertIn("xpor.NW1", nodes)
+        # The wells that still resolve to nothing stay dotted per instance.
+        # The tied ones do not: xbias.NW1, xcmp.NW1 and xpor.NW1 carry
+        # #516's drawn n+ VDD ties and dissolved into VDD, leaving only
+        # temp_core's two untied wells and the instanced inverter's.
+        self.assertIn("xtemp.NW1", nodes)
+        self.assertIn("xtemp.NW2", nodes)
+        self.assertIn("xcmp.NW2", nodes)
+        for resolved in ("xbias.NW1", "xbias.NW2", "xcmp.NW1", "xpor.NW1"):
+            self.assertNotIn(resolved, nodes)
 
     def test_substrate_global_is_never_prefixed(self):
         # temp_por_top is in BODY_TIES_RESOLVED_CELLS (#312): every instanced

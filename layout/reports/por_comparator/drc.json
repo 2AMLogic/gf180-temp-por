@@ -41,6 +41,8 @@
       "36/0"
     ],
     "layers_in_stream_without_rules": [
+      "31/0",
+      "32/0",
       "34/10",
       "49/0",
       "62/0",
@@ -249,7 +251,7 @@
   },
   "provenance": {
     "klt_version": "0.6.0",
-    "klayout_version": "0.30.12",
+    "klayout_version": "0.30.13",
     "pdk": null,
     "deck": {
       "name": "gf180mcu",
@@ -257,10 +259,10 @@
       "released": false
     },
     "input": {
-      "content_hash": "sha256:c60a2ef35e34d6d4e0e70ba0a9937467b37676cc94a041b325e2117d5da44412",
+      "content_hash": "sha256:f16588f1ab1483a0d0064f376ef7b7c3e21912bea10c401bbe351795ab1cca64",
       "role": "layout"
     },
     "klayout_version_mismatch": true,
-    "gds_sha256": "c60a2ef35e34d6d4e0e70ba0a9937467b37676cc94a041b325e2117d5da44412"
+    "gds_sha256": "f16588f1ab1483a0d0064f376ef7b7c3e21912bea10c401bbe351795ab1cca64"
   }
 }

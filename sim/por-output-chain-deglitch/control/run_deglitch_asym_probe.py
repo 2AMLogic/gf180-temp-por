@@ -120,6 +120,15 @@ RECORDED_RISE_US: dict[str, dict[str, float]] = {
     "ss_-40c_2.97v": {"schematic": 9.3447, "postlayout": 10.2313},
 }
 
+# Paths a re-run is allowed to dirty (see runner.git_describe): this script's
+# own outputs plus its three siblings', which share this control directory's
+# results files, decks/ and logs/.
+GENERATED = tuple(
+    str((CONTROL_DIR / n).relative_to(REPO_ROOT))
+    for n in ("results.md", "cdg_results.md", "dwell_results.md",
+              "width_results.md", "decks", "logs", "traces")
+)
+
 
 def _splice_caps(text: str, caps: list[tuple[str, str, float]], source: Path) -> str:
     """``text`` with extra capacitors inserted just before its ``.ends``."""
@@ -272,7 +281,8 @@ def analyze_edge(rows, t_edge: float, pgdg_direction: str) -> dict:
     }
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
+    cliutil.parse_no_options(argv, __doc__)
     toolchain = cliutil.locate_toolchain()
     if toolchain is None:
         return cliutil.EXIT_ENVIRONMENT
@@ -353,6 +363,7 @@ def write_results(results: dict, pdk, ngspice_version: str) -> None:
         f"- ngspice: `{ngspice_version}`",
         f"- PDK: `{pdk.variant}@{pdk.version}` ({pdk.source})",
         f"- harness: `{HARNESS_VERSION}`",
+        f"- git: `{runner.git_describe(REPO_ROOT, GENERATED)}`",
         "",
         "## The decomposition",
         "",

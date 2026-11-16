@@ -187,7 +187,7 @@ def patched_bias_core(mult: int, out_path: Path) -> Path:
 
 
 def assembly_deck(
-    pdk, options, name, dip_v, edge_ms, netlist: Path, dwell_ms=T_DWELL_MS
+    pdk, options, dip_v, edge_ms, netlist: Path, dwell_ms=T_DWELL_MS
 ) -> str:
     t_end_ms = T_DIP_MS + 2 * edge_ms + dwell_ms + 1.0
     t_dip_end_ms = T_DIP_MS + edge_ms + dwell_ms
@@ -254,7 +254,7 @@ def assembly_deck(
     return "\n".join(lines)
 
 
-def cell_deck(pdk, options, name, ibias_a) -> str:
+def cell_deck(pdk, options, ibias_a) -> str:
     t_edge_ms = 0.001
     t_dip_end_ms = T_DIP_CELL_MS + t_edge_ms + T_DWELL_MS
     deck_dir = CONTROL_DIR / "decks"
@@ -298,7 +298,8 @@ def fmt(value, digits=4, unit="", missing="—"):
     return f"{value:.{digits}f}{unit}"
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
+    cliutil.parse_no_options(argv, __doc__)
     toolchain = cliutil.locate_toolchain(need_ngspice=False)
     if toolchain is None:
         return cliutil.EXIT_ENVIRONMENT
@@ -315,17 +316,17 @@ def main() -> int:
     for depth in DEPTHS_V:
         name = f"a-depth-{depth:.2f}v"
         jobs.append(
-            (name, assembly_deck(pdk, options, name, depth, EDGE_PARENT_MS,
+            (name, assembly_deck(pdk, options, depth, EDGE_PARENT_MS,
                                  ASSEMBLY_NETLIST))
         )
     for edge in EDGES_MS:
         name = f"b-edge-{edge:g}ms"
         jobs.append(
-            (name, assembly_deck(pdk, options, name, 1.0, edge, ASSEMBLY_NETLIST))
+            (name, assembly_deck(pdk, options, 1.0, edge, ASSEMBLY_NETLIST))
         )
     for label, current in IBIAS_A:
         name = f"c-ibias-{label}"
-        jobs.append((name, cell_deck(pdk, options, name, current)))
+        jobs.append((name, cell_deck(pdk, options, current)))
     for label, mult, dwell in BOOTSTRAP:
         name = f"d-cboot-{label}"
         netlist = ASSEMBLY_NETLIST
@@ -335,7 +336,7 @@ def main() -> int:
             (
                 name,
                 assembly_deck(
-                    pdk, options, name, 1.0, EDGE_PARENT_MS, netlist,
+                    pdk, options, 1.0, EDGE_PARENT_MS, netlist,
                     dwell_ms=dwell,
                 ),
             )
@@ -346,7 +347,7 @@ def main() -> int:
             (
                 name,
                 assembly_deck(
-                    pdk, options, name, 1.0, EDGE_PARENT_MS, ASSEMBLY_NETLIST,
+                    pdk, options, 1.0, EDGE_PARENT_MS, ASSEMBLY_NETLIST,
                     dwell_ms=dwell,
                 ),
             )

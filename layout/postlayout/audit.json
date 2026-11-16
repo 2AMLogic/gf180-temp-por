@@ -11,11 +11,11 @@
         "ppolyf_u_1k": 24
       },
       "device_total": 70,
-      "parasitic_cards": 223,
+      "parasitic_cards": 301,
       "coverage": {
-        "nets_total": 50,
+        "nets_total": 47,
         "nets_with_parasitics": 47,
-        "fraction": 0.94,
+        "fraction": 1.0,
         "total_resistance_ohm": 130877.8062,
         "total_capacitance_ff": 1961.563004,
         "coupling_capacitance_ff": 0.585346,
@@ -54,13 +54,13 @@
       ],
       "provenance": {
         "klt_version": "0.6.0",
-        "klayout_version": "0.30.12",
+        "klayout_version": "0.30.13",
         "deck": {
           "name": "gf180mcu",
           "content_hash": "sha256:95c2eb9148b29ded02182aeca4222287ff57f813691d5e2f9f8d7a675f6cb637",
           "released": false
         },
-        "gds_sha256": "b2e68f8087bcf31cb329785109e93551ecc416b6659cc7c7d7b51ef79e4cdf96"
+        "gds_sha256": "d7380cd0dcf59989d35a0e5ec64b21da808a4e5f2033b4c3f4acb2de92c3faf1"
       },
       "lvs_status": "match"
     },
@@ -72,13 +72,13 @@
         "ppolyf_u_1k": 3
       },
       "device_total": 21,
-      "parasitic_cards": 81,
+      "parasitic_cards": 101,
       "coverage": {
-        "nets_total": 18,
+        "nets_total": 16,
         "nets_with_parasitics": 15,
-        "fraction": 0.8333,
-        "total_resistance_ohm": 18283.0024,
-        "total_capacitance_ff": 526.365705,
+        "fraction": 0.9375,
+        "total_resistance_ohm": 18283.0924,
+        "total_capacitance_ff": 526.504287,
         "coupling_capacitance_ff": 0.056665,
         "distributed_rc": false,
         "critical_nets": []
@@ -109,13 +109,13 @@
       ],
       "provenance": {
         "klt_version": "0.6.0",
-        "klayout_version": "0.30.12",
+        "klayout_version": "0.30.13",
         "deck": {
           "name": "gf180mcu",
           "content_hash": "sha256:95c2eb9148b29ded02182aeca4222287ff57f813691d5e2f9f8d7a675f6cb637",
           "released": false
         },
-        "gds_sha256": "c60a2ef35e34d6d4e0e70ba0a9937467b37676cc94a041b325e2117d5da44412"
+        "gds_sha256": "f16588f1ab1483a0d0064f376ef7b7c3e21912bea10c401bbe351795ab1cca64"
       },
       "lvs_status": "match"
     },
@@ -127,11 +127,11 @@
         "cap_mim_2f0_m4m5_noshield": 5
       },
       "device_total": 33,
-      "parasitic_cards": 131,
+      "parasitic_cards": 159,
       "coverage": {
-        "nets_total": 20,
+        "nets_total": 18,
         "nets_with_parasitics": 18,
-        "fraction": 0.9,
+        "fraction": 1.0,
         "total_resistance_ohm": 66418.3371,
         "total_capacitance_ff": 901.404814,
         "coupling_capacitance_ff": 81.195487,
@@ -161,13 +161,13 @@
       ],
       "provenance": {
         "klt_version": "0.6.0",
-        "klayout_version": "0.30.12",
+        "klayout_version": "0.30.13",
         "deck": {
           "name": "gf180mcu",
           "content_hash": "sha256:95c2eb9148b29ded02182aeca4222287ff57f813691d5e2f9f8d7a675f6cb637",
           "released": false
         },
-        "gds_sha256": "25943ef873ddc2800a6108ed59bff2a8e6d5bdfb3fd1f435a6609c8156aef538"
+        "gds_sha256": "79a1439bdf87109c1b599bcd1a7cccd46b15037fa5eccbbce233f0b3c0c39a52"
       },
       "lvs_status": "match"
     },
@@ -218,13 +218,13 @@
       ],
       "provenance": {
         "klt_version": "0.6.0",
-        "klayout_version": "0.30.12",
+        "klayout_version": "0.30.13",
         "deck": {
           "name": "gf180mcu",
           "content_hash": "sha256:95c2eb9148b29ded02182aeca4222287ff57f813691d5e2f9f8d7a675f6cb637",
           "released": false
         },
-        "gds_sha256": "360bbbea3f0659324430beb69c19ecee30d818111f6f00cfa62845932d7862a7"
+        "gds_sha256": "a3a3b2fc54b0d88a42857c5b91a04fe394bedc3d81f75974a26fbe76fb51ae2e"
       },
       "lvs_status": "match"
     },
@@ -239,13 +239,13 @@
         "ppolyf_u_1k": 27
       },
       "device_total": 239,
-      "parasitic_cards": 1033,
+      "parasitic_cards": 1078,
       "coverage": {
-        "nets_total": 143,
+        "nets_total": 139,
         "nets_with_parasitics": 136,
-        "fraction": 0.951,
-        "total_resistance_ohm": 283442.9881,
-        "total_capacitance_ff": 7165.772513,
+        "fraction": 0.9784,
+        "total_resistance_ohm": 283443.0707,
+        "total_capacitance_ff": 7165.911095,
         "coupling_capacitance_ff": 85.089052,
         "distributed_rc": false,
         "critical_nets": []
@@ -288,13 +288,13 @@
       ],
       "provenance": {
         "klt_version": "0.6.0",
-        "klayout_version": "0.30.12",
+        "klayout_version": "0.30.13",
         "deck": {
           "name": "gf180mcu",
           "content_hash": "sha256:95c2eb9148b29ded02182aeca4222287ff57f813691d5e2f9f8d7a675f6cb637",
           "released": false
         },
-        "gds_sha256": "a119a12b1fa2daff64772a4a804a0ea14f17c68dc9357fe167dfd287df0628fd"
+        "gds_sha256": "4993fed4b8c7d8921bc17f4b1efe1314215fc0f41f00d4eaec7b58fa6b42de91"
       },
       "lvs_status": "match"
     }
