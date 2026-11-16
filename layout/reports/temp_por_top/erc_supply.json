@@ -4558,7 +4558,7 @@
         "drawn_tap_area_um2": 36502.2,
         "uncovered_tap_area_um2": 8845.7,
         "uncovered_tap_fraction": 0.242333,
-        "extent_uncovered_fraction": 0.973681
+        "extent_uncovered_fraction": 0.973707
       }
     ]
   },
@@ -4569,7 +4569,7 @@
     "pdk": null,
     "deck": null,
     "input": {
-      "content_hash": "sha256:c7e4c0f4a552977d02e4556b132ef4079a112f3561678590c1b74f64d6702561",
+      "content_hash": "sha256:4993fed4b8c7d8921bc17f4b1efe1314215fc0f41f00d4eaec7b58fa6b42de91",
       "role": "layout"
     },
     "spec": {

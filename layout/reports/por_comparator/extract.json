@@ -5,11 +5,11 @@
   "top": "por_comparator",
   "dbu_um": 0.001,
   "netlist_path": "layout/reports/por_comparator/extracted.spice",
-  "netlist_sha256": "8b17ddbb3bb07925b48458f171c3976b64a34460637cc3f65548365cca53eeed",
+  "netlist_sha256": "63798a712b94956d0626f6b6f5dd047398fbca7198140f4b5c6da30c57cca5ff",
   "status": "extracted",
   "device_count": 21,
-  "net_count": 18,
-  "pin_count": 8,
+  "net_count": 16,
+  "pin_count": 7,
   "device_counts": {
     "nfet": 12,
     "pfet": 6,
@@ -51,7 +51,7 @@
         "s": "VSS",
         "g": "\\$12",
         "d": "\\$9",
-        "b": "vsubs"
+        "b": "VSS"
       },
       "params": {
         "l_um": 10.0,
@@ -70,7 +70,7 @@
         "s": "VSS",
         "g": "BIAS_OKB",
         "d": "\\$12",
-        "b": "vsubs"
+        "b": "VSS"
       },
       "params": {
         "l_um": 0.5,
@@ -89,7 +89,7 @@
         "s": "VSS",
         "g": "BIAS_OKB",
         "d": "\\$5",
-        "b": "vsubs"
+        "b": "VSS"
       },
       "params": {
         "l_um": 1.0,
@@ -108,7 +108,7 @@
         "s": "VSS",
         "g": "\\$7",
         "d": "\\$14",
-        "b": "vsubs"
+        "b": "VSS"
       },
       "params": {
         "l_um": 0.5,
@@ -127,7 +127,7 @@
         "s": "VDD",
         "g": "\\$5",
         "d": "\\$7",
-        "b": "\\$16"
+        "b": "VDD"
       },
       "params": {
         "l_um": 0.5,
@@ -146,7 +146,7 @@
         "s": "VDD",
         "g": "\\$7",
         "d": "POR_RAW",
-        "b": "\\$16"
+        "b": "VDD"
       },
       "params": {
         "l_um": 0.5,
@@ -165,7 +165,7 @@
         "s": "\\$3",
         "g": "\\$4",
         "d": "\\$4",
-        "b": "\\$16"
+        "b": "VDD"
       },
       "params": {
         "l_um": 1.0,
@@ -184,7 +184,7 @@
         "s": "\\$3",
         "g": "\\$4",
         "d": "\\$5",
-        "b": "\\$16"
+        "b": "VDD"
       },
       "params": {
         "l_um": 1.0,
@@ -203,7 +203,7 @@
         "s": "VDD",
         "g": "BIAS_OKB",
         "d": "\\$3",
-        "b": "\\$16"
+        "b": "VDD"
       },
       "params": {
         "l_um": 0.5,
@@ -222,7 +222,7 @@
         "s": "VDD",
         "g": "BIAS_OK",
         "d": "BIAS_OKB",
-        "b": "\\$17"
+        "b": "\\$16"
       },
       "params": {
         "l_um": 0.5,
@@ -245,7 +245,7 @@
       "nets": {
         "a": "\\$14",
         "b": "\\$10",
-        "w": "vsubs"
+        "w": "VSS"
       },
       "params": {
         "r_ohm": 3384615.0,
@@ -263,7 +263,7 @@
         "s": "VSS",
         "g": "BIAS_OKB",
         "d": "IBIAS",
-        "b": "vsubs"
+        "b": "VSS"
       },
       "params": {
         "l_um": 1.0,
@@ -281,7 +281,7 @@
       "nets": {
         "a": "VSS",
         "b": "\\$14",
-        "w": "vsubs"
+        "w": "VSS"
       },
       "params": {
         "r_ohm": 387500.0,
@@ -298,7 +298,7 @@
       "nets": {
         "a": "\\$10",
         "b": "VDD",
-        "w": "vsubs"
+        "w": "VSS"
       },
       "params": {
         "r_ohm": 3948720.0,
@@ -316,7 +316,7 @@
         "s": "VSS",
         "g": "\\$5",
         "d": "\\$7",
-        "b": "vsubs"
+        "b": "VSS"
       },
       "params": {
         "l_um": 0.5,
@@ -335,7 +335,7 @@
         "s": "VSS",
         "g": "\\$7",
         "d": "POR_RAW",
-        "b": "vsubs"
+        "b": "VSS"
       },
       "params": {
         "l_um": 0.5,
@@ -354,7 +354,7 @@
         "s": "VSS",
         "g": "BIAS_OK",
         "d": "BIAS_OKB",
-        "b": "vsubs"
+        "b": "VSS"
       },
       "params": {
         "l_um": 0.5,
@@ -378,7 +378,7 @@
         "s": "\\$9",
         "g": "\\$10",
         "d": "\\$4",
-        "b": "vsubs"
+        "b": "VSS"
       },
       "params": {
         "l_um": 1.0,
@@ -397,7 +397,7 @@
         "s": "\\$9",
         "g": "VREF",
         "d": "\\$5",
-        "b": "vsubs"
+        "b": "VSS"
       },
       "params": {
         "l_um": 1.0,
@@ -416,7 +416,7 @@
         "s": "VSS",
         "g": "\\$12",
         "d": "IBIAS",
-        "b": "vsubs"
+        "b": "VSS"
       },
       "params": {
         "l_um": 2.0,
@@ -435,7 +435,7 @@
         "s": "\\$12",
         "g": "BIAS_OK",
         "d": "IBIAS",
-        "b": "vsubs"
+        "b": "VSS"
       },
       "params": {
         "l_um": 0.5,
@@ -508,7 +508,7 @@
     {
       "name": "VDD",
       "pin": true,
-      "device_count": 5,
+      "device_count": 10,
       "net_id": 2,
       "pin_index": 4,
       "label_positions_um": [
@@ -541,8 +541,8 @@
     {
       "name": "VSS",
       "pin": true,
-      "device_count": 10,
-      "net_id": 1,
+      "device_count": 25,
+      "net_id": 17,
       "pin_index": 6,
       "label_positions_um": [
         {
@@ -584,16 +584,8 @@
     {
       "name": "\\$16",
       "pin": false,
-      "device_count": 5,
-      "net_id": 16,
-      "pin_index": null,
-      "label_positions_um": []
-    },
-    {
-      "name": "\\$17",
-      "pin": false,
       "device_count": 1,
-      "net_id": 17,
+      "net_id": 16,
       "pin_index": null,
       "label_positions_um": []
     },
@@ -636,20 +628,12 @@
       "net_id": 9,
       "pin_index": null,
       "label_positions_um": []
-    },
-    {
-      "name": "vsubs",
-      "pin": true,
-      "device_count": 15,
-      "net_id": 18,
-      "pin_index": 7,
-      "label_positions_um": []
     }
   ],
   "warnings": [
     "12 poly-layer shapes not part of any recognised nfet/pfet gate touch contact at 2+ separate points (the resistor-body signature) and carry no resistor-marker layer at all; this deck may not model the device class drawn here, and its terminals have been absorbed into ordinary interconnect as an unintended short -- see docs/cli/extract.md's 'Known limitation: unmodelled device geometry'.",
     "promoted 2 net(s) to top-level pins from label(s) found only below the top cell (inside instanced sub-cells): BIAS_OK, BIAS_OKB -- these are internal nodes once instanced; pass top_cell_pins_only (--top-cell-pins) to keep them internal (issue #291)",
-    "6 PMOS devices tie their body to an anonymous net with no DC bias path -- no drawn (or derivable) well tie connects this PMOS body to a real supply rail on this layout, so it is left floating rather than tied to a real supply rail; resimulating this netlist directly will not reproduce the schematic-level PMOS body bias -- see unbiased_pmos_body_nets[] for the full list. See docs/cli/extract.md's 'Parasitic (RC) extraction' section.",
+    "1 PMOS device tie their body to an anonymous net with no DC bias path -- no drawn (or derivable) well tie connects this PMOS body to a real supply rail on this layout, so it is left floating rather than tied to a real supply rail; resimulating this netlist directly will not reproduce the schematic-level PMOS body bias -- see unbiased_pmos_body_nets[] for the full list. See docs/cli/extract.md's 'Parasitic (RC) extraction' section.",
     "1 net connect to exactly one device terminal -- source/drain/body/resistor-equivalent, not a gate -- and are not a declared pin; this can be a legitimate single-terminal tie (e.g. an intentionally unterminated dummy's diffusion tie), but confirm these nets have no other intended connectivity -- see single_terminal_nets[] for the full list."
   ],
   "black_box_regions": [],
@@ -768,33 +752,13 @@
   "voltage_domain_warnings": [],
   "unbiased_pmos_body_nets": [
     {
-      "device": "$13",
-      "net": "\\$16"
-    },
-    {
-      "device": "$14",
-      "net": "\\$16"
-    },
-    {
-      "device": "$15",
-      "net": "\\$16"
-    },
-    {
-      "device": "$16",
-      "net": "\\$16"
-    },
-    {
-      "device": "$17",
-      "net": "\\$16"
-    },
-    {
       "device": "$18",
-      "net": "\\$17"
+      "net": "\\$16"
     }
   ],
   "single_terminal_nets": [
     {
-      "net": "\\$17",
+      "net": "\\$16",
       "device": "$18",
       "terminal": "b",
       "terminal_kind": "body"
@@ -813,17 +777,17 @@
       "released": false
     },
     "input": {
-      "content_hash": "sha256:3e3e22745affc61415973d4368a28b1984e30a7dad0772f21a0e4baef02f8dbe",
+      "content_hash": "sha256:f16588f1ab1483a0d0064f376ef7b7c3e21912bea10c401bbe351795ab1cca64",
       "role": "layout"
     },
-    "gds_sha256": "3e3e22745affc61415973d4368a28b1984e30a7dad0772f21a0e4baef02f8dbe"
+    "gds_sha256": "f16588f1ab1483a0d0064f376ef7b7c3e21912bea10c401bbe351795ab1cca64"
   },
   "parasitics": null,
   "spef_path": null,
   "subcircuit": null,
   "metrics": {
     "extract__device__count": 21,
-    "extract__net__count": 18,
-    "extract__pin__count": 8
+    "extract__net__count": 16,
+    "extract__pin__count": 7
   }
 }
