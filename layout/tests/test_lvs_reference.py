@@ -229,8 +229,8 @@ class GoldenNetlistTests:
     so no subclass restates the read idiom. ``golden_text()`` returns the raw
     netlist text; ``golden()`` returns the parsed MOS devices. Deriving the
     path from ``CELL`` is the point: a class that hardcoded its own cell name
-    kept asserting against the old cell's netlist after a ``CELL`` retarget,
-    and every assertion still passed -- nothing caught the drift."""
+    compared a retargeted manifest against the previous cell's golden text,
+    so each such assertion stopped asserting its own cell."""
 
     def golden_text(self):
         return (REPO_ROOT / "design" / "netlist" / f"{self.CELL}.spice").read_text()
