@@ -8,6 +8,12 @@ Merged PRs and closed issues from the initial 30-day snapshot (2026-09-07 onward
 
 ### 2026-11-16
 
+- **PR #561**: fix: run the deglitch controls on the star extraction — CDG regex, citations, design-doc reconciliation
+- **PR #571**: test: require the emitted - git: literal in the provenance wiring detector
+- **PR #564**: refactor(layout-tests): one golden-netlist accessor and one MiM-cap mixin instead of per-class copies
+- **Issue #533** (closed): Regenerate the three deglitch control files against the star extraction: one script is broken, two files' numbers (and one verdict) moved
+- **Issue #537** (closed): test_control_git_provenance.py checks that git_describe is wired, not that a `- git:` line reaches the provenance block
+- **Issue #500** (closed): Dedupe the golden-netlist read and the MiM-cap test block in layout/tests/test_lvs_reference.py
 - **PR #535**: layout: grow resistor SAB markers past Poly2 so SB.10 has no coincident edge
 - **PR #559**: docs: correct the via comments' false "no deck rule" claim to the deck's real via rules
 - **PR #567**: docs: refresh roadmap Now section to the 2026-11-16 anchor
