@@ -241,32 +241,24 @@ class UsAfterDipTests(unittest.TestCase):
 # unrecognized flag. The contract now: ``--help`` prints usage and exits 0,
 # an unrecognized flag prints usage and exits non-zero, and neither ever
 # reaches the sweep.
+#
+# Since #546 the covered set is discovered by globbing, not maintained: the
+# lists this section once carried had fallen five scripts behind reality.
 # --------------------------------------------------------------------------
 
-#: The control entry points that take no options at all. Order and membership
-#: mirror the issue's affected-files list; a new unparsed control script must
-#: be added here (and call ``cliutil.parse_no_options`` first in ``main()``).
-NO_OPTIONS_SCRIPTS = [
-    "bias-core-designer-check/control/run_starved_window.py",
-    "bias-core-startup/control/run_gmin_control.py",
-    "bias-core-startup/control/run_ok_dip_decay.py",
-    "por-brownout/control/run_dip_rootcause.py",
-    "por-brownout/control/run_recovery_reassert.py",
-    "por-glitch/control/run_depth_sweep.py",
-    "por-glitch/control/run_glitch_probe.py",
-    "por-output-chain-deglitch/control/run_cdg_tradeoff.py",
-    "por-output-chain-deglitch/control/run_deglitch_asym_probe.py",
-    "por-output-chain-deglitch/control/run_glitch_width_sweep.py",
-    "por-ramp-rate/control/run_chatter_probe.py",
-    "temp-accuracy-mc/control/run_mismatch_switch.py",
-]
-
-#: The control entry points whose one option is ``--report-only``.
-REPORT_ONLY_SCRIPTS = [
-    "por-brownout-slew/control/run_band_mechanism.py",
-    "por-brownout-slew/control/run_por_edge_check.py",
-    "por-brownout-slew/control/run_postlayout_margin.py",
-]
+#: Every control entry point, discovered rather than maintained (#546): a new
+#: ``sim/*/control/run_*.py`` is covered the moment it is committed, with no
+#: edit to this file. ``--help`` exits 0 and an unrecognized flag exits
+#: non-zero are argparse behaviour, so one pair of assertions holds for every
+#: script regardless of which real options it declares.
+def _control_scripts() -> list[Path]:
+    scripts = sorted(SIM_DIR.glob("*/control/run_*.py"))
+    if not scripts:
+        raise AssertionError(
+            "glob '*/control/run_*.py' matched nothing under sim/ -- "
+            "the argv contract is covering nothing"
+        )
+    return scripts
 
 
 def _tree_state(dirs: list[Path]) -> dict[str, tuple[int, int]]:
@@ -345,7 +337,7 @@ class ParseNoOptionsUnitTests(unittest.TestCase):
 
 
 class ControlArgvContractTests(unittest.TestCase):
-    """The real ``__main__`` path of every covered control script.
+    """The real ``__main__`` path of every control script the glob finds.
 
     Each invocation is a ``subprocess`` from a temp CWD, so the committed
     script is exercised, not an in-process import of it. No test here ever
@@ -357,8 +349,7 @@ class ControlArgvContractTests(unittest.TestCase):
     ``ParseNoOptionsUnitTests.test_empty_argv_is_accepted`` instead.
     """
 
-    def _run(self, rel: str, *argv: str) -> subprocess.CompletedProcess:
-        script = SIM_DIR / rel
+    def _run(self, script: Path, *argv: str) -> subprocess.CompletedProcess:
         control = script.parent
         watch = [control / "decks", control / "logs"]
         before = _tree_state(watch)
@@ -374,20 +365,21 @@ class ControlArgvContractTests(unittest.TestCase):
         return proc
 
     def test_help_prints_usage_and_exits_zero_without_simulating(self):
-        for rel in NO_OPTIONS_SCRIPTS + REPORT_ONLY_SCRIPTS:
-            with self.subTest(script=rel):
-                proc = self._run(rel, "--help")
+        for script in _control_scripts():
+            with self.subTest(script=script.relative_to(SIM_DIR)):
+                proc = self._run(script, "--help")
                 self.assertEqual(proc.returncode, 0, proc.stderr)
                 self.assertIn("usage:", proc.stdout)
 
     def test_an_unrecognized_flag_exits_nonzero_without_simulating(self):
         """The #512 hazard: this used to be the path that started the sweep."""
-        for rel in NO_OPTIONS_SCRIPTS + REPORT_ONLY_SCRIPTS:
-            with self.subTest(script=rel):
-                proc = self._run(rel, "--nope")
+        for script in _control_scripts():
+            with self.subTest(script=script.relative_to(SIM_DIR)):
+                proc = self._run(script, "--nope")
                 self.assertNotEqual(
                     proc.returncode, 0,
-                    f"{rel} ignored --nope and would have run the sweep",
+                    f"{script.relative_to(SIM_DIR)} ignored --nope and "
+                    "would have run the sweep",
                 )
                 self.assertIn("unrecognized arguments", proc.stderr)
 
