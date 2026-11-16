@@ -1344,11 +1344,7 @@ def build_cards(cell: str, rename=None, resolve_body: bool = False) -> list[Card
             well_of[member] = well
 
     ports = list(spec["ports"])
-    known_nets = (
-        set(ports) | set(spec.get("wells", {})) | set(spec.get("internal", []))
-    )
-    if spec.get("bjt_well"):
-        known_nets.add(spec["bjt_well"])
+    known_nets = declared_nets(spec)
 
     fingers = spec.get("fingers", {})
 
@@ -1629,6 +1625,23 @@ def require_unit_multiplier(cell: str, name: str, device: dict) -> None:
         )
 
 
+def declared_nets(spec: dict) -> set[str]:
+    """Every net a manifest entry declares: ports | wells | internal | bjt_well.
+
+    The one place this set is built (the ``CELLS`` comment explains what
+    belongs in each list), so every :func:`require_declared_nets` guard in a
+    build answers the same manifest. A future manifest key that declares a net
+    belongs here. :func:`build_renames`' block-net check is deliberately a
+    separate guard over a narrower set (ratified ports | ``internal``), not a
+    site this helper missed.
+    """
+    nets = set(spec["ports"]) | set(spec.get("wells", {}))
+    nets |= set(spec.get("internal", []))
+    if spec.get("bjt_well"):
+        nets.add(spec["bjt_well"])
+    return nets
+
+
 def require_declared_nets(
     cell: str, name: str, nets: Iterable[str], known_nets: set[str]
 ) -> None:
@@ -1645,7 +1658,7 @@ def require_declared_nets(
     if unknown:
         raise ReferenceError(
             f"{cell}: {name} touches undeclared net(s) {', '.join(unknown)} "
-            "-- add them to the manifest's ports/wells/internal"
+            "-- add them to the manifest's ports/wells/internal/bjt_well"
         )
 
 
@@ -1767,10 +1780,10 @@ def build_cap_cards(
     *after* the plate-net guard below, so assembling a cell cannot launder an
     undeclared plate net either. ``known_nets`` is the declared-net set the
     plate nets are checked against (:func:`require_declared_nets`):
-    :func:`build_cards` threads the set it derives for its own guards, so the
+    :func:`build_cards` threads the set :func:`declared_nets` gives it, so the
     cap guard can never see a different manifest than the rest of the build;
-    called without one (the per-cell tests are) it is derived from this
-    cell's own manifest exactly the same way.
+    called without one (the per-cell tests are) the same helper derives it from
+    this cell's own manifest -- one derivation on both paths, by construction.
 
     Every card also declares ``A``/``P`` -- the recognised plate overlap's
     area (um^2) and perimeter (um) -- because the pinned deck's
@@ -1788,16 +1801,7 @@ def build_cap_cards(
     if not names:
         return []
     if known_nets is None:
-        # The same set build_cards derives for its own guards (the CELLS
-        # comment explains what belongs in each list); a caller holding one
-        # passes it, so every guard in one build answers the same manifest.
-        known_nets = (
-            set(spec["ports"])
-            | set(spec.get("wells", {}))
-            | set(spec.get("internal", []))
-        )
-        if spec.get("bjt_well"):
-            known_nets.add(spec["bjt_well"])
+        known_nets = declared_nets(spec)
     source = NETLIST_DIR / spec["source"]
     caps = parse_capacitors(subckt_body(source.read_text(), spec["subckt"]))
 

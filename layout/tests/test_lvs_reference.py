@@ -865,6 +865,39 @@ class GuardTest(unittest.TestCase):
         self.assertIn("XCTIM", str(caught.exception))
         self.assertIn("TIM", str(caught.exception))
 
+    def test_declared_nets_is_the_one_set_every_guard_checks(self):
+        # The threaded path (build_cards) and the build_cap_cards fallback
+        # both take their operand from declared_nets, so they cannot drift.
+        for cell, spec in lr.CELLS.items():
+            with self.subTest(cell=cell):
+                expected = (
+                    set(spec["ports"])
+                    | set(spec.get("wells", {}))
+                    | set(spec.get("internal", []))
+                )
+                if spec.get("bjt_well"):
+                    expected.add(spec["bjt_well"])
+                self.assertEqual(lr.declared_nets(spec), expected)
+                seen = []
+                real = lr.require_declared_nets
+
+                def spy(cell_, name, nets, known_nets, _seen=seen, _real=real):
+                    _seen.append(set(known_nets))
+                    return _real(cell_, name, nets, known_nets)
+
+                with unittest.mock.patch.object(lr, "require_declared_nets", spy):
+                    lr.build_cap_cards(cell)
+                for known in seen:
+                    self.assertEqual(known, expected)
+
+    def test_undeclared_net_hint_names_bjt_well(self):
+        for cell in ("bias_core", "temp_core"):
+            with self.subTest(cell=cell):
+                self.assertTrue(lr.CELLS[cell].get("bjt_well"))
+                with self.assertRaises(lr.ReferenceError) as caught:
+                    lr.require_declared_nets(cell, "XQ1", ["NOPE"], set())
+                self.assertIn("bjt_well", str(caught.exception))
+
     def test_pmos_without_a_well_assignment_is_an_error(self):
         lr.CELLS[CELL] = {**self.spec, "wells": {}}
         with self.assertRaises(lr.ReferenceError):
