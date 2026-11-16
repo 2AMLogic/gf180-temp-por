@@ -117,7 +117,7 @@ def compose_deck(pdk, netlist: Path, corner_name: str, temp_c: float, options: l
 
 
 def run_one(job):
-    pdk, options, deck_dir, log_dir, net_name, netlist, corner_name, temp_c = job
+    pdk, options, net_name, netlist, corner_name, temp_c = job
     name = f"dip-{net_name}-{corner_name}_{int(temp_c)}c"
     output = runner.run_deck_raw(
         name, compose_deck(pdk, netlist, corner_name, temp_c, options), CONTROL_DIR
@@ -143,7 +143,7 @@ def main(argv: list[str] | None = None) -> int:
     log_dir.mkdir(exist_ok=True)
 
     jobs = [
-        (pdk, options, deck_dir, log_dir, net_name, netlist, corner_name, temp_c)
+        (pdk, options, net_name, netlist, corner_name, temp_c)
         for net_name, netlist, _ in NETLISTS
         for corner_name, temp_c, _ in POINTS
     ]

@@ -784,9 +784,12 @@ def _cap_wire(
     """A Manhattan wire on ``spec`` from ``(x0, y0)`` to ``(x1, y1)`` -- one
     straight box if the two points already share an x or y (a single point,
     if they share both), an "L" (vertical leg then horizontal) otherwise.
-    Every MiM plate route below is a short chain of these, one per metal
-    level, so a via at either end always lands inside the wire that carries
-    it rather than needing its own separate pad.
+    ``width`` is the wire's **full** width, not a half of it, so a
+    half-width constant must be doubled before it is handed here.
+    This is the file's one fixed-width-wire primitive: the MiM plate routes
+    below and ``temp_core``'s field routing alike are short chains of these,
+    one per metal level, so a via at either end always lands inside the wire
+    that carries it rather than needing its own separate pad.
     """
     half = width / 2.0
     if x0 == x1 and y0 == y1:
@@ -3232,11 +3235,11 @@ _MIM_ISLAND_XY = (210.0, 59.5)
 
 
 def _m2_h(b: CellBuilder, x0: float, x1: float, y: float) -> None:
-    b.box(METAL2, min(x0, x1), y - _M2_HALF, max(x0, x1), y + _M2_HALF)
+    _cap_wire(b, METAL2, x0, y, x1, y, width=_M2_HALF * 2.0)
 
 
 def _m2_v(b: CellBuilder, x: float, y0: float, y1: float) -> None:
-    b.box(METAL2, x - _M2_HALF, min(y0, y1), x + _M2_HALF, max(y0, y1))
+    _cap_wire(b, METAL2, x, y0, x, y1, width=_M2_HALF * 2.0)
 
 
 def _m1_to_m2(b: CellBuilder, x: float, y: float) -> None:
