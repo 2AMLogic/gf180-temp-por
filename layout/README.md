@@ -397,7 +397,19 @@ summarises all four.
 python3 layout/postlayout.py --extract   # re-run klt (needs klt + the deck)
 python3 layout/postlayout.py             # regenerate layout/postlayout/
 python3 layout/postlayout.py --check     # committed artifacts current? (stdlib only)
+python3 sim/build_tb.py                  # regenerate the sim/ fragments that
+                                         # inline a postlayout/*.spice verbatim
+                                         # (CI gates this with --check; see
+                                         # sim/README.md)
 ```
+
+The last line is part of the layout regen checklist, not a sim/ concern:
+every `sim/*/testbench-postlayout/` fragment inlines its
+`layout/postlayout/<cell>.spice` source with the source's sha256 in its
+header, so a regenerated export leaves those fragments stale until
+`sim/build_tb.py` rewrites them. The hand-forked exception is
+`sim/temp-core-loop-stability/testbench-postlayout/`, which
+`sim/tests/test_postlayout_forks.py` guards instead.
 
 ### How it is built, and why there is a build step at all
 

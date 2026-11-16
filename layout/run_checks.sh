@@ -29,6 +29,12 @@
 # two controls fail independently (klayout-tools docs/cli/lvs.md, "Negative
 # controls"), so passing all three is what makes the clean run mean something.
 #
+# One downstream gate lives outside layout/: every
+# sim/*/testbench-postlayout/ fragment inlines a layout/postlayout/<cell>.spice
+# verbatim (source sha256 in its header), so once a regenerated layout moves
+# those exports, finish with `python3 sim/build_tb.py` — CI's
+# `sim/build_tb.py --check` step fails on the stale fragments otherwise.
+#
 # Every JSON report is written under layout/reports/ and committed as evidence.
 # The script is the single source of truth for the invocation -- prose in
 # layout/README.md describes it, but this file is what gets run.
