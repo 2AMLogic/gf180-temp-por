@@ -413,6 +413,23 @@ def toolchain_pin_version() -> str:
     return json.loads(TOOLCHAIN.read_text())["klt"]["release"]["package_version"]
 
 
+def klt_install_hint() -> str:
+    """The pinned grader's install command: signoff/toolchain.json ``klt.install``.
+
+    Single-sourced so a pin bump cannot leave a stale install hint in this
+    file. When the JSON is unreadable, malformed, or lacks ``klt.install``,
+    fall back to the last-known literal: the missing-``klt`` guard must
+    still print a usable hint, never a traceback.
+    """
+    try:
+        hint = json.loads(TOOLCHAIN.read_text())["klt"]["install"]
+        if isinstance(hint, str) and hint.strip():
+            return hint
+    except (OSError, ValueError, KeyError):
+        pass
+    return "uv tool install --force 'klayout-tools[yield]==0.9.1'"
+
+
 def check_toolchain_pin(klt: str = "klt") -> None:
     """Warn -- never fail -- when the grader in use is not the pinned one."""
     try:
@@ -655,7 +672,7 @@ def main(argv: list[str] | None = None) -> int:
     if shutil.which(klt) is None:
         fail(
             f"klt is not on PATH ({klt!r}). Install the pinned grader:\n"
-            "       uv tool install --force 'klayout-tools[yield]==0.9.1'\n"
+            f"       {klt_install_hint()}\n"
             "     or, without touching the host: python3 signoff/check.py --klt-pin\n"
             "     (see signoff/toolchain.json for why this pin is separate "
             "from layout/toolchain.json's)"
