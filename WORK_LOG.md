@@ -8,6 +8,14 @@ Merged PRs and closed issues from the initial 30-day snapshot (2026-09-07 onward
 
 ### 2026-11-16
 
+- **PR #593**: Harden SAB geometry: SB.2 budget assert, MFG_GRID_UM snap, marker-containment test
+- **PR #591**: docs: name the extraction generation behind run_glitch_width_sweep.py's 2.54 V figure
+- **PR #589**: fix(signoff): move test_check __main__ guard to end of file
+- **PR #588**: docs(signoff): attribute `blocking_item` to `klt signoff --fleet`, not tier-report.json
+- **Issue #568** (closed): SAB-overhang invariant from #517 is thinner than its own comments claim: no SB.2 assert in _resistor_string(), a duplicated grid literal, and no unit test
+- **Issue #563** (closed): run_glitch_width_sweep.py's docstring cites a pre-star record figure without naming the generation
+- **Issue #527** (closed): signoff/tests/test_check.py: ProseCountTest sits after the __main__ guard, so direct execution reports OK on 39 of 57 tests
+- **Issue #528** (closed): signoff/README.md cites a tier-report.json 'blocking_item' field that does not exist, next to a hand-written 'first unmet item is now 5'
 - **PR #586**: test: discover control scripts by glob in the argv-contract guard
 - **PR #584**: signoff: re-stamp tier-report build provenance with pinned klt 0.9.1
 - **PR #583**: refactor: draw the por_comparator Metal2 divider trunk via _cap_wire
