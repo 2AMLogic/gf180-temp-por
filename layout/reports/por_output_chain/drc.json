@@ -48,6 +48,8 @@
       "81/0"
     ],
     "layers_in_stream_without_rules": [
+      "31/0",
+      "32/0",
       "34/10",
       "117/5",
       "117/10"
@@ -200,10 +202,10 @@
       "released": false
     },
     "input": {
-      "content_hash": "sha256:210b6b69977f917a1517b5a4b4f8fbe26733dcc59f4d256e4777425bcdade655",
+      "content_hash": "sha256:79a1439bdf87109c1b599bcd1a7cccd46b15037fa5eccbbce233f0b3c0c39a52",
       "role": "layout"
     },
     "klayout_version_mismatch": true,
-    "gds_sha256": "210b6b69977f917a1517b5a4b4f8fbe26733dcc59f4d256e4777425bcdade655"
+    "gds_sha256": "79a1439bdf87109c1b599bcd1a7cccd46b15037fa5eccbbce233f0b3c0c39a52"
   }
 }
