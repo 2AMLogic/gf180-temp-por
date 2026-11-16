@@ -100,7 +100,17 @@ GENERATED = tuple(
               "width_results.md", "decks", "logs")
 )
 
-_CDG_RE = re.compile(r"^(X\d+\s+NDG\s+VSS\s+cap_mim\S*\s+)c_width=\S+\s+c_length=\S+(.*)$", re.M)
+# XCDG's line in layout/postlayout/por_output_chain.spice. The star
+# extraction emits each terminal as <net>__t<k> (the net name stays the hub,
+# klayout-tools#592); the pre-star extraction emitted bare net names. Anchor
+# on the NDG hub either way -- cap_mim alone matches XCTIM's four lines too
+# (#533) -- and capture through the model name, so the sub() below re-emits
+# whatever terminal spelling it matched and the rewritten DUT keeps the
+# extraction's node names.
+_CDG_RE = re.compile(
+    r"^(X\d+\s+NDG(?:__t\d+)?\s+VSS(?:__t\d+)?\s+cap_mim\S*\s+)c_width=\S+\s+c_length=\S+(.*)$",
+    re.M,
+)
 
 
 def size_slug(size_um: float) -> str:
@@ -112,8 +122,8 @@ def dut_netlist(size_um: float) -> str:
     matches = _CDG_RE.findall(text)
     if len(matches) != 1:
         raise SystemExit(
-            f"expected exactly one 'NDG VSS cap_mim...' line in {POSTLAYOUT_NETLIST},"
-            f" found {len(matches)}"
+            f"expected exactly one 'X* NDG[__tN] VSS[__tN] cap_mim...' line in"
+            f" {POSTLAYOUT_NETLIST}, found {len(matches)}"
         )
     return _CDG_RE.sub(rf"\g<1>c_width={size_um:g}u c_length={size_um:g}u\g<2>", text)
 
