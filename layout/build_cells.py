@@ -208,15 +208,18 @@ def _implant_for_model(model: str) -> tuple[int, int]:
 
 #: gf180mcu DRM "CO.1": contact is a fixed 0.22 x 0.22 um square.
 CONTACT_SIDE_UM = 0.22
-#: gf180mcu DRM "V1.1"/"V2.1": Via1/Via2 are a fixed 0.26 x 0.26 um square.
-#: ``klt``'s curated ``gf180mcu`` DRC deck carries no via rule at all (see
-#: ``layout/README.md`` -> "Known deck limits"), so this size is held to the
-#: DRM by construction here rather than by a check.
+#: gf180mcu DRM "Vn.1" (7.14 Vian): one rule, emitted per level as "V1.1"
+#: through "V5.1" -- every via level is the same fixed 0.26 um square. The
+#: pinned deck checks each drawn level's minimum width (``via1.width.1`` ...
+#: ``via4.width.1``) but approximates the DRM's min/max rule with a
+#: minimum-only check, so the "max" half -- an oversized square -- is held to
+#: the DRM by construction here.
 VIA_SIDE_UM = 0.26
 
 
 def _via_square(cx: float, cy: float) -> tuple[float, float, float, float]:
-    """The DRM-fixed Via1/Via2 square centred at ``cx, cy``.
+    """The DRM-fixed via square centred at ``cx, cy`` -- the same square at
+    every level, Via1 through Via4 (DRM "Vn.1"; see :data:`VIA_SIDE_UM`).
 
     The centre is snapped to the manufacturing grid first (:func:`_snap`,
     #515): callers pass :func:`_span`-derived centres that are arbitrary DBU
@@ -224,10 +227,10 @@ def _via_square(cx: float, cy: float) -> tuple[float, float, float, float]:
     snapped centre keeps the square exactly that size with every edge on-grid.
 
     The single derivation of that square's edges, and so -- per
-    :data:`VIA_SIDE_UM` above, which no deck rule checks -- the single place
-    the "by construction" guarantee is constructed. Every via drawer comes
-    through here: :meth:`CellBuilder.via` inserts the square itself, while
-    ``_TopRoutes.via1``/``_TopRoutes.via2`` take the coordinates alone,
+    :data:`VIA_SIDE_UM` above, whose max-size half is held by construction --
+    the single place that "by construction" is constructed. Every via drawer
+    comes through here: :meth:`CellBuilder.via` inserts the square itself,
+    while ``_TopRoutes.via1``/``_TopRoutes.via2`` take the coordinates alone,
     because their own net-tagging ``_TopRoutes.box`` has to stay on the
     insertion path.
 
@@ -334,7 +337,8 @@ class CellBuilder:
         self.box(CONTACT, cx - half, cy - half, cx + half, cy + half)
 
     def via(self, spec, cx: float, cy: float) -> None:
-        """One DRM-sized Via1/Via2 square centred at ``cx, cy``.
+        """One DRM-sized via square centred at ``cx, cy`` -- the same
+        square at every level, Via1 through Via4.
 
         The centre is snapped to the manufacturing grid first, for the same
         reason :meth:`contact` snaps its own (:func:`_span`-derived centres
@@ -822,7 +826,8 @@ def _cap_via(
     pad: float = CAP_ROUTE_W_UM,
 ) -> None:
     """One via at ``(x, y)``, plus a ``pad``-square on each of the two metal
-    layers it connects.
+    layers it connects. ``pad`` is a *full* size, not a half -- a caller
+    holding a half-size constant must pass it doubled.
 
     A wire built by :func:`_cap_wire` stops exactly at the via it lands on,
     so relying on the wire's own edge for enclosure leaves the via uncovered
@@ -2587,8 +2592,7 @@ def por_comparator(b: CellBuilder) -> None:
     # Metal1 riser on a different layer with no via is not a connection.
     def _via1_pad(cx: float, cy: float) -> None:
         b.via(VIA1, cx, cy)
-        pad = 0.25
-        b.box(METAL2, cx - pad, cy - pad, cx + pad, cy + pad)
+        _cap_pad(b, METAL2, cx, cy)
 
     for net in ("SNS", "SNSB"):
         y = track_y[net]
@@ -2863,7 +2867,7 @@ class _Channel:
         back the ``(x, y)`` the route takes as its anchor. Draws nothing
         itself: the route owns every shape it lands.
         """
-        self._reach[net] = max(self._reach[net], x_center + CAP_ROUTE_W_UM / 2.0)
+        self._reach[net] = max(self._reach[net], x_center + _VIA_PAD_HALF)
         return (x_center, self.track_y[net])
 
     def draw(self) -> None:
@@ -3273,10 +3277,7 @@ def _m2_v(b: CellBuilder, x: float, y0: float, y1: float) -> None:
 
 def _m1_to_m2(b: CellBuilder, x: float, y: float) -> None:
     """One Via1 with its own landing pad on both levels."""
-    half = _VIA_PAD_HALF
-    b.box(METAL1, x - half, y - half, x + half, y + half)
-    b.box(METAL2, x - half, y - half, x + half, y + half)
-    b.via(VIA1, x, y)
+    _cap_via(b, VIA1, METAL1, METAL2, x, y, pad=_VIA_PAD_HALF * 2.0)
 
 
 def _r_segment(b: CellBuilder, x: float, y: float, width: float, length: float) -> float:
@@ -3844,10 +3845,12 @@ class _TopRoutes:
     so the guard is here and it raises.
     """
 
-    #: layer -> (name, minimum spacing between different nets, um). Thresholds
-    #: are the curated deck's own (``metal1.space.1`` 0.23, ``metal2.space.1``
-    #: and ``metal3.space.1`` 0.28); via layers have no deck rule, so they are
-    #: checked for overlap only.
+    #: layer -> (name, minimum spacing between different nets, um). Metal
+    #: thresholds are the curated deck's own (``metal1.space.1`` 0.23,
+    #: ``metal2.space.1`` and ``metal3.space.1`` 0.28). Via layers are checked
+    #: for overlap only: spacing between different nets is the deck's own
+    #: ``viaN.space.1`` rules' job (0.26 um), so this guard does not
+    #: duplicate it.
     LIMITS = {
         METAL1: ("Metal1", 0.23),
         METAL2: ("Metal2", 0.28),
@@ -4337,12 +4340,18 @@ def temp_por_top(b: CellBuilder) -> None:
 
 
 def _top_assert_connected(b: CellBuilder) -> None:
-    """Every via this cell drew lands inside metal on both of its levels.
+    """Every Via1/Via2 this cell's hierarchy drew lands inside metal on both
+    of its levels (Via3/Via4 -- the MiM caps' vias -- are not covered; see
+    ``layout/README.md`` -> "DRC is a curated subset").
 
-    A via drawn a hair off its landing pad costs nothing in DRC (the curated
-    deck has no via rule at all) and produces an open, not a short -- which
-    LVS *does* catch, but only as an unexplained topology mismatch a long way
-    from its cause. Checking it here turns that into a build-time failure that
+    A via drawn off its landing pad produces an open, not a short. The deck's
+    enclosure rules catch the partial case -- ``metal1.enclosing.via1.1``/
+    ``metal2.enclosing.via2.1`` fire on a via hanging over its pad's edge
+    (measured on the pinned deck) -- but a via landed *wholly* off its metal
+    reports clean: those rules' zero-overlap escape term only considers vias
+    that touch the pad (klayout-tools#5737, reproduced here). LVS catches
+    either case, but only as an unexplained topology mismatch a long way from
+    its cause. Checking it here turns both into a build-time failure that
     names the layer.
     """
     import klayout.db as kdb
