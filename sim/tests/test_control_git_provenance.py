@@ -40,8 +40,20 @@ REPO_ROOT = SIM_DIR.parent
 # loudly here instead of silently turning this whole check into a no-op.
 PROVENANCE_MARKER = "- ngspice:"
 
+# The emitted line itself, in the written provenance block. Two of the wired
+# scripts carry it as a bare template line inside a multi-line f-string
+# (run_gmin_control.py, run_mismatch_switch.py) rather than as an f-string
+# list element, so this is matched as a bare literal, never a line-anchored
+# regex. test_the_detector_literals_still_match_known_good_scripts pins it the
+# same way as PROVENANCE_MARKER: rewording the emitted line fails loudly
+# instead of quietly narrowing what "wired" means.
+GIT_MARKER = "- git:"
+
 # The wiring this check demands: a GENERATED tuple (the dirty-path allowlist
-# runner.git_describe skips) plus a call to the helper.
+# runner.git_describe skips), the call to the helper, and the ``- git:`` line
+# itself reaching the written block -- defining GENERATED and calling
+# git_describe() without emitting the line leaves the recorded results with
+# no commit hash, which is exactly the gap this check exists to catch.
 GENERATED_DEF = re.compile(r"^GENERATED\s*=", re.MULTILINE)
 GIT_DESCRIBE_CALL = "git_describe("
 
@@ -79,7 +91,11 @@ def _emits_provenance(source: str) -> bool:
 
 
 def _wires_git(source: str) -> bool:
-    return GIT_DESCRIBE_CALL in source and GENERATED_DEF.search(source) is not None
+    return (
+        GIT_DESCRIBE_CALL in source
+        and GENERATED_DEF.search(source) is not None
+        and GIT_MARKER in source
+    )
 
 
 class DetectorDriftTests(unittest.TestCase):
@@ -96,18 +112,53 @@ class DetectorDriftTests(unittest.TestCase):
                 "provenance-without-git check quietly passes on every script.",
             )
             self.assertTrue(
+                GIT_MARKER in source,
+                f"{rel} no longer contains {GIT_MARKER!r}. Update GIT_MARKER "
+                "in this test to match -- otherwise the check passes on "
+                "every script without demanding the emitted `- git:` line "
+                "it exists to require.",
+            )
+            self.assertTrue(
                 _wires_git(source),
-                f"{rel} no longer defines GENERATED and calls "
-                f"{GIT_DESCRIBE_CALL}. Update the wiring detectors in this "
-                "test to match -- otherwise the check demands the wrong shape.",
+                f"{rel} no longer defines GENERATED, calls "
+                f"{GIT_DESCRIBE_CALL}, or emits {GIT_MARKER!r}. Update the "
+                "wiring detectors in this test to match -- otherwise the "
+                "check demands the wrong shape.",
             )
 
-    def test_at_least_one_wired_peer_is_discoverable(self):
+    def test_wires_git_rejects_wiring_that_never_emits_the_line(self):
+        # Defines GENERATED, calls git_describe(), emits a provenance block
+        # -- but stops one line short of the `- git:` line. The old detector
+        # called this wired; the tightened one must not.
+        wired_but_unemitted = (
+            "import runner\n"
+            'GENERATED = ("sim/foo/control/foo_results.md",)\n'
+            "description = runner.git_describe(REPO_ROOT, GENERATED)\n"
+            'lines.append(f"- ngspice: `{runner.ngspice_version()}`")\n'
+        )
+        self.assertFalse(
+            _wires_git(wired_but_unemitted),
+            "defining GENERATED and calling git_describe() without ever "
+            "writing a `- git:` line must not count as wired: the recorded "
+            "results would carry no commit hash. If this fails, the "
+            "GIT_MARKER conjunct has been dropped from _wires_git().",
+        )
         self.assertTrue(
-            _control_scripts().keys() >= set(WIRED_PEERS),
-            "the wired-peer list no longer matches the control scripts on "
-            "disk. That is either a rename or a sign this test's discovery "
-            "glob has drifted from sim/*/control/*.py.",
+            _wires_git(
+                wired_but_unemitted + '-lines.append(f"- git: {description}")\n'
+            ),
+            "a source that wires git_describe AND emits the `- git:` line "
+            "must count as wired -- the tightening above must not become a "
+            "ban on wiring.",
+        )
+
+    def test_every_wired_peer_is_discoverable(self):
+        missing = set(WIRED_PEERS) - _control_scripts().keys()
+        self.assertFalse(
+            missing,
+            f"wired peer(s) no longer match any control script on disk: "
+            f"{sorted(missing)}. That is either a rename or a sign this "
+            "test's discovery glob has drifted from sim/*/control/*.py.",
         )
 
 
