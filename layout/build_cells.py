@@ -262,7 +262,8 @@ class CellBuilder:
         self.box(CONTACT, cx - half, cy - half, cx + half, cy + half)
 
     def via(self, spec, cx: float, cy: float) -> None:
-        """One DRM-sized Via1/Via2 square centred at ``cx, cy``.
+        """One DRM-sized via square centred at ``cx, cy`` -- the same
+        square at every level, Via1 through Via4.
 
         The centre is snapped to the manufacturing grid first, for the same
         reason :meth:`contact` snaps its own (:func:`_span`-derived centres
