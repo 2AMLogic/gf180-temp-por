@@ -190,8 +190,8 @@ class ManifestReferenceTests:
 class TopologyControlManifestTests:
     """Mixed in alongside ``ManifestReferenceTests`` (not a ``TestCase``
     itself): the check that the "topology" corruption control actually has
-    two different sources to retarget between, via the subclass's own
-    ``golden()`` helper -- otherwise a manifest whose first two devices
+    two different sources to retarget between, via ``golden()`` --
+    otherwise a manifest whose first two devices
     already share a source would pass the control while controlling
     nothing."""
 
@@ -223,29 +223,156 @@ class ControlCoverageTests:
             self.assertEqual(len(differing), 1, f"{corruption} changed too much")
 
 
-class BiasCoreManifestTest(ManifestReferenceTests, TopologyControlManifestTests, unittest.TestCase):
+class GoldenNetlistTests:
+    """Mixed into a CELL-carrying ``TestCase`` (not a ``TestCase`` itself, so
+    it is never collected and run standalone): the golden-netlist accessors,
+    so no subclass restates the read idiom. ``golden_text()`` returns the raw
+    netlist text; ``golden()`` returns the parsed MOS devices. Deriving the
+    path from ``CELL`` is the point: a class that hardcoded its own cell name
+    kept asserting against the old cell's netlist after a ``CELL`` retarget,
+    and every assertion still passed -- nothing caught the drift."""
+
+    def golden_text(self):
+        return (REPO_ROOT / "design" / "netlist" / f"{self.CELL}.spice").read_text()
+
+    def golden(self):
+        return lr.parse_devices(lr.subckt_body(self.golden_text(), self.CELL))
+
+
+class MimCapManifestTests:
+    """Mixed into the two CELL-carrying ``TestCase``s that draw a MiM-cap
+    array (``por_output_chain``, ``temp_core``; not a ``TestCase`` itself, so
+    it is never collected and run standalone): the checks that the drawn
+    array and the emitted reference agree with the golden netlist's own cap
+    cards. Parameterized on the subclass's ``MIM_ARRAYS`` (build_cells.py's
+    drawn array table) and ``MIM_EXPECTED_VALUE`` -- one real extracted value
+    pinned per cell, two cells two literals, so each cell's number is pinned
+    against the deck's law rather than against the other cell's."""
+
+    def caps(self):
+        return lr.parse_capacitors(lr.subckt_body(self.golden_text(), self.CELL))
+
+    def test_every_mim_cap_in_the_schematic_is_drawn_and_compared(self):
+        # #92 (por_output_chain), #259 (temp_core): no cap is left out of
+        # either the drawn cell or the reference -- manifest, drawn array
+        # table and schematic all name the same cap set.
+        self.assertEqual(set(self.caps()), set(lr.CELLS[self.CELL]["caps"]))
+        self.assertEqual(set(self.caps()), set(self.MIM_ARRAYS))
+
+    def test_cap_value_comes_from_the_golden_plate_size_not_a_typed_number(self):
+        # The extracted capacitance is the drawn plates' overlap area and
+        # perimeter times the deck's two-term law, and the drawn plate size is
+        # the golden card's own c_width/c_length -- so the reference has to be
+        # derived from the same two numbers or it is only ever agreeing with
+        # itself.
+        # Card.value is already the same ``.10g``-rounded string build() writes
+        # (formatted once, at construction, like every other Card) -- so the
+        # expected set is rounded the same way rather than compared at full
+        # float precision against a value that was never emitted at it.
+        expected = {
+            float(
+                f"{lr.mim_capacitance_f(lr.to_um(cap['params']['c_width']), lr.to_um(cap['params']['c_length'])):.10g}"
+            )
+            for cap in self.caps().values()
+        }
+        for card in lr.build_cap_cards(self.CELL):
+            self.assertIn(float(card.value), expected)
+        # ... and one real number per cell is pinned by name -- each
+        # subclass's own MIM_EXPECTED_VALUE, XCDG's for por_output_chain and
+        # XCC's for temp_core -- so the law above cannot drift without the
+        # pinned literal failing alongside it.
+        self.assertIn(self.MIM_EXPECTED_VALUE, lr.build(self.CELL))
+
+    def test_cap_cards_declare_the_decks_own_area_and_perimeter(self):
+        # #312: the pinned deck's CapacitorDevice measures A/P directly off the
+        # drawn plate and defaults either to zero when the reference omits it
+        # -- a device.property mismatch on every MiM in the block the moment
+        # the pinned deck started checking them. A/P are declared from the
+        # same c_width/c_length the capacitance value already is.
+        caps = self.caps()
+        expected_sizes = [
+            (
+                lr.to_um(caps[name]["params"]["c_width"]),
+                lr.to_um(caps[name]["params"]["c_length"]),
+            )
+            for name in lr.CELLS[self.CELL]["caps"]
+            for _ in range(lr.cap_units(caps[name]))
+        ]
+        cards = lr.build_cap_cards(self.CELL)
+        self.assertEqual(len(cards), len(expected_sizes))
+        for card, (width, length) in zip(cards, expected_sizes):
+            params = dict(card.params)
+            self.assertAlmostEqual(
+                float(params["A"].rstrip("P")), width * length, places=6
+            )
+            self.assertAlmostEqual(
+                float(params["P"].rstrip("U")), 2.0 * (width + length), places=6
+            )
+
+    def test_cap_cards_carry_the_decks_own_device_class_name(self):
+        # Without the class name KLayout's SPICE reader builds a generic CAP
+        # class and every cap compares as an unmatched device -- a class
+        # mismatch that reads like a missing device, not like a naming slip.
+        # The class name sits between the bare capacitance value and the
+        # A=/P= parameters (#312), not at the end of the line any more.
+        klass = lr.CAP_CLASS["cap_mim_2f0_m3m4_noshield"]
+        for line in lr.build(self.CELL).splitlines():
+            if line.startswith("C"):
+                fields = line.split()
+                self.assertIn(klass, fields, line)
+                self.assertTrue(fields[fields.index(klass) + 1].startswith("A="), line)
+
+    def test_cap_plate_nets_are_the_golden_cards_own_nodes(self):
+        # #264 (por_output_chain): every drawn MiM unit is routed onto the
+        # schematic nodes its golden card names (build_cells.py's
+        # _cap_bottom_route/_cap_top_route and their strapped counterparts), so
+        # cap_plate_nets no longer synthesizes a per-instance isolated net
+        # pair -- every one of a card's m= drawn units shares the same two
+        # *declared* nets. #259/DR-028 (temp_core): XCC is drawn *routed* too
+        # -- bottom plate onto PG, top plate onto NZ -- rather than floating;
+        # a floating plate would still LVS-match against a synthesized pair,
+        # which is exactly why this is asserted here and not left to the
+        # compare.
+        caps = self.caps()
+        cards = lr.build_cap_cards(self.CELL)
+        for name, cap in caps.items():
+            nodes = list(cap["nodes"])
+            matching = [card for card in cards if card.nodes == nodes]
+            self.assertEqual(len(matching), lr.cap_units(cap), name)
+        declared = set(lr.CELLS[self.CELL]["ports"]) | set(
+            lr.CELLS[self.CELL].get("internal", [])
+        )
+        plates = {net for card in cards for net in card.nodes}
+        self.assertTrue(plates <= declared, plates - declared)
+        self.assertFalse(
+            [net for net in plates if "." in net], "no synthesized XC*. plate net"
+        )
+
+
+class BiasCoreManifestTest(
+    ManifestReferenceTests,
+    TopologyControlManifestTests,
+    GoldenNetlistTests,
+    unittest.TestCase,
+):
     """``bias_core`` is the first manifest entry with unlabelled internal nets
     and a multi-device well, and the first big enough for the negative controls
     to degrade quietly. These check the properties that make it honest."""
 
     CELL = "bias_core"
 
-    def golden(self):
-        text = (REPO_ROOT / "design" / "netlist" / "bias_core.spice").read_text()
-        return lr.parse_devices(lr.subckt_body(text, "bias_core"))
-
     def test_every_mos_device_in_the_schematic_is_in_the_manifest(self):
         # The non-MOS devices (PNPs, poly resistors, MiM caps) are outside the
         # curated deck's coverage and are deliberately absent; every device it
         # *can* model must be present, or the layout is being compared against
         # a quietly reduced circuit.
-        golden = (REPO_ROOT / "design" / "netlist" / "bias_core.spice").read_text()
+        golden = self.golden_text()
         modelled = set(lr.parse_devices(lr.subckt_body(golden, "bias_core")))
         self.assertEqual(modelled, set(lr.CELLS[self.CELL]["devices"]))
 
     def test_every_pfet_is_assigned_to_the_one_drawn_well(self):
         spec = lr.CELLS[self.CELL]
-        golden = (REPO_ROOT / "design" / "netlist" / "bias_core.spice").read_text()
+        golden = self.golden_text()
         devices = lr.parse_devices(lr.subckt_body(golden, "bias_core"))
         pfets = {n for n in spec["devices"] if devices[n]["model"] == "pfet_03v3"}
         self.assertEqual(pfets, set(spec["wells"]["NW1"]))
@@ -271,7 +398,7 @@ class BiasCoreManifestTest(ManifestReferenceTests, TopologyControlManifestTests,
         self.assertEqual(routed | substrate_suffix(self.CELL), declared)
 
     def passives(self, kind=None):
-        golden = (REPO_ROOT / "design" / "netlist" / "bias_core.spice").read_text()
+        golden = self.golden_text()
         parsed = lr.parse_passives(lr.subckt_body(golden, "bias_core"))
         if kind is None:
             return parsed
@@ -291,7 +418,7 @@ class BiasCoreManifestTest(ManifestReferenceTests, TopologyControlManifestTests,
         # the compare any more. Read the golden netlist's own non-MOS cards
         # rather than restating the list, so a schematic that grew one fails.
         spec = lr.CELLS[self.CELL]
-        golden = (REPO_ROOT / "design" / "netlist" / "bias_core.spice").read_text()
+        golden = self.golden_text()
         body = lr.subckt_body(golden, "bias_core")
         self.assertEqual(set(self.passives("bipolar")), set(spec["bipolars"]))
         self.assertEqual(set(self.passives("resistor")), set(spec["resistors"]))
@@ -395,17 +522,17 @@ class BiasCoreManifestTest(ManifestReferenceTests, TopologyControlManifestTests,
             lr.build(self.CELL)
 
 
-class PorComparatorManifestTest(ManifestReferenceTests, TopologyControlManifestTests, unittest.TestCase):
+class PorComparatorManifestTest(
+    ManifestReferenceTests,
+    TopologyControlManifestTests,
+    GoldenNetlistTests,
+    unittest.TestCase,
+):
     """``por_comparator`` is the first manifest entry whose layout instances
     another cell, and the first with two drawn wells. These check the
     properties that make its clean compare honest."""
 
     CELL = "por_comparator"
-    SOURCE = "por_comparator.spice"
-
-    def golden(self):
-        text = (REPO_ROOT / "design" / "netlist" / self.SOURCE).read_text()
-        return lr.parse_devices(lr.subckt_body(text, "por_comparator"))
 
     def test_every_mos_device_in_the_schematic_is_in_the_manifest(self):
         # The sense divider (poly resistors) is outside the curated deck's
@@ -539,7 +666,13 @@ class PorComparatorMatchingPlanTest(unittest.TestCase):
         )
 
 
-class PorOutputChainManifestTest(ManifestReferenceTests, TopologyControlManifestTests, unittest.TestCase):
+class PorOutputChainManifestTest(
+    ManifestReferenceTests,
+    TopologyControlManifestTests,
+    GoldenNetlistTests,
+    MimCapManifestTests,
+    unittest.TestCase,
+):
     """``por_output_chain`` is the always-on POR domain's output cell. Beyond
     the structural checks ``bias_core`` gets, it carries one contract that is
     not a layout convention but a ratified one: DR-010 requires an ungated,
@@ -547,26 +680,16 @@ class PorOutputChainManifestTest(ManifestReferenceTests, TopologyControlManifest
     ``XMBD`` is it."""
 
     CELL = "por_output_chain"
-    SOURCE = "por_output_chain.spice"
-
-    def golden(self):
-        text = (REPO_ROOT / "design" / "netlist" / self.SOURCE).read_text()
-        return lr.parse_devices(lr.subckt_body(text, self.CELL))
-
-    def caps(self):
-        text = (REPO_ROOT / "design" / "netlist" / self.SOURCE).read_text()
-        return lr.parse_capacitors(lr.subckt_body(text, self.CELL))
+    # XCDG's extracted value (11 x 11 um), as emitted by build() -- the
+    # real number MimCapManifestTests pins for this cell.
+    MIM_ARRAYS = bc.POC_MIM_ARRAYS
+    MIM_EXPECTED_VALUE = "2.512752e-13"
 
     def test_every_mos_device_in_the_schematic_is_in_the_manifest(self):
         # Every MOS the deck can model must be present, or the layout is being
         # compared against a quietly reduced circuit. The MiM caps live in the
         # manifest's own `caps` field, not here.
         self.assertEqual(set(self.golden()), set(lr.CELLS[self.CELL]["devices"]))
-
-    def test_every_mim_cap_in_the_schematic_is_drawn_and_compared(self):
-        # #92: no cap is left out of either the drawn cell or the reference.
-        self.assertEqual(set(self.caps()), set(lr.CELLS[self.CELL]["caps"]))
-        self.assertEqual(set(self.caps()), set(bc.POC_MIM_ARRAYS))
 
     def test_each_cap_is_drawn_as_many_times_as_its_multiplier_says(self):
         # The deck models no `m` multiplier, so m=4 has to be four drawn plates
@@ -577,87 +700,6 @@ class PorOutputChainManifestTest(ManifestReferenceTests, TopologyControlManifest
             self.assertEqual(columns * rows, lr.cap_units(caps[name]))
         cards = lr.build_cap_cards(self.CELL)
         self.assertEqual(len(cards), sum(lr.cap_units(c) for c in caps.values()))
-
-    def test_cap_value_comes_from_the_golden_plate_size_not_a_typed_number(self):
-        # The extracted capacitance is the drawn plates' overlap area and
-        # perimeter times the deck's two-term law, and the drawn plate size is
-        # the golden card's own c_width/c_length -- so the reference has to be
-        # derived from the same two numbers or it is only ever agreeing with
-        # itself.
-        caps = self.caps()
-        # Card.value is already the same ``.10g``-rounded string build() writes
-        # (formatted once, at construction, like every other Card) -- so the
-        # expected set is rounded the same way rather than compared at full
-        # float precision against a value that was never emitted at it.
-        expected = {
-            float(
-                f"{lr.mim_capacitance_f(lr.to_um(cap['params']['c_width']), lr.to_um(cap['params']['c_length'])):.10g}"
-            )
-            for cap in caps.values()
-        }
-        for card in lr.build_cap_cards(self.CELL):
-            self.assertIn(float(card.value), expected)
-        self.assertIn("2.512752e-13", lr.build(self.CELL))  # XCDG, 11 x 11 um
-
-    def test_cap_cards_declare_the_decks_own_area_and_perimeter(self):
-        # #312: the pinned deck's CapacitorDevice measures A/P directly off the
-        # drawn plate and defaults either to zero when the reference omits it
-        # -- a device.property mismatch on every MiM in the block the moment
-        # the pinned deck started checking them. A/P are declared from the
-        # same c_width/c_length the capacitance value already is.
-        caps = self.caps()
-        expected_sizes = [
-            (
-                lr.to_um(caps[name]["params"]["c_width"]),
-                lr.to_um(caps[name]["params"]["c_length"]),
-            )
-            for name in lr.CELLS[self.CELL]["caps"]
-            for _ in range(lr.cap_units(caps[name]))
-        ]
-        cards = lr.build_cap_cards(self.CELL)
-        self.assertEqual(len(cards), len(expected_sizes))
-        for card, (width, length) in zip(cards, expected_sizes):
-            params = dict(card.params)
-            self.assertAlmostEqual(
-                float(params["A"].rstrip("P")), width * length, places=6
-            )
-            self.assertAlmostEqual(
-                float(params["P"].rstrip("U")), 2.0 * (width + length), places=6
-            )
-
-    def test_cap_cards_carry_the_decks_own_device_class_name(self):
-        # Without the class name KLayout's SPICE reader builds a generic CAP
-        # class and every cap compares as an unmatched device -- a class
-        # mismatch that reads like a missing device, not like a naming slip.
-        # The class name sits between the bare capacitance value and the
-        # A=/P= parameters (#312), not at the end of the line any more.
-        klass = lr.CAP_CLASS["cap_mim_2f0_m3m4_noshield"]
-        for line in lr.build(self.CELL).splitlines():
-            if line.startswith("C"):
-                fields = line.split()
-                self.assertIn(klass, fields, line)
-                self.assertTrue(fields[fields.index(klass) + 1].startswith("A="), line)
-
-    def test_cap_plate_nets_are_the_golden_cards_own_nodes(self):
-        # #264: every drawn MiM unit is routed onto the schematic nodes its
-        # golden card names (build_cells.py's _cap_bottom_route/_cap_top_route
-        # and their strapped counterparts), so cap_plate_nets no longer
-        # synthesizes a per-instance isolated net pair -- every one of a
-        # card's m= drawn units shares the same two *declared* nets.
-        caps = self.caps()
-        cards = lr.build_cap_cards(self.CELL)
-        for name, cap in caps.items():
-            nodes = list(cap["nodes"])
-            matching = [card for card in cards if card.nodes == nodes]
-            self.assertEqual(len(matching), lr.cap_units(cap), name)
-        declared = set(lr.CELLS[self.CELL]["ports"]) | set(
-            lr.CELLS[self.CELL]["internal"]
-        )
-        plates = {net for card in cards for net in card.nodes}
-        self.assertTrue(plates <= declared, plates - declared)
-        self.assertFalse(
-            [net for net in plates if "." in net], "no synthesized XC*. plate net"
-        )
 
     def test_the_caps_own_no_net_by_themselves(self):
         # bias_core's undrawn passives delete three nets from both sides of the
@@ -849,12 +891,22 @@ class GuardTest(unittest.TestCase):
         self.assertIn("nf=2", str(caught.exception))
 
 
-class TempCoreTest(ManifestReferenceTests, ControlCoverageTests, unittest.TestCase):
+class TempCoreTest(
+    ManifestReferenceTests,
+    ControlCoverageTests,
+    GoldenNetlistTests,
+    MimCapManifestTests,
+    unittest.TestCase,
+):
     """``temp_core`` is drawn with interleaved unit fingers and edge dummies,
     so its reference has to describe more devices than the schematic has -- the
     same electrical devices, described the way the curated deck can see them."""
 
     CELL = "temp_core"
+    # XCC's extracted value (12 x 12 um), as emitted by build() -- the
+    # real number MimCapManifestTests pins for this cell.
+    MIM_ARRAYS = bc.TEMP_CORE_MIM_ARRAYS
+    MIM_EXPECTED_VALUE = "2.979984e-13"
 
     def cards(self, text=None):
         return [
@@ -864,7 +916,7 @@ class TempCoreTest(ManifestReferenceTests, ControlCoverageTests, unittest.TestCa
         ]
 
     def test_finger_split_conserves_the_schematic_width(self):
-        golden = (REPO_ROOT / "design" / "netlist" / "temp_core.spice").read_text()
+        golden = self.golden_text()
         devices = lr.parse_devices(lr.subckt_body(golden, "temp_core"))
         text = lr.build(self.CELL)
         for name, count in lr.CELLS[self.CELL]["fingers"].items():
@@ -900,12 +952,8 @@ class TempCoreTest(ManifestReferenceTests, ControlCoverageTests, unittest.TestCa
         self.assertEqual(len(self.cards()) - without, len(spec["dummies"]))
 
     def passives(self):
-        golden = (REPO_ROOT / "design" / "netlist" / "temp_core.spice").read_text()
+        golden = self.golden_text()
         return lr.parse_passives(lr.subckt_body(golden, "temp_core"))
-
-    def caps(self):
-        golden = (REPO_ROOT / "design" / "netlist" / "temp_core.spice").read_text()
-        return lr.parse_capacitors(lr.subckt_body(golden, "temp_core"))
 
     def test_no_golden_device_is_left_out_of_the_compare(self):
         # #93 folded the PNPs and the poly resistors into the compare; #259
@@ -914,7 +962,7 @@ class TempCoreTest(ManifestReferenceTests, ControlCoverageTests, unittest.TestCa
         # shrink -- so it fails the moment any golden device stops being
         # covered, and it cannot be satisfied by a manifest that quietly drops
         # one.
-        golden = (REPO_ROOT / "design" / "netlist" / "temp_core.spice").read_text()
+        golden = self.golden_text()
         body = lr.subckt_body(golden, "temp_core")
         spec = lr.CELLS[self.CELL]
         covered = (
@@ -930,13 +978,6 @@ class TempCoreTest(ManifestReferenceTests, ControlCoverageTests, unittest.TestCa
         }
         self.assertEqual(drawn_names - covered, set())
 
-    def test_every_mim_cap_in_the_schematic_is_drawn_and_compared(self):
-        # #259: the manifest, the drawn array table and the schematic all name
-        # the same cap set -- the same three-way agreement por_output_chain's
-        # own caps carry.
-        self.assertEqual(set(self.caps()), set(lr.CELLS[self.CELL]["caps"]))
-        self.assertEqual(set(self.caps()), set(bc.TEMP_CORE_MIM_ARRAYS))
-
     def test_the_cap_is_drawn_as_many_times_as_its_multiplier_says(self):
         # The deck models no `m` multiplier, so m=1 has to be exactly one drawn
         # plate and one reference card.
@@ -945,83 +986,6 @@ class TempCoreTest(ManifestReferenceTests, ControlCoverageTests, unittest.TestCa
             self.assertEqual(columns * rows, lr.cap_units(caps[name]))
         cards = lr.build_cap_cards(self.CELL)
         self.assertEqual(len(cards), sum(lr.cap_units(c) for c in caps.values()))
-
-    def test_cap_value_comes_from_the_golden_plate_size_not_a_typed_number(self):
-        # The extracted capacitance is the drawn plates' overlap area and
-        # perimeter times the deck's two-term law, and the drawn plate size is
-        # the golden card's own c_width/c_length -- so the reference has to be
-        # derived from the same two numbers or it is only ever agreeing with
-        # itself.
-        expected = {
-            float(
-                f"{lr.mim_capacitance_f(lr.to_um(cap['params']['c_width']), lr.to_um(cap['params']['c_length'])):.10g}"
-            )
-            for cap in self.caps().values()
-        }
-        for card in lr.build_cap_cards(self.CELL):
-            self.assertIn(float(card.value), expected)
-        self.assertIn("2.979984e-13", lr.build(self.CELL))  # XCC, 12 x 12 um
-
-    def test_cap_cards_declare_the_decks_own_area_and_perimeter(self):
-        # #312: the pinned deck's CapacitorDevice measures A/P directly off the
-        # drawn plate and defaults either to zero when the reference omits it
-        # -- a device.property mismatch on every MiM in the block the moment
-        # the pinned deck started checking them. A/P are declared from the
-        # same c_width/c_length the capacitance value already is.
-        caps = self.caps()
-        expected_sizes = [
-            (
-                lr.to_um(caps[name]["params"]["c_width"]),
-                lr.to_um(caps[name]["params"]["c_length"]),
-            )
-            for name in lr.CELLS[self.CELL]["caps"]
-            for _ in range(lr.cap_units(caps[name]))
-        ]
-        cards = lr.build_cap_cards(self.CELL)
-        self.assertEqual(len(cards), len(expected_sizes))
-        for card, (width, length) in zip(cards, expected_sizes):
-            params = dict(card.params)
-            self.assertAlmostEqual(
-                float(params["A"].rstrip("P")), width * length, places=6
-            )
-            self.assertAlmostEqual(
-                float(params["P"].rstrip("U")), 2.0 * (width + length), places=6
-            )
-
-    def test_cap_cards_carry_the_decks_own_device_class_name(self):
-        # Without the class name KLayout's SPICE reader builds a generic CAP
-        # class and the cap compares as an unmatched device -- a class mismatch
-        # that reads like a missing device, not like a naming slip. The class
-        # name sits between the bare capacitance value and the A=/P=
-        # parameters (#312), not at the end of the line any more.
-        klass = lr.CAP_CLASS["cap_mim_2f0_m3m4_noshield"]
-        for line in lr.build(self.CELL).splitlines():
-            if line.startswith("C"):
-                fields = line.split()
-                self.assertIn(klass, fields, line)
-                self.assertTrue(fields[fields.index(klass) + 1].startswith("A="), line)
-
-    def test_cap_plate_nets_are_the_golden_cards_own_nodes(self):
-        # #259 draws XCC *routed* -- bottom plate onto PG, top plate onto NZ,
-        # the two nodes its golden card names -- rather than floating, so the
-        # reference names those nodes instead of synthesizing an isolated pair.
-        # A floating plate would still LVS-match against a synthesized pair,
-        # which is exactly why this is asserted here and not left to the
-        # compare.
-        caps = self.caps()
-        cards = lr.build_cap_cards(self.CELL)
-        for name, cap in caps.items():
-            nodes = list(cap["nodes"])
-            matching = [card for card in cards if card.nodes == nodes]
-            self.assertEqual(len(matching), lr.cap_units(cap), name)
-        declared = set(lr.CELLS[self.CELL]["ports"]) | set(
-            lr.CELLS[self.CELL].get("internal", [])
-        )
-        plates = {net for card in cards for net in card.nodes}
-        self.assertTrue(plates <= declared, plates - declared)
-        self.assertFalse(
-            [net for net in plates if "." in net], "no synthesized XC*. plate net"
-        )
 
     def test_the_drawn_mim_plate_is_the_golden_plate_size(self):
         # Plate area *is* the capacitance, so a plate drawn at a size the
@@ -1141,7 +1105,7 @@ class TempCoreTest(ManifestReferenceTests, ControlCoverageTests, unittest.TestCa
         self.assertEqual(set(bc._TEMP_CORE_NETS), set(spec["ports"]))
 
 
-class TempPorTopAssemblyTest(ControlCoverageTests, unittest.TestCase):
+class TempPorTopAssemblyTest(ControlCoverageTests, GoldenNetlistTests, unittest.TestCase):
     """``temp_por_top`` (#72) is the one manifest entry with no devices of its
     own: it is composed from the four sub-cells and from the golden top-level
     netlist's own instance lines. These cover the composition, because a
@@ -1149,9 +1113,6 @@ class TempPorTopAssemblyTest(ControlCoverageTests, unittest.TestCase):
     consistent, generates cleanly, and describes the wrong circuit."""
 
     CELL = "temp_por_top"
-
-    def golden(self):
-        return (REPO_ROOT / "design" / "netlist" / "temp_por_top.spice").read_text()
 
     def cards(self, text=None):
         return [
@@ -1169,7 +1130,7 @@ class TempPorTopAssemblyTest(ControlCoverageTests, unittest.TestCase):
         # level. Order, not just membership: the pinout is a hard external
         # contract, and agents do not relax a ratified spec to make a result
         # pass (CLAUDE.md).
-        ratified = lr.subckt_ports(self.golden(), "temp_por_top")
+        ratified = lr.subckt_ports(self.golden_text(), "temp_por_top")
         self.assertEqual(ratified, ["VDD", "VSS", "PTAT", "CTAT", "RESETn"])
         declared = [
             port for port in lr.CELLS[self.CELL]["ports"] if port != lr.SUBSTRATE_NET
