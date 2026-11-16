@@ -11,9 +11,13 @@ propagated through to `PGDG`, restarting the one-shot at 30/81 PVT points.
 `PGDG` does not move.
 
 That check answers "is 1 us rejected?" but not "by how much?". Post-layout
-(`records/20260811-055634-d0ee17d.md`) the answer to the second question got
-materially worse without the first one changing: `pgdg_min_during_chatter`
-falls from 2.94 V to 2.54 V against the same 2.5 V bound. This sweep measures
+the answer to the second question got materially worse without the first one
+changing: `pgdg_min_during_chatter` falls from 2.94 V (schematic) to 2.54 V
+against the same 2.5 V bound -- the 2.54 V is on the extraction #314 retired
+(`records/20260811-055634-d0ee17d.md`); on the current star extraction
+(`records/20261002-180956-d4369b3.md`, grid minimum 2.695 V, agreeing with
+this control's own `width_results.md`: 2.6948 V at `ff_125c_2.97v`) it still
+sits materially below the schematic against the same bound. This sweep measures
 the margin directly -- it walks the glitch WIDTH until the filter stops
 rejecting, for the schematic and the post-layout netlist, at the two fast
 corners where the dwell is shortest -- so the lower-bound margin can be
