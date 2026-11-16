@@ -23,46 +23,39 @@ Judge-approved PRs under a hold (`loom:blocked` or `loom:operator`) — only a h
 - **#400**: Bump klayout-tools pin 0.6.0, 0.7.0 → 0.8.0
 - **#452**: temp_core: implement amplifier chop/auto-zero, gain mirror fix and trim re-balance (#415 step 2/3)
 - **#453**: temp-accuracy-mc: re-run Monte Carlo and klt yield grade on revised temp_core (#415 step 3/3)
-- **#496**: sim harness: build a klt sim request with per-row spec limits for one experiment (dry-run half of #388)
-- **#497**: Classify the DRC violations the committed cells show under klt 0.8.0 and later (unblocks #400)
-- **#512**: Control scripts ignore unrecognized argv and run the full local sweep (overwriting committed evidence)
+- **#516**: MOS source/drain and guard-ring COMP are drawn with no Nplus/Pplus implant (DF.12, all six cells)
 
 ## Ready
 
 Human-approved issues ready for implementation (`loom:issue`).
 
-- **#499**: Assert temp_core's drawn track list equals its manifest ports — the one leaf cell missing the sibling guard
+- **#452**: temp_core: implement amplifier chop/auto-zero, gain mirror fix and trim re-balance (#415 step 2/3)
 - **#500**: Dedupe the golden-netlist read and the MiM-cap test block in layout/tests/test_lvs_reference.py
-- **#502**: Remove four dead arguments threaded into control-script deck composers and job tuples
 - **#505**: Three independent implementations of one Via1-with-landing-pads primitive in layout/build_cells.py
 - **#506**: _m2_h/_m2_v re-derive _cap_wire's straight-wire branches — the wire counterpart to #505's via drift
-- **#507**: run_deglitch_asym_probe.py's results.md carries no `- git:` provenance line, unlike its five peers
-- **#509**: Remove ramp_rate_probe.spice's two dead .params, and assert the por-vth control fragments' cards agree
+- **#510**: LVS net and pin counts quoted in prose drifted from the committed lvs.json reports
 - **#517**: Poly resistors draw SAB coincident with Poly2: zero extension where SB.10 requires 0.22 um
 - **#521**: Move run_mc.py's four byte-identical argparse flags into cliutil, and stop hardcoding the timeout default
-- **#522**: Remove the dead name and log_dir/deck_dir arguments three control scripts thread into their workers
-- **#525**: Remove three dead report.py imports from sim/harness/mc_report.py, and the docstring claim they fossilise
+- **#531**: Via3/Via4 are drawn at VIA_SIDE_UM, a constant whose own comment cites only DRM V1.1/V2.1
+- **#533**: Regenerate the three deglitch control files against the star extraction: one script is broken, two files' numbers (and one verdict) moved
+- **#543**: signoff: the grader-pin warning reads as a blocker, so drift-only failures get deferred to CI
+- **#546**: Control-script argv contract is pinned by hand-maintained lists, so script #21 is uncovered by construction
 
 ## In Progress
 
 Issues currently being built (`loom:building`).
 
-- **#452**: temp_core: implement amplifier chop/auto-zero, gain mirror fix and trim re-balance (#415 step 2/3)
-- **#491**: README's T1 verdict count drifts from signoff/tier-report.json, and the docs-PR path cannot carry the fix
-- **#493**: Three control-script helpers are duplicated within one experiment directory; consolidate per the _rung_record.py precedent
-- **#496**: sim harness: build a klt sim request with per-row spec limits for one experiment (dry-run half of #388)
-- **#497**: Classify the DRC violations the committed cells show under klt 0.8.0 and later (unblocks #400)
-- **#511**: Remove _TopRoutes.via1/via2's inline via-square arithmetic: the only via drawer that bypasses CellBuilder.via
-- **#514**: Collapse lvs_reference.py's three copies of the undeclared-net guard into one helper — and give the MiM cap builder the call site #269 never wrote
-- **#523**: Collapse four leftovers in layout/run_checks.sh from the cell-freeze removal and --regen-all
+- **#502**: Remove four dead arguments threaded into control-script deck composers and job tuples
+- **#516**: MOS source/drain and guard-ring COMP are drawn with no Nplus/Pplus implant (DF.12, all six cells)
+- **#518**: temp_core resistor tile: neighbouring SAB markers 0.2 um apart where SB.2 requires 0.42 um
+- **#525**: Remove three dead report.py imports from sim/harness/mc_report.py, and the docstring claim they fossilise
 
 ## PRs Awaiting Review
 
 PRs waiting on Judge (`loom:review-requested`).
 
-- **#494**: docs: roadmap as of 2026-11-13
-- **#524**: refactor: derive the DRM via square once in _via_square
-- **#529**: refactor(lvs_reference): one declared-net guard, now covering cap plates too
+- **#541**: refactor(layout): delegate _m2_h/_m2_v to _cap_wire, the one fixed-width-wire primitive
+- **#554**: refactor: drop four dead arguments from control deck composers and job tuples
 
 ## Approved (Awaiting Merge)
 
@@ -70,9 +63,8 @@ PRs that passed review and are queued for Champion auto-merge (`loom:pr`).
 
 - **#457**: feat(temp_core): chop the amplifier, widen the gain mirror, halve the trim ladder (DR-031)
 - **#498**: feat(signoff): forbid hand-written T1 verdict counts in prose
-- **#501**: refactor(sim): give three duplicated control helpers one definition per directory
-- **#520**: docs: classify every DRC rule the committed cells violate under klt 0.8.0
-- **#526**: refactor(layout): inline cell_failed() and drop three dead branches in run_checks.sh
+- **#539**: refactor(sim): drop dead report.py imports from mc_report and correct its reuse docstring
+- **#544**: control scripts: drop arguments their workers never read
 
 ## Proposed
 
@@ -89,14 +81,19 @@ Issues carrying `loom:curated`.
 - **#417**: Item 6: sampled negative control for the Monte Carlo yield campaigns *(curated)*
 - **#452**: temp_core: implement amplifier chop/auto-zero, gain mirror fix and trim re-balance (#415 step 2/3) *(curated)*
 - **#491**: README's T1 verdict count drifts from signoff/tier-report.json, and the docs-PR path cannot carry the fix *(curated)*
-- **#496**: sim harness: build a klt sim request with per-row spec limits for one experiment (dry-run half of #388) *(curated)*
-- **#497**: Classify the DRC violations the committed cells show under klt 0.8.0 and later (unblocks #400) *(curated)*
-- **#499**: Assert temp_core's drawn track list equals its manifest ports — the one leaf cell missing the sibling guard *(curated)*
-- **#507**: run_deglitch_asym_probe.py's results.md carries no `- git:` provenance line, unlike its five peers *(curated)*
 - **#508**: run_dwell_sweep.py's dwell_results.md carries no `- git:` provenance line (the fleet-scale fourth of the deglitch control set) *(curated)*
 - **#510**: LVS net and pin counts quoted in prose drifted from the committed lvs.json reports *(curated)*
+- **#516**: MOS source/drain and guard-ring COMP are drawn with no Nplus/Pplus implant (DF.12, all six cells) *(curated)*
 - **#517**: Poly resistors draw SAB coincident with Poly2: zero extension where SB.10 requires 0.22 um *(curated)*
 - **#518**: temp_core resistor tile: neighbouring SAB markers 0.2 um apart where SB.2 requires 0.42 um *(curated)*
+- **#519**: temp_core PNP array: centre emitter 30 um from the Nwell tap ring where DF.13_LV allows 20 um *(curated)*
+- **#528**: signoff/README.md cites a tier-report.json 'blocking_item' field that does not exist, next to a hand-written 'first unmet item is now 5' *(curated)*
+- **#531**: Via3/Via4 are drawn at VIA_SIDE_UM, a constant whose own comment cites only DRM V1.1/V2.1 *(curated)*
+- **#533**: Regenerate the three deglitch control files against the star extraction: one script is broken, two files' numbers (and one verdict) moved *(curated)*
+- **#543**: signoff: the grader-pin warning reads as a blocker, so drift-only failures get deferred to CI *(curated)*
+- **#546**: Control-script argv contract is pinned by hand-maintained lists, so script #21 is uncovered by construction *(curated)*
+- **#550**: test_por_vth_control_fragment_sync asserts card-identity over a directory glob, which sim/README.md:291 permits to be false *(curated)*
+- **#553**: Guard the manufacturing-grid invariant end-to-end: assert every committed GDS vertex is on-grid *(curated)*
 
 ## Proposed (Architect / Hermit)
 
@@ -113,12 +110,12 @@ _None._
 |------|-------|
 | Operator merge-risk holds | 1 |
 | Very important | 1 |
-| Important | 7 |
+| Important | 5 |
 | Ready (`loom:issue`) | 11 |
-| In Progress (`loom:building`) | 8 |
-| PRs awaiting review | 3 |
-| Approved PRs awaiting merge | 5 |
-| Curated | 19 |
+| In Progress (`loom:building`) | 4 |
+| PRs awaiting review | 2 |
+| Approved PRs awaiting merge | 4 |
+| Curated | 24 |
 | Architect / Hermit proposals | 2 |
 | Active epics | 0 |
 <!-- guide:plan-body:end -->
