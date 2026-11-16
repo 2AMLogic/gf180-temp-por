@@ -37,111 +37,131 @@ vib1#branch                                  0
 vpr#branch                                   0
 vsup#branch                       -6.77468e-28
 
- Reference value :  7.74560e-06
- Reference value :  1.67656e-05
- Reference value :  2.47056e-05
- Reference value :  3.21656e-05
- Reference value :  3.46256e-05
- Reference value :  3.63456e-05
- Reference value :  4.99856e-05
- Reference value :  6.17256e-05
- Reference value :  7.21871e-05
- Reference value :  8.34860e-05
- Reference value :  9.51460e-05
- Reference value :  1.06524e-04
- Reference value :  1.19364e-04
- Reference value :  1.24344e-04
- Reference value :  1.36724e-04
- Reference value :  1.50344e-04
- Reference value :  1.63324e-04
- Reference value :  1.76304e-04
- Reference value :  1.90104e-04
- Reference value :  2.02484e-04
- Reference value :  2.16364e-04
- Reference value :  2.29264e-04
- Reference value :  2.42684e-04
- Reference value :  2.56304e-04
- Reference value :  2.69044e-04
- Reference value :  2.82484e-04
- Reference value :  2.95184e-04
- Reference value :  3.06054e-04
- Reference value :  3.11184e-04
- Reference value :  3.17824e-04
- Reference value :  3.25044e-04
- Reference value :  3.32084e-04
- Reference value :  3.40604e-04
- Reference value :  3.46324e-04
- Reference value :  3.49584e-04
- Reference value :  3.50304e-04
- Reference value :  3.54184e-04
- Reference value :  3.54644e-04
- Reference value :  3.58684e-04
- Reference value :  3.65524e-04
- Reference value :  3.69184e-04
- Reference value :  3.71264e-04
- Reference value :  3.77704e-04
- Reference value :  3.83644e-04
- Reference value :  3.86544e-04
- Reference value :  3.92284e-04
- Reference value :  3.94624e-04
- Reference value :  4.06464e-04
- Reference value :  4.19664e-04
- Reference value :  4.32384e-04
- Reference value :  4.46224e-04
- Reference value :  4.59644e-04
- Reference value :  4.71344e-04
- Reference value :  4.83624e-04
- Reference value :  4.95524e-04
- Reference value :  5.09524e-04
- Reference value :  5.19684e-04
- Reference value :  5.31504e-04
- Reference value :  5.43904e-04
- Reference value :  5.56844e-04
- Reference value :  5.69384e-04
- Reference value :  5.82324e-04
- Reference value :  5.96364e-04
- Reference value :  6.09604e-04
- Reference value :  6.23404e-04
- Reference value :  6.37444e-04
- Reference value :  6.49624e-04
- Reference value :  6.62924e-04
- Reference value :  6.75684e-04
- Reference value :  6.78784e-04
- Reference value :  6.82864e-04
- Reference value :  6.90644e-04
- Reference value :  6.97764e-04
- Reference value :  7.02664e-04
- Reference value :  7.09704e-04
- Reference value :  7.14404e-04
- Reference value :  7.28184e-04
- Reference value :  7.40344e-04
- Reference value :  7.53004e-04
- Reference value :  7.65104e-04
- Reference value :  7.76184e-04
- Reference value :  7.89644e-04
- Reference value :  8.01304e-04
- Reference value :  8.14704e-04
- Reference value :  8.28104e-04
- Reference value :  8.39944e-04
- Reference value :  8.53164e-04
- Reference value :  8.60564e-04
- Reference value :  8.74124e-04
- Reference value :  8.87524e-04
- Reference value :  9.01244e-04
- Reference value :  9.14384e-04
- Reference value :  9.27624e-04
- Reference value :  9.39744e-04
- Reference value :  9.52284e-04
- Reference value :  9.64464e-04
- Reference value :  9.78284e-04
- Reference value :  9.91284e-04
- Reference value :  1.00180e-03
- Reference value :  1.00762e-03
- Reference value :  1.02150e-03
- Reference value :  1.03476e-03
- Reference value :  1.04876e-03
- Reference value :  1.06140e-03
- Reference value :  1.07376e-03
+ Reference value :  8.05600e-07
+ Reference value :  4.66560e-06
+ Reference value :  4.76560e-06
+ Reference value :  4.94560e-06
+ Reference value :  1.22456e-05
+ Reference value :  1.56456e-05
+ Reference value :  2.35856e-05
+ Reference value :  2.86056e-05
+ Reference value :  3.37256e-05
+ Reference value :  4.30056e-05
+ Reference value :  5.16456e-05
+ Reference value :  5.91656e-05
+ Reference value :  7.16656e-05
+ Reference value :  7.58260e-05
+ Reference value :  8.84460e-05
+ Reference value :  1.00624e-04
+ Reference value :  1.14344e-04
+ Reference value :  1.26004e-04
+ Reference value :  1.40504e-04
+ Reference value :  1.50824e-04
+ Reference value :  1.61084e-04
+ Reference value :  1.67604e-04
+ Reference value :  1.69524e-04
+ Reference value :  1.75504e-04
+ Reference value :  1.82844e-04
+ Reference value :  1.87744e-04
+ Reference value :  1.96424e-04
+ Reference value :  2.11244e-04
+ Reference value :  2.26864e-04
+ Reference value :  2.39404e-04
+ Reference value :  2.52084e-04
+ Reference value :  2.64004e-04
+ Reference value :  2.78004e-04
+ Reference value :  2.90664e-04
+ Reference value :  3.02034e-04
+ Reference value :  3.12744e-04
+ Reference value :  3.20444e-04
+ Reference value :  3.30304e-04
+ Reference value :  3.36124e-04
+ Reference value :  3.36724e-04
+ Reference value :  3.36804e-04
+ Reference value :  3.38804e-04
+ Reference value :  3.40324e-04
+ Reference value :  3.41024e-04
+ Reference value :  3.41124e-04
+ Reference value :  3.41204e-04
+ Reference value :  3.44664e-04
+ Reference value :  3.53424e-04
+ Reference value :  3.54304e-04
+ Reference value :  3.56304e-04
+ Reference value :  3.63624e-04
+ Reference value :  3.77724e-04
+ Reference value :  3.89044e-04
+ Reference value :  3.95404e-04
+ Reference value :  4.02984e-04
+ Reference value :  4.08984e-04
+ Reference value :  4.16764e-04
+ Reference value :  4.27604e-04
+ Reference value :  4.35964e-04
+ Reference value :  4.45524e-04
+ Reference value :  4.53484e-04
+ Reference value :  4.60564e-04
+ Reference value :  4.67304e-04
+ Reference value :  4.76964e-04
+ Reference value :  4.86344e-04
+ Reference value :  4.99304e-04
+ Reference value :  5.09064e-04
+ Reference value :  5.22344e-04
+ Reference value :  5.33324e-04
+ Reference value :  5.45424e-04
+ Reference value :  5.53784e-04
+ Reference value :  5.57124e-04
+ Reference value :  5.67304e-04
+ Reference value :  5.75244e-04
+ Reference value :  5.89404e-04
+ Reference value :  6.03844e-04
+ Reference value :  6.18804e-04
+ Reference value :  6.31044e-04
+ Reference value :  6.43724e-04
+ Reference value :  6.54344e-04
+ Reference value :  6.66124e-04
+ Reference value :  6.79684e-04
+ Reference value :  6.93144e-04
+ Reference value :  7.05184e-04
+ Reference value :  7.09764e-04
+ Reference value :  7.22364e-04
+ Reference value :  7.29084e-04
+ Reference value :  7.35704e-04
+ Reference value :  7.44364e-04
+ Reference value :  7.55364e-04
+ Reference value :  7.66684e-04
+ Reference value :  7.77824e-04
+ Reference value :  7.92804e-04
+ Reference value :  8.07644e-04
+ Reference value :  8.24404e-04
+ Reference value :  8.37004e-04
+ Reference value :  8.44324e-04
+ Reference value :  8.54224e-04
+ Reference value :  8.68024e-04
+ Reference value :  8.71884e-04
+ Reference value :  8.76404e-04
+ Reference value :  8.84784e-04
+ Reference value :  8.86544e-04
+ Reference value :  8.92944e-04
+ Reference value :  9.02924e-04
+ Reference value :  9.14964e-04
+ Reference value :  9.23584e-04
+ Reference value :  9.32904e-04
+ Reference value :  9.43124e-04
+ Reference value :  9.52404e-04
+ Reference value :  9.65384e-04
+ Reference value :  9.74464e-04
+ Reference value :  9.86124e-04
+ Reference value :  9.97924e-04
+ Reference value :  1.00177e-03
+ Reference value :  1.00303e-03
+ Reference value :  1.00382e-03
+ Reference value :  1.00930e-03
+ Reference value :  1.01950e-03
+ Reference value :  1.02952e-03
+ Reference value :  1.03934e-03
+ Reference value :  1.04618e-03
+ Reference value :  1.05124e-03
+ Reference value :  1.06170e-03
+ Reference value :  1.07070e-03
 No. of Data Rows : 54432
 
   Measurements for Transient Analysis
@@ -152,18 +172,18 @@ pgdgbmax            =  2.97005e+00 at=  1.00380e-03
 timafter            =  -6.49956e-04 at=  1.00390e-03
 
 
-Total analysis time (seconds) = 4.45931
+Total analysis time (seconds) = 4.57392
 
-Total elapsed time (seconds) = 4.497 
+Total elapsed time (seconds) = 4.612 
 
-Total DRAM available = 15700.234 MB.
-DRAM currently available = 8763.520 MB.
-Maximum ngspice program size =   79.531 MB.
-Current ngspice program size =   17.480 MB.
+Total DRAM available = 63253.434 MB.
+DRAM currently available = 16676.812 MB.
+Maximum ngspice program size =   81.898 MB.
+Current ngspice program size =   17.836 MB.
 
-Shared ngspice pages =    8.789 MB.
-Text (code) pages =    6.355 MB.
+Shared ngspice pages =    9.410 MB.
+Text (code) pages =    6.375 MB.
 Stack = 0 bytes.
-Library pages =   64.848 MB.
+Library pages =   64.500 MB.
 
 

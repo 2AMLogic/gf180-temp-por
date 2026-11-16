@@ -1174,14 +1174,15 @@ diagnose the delta the section above measured. They are diagnoses, not
 records — the corner-grid evidence stays in `records/` (`sim/README.md`,
 "Control experiments").
 
-> **Extraction note** (#322). Every post-layout number in this section was
-> measured on the extraction #314 retired, and the diagnosis is left as
-> measured. On the current star extraction the falling-edge erosion it explains
-> is **partly reversed, not gone**: the grid-minimum falling dwell is 1.45 µs
-> (1.28 µs here, 1.86 µs schematic) and `pgdg_min_during_chatter`'s grid
-> minimum is 2.695 V (2.536 V here) — see
+> **Extraction note** (#322; re-measured in #533). The post-layout numbers in
+> this section are the three controls re-run on the current **star**
+> extraction — the same decks that first diagnosed this asymmetry on the
+> extraction #314 retired. The diagnosis is unchanged: the falling-edge
+> erosion is **partly reversed, not gone** — the grid-minimum falling dwell is
+> 1.45 µs (1.28 µs on the retired extraction, 1.86 µs schematic) and
+> `pgdg_min_during_chatter`'s grid minimum is 2.695 V (2.536 V on the retired
+> one) — see
 > ["The pulse-width / dwell-time delta"](#the-pulse-width--dwell-time-delta).
-> The control experiments below were not re-run against it.
 
 ### First, re-verified — and this time on a clean tree
 
@@ -1216,34 +1217,35 @@ Decomposing each edge's dwell as `(V_trip − V0) / slope`
 | | `V0` (ramp's start) | slope | `V_trip` (`NDG` at `PGDG` = 1.0 V) | journey `V_trip − V0` | dwell |
 | --- | ---: | ---: | ---: | ---: | ---: |
 | falling, schematic | 0.1012 V | +0.31625 V/µs | 0.7144 V | 0.6132 V | 2.009 µs |
-| falling, post-layout | 0.3833 V | +0.26965 V/µs | 0.7207 V | 0.3374 V | 1.277 µs |
-| | | −14.7 % | **+0.9 %** | −45.0 % | −36.4 % |
+| falling, post-layout | 0.3630 V | +0.25249 V/µs | 0.7201 V | 0.3571 V | 1.445 µs |
+| | | −20.2 % | **+0.8 %** | −41.8 % | −28.1 % |
 | rising, schematic | 3.2269 V | −0.23840 V/µs | 0.7040 V | 2.5229 V | 10.719 µs |
-| rising, post-layout | 2.9270 V | −0.18129 V/µs | 0.7005 V | 2.2265 V | 12.407 µs |
-| | | −24.0 % | **−0.5 %** | −11.7 % | **+15.7 %** |
+| rising, post-layout | 2.9588 V | −0.17201 V/µs | 0.7010 V | 2.2578 V | 13.252 µs |
+| | | −27.8 % | **−0.4 %** | −10.5 % | **+23.6 %** |
 
 **The `XMG1`/`XMG2` trip-point hypothesis is refuted.** `V_trip` moves by
-under 1 % on either edge, and on the netlist these rows were measured against
-it could not have moved: `XMG1`'s trip is a DC ratio between two devices whose
-`W`/`L` the extraction reproduces exactly, and that extraction's parasitic
+under 1 % on either edge, and on neither extraction could it have moved by
+much: `XMG1`'s trip is a DC ratio between two devices whose `W`/`L` the
+extraction reproduces exactly. On the extraction these rows were first
+measured against it could not have moved at all — that extraction's parasitic
 model was *one series R into one lumped C per net* — a dangling leg, carrying
-no DC current, hence DC-invariant by construction. The same fact is why
-`iq_asserted_1x_na` read 27.7701 nA post-layout against 27.7702 nA schematic.
-(Since #314 the model is a per-net star
-([`layout/README.md`](../layout/README.md)), which is only *nearly*
-DC-invariant: resistance between a net's own terminals does move an operating
-point, by ≤0.3 % on the DC quantities `layout/README.md` compares. These rows
-are append-only evidence for the netlist they name and are unedited; the
-measured conclusion is not in doubt at that size of term, but a re-run against
-the current netlists would be a new record, not an edit to these.)
+no DC current, hence DC-invariant by construction (which is also why
+`iq_asserted_1x_na` read 27.7701 nA post-layout against 27.7702 nA
+schematic). The star model the rows above now transcribe is only *nearly*
+DC-invariant ([`layout/README.md`](../layout/README.md)): resistance between a
+net's own terminals does move an operating point, by ≤0.3 % on the DC
+quantities `layout/README.md` compares — and the re-measured rows bear that
+out at the trip point itself (+0.8 % falling, −0.4 % rising). The corner-grid
+records are append-only evidence for the netlists they name; these rows are
+the control's transcription and move with its re-runs.
 
 What moved is `V0` — the level the ramp actually starts from — in **opposite
 directions on the two edges but with the same sign of effect**: on both edges
 the step kicks `NDG` *toward* the trip, so both journeys shorten. The falling
-journey shortens by 45 % because it is short to begin with (`V_trip` sits at
+journey shortens by 42 % because it is short to begin with (`V_trip` sits at
 only 20 % of the rail, the price of `XMG1`'s NMOS-strong skew); the rising
 journey covers the other 80 % of the rail, so the *same-size* step shortens it
-by only 12 % — less than the 24 % the slope lost. **That is the whole
+by only 11 % — less than the 28 % the slope lost. **That is the whole
 asymmetry**: one absolute head-start step, one short journey and one long one.
 It is not two mechanisms.
 
@@ -1259,14 +1261,14 @@ capacitances onto the schematic netlist, one group at a time
 | `sch+cndg` — only the 38.58 fF on `NDG` | 0.0941 V | +0.26675 V/µs | **2.403 µs** |
 | `sch+ctail` — only the 34.12 / 34.26 fF on `NDGP` / `NDGN` | 0.3952 V | +0.32764 V/µs | **1.000 µs** |
 | `sch+call` — all three | 0.3478 V | +0.27768 V/µs | 1.356 µs |
-| `postlayout` (the real extracted netlist) | 0.3833 V | +0.26965 V/µs | 1.277 µs |
+| `postlayout` (the real extracted netlist) | 0.3630 V | +0.25249 V/µs | 1.445 µs |
 
 Clean separation: the `NDG` shunt moves the **slope** and nothing else, and on
 its own it *lengthens* the dwell by 20 %. The tail-node shunts move **`V0`**
 and nothing else, and on their own they *halve* it. `sch+call` lands within
-6 % of the real extracted netlist, so those three capacitances are essentially
-the whole story (the residual is the extraction's larger drawn junction areas
-and the other nets' parasitics).
+6.2 % of the real extracted netlist, so those three capacitances are
+essentially the whole story (the residual is the extraction's larger drawn
+junction areas and the other nets' parasitics).
 
 The arithmetic is first-order but it closes: `NDGP` carries 34.1 fF and swings
 ~2.46 V when `XMDGPI` turns on (3.63 V down to the 1.17 V it tracks mid-ramp),
@@ -1285,59 +1287,74 @@ the glitch width at which the one-shot's `TIM` starts losing charge:
 
 | `XCDG` | `CDG` | ceiling, half `IBIAS` | vs. the ratified 10 µs | floor, worst of the two fast corners |
 | --- | ---: | ---: | --- | --- |
-| 11 µm × 11 µm (as drawn) | 242 fF | 8.020 µs | +19.8 % headroom | rejects 1.00 µs |
-| 12 µm × 12 µm | 288 fF | 9.770 µs | +2.3 % headroom | rejects 1.25 µs |
-| 13 µm × 13 µm | 338 fF | 11.680 µs | **−16.8 % — fails** | rejects 1.75 µs |
-| 14 µm × 14 µm | 392 fF | 13.750 µs | **−37.5 % — fails** | rejects ≥2.25 µs |
+| 11 µm × 11 µm (as drawn) | 242 fF | 8.630 µs | +13.7 % headroom | rejects 1.25 µs |
+| 12 µm × 12 µm | 288 fF | 10.380 µs | **−3.8 % — fails** | rejects 1.5 µs |
+| 13 µm × 13 µm | 338 fF | 12.300 µs | **−23.0 % — fails** | rejects 2 µs |
+| 14 µm × 14 µm | 392 fF | 14.370 µs | **−43.7 % — fails** | rejects ≥2.25 µs |
 
 Restoring the schematic's measured floor (1.75 µs, i.e. 1.75× the 1 µs chatter
 the testbench applies) needs 13 µm × 13 µm, which **breaks
 [`por-brownout`](../spec/target-spec.md#por-brownout)'s ratified 10 µs
 `T_dip,min`** — and CLAUDE.md is explicit that agents do not relax the ratified
-spec to make results pass, so that size is not available. The one size that
-still fits, 12 µm × 12 µm, buys the floor back only to 1.25 µs while leaving
-2.3 % of ceiling headroom at a single corner of a grid whose own dwell spread
-is 112 %; that is not margin, it is a coin flip.
+spec to make results pass, so that size is not available. The re-measured
+table closes the middle exit too: 12 µm × 12 µm — the one size that used to
+fit, with 2.3 % to spare on the pre-#314 extraction — now sits at −3.8 %, so
+on the current extraction the as-drawn 11 µm is the only size that clears the
+ceiling at all (+13.7 %), and its floor is 1.25 µs.
 
 > **Read against 30 µs, this paragraph's arithmetic changes and its conclusion
 > is no longer self-evident.** [DR-027](../spec/decision-records/DR-027-por-brownout-tdip-recost.md)
 > (#236, pinned by #251) re-cost `T_dip,min` from 10 µs to **30 µs**, under
-> which 13 µm × 13 µm's 11.68 µs ceiling — the size rejected here — fits, as
-> does 14 µm × 14 µm's 13.75 µs. The trade-off this section closes out is
-> therefore **re-opened by the re-cost**, and the same measurement that
-> re-opened it also moves the *other* side of the ledger: at the `IBIAS` the
-> assembly really delivers the as-drawn ceiling is 23.11 µs, not 8.02 µs, so a
+> which 13 µm × 13 µm's ceiling — 12.30 µs on the current extraction, 11.68 µs
+> when it was rejected — fits, as does 14 µm × 14 µm's (14.37 µs now, 13.75 µs
+> then). The trade-off this section closes out is therefore **re-opened by the
+> re-cost**, and the same measurement that re-opened it also moves the *other*
+> side of the ledger: at the `IBIAS` the assembly really delivers the as-drawn
+> ceiling is 23.11 µs, not 8.63 µs (8.02 µs on the pre-#314 extraction), so a
 > larger `CDG` would spend real margin rather than free headroom. Which size
 > wins is a design question this note does not settle and #251 did not act on —
 > it is left visible rather than left implied.
 
 **So `CDG` is not resized, and no decision record is filed** — nothing ratified
-moved *at the time this section was written*. `por-brownout`'s 10 µs ceiling is met post-layout with 19.7 % headroom
-on the full grid (`20260811-095259-865cea8`; the 19.8 % in the table above is
-this control deck's own single-corner re-measurement of the same point)
+moved *at the time this section was written*, and the re-measurement leaves
+that rejection in place: the floor improves to 1.25× while the as-drawn
+ceiling keeps its headroom against the ratified bound (+13.7 % at the corner
+it binds on). `por-brownout`'s 10 µs ceiling is met
+post-layout with 19.7 % headroom
+on the full grid (`20260811-095259-865cea8`; the +13.7 % in the table above is
+the same control deck's single-corner re-measurement of that point on the
+current star extraction)
 and stays exactly where [DR-008](../spec/decision-records/DR-008-target-spec-ratification.md)
 put it. What changes is this document: the floor is now stated as a measured
-glitch-rejection width rather than left implicit, and it is **1.00× post-layout
-against 1.75× at the schematic level**.
+glitch-rejection width rather than left implicit, and it is **1.25× post-layout
+against 1.75× at the schematic level** (1.00× when this was first measured, on
+the pre-#314 extraction).
 
 ### What this hands off
 
 Two observations that are worth more than any capacitor in this cell:
 
 - **The `IBIAS` envelope is still the real constraint, and now it has a
-  number.** The ceiling check runs at *half* nominal `IBIAS` and reads 8.02 µs;
-  at nominal `IBIAS` the same corner reads 4.17 µs. The dwell goes as
+  number.** The ceiling check runs at *half* nominal `IBIAS` and reads
+  8.63 µs on the current extraction (8.02 µs when first measured); at
+  nominal `IBIAS` the same corner reads 4.48 µs (4.17 µs then). The dwell
+  goes as
   1/`IBIAS`, so every 1 % of low-side `IBIAS` tolerance #11 recovers is ~1 % of
   ceiling headroom, and **21.8 % of it pays for the 12 µm × 12 µm resize
-  outright** — with the floor margin that buys. See
+  outright** — with the floor margin that buys. (That ledger is the pre-#314
+  extraction's: on the current one 12 µm no longer clears the ratified 10 µs
+  ceiling at all — table above — so the resize question now lives entirely
+  under DR-027's note.) See
   [Hand-off to #11](#hand-off-to-11-the-ibias-envelope-is-the-real-constraint).
 - **Shrinking the tail nodes in layout is not free either.** It is tempting to
   read "the tail parasitic did this" as "route `NDGP`/`NDGN` shorter and the
   problem goes away". It does go away — and takes ceiling headroom with it, for
   exactly the same reason: `sch+cndg` (the `NDG` shunt with the tail shunts
   removed) reads 5.101 µs at `ss_-40c_2.97v` against the post-layout netlist's
-  4.167 µs, which scales to ≈9.8 µs at half `IBIAS`, i.e. ~2 % under the
-  ceiling. The two bounds move together whichever node is touched. Under the
+  4.483 µs on the current extraction, which scales to ≈9.8 µs at half `IBIAS`,
+  i.e. ~2 % under the ceiling — the same ≈9.8 µs the pre-#314 numbers gave
+  (4.167 µs, 8.02 µs there). The two bounds move together whichever node is
+  touched. Under the
   `IBIAS` tolerance assumed today there is no capacitance in this cell that
   separates them; a tighter `IBIAS` envelope is what creates the room.
 
