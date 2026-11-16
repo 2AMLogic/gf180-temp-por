@@ -259,10 +259,10 @@
       "released": false
     },
     "input": {
-      "content_hash": "sha256:f16588f1ab1483a0d0064f376ef7b7c3e21912bea10c401bbe351795ab1cca64",
+      "content_hash": "sha256:1ee4e15f2fd85df4f2d76d237a18c5c65c2ac41e4bea015e78bd91cee568b343",
       "role": "layout"
     },
     "klayout_version_mismatch": true,
-    "gds_sha256": "f16588f1ab1483a0d0064f376ef7b7c3e21912bea10c401bbe351795ab1cca64"
+    "gds_sha256": "1ee4e15f2fd85df4f2d76d237a18c5c65c2ac41e4bea015e78bd91cee568b343"
   }
 }
