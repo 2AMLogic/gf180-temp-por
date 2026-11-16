@@ -8,6 +8,8 @@ Merged PRs and closed issues from the initial 30-day snapshot (2026-09-07 onward
 
 ### 2026-11-16
 
+- **PR #578**: refactor: single-source declared-net set for reference-netlist guards
+- **Issue #538** (closed): lvs_reference: the declared-net-set derivation is now spelled out twice, and the guard's message omits bjt_well
 - **PR #536**: Consolidate the two CLIs' byte-identical argparse flags into cliutil
 - **PR #575**: docs: correct GoldenNetlistTests docstring to the measured drift behavior
 - **PR #562**: layout: add interior Nwell tap stripes to temp_core's PNP array
