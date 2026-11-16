@@ -157,6 +157,10 @@ class NamingTest(unittest.TestCase):
         # still elaborated: joining on the raw reference name missed every tie
         # keyed on an assembly's dotted well net. Driven from the committed
         # correspondence, so it is the real spelling being joined.
+        # #516: only the wells with no drawn n+ tie are left here -- xbias.NW1,
+        # xcmp.NW1 and xpor.NW1 dissolved into VDD once their cells' tie
+        # straps carried Nplus, leaving temp_core's two untied wells and the
+        # instanced inverter's.
         _spice, record = committed("temp_por_top")
         names = pl.net_map("temp_por_top", record["net_correspondence"])
         wells = {
@@ -164,7 +168,7 @@ class NamingTest(unittest.TestCase):
             for layout, reference in record["net_correspondence"].items()
             if reference.upper().endswith(("_NW1", "_NW2"))
         }
-        self.assertEqual(len(wells), 6)
+        self.assertEqual(len(wells), 3)
         for layout, reference in wells.items():
             with self.subTest(reference=reference):
                 self.assertIn(names[layout], ("VDD", "xtemp__NT"))
