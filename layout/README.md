@@ -1011,7 +1011,8 @@ geometry is *checked* rather than merely tolerated:
 
 Note the deck has **no `metal4` width rule at all** — `mim.space.1` is the only
 thing standing over `Metal4` geometry — so bottom-plate width is held to the DRM
-by construction here, not by a check. Same posture as the Via1/Via2 sizes.
+by construction here, not by a check. (Via sizes do not share that posture:
+`via1.width.1`–`via4.width.1` check each level's minimum width.)
 
 ### `temp_core` — the PTAT/CTAT sensing core (#71, passives folded in by #93)
 
@@ -1677,7 +1678,14 @@ filed upstream per this repo's friction protocol.
   geometry that finally drew their layers. Clean here still means clean against
   *that subset*: there is no rule at all for `Pplus`, `SAB`, `RES_MK` or the
   `Resistor` ID layer, so nothing in this flow checks a drawn resistor's own
-  DRM rules. It is not a tapeout-grade signoff, and no claim in this repo
+  DRM rules; the via rules are approximations too — `via1.width.1`–
+  `via4.width.1` are minimum-only, so an oversized via square is unchecked
+  against the DRM's min/max Vn.1 — and a via landed wholly off its pad passes
+  the `metalN.enclosing.viaN.1` enclosure rules, whose zero-overlap escape
+  term only considers vias that touch the pad
+  ([klayout-tools#5737](https://github.com/2AMLogic/klayout-tools/issues/5737);
+  `build_cells.py` asserts via-in-metal at build time for exactly this
+  reason). It is not a tapeout-grade signoff, and no claim in this repo
   should be written as if it were.
 - **~~`"enclosing"`/`"enclosed"` checks missed zero-overlap escapes.~~ Fixed
   upstream, found via `por_comparator` (#102/#103).** `klt drc`'s `"enclosing"`
