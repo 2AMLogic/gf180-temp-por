@@ -43,11 +43,11 @@
     "device_classes": [
       "pfet"
     ],
-    "device_count": 64,
+    "device_count": 29,
     "findings": [
       {
         "class": "pfet",
-        "device_count": 64
+        "device_count": 29
       }
     ],
     "finding_count": 1
@@ -60,9 +60,9 @@
   "category_error_counts": {},
   "counts": {
     "nets": {
-      "layout": 143,
-      "reference": 143,
-      "matched": 143
+      "layout": 139,
+      "reference": 139,
+      "matched": 139
     },
     "devices": {
       "layout": 239,
@@ -87,8 +87,8 @@
   "environment": {
     "engine": "klayout",
     "engine_version": "0.30.13",
-    "layout_sha256": "d58884ee391cfe351a0c68e7f0f49ca9b713479572b6268f692e71a1adc92134",
-    "reference_sha256": "d6a6a0575a06f69b1917627420193971aa335da92840a3a16ec50f5254bcade4",
+    "layout_sha256": "9820a0a2b8c673b1c63fd26b36d562a6ff3ccee2900e82dc5ddf27dcdad7292c",
+    "reference_sha256": "f5f26db9cd948c53a72253bb5361e561bd859184bdb66fe49cfe002dd734dffe",
     "extracted_netlist": null
   },
   "provenance": {
@@ -101,7 +101,7 @@
       "released": false
     },
     "input": {
-      "content_hash": "sha256:d58884ee391cfe351a0c68e7f0f49ca9b713479572b6268f692e71a1adc92134",
+      "content_hash": "sha256:9820a0a2b8c673b1c63fd26b36d562a6ff3ccee2900e82dc5ddf27dcdad7292c",
       "role": "layout"
     },
     "klayout_version_mismatch": true
@@ -110,7 +110,7 @@
     {
       "category": "device.body_unverified",
       "severity": "warning",
-      "description": "64 PMOS device body terminal(s) were compared against an anonymous, KLayout-synthesized well net, not a real schematic net -- no drawn or derived well-tap geometry resolved these device(s)' body terminal to a real net (see docs/cli/extract.md, \"Coverage\")",
+      "description": "29 PMOS device body terminal(s) were compared against an anonymous, KLayout-synthesized well net, not a real schematic net -- no drawn or derived well-tap geometry resolved these device(s)' body terminal to a real net (see docs/cli/extract.md, \"Coverage\")",
       "side": "layout",
       "net": null,
       "device": {
@@ -177,7 +177,7 @@
       "pin": false
     },
     {
-      "layout": "\\$64",
+      "layout": "\\$61",
       "reference": "XBIAS_ER",
       "pin": false
     },
@@ -212,7 +212,7 @@
       "pin": false
     },
     {
-      "layout": "\\$63",
+      "layout": "\\$60",
       "reference": "XBIAS_NA",
       "pin": false
     },
@@ -262,16 +262,6 @@
       "pin": false
     },
     {
-      "layout": "\\$65",
-      "reference": "XBIAS_NW1",
-      "pin": false
-    },
-    {
-      "layout": "\\$52",
-      "reference": "XBIAS_NWQ",
-      "pin": false
-    },
-    {
       "layout": "\\$45",
       "reference": "XBIAS_NZ",
       "pin": false
@@ -292,102 +282,102 @@
       "pin": false
     },
     {
-      "layout": "\\$68",
+      "layout": "\\$64",
       "reference": "XBIAS_XR1_1",
       "pin": false
     },
     {
-      "layout": "\\$71",
+      "layout": "\\$72",
       "reference": "XBIAS_XR2_1",
       "pin": false
     },
     {
-      "layout": "\\$58",
+      "layout": "\\$55",
       "reference": "XBIAS_XR2_10",
       "pin": false
     },
     {
-      "layout": "\\$70",
+      "layout": "\\$67",
       "reference": "XBIAS_XR2_11",
       "pin": false
     },
     {
-      "layout": "\\$59",
+      "layout": "\\$56",
       "reference": "XBIAS_XR2_12",
       "pin": false
     },
     {
-      "layout": "\\$69",
+      "layout": "\\$66",
       "reference": "XBIAS_XR2_13",
       "pin": false
     },
     {
-      "layout": "\\$60",
+      "layout": "\\$57",
       "reference": "XBIAS_XR2_14",
       "pin": false
     },
     {
-      "layout": "\\$76",
+      "layout": "\\$65",
       "reference": "XBIAS_XR2_15",
       "pin": false
     },
     {
-      "layout": "\\$54",
+      "layout": "\\$51",
       "reference": "XBIAS_XR2_2",
       "pin": false
     },
     {
-      "layout": "\\$72",
+      "layout": "\\$71",
       "reference": "XBIAS_XR2_3",
       "pin": false
     },
     {
-      "layout": "\\$55",
+      "layout": "\\$52",
       "reference": "XBIAS_XR2_4",
       "pin": false
     },
     {
-      "layout": "\\$73",
+      "layout": "\\$70",
       "reference": "XBIAS_XR2_5",
       "pin": false
     },
     {
-      "layout": "\\$56",
+      "layout": "\\$53",
       "reference": "XBIAS_XR2_6",
       "pin": false
     },
     {
-      "layout": "\\$74",
+      "layout": "\\$69",
       "reference": "XBIAS_XR2_7",
       "pin": false
     },
     {
-      "layout": "\\$57",
+      "layout": "\\$54",
       "reference": "XBIAS_XR2_8",
       "pin": false
     },
     {
-      "layout": "\\$75",
+      "layout": "\\$68",
       "reference": "XBIAS_XR2_9",
       "pin": false
     },
     {
-      "layout": "\\$62",
+      "layout": "\\$59",
       "reference": "XBIAS_XRT_1",
       "pin": false
     },
     {
-      "layout": "\\$66",
+      "layout": "\\$62",
       "reference": "XBIAS_XRZ_1",
       "pin": false
     },
     {
-      "layout": "\\$61",
+      "layout": "\\$58",
       "reference": "XBIAS_XRZ_2",
       "pin": false
     },
     {
-      "layout": "\\$67",
+      "layout": "\\$63",
       "reference": "XBIAS_XRZ_3",
       "pin": false
     },
@@ -414,11 +404,6 @@
     {
       "layout": "\\$26",
       "reference": "XCMP_NBG",
-      "pin": false
-    },
-    {
-      "layout": "\\$51",
-      "reference": "XCMP_NW1",
       "pin": false
     },
     {
@@ -479,11 +464,6 @@
     {
       "layout": "\\$36",
       "reference": "XPOR_NTS",
-      "pin": false
-    },
-    {
-      "layout": "\\$53",
-      "reference": "XPOR_NW1",
       "pin": false
     },
     {
@@ -582,12 +562,12 @@
       "pin": false
     },
     {
-      "layout": "\\$101",
+      "layout": "\\$97",
       "reference": "XTEMP_NW1",
       "pin": false
     },
     {
-      "layout": "\\$100",
+      "layout": "\\$96",
       "reference": "XTEMP_NW2",
       "pin": false
     },
@@ -642,202 +622,202 @@
       "pin": false
     },
     {
-      "layout": "\\$141",
+      "layout": "\\$137",
       "reference": "XTEMP_XR1_1",
       "pin": false
     },
     {
-      "layout": "\\$147",
+      "layout": "\\$143",
       "reference": "XTEMP_XR2F_1",
       "pin": false
     },
     {
-      "layout": "\\$110",
+      "layout": "\\$106",
       "reference": "XTEMP_XR2F_10",
       "pin": false
     },
     {
-      "layout": "\\$152",
+      "layout": "\\$148",
       "reference": "XTEMP_XR2F_11",
       "pin": false
     },
     {
-      "layout": "\\$111",
+      "layout": "\\$107",
       "reference": "XTEMP_XR2F_12",
       "pin": false
     },
     {
-      "layout": "\\$153",
+      "layout": "\\$149",
       "reference": "XTEMP_XR2F_13",
       "pin": false
     },
     {
-      "layout": "\\$112",
+      "layout": "\\$108",
       "reference": "XTEMP_XR2F_14",
       "pin": false
     },
     {
-      "layout": "\\$154",
+      "layout": "\\$150",
       "reference": "XTEMP_XR2F_15",
       "pin": false
     },
     {
-      "layout": "\\$113",
+      "layout": "\\$109",
       "reference": "XTEMP_XR2F_16",
       "pin": false
     },
     {
-      "layout": "\\$155",
+      "layout": "\\$151",
       "reference": "XTEMP_XR2F_17",
       "pin": false
     },
     {
-      "layout": "\\$114",
+      "layout": "\\$110",
       "reference": "XTEMP_XR2F_18",
       "pin": false
     },
     {
-      "layout": "\\$156",
+      "layout": "\\$152",
       "reference": "XTEMP_XR2F_19",
       "pin": false
     },
     {
-      "layout": "\\$106",
+      "layout": "\\$102",
       "reference": "XTEMP_XR2F_2",
       "pin": false
     },
     {
-      "layout": "\\$115",
+      "layout": "\\$111",
       "reference": "XTEMP_XR2F_20",
       "pin": false
     },
     {
-      "layout": "\\$157",
+      "layout": "\\$153",
       "reference": "XTEMP_XR2F_21",
       "pin": false
     },
     {
-      "layout": "\\$116",
+      "layout": "\\$112",
       "reference": "XTEMP_XR2F_22",
       "pin": false
     },
     {
-      "layout": "\\$158",
+      "layout": "\\$154",
       "reference": "XTEMP_XR2F_23",
       "pin": false
     },
     {
-      "layout": "\\$148",
+      "layout": "\\$144",
       "reference": "XTEMP_XR2F_3",
       "pin": false
     },
     {
-      "layout": "\\$107",
+      "layout": "\\$103",
       "reference": "XTEMP_XR2F_4",
       "pin": false
     },
     {
-      "layout": "\\$149",
+      "layout": "\\$145",
       "reference": "XTEMP_XR2F_5",
       "pin": false
     },
     {
-      "layout": "\\$108",
+      "layout": "\\$104",
       "reference": "XTEMP_XR2F_6",
       "pin": false
     },
     {
-      "layout": "\\$150",
+      "layout": "\\$146",
       "reference": "XTEMP_XR2F_7",
       "pin": false
     },
     {
-      "layout": "\\$109",
+      "layout": "\\$105",
       "reference": "XTEMP_XR2F_8",
       "pin": false
     },
     {
-      "layout": "\\$151",
+      "layout": "\\$147",
       "reference": "XTEMP_XR2F_9",
       "pin": false
     },
     {
-      "layout": "\\$122",
+      "layout": "\\$118",
       "reference": "XTEMP_XR2T0_1",
       "pin": false
     },
     {
-      "layout": "\\$123",
+      "layout": "\\$119",
       "reference": "XTEMP_XR2T1_1",
       "pin": false
     },
     {
-      "layout": "\\$127",
+      "layout": "\\$123",
       "reference": "XTEMP_XR2T2_1",
       "pin": false
     },
     {
-      "layout": "\\$131",
+      "layout": "\\$127",
       "reference": "XTEMP_XR2T3_1",
       "pin": false
     },
     {
-      "layout": "\\$140",
+      "layout": "\\$136",
       "reference": "XTEMP_XR2T4_1",
       "pin": false
     },
     {
-      "layout": "\\$159",
+      "layout": "\\$155",
       "reference": "XTEMP_XR2T5_1",
       "pin": false
     },
     {
-      "layout": "\\$139",
+      "layout": "\\$135",
       "reference": "XTEMP_XRISO_1",
       "pin": false
     },
     {
-      "layout": "\\$142",
+      "layout": "\\$138",
       "reference": "XTEMP_XRZ_1",
       "pin": false
     },
     {
-      "layout": "\\$102",
+      "layout": "\\$98",
       "reference": "XTEMP_XRZ_2",
       "pin": false
     },
     {
-      "layout": "\\$143",
+      "layout": "\\$139",
       "reference": "XTEMP_XRZ_3",
       "pin": false
     },
     {
-      "layout": "\\$103",
+      "layout": "\\$99",
       "reference": "XTEMP_XRZ_4",
       "pin": false
     },
     {
-      "layout": "\\$144",
+      "layout": "\\$140",
       "reference": "XTEMP_XRZ_5",
       "pin": false
     },
     {
-      "layout": "\\$104",
+      "layout": "\\$100",
       "reference": "XTEMP_XRZ_6",
       "pin": false
     },
     {
-      "layout": "\\$145",
+      "layout": "\\$141",
       "reference": "XTEMP_XRZ_7",
       "pin": false
     },
     {
-      "layout": "\\$105",
+      "layout": "\\$101",
       "reference": "XTEMP_XRZ_8",
       "pin": false
     },
     {
-      "layout": "\\$146",
+      "layout": "\\$142",
       "reference": "XTEMP_XRZ_9",
       "pin": false
     }

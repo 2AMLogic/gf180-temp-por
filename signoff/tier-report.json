@@ -64,7 +64,7 @@
         "command": null,
         "kind": "generic",
         "check_status": "pass",
-        "content_hash": "sha256:d58884ee391cfe351a0c68e7f0f49ca9b713479572b6268f692e71a1adc92134",
+        "content_hash": "sha256:9820a0a2b8c673b1c63fd26b36d562a6ff3ccee2900e82dc5ddf27dcdad7292c",
         "input_verified": true,
         "exit_status": 0,
         "artifact_binding": {
@@ -73,7 +73,7 @@
             "path": "layout/cells/temp_por_top.gds",
             "scope": "repo"
           },
-          "content_hash": "sha256:d58884ee391cfe351a0c68e7f0f49ca9b713479572b6268f692e71a1adc92134",
+          "content_hash": "sha256:9820a0a2b8c673b1c63fd26b36d562a6ff3ccee2900e82dc5ddf27dcdad7292c",
           "input_verified": true,
           "summary": "Layout for gf180-temp-por: the assembled top cell layout/cells/temp_por_top.gds (bound by hash; the same hash T1 items 3, 4 and 11 pin) plus the other cell layouts layout/cells/bias_core.gds, layout/cells/por_comparator.gds, layout/cells/por_comparator_bias_okb_inv.gds, layout/cells/por_output_chain.gds, layout/cells/temp_core.gds. Reproducibility gate: python3 layout/build_cells.py --check. This asserts the layout artifact exists and is the one the DRC, LVS and supply-ERC reports describe; it does not assert that the layout meets the area budget.",
           "source": "layout/cells/temp_por_top.gds"
@@ -95,7 +95,7 @@
         "command": null,
         "kind": "drc",
         "check_status": "clean",
-        "content_hash": "sha256:d58884ee391cfe351a0c68e7f0f49ca9b713479572b6268f692e71a1adc92134",
+        "content_hash": "sha256:9820a0a2b8c673b1c63fd26b36d562a6ff3ccee2900e82dc5ddf27dcdad7292c",
         "input_verified": true,
         "exit_status": 0,
         "coverage": {
@@ -147,7 +147,7 @@
         "command": null,
         "kind": "lvs",
         "check_status": "match",
-        "content_hash": "sha256:d58884ee391cfe351a0c68e7f0f49ca9b713479572b6268f692e71a1adc92134",
+        "content_hash": "sha256:9820a0a2b8c673b1c63fd26b36d562a6ff3ccee2900e82dc5ddf27dcdad7292c",
         "input_verified": null,
         "exit_status": 0
       }
@@ -340,7 +340,7 @@
         "command": null,
         "kind": "generic",
         "check_status": "pass",
-        "content_hash": "sha256:7389df78ef2e0570e1e7c04501c66404e3093a7ace523439b8877e0e8f4e4f57",
+        "content_hash": "sha256:33b567d38dea518f937c3daea2f5acc11bfa2c83d00660e00ef4a914fec7f404",
         "input_verified": true,
         "exit_status": 0,
         "artifact_binding": {
@@ -349,7 +349,7 @@
             "path": "signoff/evidence/inventory-testbenches.json",
             "scope": "repo"
           },
-          "content_hash": "sha256:7389df78ef2e0570e1e7c04501c66404e3093a7ace523439b8877e0e8f4e4f57",
+          "content_hash": "sha256:33b567d38dea518f937c3daea2f5acc11bfa2c83d00660e00ef4a914fec7f404",
           "input_verified": true,
           "summary": "Audited inventory for T1 item 9 (Testbenches shipped): the committed testbench files of 24 sim/ experiments mapped to all 29 spec rows, the cold-start invocation and the pinned PDK revision. Every member file is listed with its sha256 and signoff/check.py re-derives the inventory from the live tree, so the bound hash proves the inventory is current and the member hashes prove the files it describes are. It does not run a simulation or re-derive any measured value.",
           "source": "signoff/evidence/inventory-testbenches.json"
@@ -405,7 +405,7 @@
         "command": null,
         "kind": "erc",
         "check_status": "not_checked",
-        "content_hash": "sha256:d58884ee391cfe351a0c68e7f0f49ca9b713479572b6268f692e71a1adc92134",
+        "content_hash": "sha256:9820a0a2b8c673b1c63fd26b36d562a6ff3ccee2900e82dc5ddf27dcdad7292c",
         "input_verified": true,
         "exit_status": 0,
         "parts": [
@@ -414,7 +414,7 @@
             "command": null,
             "kind": "erc",
             "check_status": "not_checked",
-            "content_hash": "sha256:d58884ee391cfe351a0c68e7f0f49ca9b713479572b6268f692e71a1adc92134",
+            "content_hash": "sha256:9820a0a2b8c673b1c63fd26b36d562a6ff3ccee2900e82dc5ddf27dcdad7292c",
             "input_verified": true,
             "exit_status": 0
           },
@@ -423,7 +423,7 @@
             "command": null,
             "kind": "lvs",
             "check_status": "match",
-            "content_hash": "sha256:d58884ee391cfe351a0c68e7f0f49ca9b713479572b6268f692e71a1adc92134",
+            "content_hash": "sha256:9820a0a2b8c673b1c63fd26b36d562a6ff3ccee2900e82dc5ddf27dcdad7292c",
             "input_verified": null,
             "exit_status": 0
           }

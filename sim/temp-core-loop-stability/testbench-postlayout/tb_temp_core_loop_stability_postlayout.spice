@@ -17,7 +17,7 @@
 * ---- Forked from ------------------------------------------------------
 *
 * Forked from layout/postlayout/temp_core.spice (sha256
-* 2b2153f2ec93f85c65945459006dbcd0fd4f0fa222e0568249aa33ebbee6d0ac)
+* 8757d3ead8a11acdf38d0effd714d8feb831d83ca40f6809d12208bb90548ff2)
 *
 * That digest is checked on every CI run by sim/tests/test_postlayout_forks.py:
 * if layout/postlayout/temp_core.spice is regenerated (new layout, new klt)
