@@ -1101,6 +1101,66 @@ class TempCoreTest(ManifestReferenceTests, ControlCoverageTests, unittest.TestCa
         self.assertEqual(sum(1 for card in cards if card[3] == "NA"), 1)
         self.assertEqual(sum(1 for card in cards if card[3] == "NC"), 8)
 
+    def test_every_pnp_emitter_is_within_the_drms_tap_distance(self):
+        # DRM DF.13_LV -- klt 0.8.0+'s comp.tap_distance.nwell.lv.1 -- caps
+        # the distance of an Nwell tap from PCOMP inside the same well at
+        # 20 um. The pinned 0.6.0 deck cannot see the rule
+        # (layout/drc-newer-klt-triage.md #2), so this recomputes the
+        # worst-case emitter-to-tap distance from the array's own constants:
+        # the tap material is the base ring's COMP bands plus the interior
+        # stripes' COMP (#519), and every one of the 25 emitters has to be
+        # within the limit of at least one of them. A future _Q_PITCH or
+        # _Q_GRID change that quietly outgrows the stripes fails here first,
+        # between deck runs.
+        span = (bc._Q_GRID - 1) * bc._Q_PITCH + bc._Q_EMITTER
+        off, width = bc._Q_TAP_RING_OFFSET_UM, bc._Q_TAP_RING_WIDTH_UM
+        lo, hi = -off, span + off  # the ring's bands, in array-local coords
+        taps = [
+            (lo, lo, hi, lo + width),
+            (lo, hi - width, hi, hi),
+            (lo, lo, lo + width, hi),
+            (hi - width, lo, hi, hi),
+        ]
+        mids = [
+            gap * bc._Q_PITCH + bc._Q_EMITTER + (bc._Q_PITCH - bc._Q_EMITTER) / 2.0
+            for gap in bc._Q_TAP_STRIPE_GAPS
+        ]
+        half = bc._Q_TAP_STRIPE_COMP_UM / 2.0
+        for mid in mids:
+            taps.append((mid - half, -off, mid + half, span + off))
+
+        def rect_gap(a, b):
+            dx = max(b[0] - a[2], a[0] - b[2], 0.0)
+            dy = max(b[1] - a[3], a[1] - b[3], 0.0)
+            return (dx * dx + dy * dy) ** 0.5
+
+        worst = 0.0
+        for row in range(bc._Q_GRID):
+            for col in range(bc._Q_GRID):
+                x0e, y0e = col * bc._Q_PITCH, row * bc._Q_PITCH
+                emitter = (x0e, y0e, x0e + bc._Q_EMITTER, y0e + bc._Q_EMITTER)
+                worst = max(worst, min(rect_gap(emitter, tap) for tap in taps))
+        self.assertLessEqual(worst, 20.0)
+        # The stripes are mirror-symmetric about the centre unit, which is
+        # what preserves the array's common-centroid matching (the same
+        # invariant the 8:1 ratio rests on).
+        centre = (bc._Q_GRID - 1) / 2.0 * bc._Q_PITCH + bc._Q_EMITTER / 2.0
+        self.assertEqual(sum(mids) / len(mids), centre)
+        # Each stripe's COMP stays clear of every active unit's DRC_BJT patch
+        # by BJT.3's 0.1 um -- the 2.0 um inter-patch window minus the stripe
+        # leaves exactly that margin each side. That clearance is also what
+        # keeps the tap from extracting as a 26th emitter (an emitter is Comp
+        # inside a patch's base region), and the implant overhang is what
+        # keeps the tap visible to the tap rules at all.
+        for gap in bc._Q_TAP_STRIPE_GAPS:
+            window = (gap + 1) * bc._Q_PITCH - 1.0 - (
+                gap * bc._Q_PITCH + bc._Q_EMITTER + 1.0
+            )
+            self.assertGreaterEqual(
+                round(window - bc._Q_TAP_STRIPE_COMP_UM, 9), 2 * 0.1
+            )
+        self.assertGreater(bc._Q_TAP_IMPLANT_OVERHANG_UM, 0.0)
+
     def test_a_length_that_does_not_split_on_the_grid_raises(self):
         # Silently rounding would make the drawn resistance differ from the
         # one this reference states, which reads as an unexplainable

@@ -5,7 +5,7 @@
   "top": "temp_core",
   "dbu_um": 0.001,
   "netlist_path": "layout/reports/temp_core/extracted.spice",
-  "netlist_sha256": "c89b299add45a1b5556cea9014a13776cbe0fe3a400f51a84c4f602a5abb1ba0",
+  "netlist_sha256": "ff0c0bbb196c603794a45f6bab7f8f4a457d0d13bfbc85cc74c91036d10505e5",
   "status": "extracted",
   "device_count": 115,
   "net_count": 71,
@@ -1473,7 +1473,7 @@
       "class": "ppolyf_u",
       "nets": {
         "a": "NA",
-        "b": "\\$62",
+        "b": "\\$67",
         "w": "VSS"
       },
       "params": {
@@ -1490,7 +1490,7 @@
       "class": "ppolyf_u",
       "nets": {
         "a": "CTAT",
-        "b": "\\$62",
+        "b": "\\$67",
         "w": "VSS"
       },
       "params": {
@@ -2089,7 +2089,7 @@
       "name": "EN",
       "pin": true,
       "device_count": 4,
-      "net_id": 15,
+      "net_id": 14,
       "pin_index": 1,
       "label_positions_um": [
         {
@@ -2131,7 +2131,7 @@
       "name": "M1D",
       "pin": true,
       "device_count": 4,
-      "net_id": 22,
+      "net_id": 23,
       "pin_index": 4,
       "label_positions_um": [
         {
@@ -2145,7 +2145,7 @@
       "name": "M2D",
       "pin": true,
       "device_count": 4,
-      "net_id": 21,
+      "net_id": 19,
       "pin_index": 5,
       "label_positions_um": [
         {
@@ -2159,7 +2159,7 @@
       "name": "M3D",
       "pin": true,
       "device_count": 4,
-      "net_id": 24,
+      "net_id": 26,
       "pin_index": 6,
       "label_positions_um": [
         {
@@ -2173,7 +2173,7 @@
       "name": "N1",
       "pin": true,
       "device_count": 8,
-      "net_id": 20,
+      "net_id": 21,
       "pin_index": 7,
       "label_positions_um": [
         {
@@ -2215,7 +2215,7 @@
       "name": "NB",
       "pin": true,
       "device_count": 5,
-      "net_id": 23,
+      "net_id": 20,
       "pin_index": 10,
       "label_positions_um": [
         {
@@ -2271,7 +2271,7 @@
       "name": "NR",
       "pin": true,
       "device_count": 4,
-      "net_id": 26,
+      "net_id": 25,
       "pin_index": 14,
       "label_positions_um": [
         {
@@ -2285,7 +2285,7 @@
       "name": "NT",
       "pin": true,
       "device_count": 12,
-      "net_id": 18,
+      "net_id": 16,
       "pin_index": 15,
       "label_positions_um": [
         {
@@ -2327,7 +2327,7 @@
       "name": "PCAS",
       "pin": true,
       "device_count": 9,
-      "net_id": 16,
+      "net_id": 18,
       "pin_index": 18,
       "label_positions_um": [
         {
@@ -2341,7 +2341,7 @@
       "name": "PG",
       "pin": true,
       "device_count": 12,
-      "net_id": 19,
+      "net_id": 22,
       "pin_index": 19,
       "label_positions_um": [
         {
@@ -2355,7 +2355,7 @@
       "name": "PTAT",
       "pin": true,
       "device_count": 4,
-      "net_id": 25,
+      "net_id": 24,
       "pin_index": 20,
       "label_positions_um": [
         {
@@ -2453,7 +2453,7 @@
       "name": "VDD",
       "pin": true,
       "device_count": 21,
-      "net_id": 14,
+      "net_id": 15,
       "pin_index": 27,
       "label_positions_um": [
         {
@@ -2646,10 +2646,10 @@
       "label_positions_um": []
     },
     {
-      "name": "\\$62",
+      "name": "\\$67",
       "pin": false,
       "device_count": 2,
-      "net_id": 62,
+      "net_id": 67,
       "pin_index": null,
       "label_positions_um": []
     },
@@ -4152,10 +4152,10 @@
       "released": false
     },
     "input": {
-      "content_hash": "sha256:360bbbea3f0659324430beb69c19ecee30d818111f6f00cfa62845932d7862a7",
+      "content_hash": "sha256:25c772fada73b8ba4c97415e34b247c7ff2b54d8d3fd93b031ba5d016fdb1c4d",
       "role": "layout"
     },
-    "gds_sha256": "360bbbea3f0659324430beb69c19ecee30d818111f6f00cfa62845932d7862a7"
+    "gds_sha256": "25c772fada73b8ba4c97415e34b247c7ff2b54d8d3fd93b031ba5d016fdb1c4d"
   },
   "parasitics": null,
   "spef_path": null,

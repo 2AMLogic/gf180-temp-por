@@ -2973,6 +2973,35 @@ _Q_PITCH = 14.0
 _Q_GRID = 5
 _Q_GAP = 25.0  # x between the resistor bank and the PNP array
 
+#: The array's Nwell tap geometry (#519), named so the tap-distance invariant
+#: ``layout/tests/test_lvs_reference.py`` asserts against is derived from the
+#: same numbers the drawing is. The base ring is the tap: ``ring(COMP,
+#: _Q_TAP_RING_OFFSET_UM, _Q_TAP_RING_WIDTH_UM)`` is the n+ COMP band, with
+#: its NPLUS extending :data:`_Q_TAP_IMPLANT_OVERHANG_UM` beyond the COMP on
+#: every side -- the convention every tap this cell draws follows, because a
+#: tap COMP without its own implant is invisible to the tap rules (it is the
+#: implant layers that classify a tap) and an uncovered ``comp.coverage.1``
+#: violation besides.
+_Q_TAP_RING_OFFSET_UM = 4.0
+_Q_TAP_RING_WIDTH_UM = 2.0
+_Q_TAP_IMPLANT_OVERHANG_UM = 0.3
+
+#: A perimeter-only tap ring cannot satisfy the DRM's ``DF.13_LV`` (the
+#: deck's ``comp.tap_distance.nwell.lv.1``: an Nwell tap may sit at most
+#: 20 um from PCOMP inside the same well) at *any* width: the centre emitter
+#: is 28 um inside the emitter bounding box, so tap material outside that box
+#: is at least 28 um away. #519 therefore runs two interior stripes through
+#: the array, in the gaps either side of the centre column -- the only pair
+#: of stripe sites that is free of Metal2 routing (the Metal2 verticals sit
+#: over emitter centres at ``cx()``, not in the gaps) and mirror-symmetric
+#: about the centre unit, so the common-centroid matching the 8:1 emitter
+#: ratio rests on is preserved. Each neighbouring active unit's ``DRC_BJT``
+#: patch eats 1.0 um of the 4.0 um gap and ``BJT.3`` keeps a patch 0.1 um off
+#: unrelated COMP, leaving a 2.0 um inter-patch window; the stripe COMP is
+#: centred in it at 1.8 um.
+_Q_TAP_STRIPE_GAPS = (1, 2)  # the col1/col2 and col2/col3 gaps
+_Q_TAP_STRIPE_COMP_UM = 1.8
+
 #: The MiM cap ``XCC`` (#259, executing DR-028): the lower-left corner of its
 #: bottom plate. It sits in the band above the PMOS row's Nwell (which tops out
 #: at y = 54.5) and left of the passive field's own x0, which is empty in this
@@ -3211,7 +3240,12 @@ def _temp_core_resistor_bank(
 def _temp_core_pnp_array(b: CellBuilder, channel: _Channel, x0: float, y0: float) -> None:
     """rank 3's vertical-PNP centroid array: ``XQ1`` at the centre of the
     active 3x3, the eight ``XQ8`` units around it, one shared base/collector
-    ring construction, and a dummy unit cell on the whole perimeter.
+    ring construction, and a dummy unit cell on the whole perimeter. The
+    ring's tap job is finished by two interior Nwell tap stripes (#519), in
+    the gaps either side of the centre column: a perimeter-only tap cannot
+    reach the centre emitter inside the DRM's 20 um ``DF.13_LV`` limit at any
+    ring width, so tap material has to run through the array (see
+    :data:`_Q_TAP_STRIPE_GAPS`).
 
     Only the nine active units carry a ``DRC_BJT`` patch, and each patch is
     scoped to its own emitter rather than blanketing the array. That is what
@@ -3271,9 +3305,13 @@ def _temp_core_pnp_array(b: CellBuilder, channel: _Channel, x0: float, y0: float
             b.contact(hi - mid, pos)
 
     # Shared base ring (n+ COMP inside the Nwell) ...
-    ring(COMP, 4.0, 2.0)
-    ring(NPLUS, 4.3, 2.6)
-    ring_contacts(4.0, 2.0)
+    ring(COMP, _Q_TAP_RING_OFFSET_UM, _Q_TAP_RING_WIDTH_UM)
+    ring(
+        NPLUS,
+        _Q_TAP_RING_OFFSET_UM + _Q_TAP_IMPLANT_OVERHANG_UM,
+        _Q_TAP_RING_WIDTH_UM + 2.0 * _Q_TAP_IMPLANT_OVERHANG_UM,
+    )
+    ring_contacts(_Q_TAP_RING_OFFSET_UM, _Q_TAP_RING_WIDTH_UM)
     ring(METAL1, 3.8, 1.6)
     # ... one Nwell holding the whole array and its base ring ...
     b.box(NWELL, x0 - 5.5, y0 - 5.5, x0 + span + 5.5, y0 + span + 5.5)
@@ -3282,6 +3320,42 @@ def _temp_core_pnp_array(b: CellBuilder, channel: _Channel, x0: float, y0: float
     ring(PPLUS, 10.3, 2.6)
     ring_contacts(10.0, 2.0)
     ring(METAL1, 9.8, 1.6)
+
+    # --- interior tap stripes (#519) ---------------------------------------
+    # The base ring above is the array's only Nwell tap, and it leaves the
+    # centre emitter 2 * _Q_PITCH + 2 = 30 um from tap material where DF.13_LV
+    # caps it at 20 um. Each stripe runs the full array height and merges into
+    # the ring's own COMP/NPLUS/Metal1 bands at top and bottom -- the stripes
+    # are the same net (the Nwell base) as the ring, and the merge is what
+    # ties them to the ring's Metal1 without any new routing. The lane()
+    # Metal2 runs that cross here (lane(0)/lane(3) over both stripes, lane(2)
+    # over the col1/col2 one) pass over the stripe Metal1 on another layer,
+    # with no via at any crossing, so nothing is bridged.
+    for gap in _Q_TAP_STRIPE_GAPS:
+        mid = x0 + gap * _Q_PITCH + _Q_EMITTER + (_Q_PITCH - _Q_EMITTER) / 2.0
+        half = _Q_TAP_STRIPE_COMP_UM / 2.0
+        overhang = half + _Q_TAP_IMPLANT_OVERHANG_UM
+        b.box(
+            COMP,
+            mid - half,
+            y0 - _Q_TAP_RING_OFFSET_UM,
+            mid + half,
+            y0 + span + _Q_TAP_RING_OFFSET_UM,
+        )
+        b.box(
+            NPLUS,
+            mid - overhang,
+            y0 - _Q_TAP_RING_OFFSET_UM - _Q_TAP_IMPLANT_OVERHANG_UM,
+            mid + overhang,
+            y0 + span + _Q_TAP_RING_OFFSET_UM + _Q_TAP_IMPLANT_OVERHANG_UM,
+        )
+        for y in _span(
+            y0 - _Q_TAP_RING_WIDTH_UM, y0 + span + _Q_TAP_RING_WIDTH_UM, TAP_PITCH_UM
+        ):
+            b.contact(mid, y)
+        # the ring's own Metal1 width (1.6) and extent (offset 3.8), so the
+        # stripe merges into its band rather than stopping clear of it.
+        b.box(METAL1, mid - 0.8, y0 - 3.8, mid + 0.8, y0 + span + 3.8)
 
     # --- the eight XQ8 emitters, all on NC --------------------------------
     # Every wire below stays out of lane(2), which is XQ1's only way out of

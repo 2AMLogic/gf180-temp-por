@@ -576,6 +576,11 @@ Consequences to carry forward, stated so nobody has to re-derive them:
   reference. The drawn Nwell tap ring that ties the base to `VSS` is a
   design-review claim, like every other tie in this repo
   ([klayout-tools#303](https://github.com/2AMLogic/klayout-tools/issues/303)).
+  The two interior tap stripes #519 drew through the array merge into that
+  same ring's COMP/Metal1, so they ride the same unchecked tie — and the
+  20 um `DF.13_LV` tap distance they exist to satisfy is itself invisible to
+  the pinned deck, pinned instead by the generator-level unit test in
+  `layout/tests/test_lvs_reference.py`.
 - **MiM plates now own the schematic's own net.** At the deck this repo's
   evidence was first produced against, `klt` registered a recognised
   capacitor's plates outside its own metal/via stack, so no drawn routing
