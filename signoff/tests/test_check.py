@@ -458,7 +458,7 @@ class ProseCountTest(unittest.TestCase):
     def setUp(self):
         self.tmp = Path(tempfile.mkdtemp())
         self.addCleanup(shutil.rmtree, self.tmp, True)
-        for rel in check.PROSE_COUNT_DOCS:
+        for rel in check.PROSE_COUNT_DOCS + ("signoff/tier-report.json",):
             dst = self.tmp / rel
             dst.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy(REPO_ROOT / rel, dst)
@@ -511,6 +511,33 @@ class ProseCountTest(unittest.TestCase):
     def test_slash_form_fails(self):
         self.append("README.md", "The block sits at 8/11 items met.")
         self.assert_fails("8/11 items")
+
+    def test_item_total_is_read_from_the_report(self):
+        """The bare-fraction leg tracks tier-report.json, not a hand-typed total.
+
+        A total copied into the checker would rot exactly like the prose
+        aggregates this check forbids: when the checklist grows an item, the
+        report moves to 12 and prose saying "9 of 12" must start failing.
+        """
+        report = self.tmp / "signoff" / "tier-report.json"
+        data = json.loads(report.read_text())
+        data["t1_item_count"] = 12
+        report.write_text(json.dumps(data))
+        self.append("signoff/README.md", "**9 of 12 is a lower number.**")
+        self.assert_fails("9 of 12")
+        # Against the new total, the old total's fraction is no longer an
+        # aggregate -- and must not fail.
+        shutil.copy(REPO_ROOT / "signoff/README.md", self.tmp / "signoff/README.md")
+        self.append("README.md", "**8 of 11 is a lower number.**")
+        self.assert_passes()
+
+    def test_unreadable_report_drops_only_the_bare_fraction_leg(self):
+        """Without a report the counted leg still polices prose."""
+        (self.tmp / "signoff" / "tier-report.json").unlink()
+        self.append("README.md", "**9 of 11 is a lower number.**")
+        self.assert_passes()
+        self.append("signoff/README.md", "9 of 11 items met today.")
+        self.assert_fails("9 of 11 items")
 
     def test_unmet_enumeration_fails(self):
         self.append("signoff/README.md", "Items 5, 6 and 7 are unmet.")
