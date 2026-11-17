@@ -97,6 +97,114 @@ class ErcFreshnessTest(unittest.TestCase):
         self.assertIn("unreadable", err)
 
 
+PEX_REPORT = "layout/reports/temp_por_top/pex.json"
+
+
+class PexInputFreshnessTest(unittest.TestCase):
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, self.tmp, True)
+        for rel in (GDS, PEX_REPORT, MANIFEST):
+            dst = self.tmp / rel
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy(REPO_ROOT / rel, dst)
+        # The committed pex.json is stale against the committed GDS (that is
+        # the drift this guard exists for), so a byte-identical fixture would
+        # fail for the tree's own reason. Re-pin the fixture to the copied
+        # GDS's actual digest so "unchanged" really means unchanged.
+        digest = check.sha256_file(self.tmp / GDS)
+        self.edit_json(
+            PEX_REPORT,
+            lambda d: d["provenance"]["input"].update(content_hash=digest),
+        )
+        self.edit_json(
+            MANIFEST,
+            lambda d: d["evidence"]["7"].update(content_hash=digest),
+        )
+
+    def run_check(self) -> tuple[bool, str]:
+        out, err = io.StringIO(), io.StringIO()
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            ok = check.check_pex_input_freshness(self.tmp)
+        return ok, err.getvalue()
+
+    def edit_json(self, rel, fn):
+        path = self.tmp / rel
+        data = json.loads(path.read_text())
+        fn(data)
+        path.write_text(json.dumps(data))
+
+    def test_unchanged_passes(self):
+        self.assertEqual(self.run_check()[0], True)
+
+    def test_committed_tree_passes(self):
+        self.assertTrue(check.check_pex_input_freshness())
+
+    def test_gds_change_fails(self):
+        with (self.tmp / GDS).open("ab") as f:
+            f.write(b"\0")
+        ok, err = self.run_check()
+        self.assertFalse(ok)
+        self.assertIn("GDS", err)
+
+    def test_report_input_hash_mutation_fails(self):
+        self.edit_json(
+            PEX_REPORT,
+            lambda d: d["provenance"]["input"].update(
+                content_hash="sha256:" + "0" * 64
+            ),
+        )
+        ok, err = self.run_check()
+        self.assertFalse(ok)
+        self.assertIn("provenance.input.content_hash", err)
+
+    def test_manifest_pin_stale_fails(self):
+        # The manifest's evidence["7"].content_hash names the GDS revision the
+        # PEX report ran against; if it drifts from the report's own recorded
+        # input hash, the manifest is citing a revision nobody measured.
+        self.edit_json(
+            MANIFEST,
+            lambda d: d["evidence"]["7"].update(
+                content_hash="sha256:" + "1" * 64
+            ),
+        )
+        ok, err = self.run_check()
+        self.assertFalse(ok)
+        self.assertIn('evidence["7"]', err)
+
+    def test_missing_report_fails(self):
+        (self.tmp / PEX_REPORT).unlink()
+        ok, err = self.run_check()
+        self.assertFalse(ok)
+        self.assertIn("unreadable", err)
+
+    def test_missing_gds_fails(self):
+        (self.tmp / GDS).unlink()
+        ok, err = self.run_check()
+        self.assertFalse(ok)
+        self.assertIn("missing or unreadable", err)
+
+    def test_missing_recorded_hash_fails(self):
+        self.edit_json(
+            PEX_REPORT, lambda d: d["provenance"]["input"].pop("content_hash")
+        )
+        ok, err = self.run_check()
+        self.assertFalse(ok)
+        self.assertIn("provenance.input.content_hash", err)
+
+    def test_missing_layout_path_fails(self):
+        self.edit_json(PEX_REPORT, lambda d: d.pop("layout"))
+        ok, err = self.run_check()
+        self.assertFalse(ok)
+        self.assertIn("layout", err)
+
+    def test_unreadable_manifest_fails(self):
+        (self.tmp / MANIFEST).write_text("{not json")
+        ok, err = self.run_check()
+        self.assertFalse(ok)
+        self.assertIn("unreadable manifest", err)
+
+
 import inventories  # noqa: E402
 
 COPY_PATHS = [

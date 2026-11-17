@@ -14,7 +14,7 @@ no longer exists.
 
 This script is what stops that. It re-runs the grader and refuses to pass on
 any drift between what is committed and what the current tree actually
-grades to. Seven distinct checks, because `klt signoff` alone cannot cover
+grades to. Eight distinct checks, because `klt signoff` alone cannot cover
 all of them (see signoff/README.md, "What the grader cannot check"):
 
 1. **Hand-rolled evidence is self-consistent.** A generic evidence envelope
@@ -57,6 +57,14 @@ all of them (see signoff/README.md, "What the grader cannot check"):
    while the report beside it says 8. `check_prose_counts` forbids the
    aggregate outright rather than policing its value: `tier-report.json` is
    the answer of record, and prose should cite it, not copy it.
+
+8. **Item 7's PEX report still describes the committed GDS.** `pex.json` is
+   in none of the other guards: not in `lvs_reference.GDS_HASH_FIELDS`, and
+   item 7 has no inventory artifact, so a regenerated `temp_por_top.gds`
+   silently left the committed PEX evidence describing a layout revision that
+   was no longer in the tree. `check_pex_input_freshness` re-hashes the GDS
+   the report names and requires the manifest's `evidence["7"]` pin to agree
+   with the report's own recorded hash.
 
 Pure stdlib; no PDK, no xschem, no ngspice. Only `klt` on PATH
 (or `--klt EXE` / `--klt-pin`).
@@ -309,6 +317,91 @@ def check_erc_supply_freshness(
                 ok = False
                 continue
             print(f"ok   {rel}: {field} matches {name}")
+    return ok
+
+
+def check_pex_input_freshness(
+    root: Path = REPO_ROOT, manifest_path: Path | None = None
+) -> bool:
+    """T1 item 7's cited PEX report still describes the committed GDS.
+
+    Nothing else watches item 7: `pex.json` is absent from
+    `lvs_reference.GDS_HASH_FIELDS`, item 7 has no inventory artifact, and the
+    grader only checks the pins its manifest envelopes name -- so a regenerated
+    top-cell GDS left the stale PEX report undetected through an entire
+    layout-family merge. This mirrors `check_erc_supply_freshness`: it
+    re-hashes the GDS the cited report names in `layout.path` and requires it
+    to match the report's own `provenance.input.content_hash`, and requires
+    the manifest's `evidence["7"].content_hash` pin (the GDS revision the run
+    was taken against) to equal that same recorded hash. Missing/unreadable
+    report, input or recorded hash is a failure, never a silent skip.
+    Pure stdlib.
+    """
+    manifest_path = manifest_path or root / "signoff" / "block-manifest.json"
+    try:
+        manifest = json.loads(manifest_path.read_text())
+    except (OSError, ValueError) as exc:
+        fail(f"{manifest_path}: unreadable manifest ({exc})")
+        return False
+    cited = (manifest.get("evidence") or {}).get("7")
+    if not isinstance(cited, dict) or not isinstance(cited.get("file"), str):
+        fail('manifest evidence["7"] does not name its report file')
+        return False
+    rel = cited["file"]
+    report_path = root / rel
+    try:
+        report = json.loads(report_path.read_text())
+    except (OSError, ValueError) as exc:
+        fail(f"{rel}: cited by item 7 but unreadable ({exc})")
+        return False
+    if not isinstance(report, dict):
+        fail(f"{rel}: cited by item 7 but not a JSON object")
+        return False
+    layout = report.get("layout") if isinstance(report.get("layout"), dict) else {}
+    name = layout.get("path")
+    prov = report.get("provenance") if isinstance(report.get("provenance"), dict) else {}
+    recorded = (prov.get("input") or {}).get("content_hash")
+    ok = True
+    if not isinstance(name, str) or not name:
+        fail(f"{rel}: no layout.path naming the GDS it was extracted from")
+        ok = False
+    elif not recorded:
+        fail(
+            f"{rel}: no provenance.input.content_hash -- the layout "
+            "freshness cannot be verified. Regenerate the report with a klt "
+            "that records it."
+        )
+        ok = False
+    else:
+        path = root / name
+        try:
+            actual = sha256_file(path)
+        except OSError as exc:
+            fail(f"{rel}: GDS {name!r} is missing or unreadable ({exc})")
+            ok = False
+        else:
+            if actual != recorded:
+                fail(
+                    f"{rel}: provenance.input.content_hash is {recorded} but "
+                    f"{name} now hashes to {actual}.\n     The GDS changed "
+                    "since the PEX extraction ran (or the report was edited). "
+                    "Re-run the PEX grid against the current cell and commit "
+                    "the regenerated report; do not hand-edit the hash."
+                )
+                ok = False
+            else:
+                print(f"ok   {rel}: provenance.input.content_hash matches {name}")
+    pinned = cited.get("content_hash")
+    if recorded and pinned != recorded:
+        fail(
+            f'{rel}: manifest evidence["7"].content_hash is {pinned} but the '
+            f"report records {recorded}.\n     The manifest pins a GDS "
+            "revision the cited report was not produced from. Re-pin it to "
+            "the revision the re-run actually measured."
+        )
+        ok = False
+    elif recorded:
+        print(f'ok   {rel}: manifest evidence["7"].content_hash matches the report')
     return ok
 
 
@@ -731,6 +824,7 @@ def main(argv: list[str] | None = None) -> int:
     ok = check_anchored_evidence() and ok
     ok = check_committed_report_hashes() and ok
     ok = check_erc_supply_freshness() and ok
+    ok = check_pex_input_freshness() and ok
     ok = check_prose_counts() and ok
 
     report, ran = run_grader(klt)
