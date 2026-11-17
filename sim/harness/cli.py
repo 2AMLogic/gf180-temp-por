@@ -471,6 +471,28 @@ def run(args: argparse.Namespace) -> int:
             f"got {_fmt(failure['value'])} at {failure['at']}"
         )
 
+    # A "no data" summary row means not one point produced that measurement
+    # -- e.g. every batch corner rejected before judgement (fleet PDK /
+    # klt-version provenance gates), which shows up here as opaque
+    # "got n/a" spread failures (#555). Print the per-point statuses and the
+    # distinct causes, so a --require-pdk failure names what actually died.
+    no_data = sorted(name for name, stats in record["summary"].items()
+                     if not stats.get("n"))
+    if no_data:
+        causes: dict[tuple[str, str], int] = {}
+        for r in results:
+            if r.status == "ok":
+                continue
+            key = (r.status, r.message or "(no message)")
+            causes[key] = causes.get(key, 0) + 1
+        print(
+            f"\n  no measurement for {', '.join(no_data)}: "
+            f"{sum(causes.values())}/{len(points)} point(s) did not produce one"
+        )
+        for (status, message), count in sorted(
+                causes.items(), key=lambda item: (-item[1], item[0])):
+            print(f"    {count:>3} x [{status}] {message[:600]}")
+
     # sim/README.md: sim/ is append-only evidence. A run where *every* point
     # died is not evidence of the circuit -- it's an environment problem (an
     # undersized --timeout, a broken PDK, ...) that happened to hit every
