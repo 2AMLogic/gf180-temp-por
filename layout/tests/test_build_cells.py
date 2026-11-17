@@ -22,7 +22,6 @@ sys.path.insert(0, str(LAYOUT_DIR))
 import build_cells as bc  # noqa: E402  (klayout is imported lazily, per-cell)
 import lvs_reference as lr  # noqa: E402
 
-SAB_SPACE_1 = 0.42  # gf180mcu SB.2: minimum SAB-to-SAB spacing, um
 POLY2_SPACE_1 = 0.24  # minimum poly-to-poly spacing, um
 
 
@@ -52,15 +51,17 @@ class TempCoreResistorBankTest(unittest.TestCase):
         # silicided, so an inset (or a coincident, o = 0) SAB would shunt the
         # ~350 ohm/sq body with two low-sheet strips neither DRC nor the
         # extractor can see.
-        self.assertGreater(bc._R_SAB_OVERHANG, 0.0)
+        self.assertGreater(bc.SAB_OVERHANG_UM, 0.0)
 
     def test_neighbouring_sab_markers_keep_sab_space_1(self):
         # sab.space.1 (SB.2): segments sit _R_PITCH apart and each overhangs
-        # _R_SAB_OVERHANG toward its neighbour, so the SAB-to-SAB gap is
-        # _R_PITCH - width - 2*_R_SAB_OVERHANG. 49 adjacent pairs fired on
-        # temp_core before #518 (0.200 um against 0.420).
-        gap = bc._R_PITCH - self.width - 2.0 * bc._R_SAB_OVERHANG
-        self.assertGreaterEqual(gap, SAB_SPACE_1)
+        # SAB_OVERHANG_UM toward its neighbour, so the SAB-to-SAB gap is
+        # _R_PITCH - width - 2*SAB_OVERHANG_UM. 49 adjacent pairs fired on
+        # temp_core before #518 (0.200 um against 0.420). The budget itself
+        # is read through bc.SAB_SPACE_MIN_UM (#607) -- the same constant the
+        # generator asserts against -- rather than retyped here.
+        gap = bc._R_PITCH - self.width - 2.0 * bc.SAB_OVERHANG_UM
+        self.assertGreaterEqual(gap, bc.SAB_SPACE_MIN_UM)
 
     def test_poly_gap_keeps_poly2_space_1(self):
         # poly2.space.1: the drawn poly gap between segments is
