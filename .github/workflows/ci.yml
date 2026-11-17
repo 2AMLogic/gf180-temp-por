@@ -4,7 +4,7 @@ name: CI
 #
 #   checks       -- headless, no PDK/xschem/ngspice download. Runs on every
 #                   push to main and every PR. Must stay green and fast.
-#   pdk-checks   -- needs xschem + ngspice + a ~5 GB PDK install (via volare).
+#   pdk-checks   -- needs xschem + ngspice + a ~5 GB PDK install (via ciel).
 #                   Kept off the default PR path per #30: nightly schedule +
 #                   manual dispatch only, so no PR is ever blocked on a PDK
 #                   download.
@@ -240,12 +240,20 @@ jobs:
             exit 1
           }
 
-      - name: Install the gf180mcu PDK (volare)
+      - name: Install the gf180mcu PDK (ciel)
         run: |
-          pip install volare
-          # Pinned to the commit this repo's committed evidence records were
-          # produced against (sim/devchar/SUMMARY.md, sim/smoke-bias/records/).
-          volare enable --pdk gf180mcu c6d73a35f524070e85faff4a6a9eef49553ebc2b
+          pip install ciel
+          # DR-032 (issue #602): open_pdks f6eeac7d is the authoritative
+          # revision for sim/ evidence, so CI grades the same device models
+          # the dispatch fleet and klt resolve. Records minted against the
+          # pre-DR-032 build stay valid as history and name their own
+          # build in their provenance.
+          ciel enable --pdk gf180mcu f6eeac7dad085ffcc829ccfd721f7b4ce39edcf7
+          # Select this install explicitly: sim/harness/pdk.py's built-in
+          # search order still lists ~/.volare first on main (reordering it
+          # is PR #601's change), so point the harness straight at the ciel
+          # variant directory instead of relying on search order.
+          echo "GF180_PDK_PATH=$HOME/.ciel/gf180mcuD" >> "$GITHUB_ENV"
 
       - name: Install klt (netlist export front-end for design/netlist.py)
         # design/netlist.py shells out to `klt netlist`, which owns the xschem

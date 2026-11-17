@@ -229,8 +229,8 @@ class AnchoredEvidenceTest(unittest.TestCase):
 
     def test_pdk_pin_removed_fails(self):
         ci = self.tmp / ".github/workflows/ci.yml"
-        ci.write_text(ci.read_text().replace("volare enable --pdk gf180mcu", "volare enable"))
-        self.assert_fails("volare")
+        ci.write_text(ci.read_text().replace("ciel enable --pdk gf180mcu", "ciel enable"))
+        self.assert_fails("ciel")
 
     def test_hygiene_member_edit_fails(self):
         with (self.tmp / "README.md").open("a") as f:
