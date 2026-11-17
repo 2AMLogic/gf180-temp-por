@@ -17,6 +17,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 SIGNOFF_DIR = Path(__file__).resolve().parents[1]
 REPO_ROOT = SIGNOFF_DIR.parent
@@ -436,6 +437,65 @@ class GraderSelectionTest(unittest.TestCase):
         with contextlib.redirect_stderr(err):
             self.assertEqual(check.main(["--klt", "/nonexistent/klt"]), 1)
         self.assertIn("not on PATH", err.getvalue())
+
+    # The hand-typed literal check.py falls back to when toolchain.json
+    # cannot supply klt.install.
+    FALLBACK_INSTALL = "uv tool install --force 'klayout-tools[yield]==0.9.1'"
+
+    def toolchain(self, text: str | None) -> Path:
+        """A temp file to stand in for check.TOOLCHAIN (None = don't write it)."""
+        tmp = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, tmp, True)
+        path = tmp / "toolchain.json"
+        if text is not None:
+            path.write_text(text)
+        return path
+
+    def run_missing_klt(self) -> tuple[int, str]:
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err):
+            ret = check.main(["--klt", "/nonexistent/klt"])
+        return ret, err.getvalue()
+
+    def test_install_hint_is_read_from_toolchain_json(self):
+        toolchain = self.toolchain(
+            json.dumps(
+                {"klt": {"install": "uv tool install --force 'klt==9.9.9-hint'"}}
+            )
+        )
+        with mock.patch.object(check, "TOOLCHAIN", toolchain):
+            ret, err = self.run_missing_klt()
+        self.assertEqual(ret, 1)
+        self.assertIn("klt==9.9.9-hint", err)
+
+    def test_changed_install_value_changes_output(self):
+        toolchain = self.toolchain(json.dumps({"klt": {"install": "hint-one"}}))
+        with mock.patch.object(check, "TOOLCHAIN", toolchain):
+            _, first = self.run_missing_klt()
+            toolchain.write_text(json.dumps({"klt": {"install": "hint-two"}}))
+            _, second = self.run_missing_klt()
+        self.assertIn("hint-one", first)
+        self.assertIn("hint-two", second)
+        self.assertNotIn("hint-one", second)
+
+    def test_unreadable_or_malformed_toolchain_prints_fallback_hint(self):
+        for label, text in (
+            ("missing file", None),
+            ("malformed JSON", "{not json"),
+            ("lacks klt.install", json.dumps({"klt": {}})),
+        ):
+            with self.subTest(case=label):
+                toolchain = self.toolchain(text)
+                with mock.patch.object(check, "TOOLCHAIN", toolchain):
+                    ret, err = self.run_missing_klt()
+                self.assertEqual(ret, 1)
+                self.assertIn(self.FALLBACK_INSTALL, err)
+
+    def test_fallback_literal_matches_toolchain_json_install(self):
+        self.assertEqual(
+            json.loads(check.TOOLCHAIN.read_text())["klt"]["install"],
+            self.FALLBACK_INSTALL,
+        )
 
 
 class ProseCountTest(unittest.TestCase):
