@@ -4,7 +4,7 @@
 gf180mcu PDK, built with an open-source flow and used to find and report gaps
 in [klayout-tools](https://github.com/2AMLogic/klayout-tools).
 
-Status as of 2026-11-14, `main` @ `daa202a4`. Queue state lives in
+Status as of 2026-11-16, `main` @ `eae4c8cc`. Queue state lives in
 [`WORK_PLAN.md`](../WORK_PLAN.md); the verdict of record is
 [`signoff/tier-report.json`](../signoff/tier-report.json), not this prose.
 
@@ -16,7 +16,7 @@ Position on the klayout-tools T1 ("sim-validated") checklist, read from
 | # | Item | Verdict | Evidence or gap |
 |---|---|---|---|
 | 1 | Design sources | met | 5 schematics + 5 netlists, hash-bound (`signoff/evidence/`) |
-| 2 | Layout | met | `layout/cells/temp_por_top.gds`, 4 sub-cells + top |
+| 2 | Layout | met | `layout/cells/temp_por_top.gds`, 5 sub-cells + top |
 | 3 | DRC clean | met | `layout/reports/temp_por_top/drc.json`; skipped rules disclosed in `signoff/README.md` |
 | 4 | LVS clean | met | 239/239 devices, 143/143 nets; body terminals not independently verified |
 | 5 | Corner verification | unmet, `partial_coverage` | 81-point records exist as Markdown only; no `klt sim` envelope (#383, #388, #389) |
@@ -37,33 +37,29 @@ Position on the klayout-tools T1 ("sim-validated") checklist, read from
   control grid has yet been reproduced on it in enforce mode (#336).
 - This is the first roadmap. The committed report has said 8, with item 7
   also unmet, since the `klt pex` extension in `72685113`. `README.md` was
-  corrected to match in `d21f266e` (merged as #490); `signoff/README.md` still
-  says 9 of 11 in two places, which is the drift Now item 1 below covers.
+  corrected to match in `d21f266e` (merged as #490); the `signoff/README.md`
+  drift was closed by #491 (PR #498), which deleted every hand-written
+  aggregate T1 count and added the `check_prose_counts` guard to
+  `signoff/check.py`.
 
 ## Now
 
 Can start today; none needs a multi-corner simulation run.
 
-1. **Make the prose match the verdict.** `README.md` is already corrected;
-   `signoff/README.md` still says 9 of 11. Done when neither document carries a
-   hand-written aggregate T1 count — leaving `signoff/tier-report.json` as the
-   only place the verdict is written — a `signoff/check.py` check fails if one
-   reappears, and `python3 signoff/check.py` passes. **#491**
-   (`loom:building`, PR #498) owns the mechanism; **#495** is the same drift,
-   parked on it.
-2. **Request builder with per-row limits, dry-run only.** Filed as **#496**
-   (`loom:building`) — the first half of #388, which its own Dependencies line
-   says can proceed without the batch backend. Done when a harness command
-   emits a `klt sim` request for `por-vth` with 81 units and the three ratified
-   row limits, covered by unit tests in `sim/tests/` that need neither ngspice
-   nor the backend. The pilot run stays in #388.
-3. **Triage the DRC result under a newer klt.** Filed as **#497**
-   (`loom:issue`). #400 stopped because `layout/run_checks.sh --regen-all` on
-   klt 0.8.0 turned all six committed cells from clean to violating
-   (`contact.ongrid.1`, `comp.coverage.1` and others). Done when a committed
-   note classifies each violated rule as a layout defect or a deck change, with
-   an example location, and each deck-side finding is filed at klayout-tools.
-   No pin moves.
+Nothing is filed as startable at this anchor: the three items under the
+2026-11-14 anchor have all landed (below), and no successor is filed yet.
+The queue of record is [`WORK_PLAN.md`](../WORK_PLAN.md).
+
+Landed since the 2026-11-14 anchor — done, not startable:
+
+1. **Make the prose match the verdict — #491, closed (PR #498).** Neither
+   `README.md` nor `signoff/README.md` carries a hand-written aggregate T1
+   count, `signoff/check.py` fails if one reappears, and
+   `python3 signoff/check.py` passes. #495 — the same drift, parked on #491 —
+   is still open; its own Dependencies note calls it moot under this outcome.
+2. **Request builder with per-row limits, dry-run only — #496, closed.**
+3. **Triage the DRC result under a newer klt — #497, closed.** The
+   committed note is `layout/drc-newer-klt-triage.md`.
 
 ## Next
 
@@ -75,7 +71,7 @@ Unblocked by a named item above or by an upstream change.
   were refused before any deck ran. It gates #331, #388, #389 and #417.
 - **Item 5 chain: #388 pilot, then #389, then #383.** Done when every
   expressible row has a committed, passing `klt sim` envelope cited in
-  `signoff/block-manifest.json`. Needs Now item 2 and #336.
+  `signoff/block-manifest.json`. Needs #336; its #496 prerequisite landed.
 - **Temperature accuracy: #452, then #453, then #458 and #459.** #452 is done
   when the four `temp_core` benches have PVT records on the DR-031 schematic;
   #453 when `klt yield` regrades `temp-accuracy-mc`. Needs PR #457 merged and
@@ -87,7 +83,7 @@ Unblocked by a named item above or by an upstream change.
 - **Negative control (#417).** The known-bad variants are defined; done when
   sampled runs make `klt yield` report `detected`. Needs #336.
 - **klt pin bump (#400).** Done when every pin moves together and DRC/LVS
-  evidence is regenerated clean. Needs Now item 3.
+  evidence is regenerated clean. The #497 triage it waited on landed.
 - **Post-layout control refresh (#321, #324).** Done when both results files
   are regenerated on the star extraction. Needs #331 and #336.
 - **Item 7 errored rows.** No open issue. The `por-brownout` deck's 1 µs dip
@@ -101,8 +97,10 @@ Unblocked by a named item above or by an upstream change.
 Direction, each with the question to answer first.
 
 - **Area.** What limits the layout: device sizing, routing, or cell assembly
-  (the sub-cells sum to about 0.34 mm² inside a 1.059 mm² box)? DR-031 adds an
-  output-filter capacitor of about 10 000 µm² (#458, item 4).
+  (DR-022's four functional sub-cells sum to about 0.34 mm² inside a
+  1.059 mm² box — an area figure; the inventory row above counts five
+  sub-cells plus the top)? DR-031 adds an output-filter capacitor of about
+  10 000 µm² (#458, item 4).
 - **Cross-domain IR drop and crosstalk.** Unanswered by any record in `sim/`.
   Which extraction features (distributed route resistance, lateral coupling)
   must klayout-tools provide before the question can be put?
@@ -125,8 +123,9 @@ Direction, each with the question to answer first.
 - **Batch backend capacity** (#336) and **klayout-tools#4902** (#416), above.
 
 Every item under **Next** is blocked, in progress or awaiting a decision.
-Only the three Now items can start today, and each one is filed: #491 with
-#495 (item 1), #496 (item 2), #497 (item 3).
+Nothing is filed as startable at this anchor; the three Now items of the
+2026-11-14 anchor — #491 with #495 parked on it, #496, and #497 — have all
+landed (see **Now**).
 
 ## Not planned
 

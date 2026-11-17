@@ -167,9 +167,9 @@ R$66 NB \$69 VSS 10453.625 ppolyf_u L=59.735U W=2U
 * device instance $67 r0 *1 310,92.867 ppolyf_u
 R$67 NC \$69 VSS 10453.625 ppolyf_u L=59.735U W=2U
 * device instance $68 r0 *1 313,90.762 ppolyf_u
-R$68 NA \$62 VSS 9716.875 ppolyf_u L=55.525U W=2U
+R$68 NA \$67 VSS 9716.875 ppolyf_u L=55.525U W=2U
 * device instance $69 r0 *1 316,90.762 ppolyf_u
-R$69 CTAT \$62 VSS 9716.875 ppolyf_u L=55.525U W=2U
+R$69 CTAT \$67 VSS 9716.875 ppolyf_u L=55.525U W=2U
 * device instance $70 r0 *1 319,113 ppolyf_u
 R$70 NZ \$70 VSS 17500 ppolyf_u L=100U W=2U
 * device instance $71 r0 *1 322,113 ppolyf_u

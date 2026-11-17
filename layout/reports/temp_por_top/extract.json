@@ -5,10 +5,10 @@
   "top": "temp_por_top",
   "dbu_um": 0.001,
   "netlist_path": "layout/reports/temp_por_top/extracted.spice",
-  "netlist_sha256": "25e895460daec61823465ee9bd3514a1028aabad50a560838a057e74f8d19d77",
+  "netlist_sha256": "e69dbb4494153ba38562e4f9ca2bab711dcfa6471172e5a4915390125c6b220a",
   "status": "extracted",
   "device_count": 239,
-  "net_count": 143,
+  "net_count": 139,
   "pin_count": 5,
   "device_counts": {
     "bjt": 19,
@@ -122,7 +122,7 @@
         "s": "VDD",
         "g": "\\$31",
         "d": "\\$32",
-        "b": "\\$53"
+        "b": "VDD"
       },
       "params": {
         "l_um": 0.5,
@@ -146,7 +146,7 @@
         "s": "\\$36",
         "g": "\\$32",
         "d": "\\$48",
-        "b": "\\$53"
+        "b": "VDD"
       },
       "params": {
         "l_um": 1.0,
@@ -170,7 +170,7 @@
         "s": "VDD",
         "g": "\\$48",
         "d": "\\$33",
-        "b": "\\$53"
+        "b": "VDD"
       },
       "params": {
         "l_um": 1.0,
@@ -194,7 +194,7 @@
         "s": "VDD",
         "g": "\\$49",
         "d": "\\$37",
-        "b": "\\$53"
+        "b": "VDD"
       },
       "params": {
         "l_um": 0.5,
@@ -218,7 +218,7 @@
         "s": "VDD",
         "g": "\\$31",
         "d": "\\$37",
-        "b": "\\$53"
+        "b": "VDD"
       },
       "params": {
         "l_um": 0.5,
@@ -242,7 +242,7 @@
         "s": "VDD",
         "g": "EN|RESETn",
         "d": "\\$37",
-        "b": "\\$53"
+        "b": "VDD"
       },
       "params": {
         "l_um": 10.0,
@@ -266,7 +266,7 @@
         "s": "VDD",
         "g": "\\$37",
         "d": "EN|RESETn",
-        "b": "\\$53"
+        "b": "VDD"
       },
       "params": {
         "l_um": 1.0,
@@ -290,7 +290,7 @@
         "s": "NT",
         "g": "NT",
         "d": "NT",
-        "b": "\\$100"
+        "b": "\\$96"
       },
       "params": {
         "l_um": 4.0,
@@ -314,7 +314,7 @@
         "s": "NT",
         "g": "NA",
         "d": "N1",
-        "b": "\\$100"
+        "b": "\\$96"
       },
       "params": {
         "l_um": 4.0,
@@ -338,7 +338,7 @@
         "s": "NT",
         "g": "NB",
         "d": "N2",
-        "b": "\\$100"
+        "b": "\\$96"
       },
       "params": {
         "l_um": 4.0,
@@ -386,7 +386,7 @@
         "s": "NT",
         "g": "NB",
         "d": "N2",
-        "b": "\\$100"
+        "b": "\\$96"
       },
       "params": {
         "l_um": 4.0,
@@ -410,7 +410,7 @@
         "s": "NT",
         "g": "NA",
         "d": "N1",
-        "b": "\\$100"
+        "b": "\\$96"
       },
       "params": {
         "l_um": 4.0,
@@ -434,7 +434,7 @@
         "s": "NT",
         "g": "NT",
         "d": "NT",
-        "b": "\\$100"
+        "b": "\\$96"
       },
       "params": {
         "l_um": 4.0,
@@ -458,7 +458,7 @@
         "s": "VDD",
         "g": "PB",
         "d": "NT",
-        "b": "\\$101"
+        "b": "\\$97"
       },
       "params": {
         "l_um": 4.0,
@@ -482,7 +482,7 @@
         "s": "VDD",
         "g": "VDD",
         "d": "VDD",
-        "b": "\\$101"
+        "b": "\\$97"
       },
       "params": {
         "l_um": 4.0,
@@ -506,7 +506,7 @@
         "s": "VDD",
         "g": "PG",
         "d": "M1D",
-        "b": "\\$101"
+        "b": "\\$97"
       },
       "params": {
         "l_um": 4.0,
@@ -530,7 +530,7 @@
         "s": "M1D",
         "g": "PCAS",
         "d": "NA",
-        "b": "\\$101"
+        "b": "\\$97"
       },
       "params": {
         "l_um": 1.0,
@@ -554,7 +554,7 @@
         "s": "VDD",
         "g": "PG",
         "d": "M2D",
-        "b": "\\$101"
+        "b": "\\$97"
       },
       "params": {
         "l_um": 4.0,
@@ -578,7 +578,7 @@
         "s": "M2D",
         "g": "PCAS",
         "d": "NB",
-        "b": "\\$101"
+        "b": "\\$97"
       },
       "params": {
         "l_um": 1.0,
@@ -602,7 +602,7 @@
         "s": "VDD",
         "g": "PG",
         "d": "M3D",
-        "b": "\\$101"
+        "b": "\\$97"
       },
       "params": {
         "l_um": 4.0,
@@ -650,7 +650,7 @@
         "s": "M3D",
         "g": "PCAS",
         "d": "PTAT",
-        "b": "\\$101"
+        "b": "\\$97"
       },
       "params": {
         "l_um": 1.0,
@@ -674,7 +674,7 @@
         "s": "M3D",
         "g": "PCAS",
         "d": "PTAT",
-        "b": "\\$101"
+        "b": "\\$97"
       },
       "params": {
         "l_um": 1.0,
@@ -698,7 +698,7 @@
         "s": "VDD",
         "g": "PG",
         "d": "M3D",
-        "b": "\\$101"
+        "b": "\\$97"
       },
       "params": {
         "l_um": 4.0,
@@ -722,7 +722,7 @@
         "s": "M2D",
         "g": "PCAS",
         "d": "NB",
-        "b": "\\$101"
+        "b": "\\$97"
       },
       "params": {
         "l_um": 1.0,
@@ -746,7 +746,7 @@
         "s": "VDD",
         "g": "PG",
         "d": "M2D",
-        "b": "\\$101"
+        "b": "\\$97"
       },
       "params": {
         "l_um": 4.0,
@@ -770,7 +770,7 @@
         "s": "M1D",
         "g": "PCAS",
         "d": "NA",
-        "b": "\\$101"
+        "b": "\\$97"
       },
       "params": {
         "l_um": 1.0,
@@ -794,7 +794,7 @@
         "s": "VDD",
         "g": "PG",
         "d": "M1D",
-        "b": "\\$101"
+        "b": "\\$97"
       },
       "params": {
         "l_um": 4.0,
@@ -818,7 +818,7 @@
         "s": "VDD",
         "g": "VDD",
         "d": "VDD",
-        "b": "\\$101"
+        "b": "\\$97"
       },
       "params": {
         "l_um": 4.0,
@@ -842,7 +842,7 @@
         "s": "VDD",
         "g": "PB",
         "d": "PG",
-        "b": "\\$101"
+        "b": "\\$97"
       },
       "params": {
         "l_um": 4.0,
@@ -866,7 +866,7 @@
         "s": "VDD",
         "g": "PB",
         "d": "PB",
-        "b": "\\$101"
+        "b": "\\$97"
       },
       "params": {
         "l_um": 4.0,
@@ -914,7 +914,7 @@
         "s": "VDD",
         "g": "PCAS",
         "d": "PCAS",
-        "b": "\\$101"
+        "b": "\\$97"
       },
       "params": {
         "l_um": 8.0,
@@ -938,7 +938,7 @@
         "s": "VDD",
         "g": "EN|RESETn",
         "d": "ENB",
-        "b": "\\$101"
+        "b": "\\$97"
       },
       "params": {
         "l_um": 0.5,
@@ -962,7 +962,7 @@
         "s": "VDD",
         "g": "PB",
         "d": "ND",
-        "b": "\\$101"
+        "b": "\\$97"
       },
       "params": {
         "l_um": 8.0,
@@ -986,7 +986,7 @@
         "s": "VDD",
         "g": "PG",
         "d": "NR",
-        "b": "\\$101"
+        "b": "\\$97"
       },
       "params": {
         "l_um": 4.0,
@@ -1010,7 +1010,7 @@
         "s": "VDD",
         "g": "EN|RESETn",
         "d": "PG",
-        "b": "\\$101"
+        "b": "\\$97"
       },
       "params": {
         "l_um": 0.5,
@@ -1060,7 +1060,7 @@
       "class": "bjt",
       "nets": {
         "c": "VSS",
-        "b": "\\$52",
+        "b": "VSS",
         "e": "\\$46"
       },
       "params": {},
@@ -1076,7 +1076,7 @@
       "class": "bjt",
       "nets": {
         "c": "VSS",
-        "b": "\\$52",
+        "b": "VSS",
         "e": "\\$46"
       },
       "params": {},
@@ -1092,7 +1092,7 @@
       "class": "bjt",
       "nets": {
         "c": "VSS",
-        "b": "\\$52",
+        "b": "VSS",
         "e": "\\$46"
       },
       "params": {},
@@ -1108,7 +1108,7 @@
       "class": "bjt",
       "nets": {
         "c": "VSS",
-        "b": "\\$52",
+        "b": "VSS",
         "e": "\\$46"
       },
       "params": {},
@@ -1148,8 +1148,8 @@
       "class": "bjt",
       "nets": {
         "c": "VSS",
-        "b": "\\$52",
-        "e": "\\$63"
+        "b": "VSS",
+        "e": "\\$60"
       },
       "params": {},
       "instance_path": [
@@ -1164,7 +1164,7 @@
       "class": "bjt",
       "nets": {
         "c": "VSS",
-        "b": "\\$52",
+        "b": "VSS",
         "e": "\\$46"
       },
       "params": {},
@@ -1180,8 +1180,8 @@
       "class": "bjt",
       "nets": {
         "c": "VSS",
-        "b": "\\$52",
-        "e": "\\$64"
+        "b": "VSS",
+        "e": "\\$61"
       },
       "params": {},
       "instance_path": [
@@ -1196,7 +1196,7 @@
       "class": "bjt",
       "nets": {
         "c": "VSS",
-        "b": "\\$52",
+        "b": "VSS",
         "e": "\\$46"
       },
       "params": {},
@@ -1212,7 +1212,7 @@
       "class": "bjt",
       "nets": {
         "c": "VSS",
-        "b": "\\$52",
+        "b": "VSS",
         "e": "\\$46"
       },
       "params": {},
@@ -1228,7 +1228,7 @@
       "class": "bjt",
       "nets": {
         "c": "VSS",
-        "b": "\\$52",
+        "b": "VSS",
         "e": "\\$46"
       },
       "params": {},
@@ -1588,7 +1588,7 @@
       "class": "ppolyf_u",
       "nets": {
         "a": "NB",
-        "b": "\\$141",
+        "b": "\\$137",
         "w": "VSS"
       },
       "params": {
@@ -1610,7 +1610,7 @@
       "class": "ppolyf_u",
       "nets": {
         "a": "NC",
-        "b": "\\$141",
+        "b": "\\$137",
         "w": "VSS"
       },
       "params": {
@@ -1632,7 +1632,7 @@
       "class": "ppolyf_u",
       "nets": {
         "a": "NA",
-        "b": "\\$139",
+        "b": "\\$135",
         "w": "VSS"
       },
       "params": {
@@ -1654,7 +1654,7 @@
       "class": "ppolyf_u",
       "nets": {
         "a": "CTAT",
-        "b": "\\$139",
+        "b": "\\$135",
         "w": "VSS"
       },
       "params": {
@@ -1676,7 +1676,7 @@
       "class": "ppolyf_u",
       "nets": {
         "a": "NZ",
-        "b": "\\$142",
+        "b": "\\$138",
         "w": "VSS"
       },
       "params": {
@@ -1697,8 +1697,8 @@
       "name": "$168",
       "class": "ppolyf_u",
       "nets": {
-        "a": "\\$102",
-        "b": "\\$142",
+        "a": "\\$98",
+        "b": "\\$138",
         "w": "VSS"
       },
       "params": {
@@ -1719,8 +1719,8 @@
       "name": "$169",
       "class": "ppolyf_u",
       "nets": {
-        "a": "\\$102",
-        "b": "\\$143",
+        "a": "\\$98",
+        "b": "\\$139",
         "w": "VSS"
       },
       "params": {
@@ -1765,8 +1765,8 @@
       "name": "$170",
       "class": "ppolyf_u",
       "nets": {
-        "a": "\\$103",
-        "b": "\\$143",
+        "a": "\\$99",
+        "b": "\\$139",
         "w": "VSS"
       },
       "params": {
@@ -1787,8 +1787,8 @@
       "name": "$171",
       "class": "ppolyf_u",
       "nets": {
-        "a": "\\$103",
-        "b": "\\$144",
+        "a": "\\$99",
+        "b": "\\$140",
         "w": "VSS"
       },
       "params": {
@@ -1809,8 +1809,8 @@
       "name": "$172",
       "class": "ppolyf_u",
       "nets": {
-        "a": "\\$104",
-        "b": "\\$144",
+        "a": "\\$100",
+        "b": "\\$140",
         "w": "VSS"
       },
       "params": {
@@ -1831,8 +1831,8 @@
       "name": "$173",
       "class": "ppolyf_u",
       "nets": {
-        "a": "\\$104",
-        "b": "\\$145",
+        "a": "\\$100",
+        "b": "\\$141",
         "w": "VSS"
       },
       "params": {
@@ -1853,8 +1853,8 @@
       "name": "$174",
       "class": "ppolyf_u",
       "nets": {
-        "a": "\\$105",
-        "b": "\\$145",
+        "a": "\\$101",
+        "b": "\\$141",
         "w": "VSS"
       },
       "params": {
@@ -1875,8 +1875,8 @@
       "name": "$175",
       "class": "ppolyf_u",
       "nets": {
-        "a": "\\$105",
-        "b": "\\$146",
+        "a": "\\$101",
+        "b": "\\$142",
         "w": "VSS"
       },
       "params": {
@@ -1898,7 +1898,7 @@
       "class": "ppolyf_u",
       "nets": {
         "a": "N2",
-        "b": "\\$146",
+        "b": "\\$142",
         "w": "VSS"
       },
       "params": {
@@ -1920,7 +1920,7 @@
       "class": "ppolyf_u",
       "nets": {
         "a": "PTAT",
-        "b": "\\$147",
+        "b": "\\$143",
         "w": "VSS"
       },
       "params": {
@@ -1941,8 +1941,8 @@
       "name": "$178",
       "class": "ppolyf_u",
       "nets": {
-        "a": "\\$106",
-        "b": "\\$147",
+        "a": "\\$102",
+        "b": "\\$143",
         "w": "VSS"
       },
       "params": {
@@ -1963,8 +1963,8 @@
       "name": "$179",
       "class": "ppolyf_u",
       "nets": {
-        "a": "\\$106",
-        "b": "\\$148",
+        "a": "\\$102",
+        "b": "\\$144",
         "w": "VSS"
       },
       "params": {
@@ -2009,8 +2009,8 @@
       "name": "$180",
       "class": "ppolyf_u",
       "nets": {
-        "a": "\\$107",
-        "b": "\\$148",
+        "a": "\\$103",
+        "b": "\\$144",
         "w": "VSS"
       },
       "params": {
@@ -2031,8 +2031,8 @@
       "name": "$181",
       "class": "ppolyf_u",
       "nets": {
-        "a": "\\$107",
-        "b": "\\$149",
+        "a": "\\$103",
+        "b": "\\$145",
         "w": "VSS"
       },
       "params": {
@@ -2053,8 +2053,8 @@
       "name": "$182",
       "class": "ppolyf_u",
       "nets": {
-        "a": "\\$108",
-        "b": "\\$149",
+        "a": "\\$104",
+        "b": "\\$145",
         "w": "VSS"
       },
       "params": {
@@ -2075,8 +2075,8 @@
       "name": "$183",
       "class": "ppolyf_u",
       "nets": {
-        "a": "\\$108",
-        "b": "\\$150",
+        "a": "\\$104",
+        "b": "\\$146",
         "w": "VSS"
       },
       "params": {
@@ -2097,8 +2097,8 @@
       "name": "$184",
       "class": "ppolyf_u",
       "nets": {
-        "a": "\\$109",
-        "b": "\\$150",
+        "a": "\\$105",
+        "b": "\\$146",
         "w": "VSS"
       },
       "params": {
@@ -2119,8 +2119,8 @@
       "name": "$185",
       "class": "ppolyf_u",
       "nets": {
-        "a": "\\$109",
-        "b": "\\$151",
+        "a": "\\$105",
+        "b": "\\$147",
         "w": "VSS"
       },
       "params": {
@@ -2141,8 +2141,8 @@
       "name": "$186",
       "class": "ppolyf_u",
       "nets": {
-        "a": "\\$110",
-        "b": "\\$151",
+        "a": "\\$106",
+        "b": "\\$147",
         "w": "VSS"
       },
       "params": {
@@ -2163,8 +2163,8 @@
       "name": "$187",
       "class": "ppolyf_u",
       "nets": {
-        "a": "\\$110",
-        "b": "\\$152",
+        "a": "\\$106",
+        "b": "\\$148",
         "w": "VSS"
       },
       "params": {
@@ -2185,8 +2185,8 @@
       "name": "$188",
       "class": "ppolyf_u",
       "nets": {
-        "a": "\\$111",
-        "b": "\\$152",
+        "a": "\\$107",
+        "b": "\\$148",
         "w": "VSS"
       },
       "params": {
@@ -2207,8 +2207,8 @@
       "name": "$189",
       "class": "ppolyf_u",
       "nets": {
-        "a": "\\$111",
-        "b": "\\$153",
+        "a": "\\$107",
+        "b": "\\$149",
         "w": "VSS"
       },
       "params": {
@@ -2253,8 +2253,8 @@
       "name": "$190",
       "class": "ppolyf_u",
       "nets": {
-        "a": "\\$112",
-        "b": "\\$153",
+        "a": "\\$108",
+        "b": "\\$149",
         "w": "VSS"
       },
       "params": {
@@ -2275,8 +2275,8 @@
       "name": "$191",
       "class": "ppolyf_u",
       "nets": {
-        "a": "\\$112",
-        "b": "\\$154",
+        "a": "\\$108",
+        "b": "\\$150",
         "w": "VSS"
       },
       "params": {
@@ -2297,8 +2297,8 @@
       "name": "$192",
       "class": "ppolyf_u",
       "nets": {
-        "a": "\\$113",
-        "b": "\\$154",
+        "a": "\\$109",
+        "b": "\\$150",
         "w": "VSS"
       },
       "params": {
@@ -2319,8 +2319,8 @@
       "name": "$193",
       "class": "ppolyf_u",
       "nets": {
-        "a": "\\$113",
-        "b": "\\$155",
+        "a": "\\$109",
+        "b": "\\$151",
         "w": "VSS"
       },
       "params": {
@@ -2341,8 +2341,8 @@
       "name": "$194",
       "class": "ppolyf_u",
       "nets": {
-        "a": "\\$114",
-        "b": "\\$155",
+        "a": "\\$110",
+        "b": "\\$151",
         "w": "VSS"
       },
       "params": {
@@ -2363,8 +2363,8 @@
       "name": "$195",
       "class": "ppolyf_u",
       "nets": {
-        "a": "\\$114",
-        "b": "\\$156",
+        "a": "\\$110",
+        "b": "\\$152",
         "w": "VSS"
       },
       "params": {
@@ -2385,8 +2385,8 @@
       "name": "$196",
       "class": "ppolyf_u",
       "nets": {
-        "a": "\\$115",
-        "b": "\\$156",
+        "a": "\\$111",
+        "b": "\\$152",
         "w": "VSS"
       },
       "params": {
@@ -2407,8 +2407,8 @@
       "name": "$197",
       "class": "ppolyf_u",
       "nets": {
-        "a": "\\$115",
-        "b": "\\$157",
+        "a": "\\$111",
+        "b": "\\$153",
         "w": "VSS"
       },
       "params": {
@@ -2429,8 +2429,8 @@
       "name": "$198",
       "class": "ppolyf_u",
       "nets": {
-        "a": "\\$116",
-        "b": "\\$157",
+        "a": "\\$112",
+        "b": "\\$153",
         "w": "VSS"
       },
       "params": {
@@ -2451,8 +2451,8 @@
       "name": "$199",
       "class": "ppolyf_u",
       "nets": {
-        "a": "\\$116",
-        "b": "\\$158",
+        "a": "\\$112",
+        "b": "\\$154",
         "w": "VSS"
       },
       "params": {
@@ -2522,7 +2522,7 @@
       "class": "ppolyf_u",
       "nets": {
         "a": "T5",
-        "b": "\\$158",
+        "b": "\\$154",
         "w": "VSS"
       },
       "params": {
@@ -2544,7 +2544,7 @@
       "class": "ppolyf_u",
       "nets": {
         "a": "T5",
-        "b": "\\$159",
+        "b": "\\$155",
         "w": "VSS"
       },
       "params": {
@@ -2566,7 +2566,7 @@
       "class": "ppolyf_u",
       "nets": {
         "a": "T4",
-        "b": "\\$159",
+        "b": "\\$155",
         "w": "VSS"
       },
       "params": {
@@ -2588,7 +2588,7 @@
       "class": "ppolyf_u",
       "nets": {
         "a": "T4",
-        "b": "\\$140",
+        "b": "\\$136",
         "w": "VSS"
       },
       "params": {
@@ -2610,7 +2610,7 @@
       "class": "ppolyf_u",
       "nets": {
         "a": "T3",
-        "b": "\\$140",
+        "b": "\\$136",
         "w": "VSS"
       },
       "params": {
@@ -2632,7 +2632,7 @@
       "class": "ppolyf_u",
       "nets": {
         "a": "T3",
-        "b": "\\$131",
+        "b": "\\$127",
         "w": "VSS"
       },
       "params": {
@@ -2654,7 +2654,7 @@
       "class": "ppolyf_u",
       "nets": {
         "a": "T2",
-        "b": "\\$131",
+        "b": "\\$127",
         "w": "VSS"
       },
       "params": {
@@ -2676,7 +2676,7 @@
       "class": "ppolyf_u",
       "nets": {
         "a": "T2",
-        "b": "\\$127",
+        "b": "\\$123",
         "w": "VSS"
       },
       "params": {
@@ -2698,7 +2698,7 @@
       "class": "ppolyf_u",
       "nets": {
         "a": "T1",
-        "b": "\\$127",
+        "b": "\\$123",
         "w": "VSS"
       },
       "params": {
@@ -2720,7 +2720,7 @@
       "class": "ppolyf_u",
       "nets": {
         "a": "T1",
-        "b": "\\$123",
+        "b": "\\$119",
         "w": "VSS"
       },
       "params": {
@@ -2766,7 +2766,7 @@
       "class": "ppolyf_u",
       "nets": {
         "a": "T0",
-        "b": "\\$123",
+        "b": "\\$119",
         "w": "VSS"
       },
       "params": {
@@ -2788,7 +2788,7 @@
       "class": "ppolyf_u",
       "nets": {
         "a": "T0",
-        "b": "\\$122",
+        "b": "\\$118",
         "w": "VSS"
       },
       "params": {
@@ -2810,7 +2810,7 @@
       "class": "ppolyf_u",
       "nets": {
         "a": "VSS",
-        "b": "\\$122",
+        "b": "\\$118",
         "w": "VSS"
       },
       "params": {
@@ -2829,28 +2829,6 @@
     },
     {
       "name": "$213",
-      "class": "ppolyf_u_1k",
-      "nets": {
-        "a": "\\$25",
-        "b": "VDD",
-        "w": "VSS"
-      },
-      "params": {
-        "r_ohm": 3948720.0,
-        "l_um": 7897.44,
-        "w_um": 2.0,
-        "area_um2": 15794.88,
-        "perimeter_um": 15798.88
-      },
-      "instance_path": [
-        {
-          "cell": "temp_por_top_por_comparator",
-          "array_index": null
-        }
-      ]
-    },
-    {
-      "name": "$214",
       "class": "ppolyf_u_1k",
       "nets": {
         "a": "\\$27",
@@ -2872,7 +2850,7 @@
       ]
     },
     {
-      "name": "$215",
+      "name": "$214",
       "class": "ppolyf_u_1k",
       "nets": {
         "a": "VSS",
@@ -2894,11 +2872,33 @@
       ]
     },
     {
+      "name": "$215",
+      "class": "ppolyf_u_1k",
+      "nets": {
+        "a": "\\$25",
+        "b": "VDD",
+        "w": "VSS"
+      },
+      "params": {
+        "r_ohm": 3948720.0,
+        "l_um": 7897.44,
+        "w_um": 2.0,
+        "area_um2": 15794.88,
+        "perimeter_um": 15798.88
+      },
+      "instance_path": [
+        {
+          "cell": "temp_por_top_por_comparator",
+          "array_index": null
+        }
+      ]
+    },
+    {
       "name": "$216",
       "class": "ppolyf_u_1k",
       "nets": {
         "a": "VREF",
-        "b": "\\$71",
+        "b": "\\$72",
         "w": "VSS"
       },
       "params": {
@@ -2919,8 +2919,8 @@
       "name": "$217",
       "class": "ppolyf_u_1k",
       "nets": {
-        "a": "\\$54",
-        "b": "\\$71",
+        "a": "\\$51",
+        "b": "\\$72",
         "w": "VSS"
       },
       "params": {
@@ -2941,8 +2941,8 @@
       "name": "$218",
       "class": "ppolyf_u_1k",
       "nets": {
-        "a": "\\$54",
-        "b": "\\$72",
+        "a": "\\$51",
+        "b": "\\$71",
         "w": "VSS"
       },
       "params": {
@@ -2963,8 +2963,8 @@
       "name": "$219",
       "class": "ppolyf_u_1k",
       "nets": {
-        "a": "\\$55",
-        "b": "\\$72",
+        "a": "\\$52",
+        "b": "\\$71",
         "w": "VSS"
       },
       "params": {
@@ -3009,8 +3009,8 @@
       "name": "$220",
       "class": "ppolyf_u_1k",
       "nets": {
-        "a": "\\$55",
-        "b": "\\$73",
+        "a": "\\$52",
+        "b": "\\$70",
         "w": "VSS"
       },
       "params": {
@@ -3031,8 +3031,8 @@
       "name": "$221",
       "class": "ppolyf_u_1k",
       "nets": {
-        "a": "\\$56",
-        "b": "\\$73",
+        "a": "\\$53",
+        "b": "\\$70",
         "w": "VSS"
       },
       "params": {
@@ -3053,8 +3053,8 @@
       "name": "$222",
       "class": "ppolyf_u_1k",
       "nets": {
-        "a": "\\$56",
-        "b": "\\$74",
+        "a": "\\$53",
+        "b": "\\$69",
         "w": "VSS"
       },
       "params": {
@@ -3075,8 +3075,8 @@
       "name": "$223",
       "class": "ppolyf_u_1k",
       "nets": {
-        "a": "\\$57",
-        "b": "\\$74",
+        "a": "\\$54",
+        "b": "\\$69",
         "w": "VSS"
       },
       "params": {
@@ -3097,8 +3097,8 @@
       "name": "$224",
       "class": "ppolyf_u_1k",
       "nets": {
-        "a": "\\$57",
-        "b": "\\$75",
+        "a": "\\$54",
+        "b": "\\$68",
         "w": "VSS"
       },
       "params": {
@@ -3119,8 +3119,8 @@
       "name": "$225",
       "class": "ppolyf_u_1k",
       "nets": {
-        "a": "\\$58",
-        "b": "\\$75",
+        "a": "\\$55",
+        "b": "\\$68",
         "w": "VSS"
       },
       "params": {
@@ -3141,8 +3141,8 @@
       "name": "$226",
       "class": "ppolyf_u_1k",
       "nets": {
-        "a": "\\$58",
-        "b": "\\$70",
+        "a": "\\$55",
+        "b": "\\$67",
         "w": "VSS"
       },
       "params": {
@@ -3163,8 +3163,8 @@
       "name": "$227",
       "class": "ppolyf_u_1k",
       "nets": {
-        "a": "\\$59",
-        "b": "\\$70",
+        "a": "\\$56",
+        "b": "\\$67",
         "w": "VSS"
       },
       "params": {
@@ -3185,8 +3185,8 @@
       "name": "$228",
       "class": "ppolyf_u_1k",
       "nets": {
-        "a": "\\$59",
-        "b": "\\$69",
+        "a": "\\$56",
+        "b": "\\$66",
         "w": "VSS"
       },
       "params": {
@@ -3207,8 +3207,8 @@
       "name": "$229",
       "class": "ppolyf_u_1k",
       "nets": {
-        "a": "\\$60",
-        "b": "\\$69",
+        "a": "\\$57",
+        "b": "\\$66",
         "w": "VSS"
       },
       "params": {
@@ -3253,8 +3253,8 @@
       "name": "$230",
       "class": "ppolyf_u_1k",
       "nets": {
-        "a": "\\$60",
-        "b": "\\$76",
+        "a": "\\$57",
+        "b": "\\$65",
         "w": "VSS"
       },
       "params": {
@@ -3275,8 +3275,8 @@
       "name": "$231",
       "class": "ppolyf_u_1k",
       "nets": {
-        "a": "\\$64",
-        "b": "\\$76",
+        "a": "\\$61",
+        "b": "\\$65",
         "w": "VSS"
       },
       "params": {
@@ -3298,7 +3298,7 @@
       "class": "ppolyf_u_1k",
       "nets": {
         "a": "\\$45",
-        "b": "\\$66",
+        "b": "\\$62",
         "w": "VSS"
       },
       "params": {
@@ -3319,8 +3319,8 @@
       "name": "$233",
       "class": "ppolyf_u_1k",
       "nets": {
-        "a": "\\$61",
-        "b": "\\$66",
+        "a": "\\$58",
+        "b": "\\$62",
         "w": "VSS"
       },
       "params": {
@@ -3341,8 +3341,8 @@
       "name": "$234",
       "class": "ppolyf_u_1k",
       "nets": {
-        "a": "\\$61",
-        "b": "\\$67",
+        "a": "\\$58",
+        "b": "\\$63",
         "w": "VSS"
       },
       "params": {
@@ -3364,7 +3364,7 @@
       "class": "ppolyf_u_1k",
       "nets": {
         "a": "\\$13",
-        "b": "\\$67",
+        "b": "\\$63",
         "w": "VSS"
       },
       "params": {
@@ -3386,7 +3386,7 @@
       "class": "ppolyf_u_1k",
       "nets": {
         "a": "\\$18",
-        "b": "\\$68",
+        "b": "\\$64",
         "w": "VSS"
       },
       "params": {
@@ -3408,7 +3408,7 @@
       "class": "ppolyf_u_1k",
       "nets": {
         "a": "\\$46",
-        "b": "\\$68",
+        "b": "\\$64",
         "w": "VSS"
       },
       "params": {
@@ -3430,7 +3430,7 @@
       "class": "ppolyf_u_1k",
       "nets": {
         "a": "\\$7",
-        "b": "\\$62",
+        "b": "\\$59",
         "w": "VSS"
       },
       "params": {
@@ -3452,7 +3452,7 @@
       "class": "ppolyf_u_1k",
       "nets": {
         "a": "\\$18",
-        "b": "\\$62",
+        "b": "\\$59",
         "w": "VSS"
       },
       "params": {
@@ -4751,8 +4751,8 @@
       "nets": {
         "s": "VDD",
         "g": "\\$6",
-        "d": "\\$63",
-        "b": "\\$65"
+        "d": "\\$60",
+        "b": "VDD"
       },
       "params": {
         "l_um": 4.0,
@@ -4776,7 +4776,7 @@
         "s": "VDD",
         "g": "\\$6",
         "d": "\\$7",
-        "b": "\\$65"
+        "b": "VDD"
       },
       "params": {
         "l_um": 4.0,
@@ -4800,7 +4800,7 @@
         "s": "VDD",
         "g": "\\$6",
         "d": "VREF",
-        "b": "\\$65"
+        "b": "VDD"
       },
       "params": {
         "l_um": 4.0,
@@ -4824,7 +4824,7 @@
         "s": "VDD",
         "g": "\\$6",
         "d": "\\$8",
-        "b": "\\$65"
+        "b": "VDD"
       },
       "params": {
         "l_um": 4.0,
@@ -4848,7 +4848,7 @@
         "s": "VDD",
         "g": "\\$9",
         "d": "\\$9",
-        "b": "\\$65"
+        "b": "VDD"
       },
       "params": {
         "l_um": 4.0,
@@ -4872,7 +4872,7 @@
         "s": "VDD",
         "g": "\\$9",
         "d": "IBIAS",
-        "b": "\\$65"
+        "b": "VDD"
       },
       "params": {
         "l_um": 4.0,
@@ -4896,7 +4896,7 @@
         "s": "VDD",
         "g": "\\$9",
         "d": "\\$11",
-        "b": "\\$65"
+        "b": "VDD"
       },
       "params": {
         "l_um": 4.0,
@@ -4918,9 +4918,9 @@
       "class": "pfet",
       "nets": {
         "s": "\\$11",
-        "g": "\\$63",
+        "g": "\\$60",
         "d": "\\$12",
-        "b": "\\$65"
+        "b": "VDD"
       },
       "params": {
         "l_um": 4.0,
@@ -4968,7 +4968,7 @@
         "s": "\\$11",
         "g": "\\$18",
         "d": "\\$13",
-        "b": "\\$65"
+        "b": "VDD"
       },
       "params": {
         "l_um": 4.0,
@@ -4992,7 +4992,7 @@
         "s": "VDD",
         "g": "\\$9",
         "d": "\\$6",
-        "b": "\\$65"
+        "b": "VDD"
       },
       "params": {
         "l_um": 4.0,
@@ -5016,7 +5016,7 @@
         "s": "VDD",
         "g": "\\$9",
         "d": "\\$39",
-        "b": "\\$65"
+        "b": "VDD"
       },
       "params": {
         "l_um": 4.0,
@@ -5040,7 +5040,7 @@
         "s": "VDD",
         "g": "\\$9",
         "d": "\\$14",
-        "b": "\\$65"
+        "b": "VDD"
       },
       "params": {
         "l_um": 4.0,
@@ -5062,9 +5062,9 @@
       "class": "pfet",
       "nets": {
         "s": "\\$14",
-        "g": "\\$63",
+        "g": "\\$60",
         "d": "\\$15",
-        "b": "\\$65"
+        "b": "VDD"
       },
       "params": {
         "l_um": 4.0,
@@ -5088,7 +5088,7 @@
         "s": "\\$14",
         "g": "\\$7",
         "d": "\\$16",
-        "b": "\\$65"
+        "b": "VDD"
       },
       "params": {
         "l_um": 4.0,
@@ -5112,7 +5112,7 @@
         "s": "VDD",
         "g": "\\$9",
         "d": "\\$40",
-        "b": "\\$65"
+        "b": "VDD"
       },
       "params": {
         "l_um": 4.0,
@@ -5136,7 +5136,7 @@
         "s": "VDD",
         "g": "\\$40",
         "d": "BIAS_OK",
-        "b": "\\$65"
+        "b": "VDD"
       },
       "params": {
         "l_um": 4.0,
@@ -5160,7 +5160,7 @@
         "s": "\\$19",
         "g": "\\$20",
         "d": "\\$20",
-        "b": "\\$51"
+        "b": "VDD"
       },
       "params": {
         "l_um": 1.0,
@@ -5184,7 +5184,7 @@
         "s": "\\$19",
         "g": "\\$20",
         "d": "\\$21",
-        "b": "\\$51"
+        "b": "VDD"
       },
       "params": {
         "l_um": 1.0,
@@ -5232,7 +5232,7 @@
         "s": "VDD",
         "g": "BIAS_OKB",
         "d": "\\$19",
-        "b": "\\$51"
+        "b": "VDD"
       },
       "params": {
         "l_um": 0.5,
@@ -5256,7 +5256,7 @@
         "s": "VDD",
         "g": "\\$21",
         "d": "\\$23",
-        "b": "\\$51"
+        "b": "VDD"
       },
       "params": {
         "l_um": 0.5,
@@ -5280,7 +5280,7 @@
         "s": "VDD",
         "g": "\\$23",
         "d": "POR_RAW",
-        "b": "\\$51"
+        "b": "VDD"
       },
       "params": {
         "l_um": 0.5,
@@ -5304,7 +5304,7 @@
         "s": "VDD",
         "g": "\\$28",
         "d": "\\$28",
-        "b": "\\$53"
+        "b": "VDD"
       },
       "params": {
         "l_um": 10.0,
@@ -5328,7 +5328,7 @@
         "s": "VDD",
         "g": "\\$28",
         "d": "\\$29",
-        "b": "\\$53"
+        "b": "VDD"
       },
       "params": {
         "l_um": 10.0,
@@ -5352,7 +5352,7 @@
         "s": "VDD",
         "g": "\\$28",
         "d": "\\$35",
-        "b": "\\$53"
+        "b": "VDD"
       },
       "params": {
         "l_um": 10.0,
@@ -5376,7 +5376,7 @@
         "s": "VDD",
         "g": "\\$28",
         "d": "\\$36",
-        "b": "\\$53"
+        "b": "VDD"
       },
       "params": {
         "l_um": 10.0,
@@ -5400,7 +5400,7 @@
         "s": "VDD",
         "g": "\\$28",
         "d": "\\$49",
-        "b": "\\$53"
+        "b": "VDD"
       },
       "params": {
         "l_um": 10.0,
@@ -5424,7 +5424,7 @@
         "s": "\\$35",
         "g": "POR_RAW",
         "d": "\\$47",
-        "b": "\\$53"
+        "b": "VDD"
       },
       "params": {
         "l_um": 0.5,
@@ -5448,7 +5448,7 @@
         "s": "VDD",
         "g": "\\$47",
         "d": "\\$31",
-        "b": "\\$53"
+        "b": "VDD"
       },
       "params": {
         "l_um": 2.0,
@@ -5504,7 +5504,7 @@
       "name": "CTAT",
       "pin": true,
       "device_count": 2,
-      "net_id": 97,
+      "net_id": 92,
       "pin_index": 0,
       "label_positions_um": [
         {
@@ -5523,7 +5523,7 @@
       "name": "ENB",
       "pin": false,
       "device_count": 8,
-      "net_id": 79,
+      "net_id": 75,
       "pin_index": null,
       "label_positions_um": [
         {
@@ -5590,7 +5590,7 @@
       "name": "M1D",
       "pin": false,
       "device_count": 4,
-      "net_id": 84,
+      "net_id": 76,
       "pin_index": null,
       "label_positions_um": [
         {
@@ -5604,7 +5604,7 @@
       "name": "M2D",
       "pin": false,
       "device_count": 4,
-      "net_id": 86,
+      "net_id": 79,
       "pin_index": null,
       "label_positions_um": [
         {
@@ -5618,7 +5618,7 @@
       "name": "M3D",
       "pin": false,
       "device_count": 4,
-      "net_id": 87,
+      "net_id": 84,
       "pin_index": null,
       "label_positions_um": [
         {
@@ -5632,7 +5632,7 @@
       "name": "N1",
       "pin": false,
       "device_count": 8,
-      "net_id": 78,
+      "net_id": 82,
       "pin_index": null,
       "label_positions_um": [
         {
@@ -5646,7 +5646,7 @@
       "name": "N2",
       "pin": false,
       "device_count": 7,
-      "net_id": 80,
+      "net_id": 73,
       "pin_index": null,
       "label_positions_um": [
         {
@@ -5660,7 +5660,7 @@
       "name": "NA",
       "pin": false,
       "device_count": 6,
-      "net_id": 129,
+      "net_id": 125,
       "pin_index": null,
       "label_positions_um": [
         {
@@ -5674,7 +5674,7 @@
       "name": "NB",
       "pin": false,
       "device_count": 5,
-      "net_id": 85,
+      "net_id": 78,
       "pin_index": null,
       "label_positions_um": [
         {
@@ -5688,7 +5688,7 @@
       "name": "NBG",
       "pin": false,
       "device_count": 5,
-      "net_id": 81,
+      "net_id": 83,
       "pin_index": null,
       "label_positions_um": [
         {
@@ -5702,7 +5702,7 @@
       "name": "NC",
       "pin": false,
       "device_count": 9,
-      "net_id": 125,
+      "net_id": 121,
       "pin_index": null,
       "label_positions_um": [
         {
@@ -5716,7 +5716,7 @@
       "name": "ND",
       "pin": false,
       "device_count": 4,
-      "net_id": 89,
+      "net_id": 85,
       "pin_index": null,
       "label_positions_um": [
         {
@@ -5730,7 +5730,7 @@
       "name": "NR",
       "pin": false,
       "device_count": 4,
-      "net_id": 98,
+      "net_id": 94,
       "pin_index": null,
       "label_positions_um": [
         {
@@ -5744,7 +5744,7 @@
       "name": "NT",
       "pin": false,
       "device_count": 12,
-      "net_id": 77,
+      "net_id": 74,
       "pin_index": null,
       "label_positions_um": [
         {
@@ -5758,7 +5758,7 @@
       "name": "NZ",
       "pin": false,
       "device_count": 2,
-      "net_id": 99,
+      "net_id": 95,
       "pin_index": null,
       "label_positions_um": [
         {
@@ -5772,7 +5772,7 @@
       "name": "PB",
       "pin": false,
       "device_count": 6,
-      "net_id": 88,
+      "net_id": 81,
       "pin_index": null,
       "label_positions_um": [
         {
@@ -5786,7 +5786,7 @@
       "name": "PCAS",
       "pin": false,
       "device_count": 9,
-      "net_id": 83,
+      "net_id": 77,
       "pin_index": null,
       "label_positions_um": [
         {
@@ -5800,7 +5800,7 @@
       "name": "PG",
       "pin": false,
       "device_count": 12,
-      "net_id": 82,
+      "net_id": 80,
       "pin_index": null,
       "label_positions_um": [
         {
@@ -5833,7 +5833,7 @@
       "name": "PTAT",
       "pin": true,
       "device_count": 4,
-      "net_id": 96,
+      "net_id": 93,
       "pin_index": 2,
       "label_positions_um": [
         {
@@ -5852,7 +5852,7 @@
       "name": "T0",
       "pin": false,
       "device_count": 4,
-      "net_id": 94,
+      "net_id": 90,
       "pin_index": null,
       "label_positions_um": [
         {
@@ -5866,7 +5866,7 @@
       "name": "T1",
       "pin": false,
       "device_count": 4,
-      "net_id": 95,
+      "net_id": 91,
       "pin_index": null,
       "label_positions_um": [
         {
@@ -5880,7 +5880,7 @@
       "name": "T2",
       "pin": false,
       "device_count": 4,
-      "net_id": 92,
+      "net_id": 88,
       "pin_index": null,
       "label_positions_um": [
         {
@@ -5894,7 +5894,7 @@
       "name": "T3",
       "pin": false,
       "device_count": 4,
-      "net_id": 93,
+      "net_id": 89,
       "pin_index": null,
       "label_positions_um": [
         {
@@ -5908,7 +5908,7 @@
       "name": "T4",
       "pin": false,
       "device_count": 4,
-      "net_id": 90,
+      "net_id": 86,
       "pin_index": null,
       "label_positions_um": [
         {
@@ -5922,7 +5922,7 @@
       "name": "T5",
       "pin": false,
       "device_count": 3,
-      "net_id": 91,
+      "net_id": 87,
       "pin_index": null,
       "label_positions_um": [
         {
@@ -5935,7 +5935,7 @@
     {
       "name": "VDD",
       "pin": true,
-      "device_count": 53,
+      "device_count": 88,
       "net_id": 5,
       "pin_index": 3,
       "label_positions_um": [
@@ -5993,8 +5993,8 @@
     {
       "name": "VSS",
       "pin": true,
-      "device_count": 247,
-      "net_id": 164,
+      "device_count": 257,
+      "net_id": 160,
       "pin_index": 4,
       "label_positions_um": [
         {
@@ -6032,7 +6032,7 @@
     {
       "name": "\\$100",
       "pin": false,
-      "device_count": 6,
+      "device_count": 2,
       "net_id": 100,
       "pin_index": null,
       "label_positions_um": []
@@ -6040,7 +6040,7 @@
     {
       "name": "\\$101",
       "pin": false,
-      "device_count": 22,
+      "device_count": 2,
       "net_id": 101,
       "pin_index": null,
       "label_positions_um": []
@@ -6142,34 +6142,18 @@
       "label_positions_um": []
     },
     {
-      "name": "\\$113",
+      "name": "\\$118",
       "pin": false,
       "device_count": 2,
-      "net_id": 113,
+      "net_id": 118,
       "pin_index": null,
       "label_positions_um": []
     },
     {
-      "name": "\\$114",
+      "name": "\\$119",
       "pin": false,
       "device_count": 2,
-      "net_id": 114,
-      "pin_index": null,
-      "label_positions_um": []
-    },
-    {
-      "name": "\\$115",
-      "pin": false,
-      "device_count": 2,
-      "net_id": 115,
-      "pin_index": null,
-      "label_positions_um": []
-    },
-    {
-      "name": "\\$116",
-      "pin": false,
-      "device_count": 2,
-      "net_id": 116,
+      "net_id": 119,
       "pin_index": null,
       "label_positions_um": []
     },
@@ -6178,14 +6162,6 @@
       "pin": false,
       "device_count": 4,
       "net_id": 12,
-      "pin_index": null,
-      "label_positions_um": []
-    },
-    {
-      "name": "\\$122",
-      "pin": false,
-      "device_count": 2,
-      "net_id": 122,
       "pin_index": null,
       "label_positions_um": []
     },
@@ -6214,10 +6190,34 @@
       "label_positions_um": []
     },
     {
-      "name": "\\$131",
+      "name": "\\$135",
       "pin": false,
       "device_count": 2,
-      "net_id": 131,
+      "net_id": 135,
+      "pin_index": null,
+      "label_positions_um": []
+    },
+    {
+      "name": "\\$136",
+      "pin": false,
+      "device_count": 2,
+      "net_id": 136,
+      "pin_index": null,
+      "label_positions_um": []
+    },
+    {
+      "name": "\\$137",
+      "pin": false,
+      "device_count": 2,
+      "net_id": 137,
+      "pin_index": null,
+      "label_positions_um": []
+    },
+    {
+      "name": "\\$138",
+      "pin": false,
+      "device_count": 2,
+      "net_id": 138,
       "pin_index": null,
       "label_positions_um": []
     },
@@ -6370,38 +6370,6 @@
       "pin": false,
       "device_count": 2,
       "net_id": 155,
-      "pin_index": null,
-      "label_positions_um": []
-    },
-    {
-      "name": "\\$156",
-      "pin": false,
-      "device_count": 2,
-      "net_id": 156,
-      "pin_index": null,
-      "label_positions_um": []
-    },
-    {
-      "name": "\\$157",
-      "pin": false,
-      "device_count": 2,
-      "net_id": 157,
-      "pin_index": null,
-      "label_positions_um": []
-    },
-    {
-      "name": "\\$158",
-      "pin": false,
-      "device_count": 2,
-      "net_id": 158,
-      "pin_index": null,
-      "label_positions_um": []
-    },
-    {
-      "name": "\\$159",
-      "pin": false,
-      "device_count": 2,
-      "net_id": 159,
       "pin_index": null,
       "label_positions_um": []
     },
@@ -6672,7 +6640,7 @@
     {
       "name": "\\$51",
       "pin": false,
-      "device_count": 5,
+      "device_count": 2,
       "net_id": 51,
       "pin_index": null,
       "label_positions_um": []
@@ -6680,7 +6648,7 @@
     {
       "name": "\\$52",
       "pin": false,
-      "device_count": 10,
+      "device_count": 2,
       "net_id": 52,
       "pin_index": null,
       "label_positions_um": []
@@ -6688,7 +6656,7 @@
     {
       "name": "\\$53",
       "pin": false,
-      "device_count": 14,
+      "device_count": 2,
       "net_id": 53,
       "pin_index": null,
       "label_positions_um": []
@@ -6752,7 +6720,7 @@
     {
       "name": "\\$60",
       "pin": false,
-      "device_count": 2,
+      "device_count": 4,
       "net_id": 60,
       "pin_index": null,
       "label_positions_um": []
@@ -6776,7 +6744,7 @@
     {
       "name": "\\$63",
       "pin": false,
-      "device_count": 4,
+      "device_count": 2,
       "net_id": 63,
       "pin_index": null,
       "label_positions_um": []
@@ -6792,7 +6760,7 @@
     {
       "name": "\\$65",
       "pin": false,
-      "device_count": 16,
+      "device_count": 2,
       "net_id": 65,
       "pin_index": null,
       "label_positions_um": []
@@ -6862,38 +6830,6 @@
       "label_positions_um": []
     },
     {
-      "name": "\\$73",
-      "pin": false,
-      "device_count": 2,
-      "net_id": 73,
-      "pin_index": null,
-      "label_positions_um": []
-    },
-    {
-      "name": "\\$74",
-      "pin": false,
-      "device_count": 2,
-      "net_id": 74,
-      "pin_index": null,
-      "label_positions_um": []
-    },
-    {
-      "name": "\\$75",
-      "pin": false,
-      "device_count": 2,
-      "net_id": 75,
-      "pin_index": null,
-      "label_positions_um": []
-    },
-    {
-      "name": "\\$76",
-      "pin": false,
-      "device_count": 2,
-      "net_id": 76,
-      "pin_index": null,
-      "label_positions_um": []
-    },
-    {
       "name": "\\$8",
       "pin": false,
       "device_count": 4,
@@ -6908,6 +6844,38 @@
       "net_id": 9,
       "pin_index": null,
       "label_positions_um": []
+    },
+    {
+      "name": "\\$96",
+      "pin": false,
+      "device_count": 6,
+      "net_id": 96,
+      "pin_index": null,
+      "label_positions_um": []
+    },
+    {
+      "name": "\\$97",
+      "pin": false,
+      "device_count": 22,
+      "net_id": 97,
+      "pin_index": null,
+      "label_positions_um": []
+    },
+    {
+      "name": "\\$98",
+      "pin": false,
+      "device_count": 2,
+      "net_id": 98,
+      "pin_index": null,
+      "label_positions_um": []
+    },
+    {
+      "name": "\\$99",
+      "pin": false,
+      "device_count": 2,
+      "net_id": 99,
+      "pin_index": null,
+      "label_positions_um": []
     }
   ],
   "warnings": [
@@ -6915,7 +6883,7 @@
     "kept 28 label-named net(s) internal: their naming label(s) are drawn below the top cell (inside instanced sub-cells), not in the top cell itself (BIAS_OK, BIAS_OKB, ENB, IBIAS, M1D, M2D, M3D, N1, N2, NA, NB, NBG, NC, ND, NR, NT, NZ, PB, PCAS, PG, POR_RAW, T0, T1, T2, T3, T4, T5, VREF)",
     "16 routing-stack clusters (16 shapes on 34/0) join no extracted net -- no via lands on this geometry and no same-layer wiring touches it, so it is invisible to the extracted netlist and to every downstream `klt lvs`/`klt sim` view; deliberate dead metal (artwork, fill) is expected here, unexplained dead metal usually means the connection you intended is missing -- see dead_metal[] for the per-cluster layer/bbox/shape count.",
     "net 'EN|RESETn' merges 2 distinct labels (EN, RESETn) onto one net -- KLayout joins multiple labels found on the same electrical net (as '|' here and in the written netlist, matching NetlistSpiceWriter's own node-name escaping); this usually means two differently-named nets were shorted together in the layout -- see docs/cli/extract.md's 'Merged net labels' section.",
-    "64 PMOS devices tie their body to an anonymous net with no DC bias path -- no drawn (or derivable) well tie connects this PMOS body to a real supply rail on this layout, so it is left floating rather than tied to a real supply rail; resimulating this netlist directly will not reproduce the schematic-level PMOS body bias -- see unbiased_pmos_body_nets[] for the full list. See docs/cli/extract.md's 'Parasitic (RC) extraction' section.",
+    "29 PMOS devices tie their body to an anonymous net with no DC bias path -- no drawn (or derivable) well tie connects this PMOS body to a real supply rail on this layout, so it is left floating rather than tied to a real supply rail; resimulating this netlist directly will not reproduce the schematic-level PMOS body bias -- see unbiased_pmos_body_nets[] for the full list. See docs/cli/extract.md's 'Parasitic (RC) extraction' section.",
     "1 net connect to exactly one device terminal -- source/drain/body/resistor-equivalent, not a gate -- and are not a declared pin; this can be a legitimate single-terminal tie (e.g. an intentionally unterminated dummy's diffusion tie), but confirm these nets have no other intended connectivity -- see single_terminal_nets[] for the full list."
   ],
   "black_box_regions": [],
@@ -8437,260 +8405,120 @@
   "voltage_domain_warnings": [],
   "unbiased_pmos_body_nets": [
     {
-      "device": "$100",
-      "net": "\\$53"
-    },
-    {
-      "device": "$101",
-      "net": "\\$53"
-    },
-    {
-      "device": "$102",
-      "net": "\\$53"
-    },
-    {
-      "device": "$103",
-      "net": "\\$53"
-    },
-    {
-      "device": "$104",
-      "net": "\\$53"
-    },
-    {
-      "device": "$105",
-      "net": "\\$53"
-    },
-    {
-      "device": "$106",
-      "net": "\\$53"
-    },
-    {
       "device": "$107",
-      "net": "\\$100"
+      "net": "\\$96"
     },
     {
       "device": "$108",
-      "net": "\\$100"
+      "net": "\\$96"
     },
     {
       "device": "$109",
-      "net": "\\$100"
+      "net": "\\$96"
     },
     {
       "device": "$110",
-      "net": "\\$100"
+      "net": "\\$96"
     },
     {
       "device": "$111",
-      "net": "\\$100"
+      "net": "\\$96"
     },
     {
       "device": "$112",
-      "net": "\\$100"
+      "net": "\\$96"
     },
     {
       "device": "$113",
-      "net": "\\$101"
+      "net": "\\$97"
     },
     {
       "device": "$114",
-      "net": "\\$101"
+      "net": "\\$97"
     },
     {
       "device": "$115",
-      "net": "\\$101"
+      "net": "\\$97"
     },
     {
       "device": "$116",
-      "net": "\\$101"
+      "net": "\\$97"
     },
     {
       "device": "$117",
-      "net": "\\$101"
+      "net": "\\$97"
     },
     {
       "device": "$118",
-      "net": "\\$101"
+      "net": "\\$97"
     },
     {
       "device": "$119",
-      "net": "\\$101"
+      "net": "\\$97"
     },
     {
       "device": "$120",
-      "net": "\\$101"
+      "net": "\\$97"
     },
     {
       "device": "$121",
-      "net": "\\$101"
+      "net": "\\$97"
     },
     {
       "device": "$122",
-      "net": "\\$101"
+      "net": "\\$97"
     },
     {
       "device": "$123",
-      "net": "\\$101"
+      "net": "\\$97"
     },
     {
       "device": "$124",
-      "net": "\\$101"
+      "net": "\\$97"
     },
     {
       "device": "$125",
-      "net": "\\$101"
+      "net": "\\$97"
     },
     {
       "device": "$126",
-      "net": "\\$101"
+      "net": "\\$97"
     },
     {
       "device": "$127",
-      "net": "\\$101"
+      "net": "\\$97"
     },
     {
       "device": "$128",
-      "net": "\\$101"
+      "net": "\\$97"
     },
     {
       "device": "$129",
-      "net": "\\$101"
+      "net": "\\$97"
     },
     {
       "device": "$130",
-      "net": "\\$101"
+      "net": "\\$97"
     },
     {
       "device": "$131",
-      "net": "\\$101"
+      "net": "\\$97"
     },
     {
       "device": "$132",
-      "net": "\\$101"
+      "net": "\\$97"
     },
     {
       "device": "$133",
-      "net": "\\$101"
+      "net": "\\$97"
     },
     {
       "device": "$134",
-      "net": "\\$101"
+      "net": "\\$97"
     },
     {
       "device": "$135",
       "net": "\\$50"
-    },
-    {
-      "device": "$72",
-      "net": "\\$65"
-    },
-    {
-      "device": "$73",
-      "net": "\\$65"
-    },
-    {
-      "device": "$74",
-      "net": "\\$65"
-    },
-    {
-      "device": "$75",
-      "net": "\\$65"
-    },
-    {
-      "device": "$76",
-      "net": "\\$65"
-    },
-    {
-      "device": "$77",
-      "net": "\\$65"
-    },
-    {
-      "device": "$78",
-      "net": "\\$65"
-    },
-    {
-      "device": "$79",
-      "net": "\\$65"
-    },
-    {
-      "device": "$80",
-      "net": "\\$65"
-    },
-    {
-      "device": "$81",
-      "net": "\\$65"
-    },
-    {
-      "device": "$82",
-      "net": "\\$65"
-    },
-    {
-      "device": "$83",
-      "net": "\\$65"
-    },
-    {
-      "device": "$84",
-      "net": "\\$65"
-    },
-    {
-      "device": "$85",
-      "net": "\\$65"
-    },
-    {
-      "device": "$86",
-      "net": "\\$65"
-    },
-    {
-      "device": "$87",
-      "net": "\\$65"
-    },
-    {
-      "device": "$88",
-      "net": "\\$51"
-    },
-    {
-      "device": "$89",
-      "net": "\\$51"
-    },
-    {
-      "device": "$90",
-      "net": "\\$51"
-    },
-    {
-      "device": "$91",
-      "net": "\\$51"
-    },
-    {
-      "device": "$92",
-      "net": "\\$51"
-    },
-    {
-      "device": "$93",
-      "net": "\\$53"
-    },
-    {
-      "device": "$94",
-      "net": "\\$53"
-    },
-    {
-      "device": "$95",
-      "net": "\\$53"
-    },
-    {
-      "device": "$96",
-      "net": "\\$53"
-    },
-    {
-      "device": "$97",
-      "net": "\\$53"
-    },
-    {
-      "device": "$98",
-      "net": "\\$53"
-    },
-    {
-      "device": "$99",
-      "net": "\\$53"
     }
   ],
   "single_terminal_nets": [
@@ -8915,7 +8743,7 @@
   "pdk": null,
   "provenance": {
     "klt_version": "0.6.0",
-    "klayout_version": "0.30.12",
+    "klayout_version": "0.30.13",
     "pdk": null,
     "deck": {
       "name": "gf180mcu",
@@ -8923,17 +8751,17 @@
       "released": false
     },
     "input": {
-      "content_hash": "sha256:3c9cc25835cf509b40cc5e491631dc2f68892771628f68effa656cde8ddd136a",
+      "content_hash": "sha256:ae403395da1b0703a93a5c93e5c68abec7dcfe63a5f3a902f8196ceb7cb38ae4",
       "role": "layout"
     },
-    "gds_sha256": "3c9cc25835cf509b40cc5e491631dc2f68892771628f68effa656cde8ddd136a"
+    "gds_sha256": "ae403395da1b0703a93a5c93e5c68abec7dcfe63a5f3a902f8196ceb7cb38ae4"
   },
   "parasitics": null,
   "spef_path": null,
   "subcircuit": null,
   "metrics": {
     "extract__device__count": 239,
-    "extract__net__count": 143,
+    "extract__net__count": 139,
     "extract__pin__count": 5
   }
 }

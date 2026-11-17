@@ -8,6 +8,7 @@ Current workflow state, maintained by Guide.
 Judge-approved PRs under a hold (`loom:blocked` or `loom:operator`) — only a human merge decision is missing.
 
 - **#457**: feat(temp_core): chop the amplifier, widen the gain mirror, halve the trim ladder (DR-031)
+- **#560**: fix: correct drifted LVS prose counts and police them against committed reports
 
 ## Very Important
 
@@ -23,56 +24,47 @@ Judge-approved PRs under a hold (`loom:blocked` or `loom:operator`) — only a h
 - **#400**: Bump klayout-tools pin 0.6.0, 0.7.0 → 0.8.0
 - **#452**: temp_core: implement amplifier chop/auto-zero, gain mirror fix and trim re-balance (#415 step 2/3)
 - **#453**: temp-accuracy-mc: re-run Monte Carlo and klt yield grade on revised temp_core (#415 step 3/3)
-- **#496**: sim harness: build a klt sim request with per-row spec limits for one experiment (dry-run half of #388)
-- **#497**: Classify the DRC violations the committed cells show under klt 0.8.0 and later (unblocks #400)
-- **#512**: Control scripts ignore unrecognized argv and run the full local sweep (overwriting committed evidence)
 
 ## Ready
 
 Human-approved issues ready for implementation (`loom:issue`).
 
-- **#499**: Assert temp_core's drawn track list equals its manifest ports — the one leaf cell missing the sibling guard
-- **#500**: Dedupe the golden-netlist read and the MiM-cap test block in layout/tests/test_lvs_reference.py
-- **#502**: Remove four dead arguments threaded into control-script deck composers and job tuples
-- **#505**: Three independent implementations of one Via1-with-landing-pads primitive in layout/build_cells.py
-- **#506**: _m2_h/_m2_v re-derive _cap_wire's straight-wire branches — the wire counterpart to #505's via drift
-- **#507**: run_deglitch_asym_probe.py's results.md carries no `- git:` provenance line, unlike its five peers
-- **#509**: Remove ramp_rate_probe.spice's two dead .params, and assert the por-vth control fragments' cards agree
-- **#517**: Poly resistors draw SAB coincident with Poly2: zero extension where SB.10 requires 0.22 um
-- **#521**: Move run_mc.py's four byte-identical argparse flags into cliutil, and stop hardcoding the timeout default
-- **#522**: Remove the dead name and log_dir/deck_dir arguments three control scripts thread into their workers
-- **#525**: Remove three dead report.py imports from sim/harness/mc_report.py, and the docstring claim they fossilise
+- **#452**: temp_core: implement amplifier chop/auto-zero, gain mirror fix and trim re-balance (#415 step 2/3)
+- **#518**: temp_core resistor tile: neighbouring SAB markers 0.2 um apart where SB.2 requires 0.42 um
+- **#527**: signoff/tests/test_check.py: ProseCountTest sits after the __main__ guard, so direct execution reports OK on 39 of 57 tests
+- **#528**: signoff/README.md cites a tier-report.json 'blocking_item' field that does not exist, next to a hand-written 'first unmet item is now 5'
+- **#532**: temp_core and por_comparator_bias_okb_inv have no substrate or well tap within 20 um of their MOS rows (DF.13_LV / DF.14_LV)
+- **#538**: lvs_reference: the declared-net-set derivation is now spelled out twice, and the guard's message omits bjt_well
+- **#543**: signoff: the grader-pin warning reads as a blocker, so drift-only failures get deferred to CI
+- **#546**: Control-script argv contract is pinned by hand-maintained lists, so script #21 is uncovered by construction
+- **#550**: test_por_vth_control_fragment_sync asserts card-identity over a directory glob, which sim/README.md:291 permits to be false
+- **#553**: Guard the manufacturing-grid invariant end-to-end: assert every committed GDS vertex is on-grid
+- **#555**: sim/selftest.sh PVT smoke fails on PDK-equipped hosts: grid spread checks read n/a
+- **#558**: A third straight-Metal2-wire site still re-derives _cap_wire inline: the divider trunk in build_cells.py
+- **#563**: run_glitch_width_sweep.py's docstring cites a pre-star record figure without naming the generation
+- **#565**: Remove hand-typed T1_ITEM_COUNT from signoff/check.py: read it from tier-report.json
+- **#568**: SAB-overhang invariant from #517 is thinner than its own comments claim: no SB.2 assert in _resistor_string(), a duplicated grid literal, and no unit test
+- **#569**: Remove the inline guard-ring copy in por_comparator: reuse _draw_guard_ring
+- **#573**: ci: the GDS staleness chain is gated only at its last link — neither postlayout.py --check nor build_cells.py --check runs in CI
 
 ## In Progress
 
 Issues currently being built (`loom:building`).
 
-- **#452**: temp_core: implement amplifier chop/auto-zero, gain mirror fix and trim re-balance (#415 step 2/3)
-- **#491**: README's T1 verdict count drifts from signoff/tier-report.json, and the docs-PR path cannot carry the fix
-- **#493**: Three control-script helpers are duplicated within one experiment directory; consolidate per the _rung_record.py precedent
-- **#496**: sim harness: build a klt sim request with per-row spec limits for one experiment (dry-run half of #388)
-- **#497**: Classify the DRC violations the committed cells show under klt 0.8.0 and later (unblocks #400)
-- **#511**: Remove _TopRoutes.via1/via2's inline via-square arithmetic: the only via drawer that bypasses CellBuilder.via
-- **#514**: Collapse lvs_reference.py's three copies of the undeclared-net guard into one helper — and give the MiM cap builder the call site #269 never wrote
-- **#523**: Collapse four leftovers in layout/run_checks.sh from the cell-freeze removal and --regen-all
+- **#510**: LVS net and pin counts quoted in prose drifted from the committed lvs.json reports
 
 ## PRs Awaiting Review
 
 PRs waiting on Judge (`loom:review-requested`).
 
-- **#494**: docs: roadmap as of 2026-11-13
-- **#524**: refactor: derive the DRM via square once in _via_square
-- **#529**: refactor(lvs_reference): one declared-net guard, now covering cap plates too
+_None._
 
 ## Approved (Awaiting Merge)
 
 PRs that passed review and are queued for Champion auto-merge (`loom:pr`).
 
 - **#457**: feat(temp_core): chop the amplifier, widen the gain mirror, halve the trim ladder (DR-031)
-- **#498**: feat(signoff): forbid hand-written T1 verdict counts in prose
-- **#501**: refactor(sim): give three duplicated control helpers one definition per directory
-- **#520**: docs: classify every DRC rule the committed cells violate under klt 0.8.0
-- **#526**: refactor(layout): inline cell_failed() and drop three dead branches in run_checks.sh
+- **#560**: fix: correct drifted LVS prose counts and police them against committed reports
 
 ## Proposed
 
@@ -88,15 +80,22 @@ Issues carrying `loom:curated`.
 - **#416**: POR threshold rows: N=500 cannot demonstrate the 99.73 % [3σ] yield; need a larger campaign *(curated)*
 - **#417**: Item 6: sampled negative control for the Monte Carlo yield campaigns *(curated)*
 - **#452**: temp_core: implement amplifier chop/auto-zero, gain mirror fix and trim re-balance (#415 step 2/3) *(curated)*
-- **#491**: README's T1 verdict count drifts from signoff/tier-report.json, and the docs-PR path cannot carry the fix *(curated)*
-- **#496**: sim harness: build a klt sim request with per-row spec limits for one experiment (dry-run half of #388) *(curated)*
-- **#497**: Classify the DRC violations the committed cells show under klt 0.8.0 and later (unblocks #400) *(curated)*
-- **#499**: Assert temp_core's drawn track list equals its manifest ports — the one leaf cell missing the sibling guard *(curated)*
-- **#507**: run_deglitch_asym_probe.py's results.md carries no `- git:` provenance line, unlike its five peers *(curated)*
 - **#508**: run_dwell_sweep.py's dwell_results.md carries no `- git:` provenance line (the fleet-scale fourth of the deglitch control set) *(curated)*
 - **#510**: LVS net and pin counts quoted in prose drifted from the committed lvs.json reports *(curated)*
-- **#517**: Poly resistors draw SAB coincident with Poly2: zero extension where SB.10 requires 0.22 um *(curated)*
 - **#518**: temp_core resistor tile: neighbouring SAB markers 0.2 um apart where SB.2 requires 0.42 um *(curated)*
+- **#527**: signoff/tests/test_check.py: ProseCountTest sits after the __main__ guard, so direct execution reports OK on 39 of 57 tests *(curated)*
+- **#528**: signoff/README.md cites a tier-report.json 'blocking_item' field that does not exist, next to a hand-written 'first unmet item is now 5' *(curated)*
+- **#532**: temp_core and por_comparator_bias_okb_inv have no substrate or well tap within 20 um of their MOS rows (DF.13_LV / DF.14_LV) *(curated)*
+- **#538**: lvs_reference: the declared-net-set derivation is now spelled out twice, and the guard's message omits bjt_well *(curated)*
+- **#543**: signoff: the grader-pin warning reads as a blocker, so drift-only failures get deferred to CI *(curated)*
+- **#546**: Control-script argv contract is pinned by hand-maintained lists, so script #21 is uncovered by construction *(curated)*
+- **#550**: test_por_vth_control_fragment_sync asserts card-identity over a directory glob, which sim/README.md:291 permits to be false *(curated)*
+- **#553**: Guard the manufacturing-grid invariant end-to-end: assert every committed GDS vertex is on-grid *(curated)*
+- **#555**: sim/selftest.sh PVT smoke fails on PDK-equipped hosts: grid spread checks read n/a *(curated)*
+- **#558**: A third straight-Metal2-wire site still re-derives _cap_wire inline: the divider trunk in build_cells.py *(curated)*
+- **#563**: run_glitch_width_sweep.py's docstring cites a pre-star record figure without naming the generation *(curated)*
+- **#568**: SAB-overhang invariant from #517 is thinner than its own comments claim: no SB.2 assert in _resistor_string(), a duplicated grid literal, and no unit test *(curated)*
+- **#573**: ci: the GDS staleness chain is gated only at its last link — neither postlayout.py --check nor build_cells.py --check runs in CI *(curated)*
 
 ## Proposed (Architect / Hermit)
 
@@ -111,14 +110,14 @@ _None._
 
 | Bucket | Count |
 |------|-------|
-| Operator merge-risk holds | 1 |
+| Operator merge-risk holds | 2 |
 | Very important | 1 |
-| Important | 7 |
-| Ready (`loom:issue`) | 11 |
-| In Progress (`loom:building`) | 8 |
-| PRs awaiting review | 3 |
-| Approved PRs awaiting merge | 5 |
-| Curated | 19 |
+| Important | 4 |
+| Ready (`loom:issue`) | 17 |
+| In Progress (`loom:building`) | 1 |
+| PRs awaiting review | 0 |
+| Approved PRs awaiting merge | 2 |
+| Curated | 26 |
 | Architect / Hermit proposals | 2 |
 | Active epics | 0 |
 <!-- guide:plan-body:end -->

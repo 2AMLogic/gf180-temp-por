@@ -102,22 +102,22 @@ def compose_deck(pdk, netlist: Path, corner_name: str, temp_c: float, options: l
     ]
     lines += runner.deck_preamble(pdk, corner, temp_c, options)
     lines += ["", FRAGMENT.read_text().rstrip(), "", netlist.read_text().rstrip(), ""]
-    lines += [".control", "set numdgt=10", "set noaskquit", f"  tran {TSTEP_US}u {TSTOP_MS}m"]
+    body = [f"  tran {TSTEP_US}u {TSTOP_MS}m"]
     for ms in SAMPLE_MS:
-        lines.append(f"  meas tran ok{_tag(ms)} find v(bias_okb) at={ms}m")
-        lines.append(f"  meas tran vr{_tag(ms)} find v(vrefb) at={ms}m")
+        body.append(f"  meas tran ok{_tag(ms)} find v(bias_okb) at={ms}m")
+        body.append(f"  meas tran vr{_tag(ms)} find v(vrefb) at={ms}m")
     for ms in SAMPLE_MS:
-        lines.append(f"  let m_ok{_tag(ms)} = ok{_tag(ms)}")
-        lines.append(f"  let m_vr{_tag(ms)} = vr{_tag(ms)}")
+        body.append(f"  let m_ok{_tag(ms)} = ok{_tag(ms)}")
+        body.append(f"  let m_vr{_tag(ms)} = vr{_tag(ms)}")
     for ms in SAMPLE_MS:
-        lines.append(f"  print m_ok{_tag(ms)}")
-        lines.append(f"  print m_vr{_tag(ms)}")
-    lines += [".endc", ".end", ""]
+        body.append(f"  print m_ok{_tag(ms)}")
+        body.append(f"  print m_vr{_tag(ms)}")
+    lines += runner.deck_control_block(body)
     return "\n".join(lines)
 
 
 def run_one(job):
-    pdk, options, deck_dir, log_dir, net_name, netlist, corner_name, temp_c = job
+    pdk, options, net_name, netlist, corner_name, temp_c = job
     name = f"dip-{net_name}-{corner_name}_{int(temp_c)}c"
     output = runner.run_deck_raw(
         name, compose_deck(pdk, netlist, corner_name, temp_c, options), CONTROL_DIR
@@ -143,7 +143,7 @@ def main(argv: list[str] | None = None) -> int:
     log_dir.mkdir(exist_ok=True)
 
     jobs = [
-        (pdk, options, deck_dir, log_dir, net_name, netlist, corner_name, temp_c)
+        (pdk, options, net_name, netlist, corner_name, temp_c)
         for net_name, netlist, _ in NETLISTS
         for corner_name, temp_c, _ in POINTS
     ]

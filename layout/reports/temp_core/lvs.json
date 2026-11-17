@@ -86,14 +86,14 @@
   ],
   "environment": {
     "engine": "klayout",
-    "engine_version": "0.30.12",
-    "layout_sha256": "f2243cac93bd36a5c896b17e1ad47a1b9b833e45303487eadffc3784d26c5f13",
+    "engine_version": "0.30.13",
+    "layout_sha256": "f99f531eb4894132a279f0fce1c1e5fbba169ca250dbd5027476cafb9e1db249",
     "reference_sha256": "cd6d91bdccbb972cb940e576e054e9101278dfe8c11896bb5517eff14aa23308",
     "extracted_netlist": null
   },
   "provenance": {
     "klt_version": "0.6.0",
-    "klayout_version": "0.30.12",
+    "klayout_version": "0.30.13",
     "pdk": null,
     "deck": {
       "name": "gf180mcu",
@@ -101,7 +101,7 @@
       "released": false
     },
     "input": {
-      "content_hash": "sha256:f2243cac93bd36a5c896b17e1ad47a1b9b833e45303487eadffc3784d26c5f13",
+      "content_hash": "sha256:f99f531eb4894132a279f0fce1c1e5fbba169ca250dbd5027476cafb9e1db249",
       "role": "layout"
     },
     "klayout_version_mismatch": true
@@ -432,7 +432,7 @@
       "pin": false
     },
     {
-      "layout": "\\$62",
+      "layout": "\\$67",
       "reference": "XRISO_1",
       "pin": false
     },

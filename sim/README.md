@@ -301,6 +301,12 @@ Rules, so this never becomes a back door around the record convention:
   makes no claim, so there is nothing to preserve, and it is cheap enough to
   reproduce on demand. `records/`, `netlist-snapshots/` and `corners/` — the
   things the append-only rule protects — are never touched by a control.
+- **Its CLI rejects what it does not declare.** A `run_*.py` entry point
+  refuses any argument it does not declare — an unrecognized flag exits
+  non-zero, never silently reading as "run the sweep" — and `--help` prints
+  usage and exits 0 without simulating. The contract is asserted for every
+  control script, present and future, by
+  `sim/tests/test_control_shared_helpers.py` (#512, #546).
 
 First instance: [`sim/bias-core-startup/control/`](bias-core-startup/control/),
 the `gmin` control that diagnoses record `20260801-111049-bc599be`. Second:

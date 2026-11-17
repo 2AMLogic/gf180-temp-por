@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Tests for signoff/check.py's freshness gates (supply ERC, anchored items 1/2/9/10).
+"""Tests for signoff/check.py's gates: supply ERC and anchored-item freshness,
+and the prose-count guard that keeps the T1 verdict out of hand-written prose.
 
 No klt/PDK needed.
 
@@ -16,6 +17,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 SIGNOFF_DIR = Path(__file__).resolve().parents[1]
 REPO_ROOT = SIGNOFF_DIR.parent
@@ -360,6 +362,294 @@ class CitationHashDriftTest(unittest.TestCase):
 
     def test_matching_hashes_pass(self):
         ok, _ = self.run_drift(self.report("sha256:aa"), self.report("sha256:aa"))
+        self.assertTrue(ok)
+
+
+class GraderSelectionTest(unittest.TestCase):
+    """--klt / --klt-pin: the grader is selectable and the warning stays a warning."""
+
+    def stub(self, version_line: str) -> str:
+        tmp = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, tmp, True)
+        exe = tmp / "klt"
+        exe.write_text(f'#!/bin/sh\necho "{version_line}"\n')
+        exe.chmod(0o755)
+        return str(exe)
+
+    def run_pin_check(self, klt):
+        out, err = io.StringIO(), io.StringIO()
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            ret = check.check_toolchain_pin(klt)
+        return ret, out.getvalue(), err.getvalue()
+
+    def test_stub_executable_is_used_not_bare_klt(self):
+        ret, _, err = self.run_pin_check(self.stub("klt 9.9.9"))
+        self.assertIsNone(ret)
+        self.assertIn("'klt 9.9.9'", err)
+
+    def test_mismatch_warns_classifies_and_names_remedy(self):
+        _, _, err = self.run_pin_check(self.stub("klt 9.9.9"))
+        self.assertTrue(err.startswith("warn"))
+        self.assertIn("NOT affected", err)
+        self.assertIn("--regen IS pin-sensitive", err)
+        self.assertIn("--klt-pin", err)
+
+    def test_match_is_ok_and_silent_on_stderr(self):
+        pinned = json.loads(check.TOOLCHAIN.read_text())["klt"]["version"]
+        ret, out, err = self.run_pin_check(self.stub(pinned))
+        self.assertIsNone(ret)
+        self.assertIn("ok   grader is the pinned", out)
+        self.assertEqual(err, "")
+
+    def test_run_grader_uses_given_executable(self):
+        exe = self.stub("klt x")
+        with contextlib.redirect_stderr(io.StringIO()):
+            report, ran = check.run_grader(exe)
+        # The stub emits no JSON, so output is rejected -- proving it was run.
+        self.assertFalse(ran)
+        self.assertEqual(report, {})
+
+    def test_pinned_klt_writes_uvx_wrapper(self):
+        path = Path(check.pinned_klt("0.9.1"))
+        self.addCleanup(shutil.rmtree, path.parent, True)
+        self.assertIn('uvx --from "klayout-tools==0.9.1" klt', path.read_text())
+        self.assertTrue(path.stat().st_mode & 0o100)
+
+    def test_malformed_version_rejected(self):
+        for bad in ("0.9.1; touch x", "", "$(x)", "v0.9.1"):
+            with self.assertRaises(ValueError):
+                check.pinned_klt(bad)
+
+    def test_toolchain_pin_is_single_sourced(self):
+        self.assertEqual(
+            check.toolchain_pin_version(),
+            json.loads(check.TOOLCHAIN.read_text())["klt"]["release"]["package_version"],
+        )
+
+    def test_cli_rejects_both_flags_and_bad_pin(self):
+        for argv in (["--klt", "x", "--klt-pin"], ["--klt-pin", "0;x"]):
+            with contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit) as cm:
+                check.main(argv)
+            self.assertEqual(cm.exception.code, 2)
+
+    def test_missing_executable_gives_guidance_not_traceback(self):
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err):
+            self.assertEqual(check.main(["--klt", "/nonexistent/klt"]), 1)
+        self.assertIn("not on PATH", err.getvalue())
+
+    # The hand-typed literal check.py falls back to when toolchain.json
+    # cannot supply klt.install.
+    FALLBACK_INSTALL = "uv tool install --force 'klayout-tools[yield]==0.9.1'"
+
+    def toolchain(self, text: str | None) -> Path:
+        """A temp file to stand in for check.TOOLCHAIN (None = don't write it)."""
+        tmp = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, tmp, True)
+        path = tmp / "toolchain.json"
+        if text is not None:
+            path.write_text(text)
+        return path
+
+    def run_missing_klt(self) -> tuple[int, str]:
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err):
+            ret = check.main(["--klt", "/nonexistent/klt"])
+        return ret, err.getvalue()
+
+    def test_install_hint_is_read_from_toolchain_json(self):
+        toolchain = self.toolchain(
+            json.dumps(
+                {"klt": {"install": "uv tool install --force 'klt==9.9.9-hint'"}}
+            )
+        )
+        with mock.patch.object(check, "TOOLCHAIN", toolchain):
+            ret, err = self.run_missing_klt()
+        self.assertEqual(ret, 1)
+        self.assertIn("klt==9.9.9-hint", err)
+
+    def test_changed_install_value_changes_output(self):
+        toolchain = self.toolchain(json.dumps({"klt": {"install": "hint-one"}}))
+        with mock.patch.object(check, "TOOLCHAIN", toolchain):
+            _, first = self.run_missing_klt()
+            toolchain.write_text(json.dumps({"klt": {"install": "hint-two"}}))
+            _, second = self.run_missing_klt()
+        self.assertIn("hint-one", first)
+        self.assertIn("hint-two", second)
+        self.assertNotIn("hint-one", second)
+
+    def test_unreadable_or_malformed_toolchain_prints_fallback_hint(self):
+        for label, text in (
+            ("missing file", None),
+            ("malformed JSON", "{not json"),
+            ("lacks klt.install", json.dumps({"klt": {}})),
+        ):
+            with self.subTest(case=label):
+                toolchain = self.toolchain(text)
+                with mock.patch.object(check, "TOOLCHAIN", toolchain):
+                    ret, err = self.run_missing_klt()
+                self.assertEqual(ret, 1)
+                self.assertIn(self.FALLBACK_INSTALL, err)
+
+    def test_fallback_literal_matches_toolchain_json_install(self):
+        self.assertEqual(
+            json.loads(check.TOOLCHAIN.read_text())["klt"]["install"],
+            self.FALLBACK_INSTALL,
+        )
+
+
+class ProseCountTest(unittest.TestCase):
+    """No document restates the graded T1 verdict as a hand-written aggregate."""
+
+    # The exact sentences `main` carried at 7e3fd861, which drifted from
+    # tier-report.json's `t1_met_count: 8` without anything noticing.
+    STALE_README = (
+        "The verdict today is **`tier: null` — 9 of 11 items met** "
+        "(items 5 and 6 unmet)."
+    )
+    STALE_HEADING = "## The current verdict: `tier: null`, 9 of 11 items met"
+    # PR #490's hand-correction: right today, and still exactly the thing
+    # that goes stale next time an item moves.
+    CORRECTED_README = (
+        "The verdict today is **`tier: null` — 8 of 11 T1 items met** "
+        "(items 5, 6 and 7 unmet)."
+    )
+
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, self.tmp, True)
+        for rel in check.PROSE_COUNT_DOCS + ("signoff/tier-report.json",):
+            dst = self.tmp / rel
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy(REPO_ROOT / rel, dst)
+
+    def run_check(self) -> tuple[bool, str]:
+        out, err = io.StringIO(), io.StringIO()
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            ok = check.check_prose_counts(self.tmp)
+        return ok, err.getvalue()
+
+    def append(self, rel: str, text: str) -> None:
+        path = self.tmp / rel
+        path.write_text(path.read_text() + "\n" + text + "\n")
+
+    def assert_fails(self, *needles):
+        ok, err = self.run_check()
+        self.assertFalse(ok, err)
+        for needle in needles:
+            self.assertIn(needle, err)
+        return err
+
+    def assert_passes(self):
+        ok, err = self.run_check()
+        self.assertTrue(ok, err)
+
+    def test_committed_tree_passes(self):
+        self.assertTrue(check.check_prose_counts())
+
+    def test_copy_passes(self):
+        self.assert_passes()
+
+    def test_stale_readme_sentence_fails(self):
+        self.append("README.md", self.STALE_README)
+        self.assert_fails("README.md", "9 of 11 items")
+
+    def test_stale_signoff_heading_fails(self):
+        self.append("signoff/README.md", self.STALE_HEADING)
+        self.assert_fails("signoff/README.md", "9 of 11 items")
+
+    def test_corrected_count_still_fails(self):
+        """A right-today count is still an aggregate in prose."""
+        self.append("README.md", self.CORRECTED_README)
+        self.assert_fails("8 of 11 T1 items")
+
+    def test_bare_fraction_over_item_total_fails(self):
+        """The #145 comparison paragraph's form, with no "items" nearby."""
+        self.append("signoff/README.md", "**9 of 11 is a lower number.**")
+        self.assert_fails("9 of 11")
+
+    def test_slash_form_fails(self):
+        self.append("README.md", "The block sits at 8/11 items met.")
+        self.assert_fails("8/11 items")
+
+    def test_item_total_is_read_from_the_report(self):
+        """The bare-fraction leg tracks tier-report.json, not a hand-typed total.
+
+        A total copied into the checker would rot exactly like the prose
+        aggregates this check forbids: when the checklist grows an item, the
+        report moves to 12 and prose saying "9 of 12" must start failing.
+        """
+        report = self.tmp / "signoff" / "tier-report.json"
+        data = json.loads(report.read_text())
+        data["t1_item_count"] = 12
+        report.write_text(json.dumps(data))
+        self.append("signoff/README.md", "**9 of 12 is a lower number.**")
+        self.assert_fails("9 of 12")
+        # Against the new total, the old total's fraction is no longer an
+        # aggregate -- and must not fail.
+        shutil.copy(REPO_ROOT / "signoff/README.md", self.tmp / "signoff/README.md")
+        self.append("README.md", "**8 of 11 is a lower number.**")
+        self.assert_passes()
+
+    def test_unreadable_report_drops_only_the_bare_fraction_leg(self):
+        """Without a report the counted leg still polices prose."""
+        (self.tmp / "signoff" / "tier-report.json").unlink()
+        self.append("README.md", "**9 of 11 is a lower number.**")
+        self.assert_passes()
+        self.append("signoff/README.md", "9 of 11 items met today.")
+        self.assert_fails("9 of 11 items")
+
+    def test_unmet_enumeration_fails(self):
+        self.append("signoff/README.md", "Items 5, 6 and 7 are unmet.")
+        self.assert_fails("Items 5, 6 and 7 are unmet")
+
+    def test_failure_names_the_report(self):
+        self.append("README.md", self.STALE_README)
+        self.assert_fails("signoff/tier-report.json")
+
+    def test_historical_ten_of_ten_survives(self):
+        """#145's hand-read is history, not a verdict aggregate."""
+        self.assertIn("10/10 pass", (self.tmp / "signoff/README.md").read_text())
+        self.assert_passes()
+
+    def test_legitimate_ratios_survive(self):
+        """Measurement ratios and deck layer numbers are not verdict counts."""
+        self.append(
+            "signoff/README.md",
+            "145/145 nets, 239/239 devices, 6/6 pins; 30/81 points; 48 of 9153 "
+            "rows; layers 117/5, 117/10, 110/5, 34/10; items 1/2/9/10; "
+            "500/500 samples; closing at **10/10 pass**.",
+        )
+        self.assert_passes()
+
+    def test_single_item_verdict_prose_survives(self):
+        """Per-item prose is the disclosure this repo wants, not an aggregate."""
+        self.append(
+            "signoff/README.md",
+            "Item 7 grades `unmet` / `check_failed`, and item 6 is `unmet` too.",
+        )
+        self.assert_passes()
+
+    def test_structural_item_lists_survive(self):
+        """Items 1, 2, 9 and 10 are named constantly; that is not a verdict."""
+        self.append(
+            "signoff/README.md",
+            "Items 1, 2, 9 and 10 are claims about what a repository contains, "
+            "and the hash items 3, 4 and 11 pin is the committed GDS.",
+        )
+        self.assert_passes()
+
+    def test_missing_document_fails(self):
+        (self.tmp / "README.md").unlink()
+        self.assert_fails("README.md", "unreadable")
+
+    def test_both_documents_are_checked(self):
+        ok, _ = self.run_check()
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(io.StringIO()):
+            check.check_prose_counts(self.tmp)
+        for rel in ("README.md", "signoff/README.md"):
+            self.assertIn(rel, out.getvalue())
         self.assertTrue(ok)
 
 

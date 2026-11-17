@@ -196,7 +196,7 @@
   },
   "provenance": {
     "klt_version": "0.6.0",
-    "klayout_version": "0.30.12",
+    "klayout_version": "0.30.13",
     "pdk": null,
     "deck": {
       "name": "gf180mcu",
@@ -204,10 +204,10 @@
       "released": false
     },
     "input": {
-      "content_hash": "sha256:3c9cc25835cf509b40cc5e491631dc2f68892771628f68effa656cde8ddd136a",
+      "content_hash": "sha256:ae403395da1b0703a93a5c93e5c68abec7dcfe63a5f3a902f8196ceb7cb38ae4",
       "role": "layout"
     },
     "klayout_version_mismatch": true,
-    "gds_sha256": "3c9cc25835cf509b40cc5e491631dc2f68892771628f68effa656cde8ddd136a"
+    "gds_sha256": "ae403395da1b0703a93a5c93e5c68abec7dcfe63a5f3a902f8196ceb7cb38ae4"
   }
 }

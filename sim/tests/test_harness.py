@@ -22,6 +22,8 @@ from harness import cli, cliutil, corners, klt_batch, montecarlo, report, runner
 from harness.pdk import PdkNotFound  # noqa: E402
 from testutil import fake_pdk, published  # noqa: E402
 
+import run_mc  # noqa: E402
+
 
 class CornerTests(unittest.TestCase):
     def test_pvt_axes_match_the_mandated_grid(self):
@@ -1461,6 +1463,42 @@ class DefaultJobsTests(unittest.TestCase):
         # `or 2` fallback for a host where that returns None) rather than
         # raising or silently defaulting to a fixed number.
         self.assertGreaterEqual(cliutil.default_jobs(), 1)
+
+
+class CommonRunArgsTests(unittest.TestCase):
+    """Issue #521: the four run options shared byte-identically by the two
+    CLIs (``-j/--jobs``, ``--no-write``, ``--quiet``, ``--version``) live in
+    ``cliutil.add_common_run_args``, so a change to one of them can no longer
+    land in one parser and silently miss the other; and ``--timeout``'s
+    default must stay pinned to ``runner.DEFAULT_TIMEOUT_S`` rather than a
+    shadowing literal, so raising the constant moves both CLIs together."""
+
+    @staticmethod
+    def _options(parser):
+        return {
+            opt: action for action in parser._actions for opt in action.option_strings
+        }
+
+    def test_shared_options_are_identical_across_the_two_clis(self):
+        corners = self._options(cli.build_parser())
+        mc = self._options(run_mc.build_parser())
+        for opt in ("-j", "--jobs", "--no-write", "--quiet", "--version"):
+            with self.subTest(option=opt):
+                corner_action, mc_action = corners[opt], mc[opt]
+                self.assertIs(type(corner_action), type(mc_action))
+                self.assertEqual(corner_action.dest, mc_action.dest)
+                self.assertEqual(corner_action.default, mc_action.default)
+                self.assertEqual(corner_action.help, mc_action.help)
+        self.assertEqual(corners["--version"].version, mc["--version"].version)
+        self.assertIs(corners["--jobs"].type, mc["--jobs"].type)
+
+    def test_timeout_default_tracks_the_named_constant_in_both_clis(self):
+        for name, parser in (("run_corners", cli.build_parser()),
+                             ("run_mc", run_mc.build_parser())):
+            with self.subTest(cli=name):
+                self.assertEqual(
+                    self._options(parser)["--timeout"].default, runner.DEFAULT_TIMEOUT_S
+                )
 
 
 if __name__ == "__main__":
