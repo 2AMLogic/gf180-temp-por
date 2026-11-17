@@ -1926,7 +1926,7 @@ This repo had neither the spec nor the report until #300; both now exist —
   toolchain note below).
 - [`layout/reports/temp_por_top/erc_supply.json`](reports/temp_por_top/erc_supply.json)
   — the committed run, `provenance.input.content_hash ==
-  sha256:e1a3a089f45327182cadb7d372982f16c05544627c9af1503a971320c3ac6b72`,
+  sha256:ae403395da1b0703a93a5c93e5c68abec7dcfe63a5f3a902f8196ceb7cb38ae4`,
   matching the committed `layout/cells/temp_por_top.gds` (`shasum -a 256`),
   and `provenance.spec.content_hash ==
   sha256:773047b13bc8e858ee6a284d0f6e00843a727bd0bb177267ca8bca24d616b170`,

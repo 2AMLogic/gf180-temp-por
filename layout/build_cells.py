@@ -3322,6 +3322,23 @@ _M2_HALF = 0.22  # half-width of a Metal2 wire (0.44 >= metal2.width.1's 0.28)
 _R_PITCH = 3.0
 _R_HEAD = 1.0
 _R_DUMMY_LEGS = 2  # unmarked, uncontacted edge legs at each end of the bank
+#: How far SAB overhangs the poly on each side in ``x`` (#518). The admissible
+#: window is tight at both ends, and neither bound is a deck rule:
+#:
+#: * strictly positive -- poly SAB leaves uncovered is silicided, so an inset
+#:   (or a coincident, ``o = 0``: #517's ``poly2.enclosing.sab.1`` defect)
+#:   would shunt the ~350 ohm/sq body with two low-sheet strips that neither
+#:   DRC (there is no "minimum SAB extension beyond Poly2" rule) nor the
+#:   extractor can see.
+#: * at most ``(_R_PITCH - width - 0.42) / 2`` = 0.29 -- neighbouring
+#:   segments' markers overhang toward each other, so the SAB-to-SAB gap is
+#:   ``_R_PITCH - width - 2*o``, and ``sab.space.1`` needs 0.42 um there.
+#:
+#: Any ``o >= 0`` still bounds the recognised region in ``x`` by Poly2 and in
+#: ``y`` by RES_MK, so the region stays exactly ``width x length`` and no
+#: resistor value moves. 0.25 keeps 0.08 um of spacing margin and sits on the
+#: 0.005 um manufacturing grid (#515).
+_R_SAB_OVERHANG = 0.25
 
 #: rank 3's ``pnp_10p00x10p00`` unit emitter, and the 5x5 grid that holds the
 #: active 3x3 (``XQ1`` centre + ``XQ8A..XQ8H`` around it) inside a ring of
@@ -3408,11 +3425,19 @@ def _r_segment(b: CellBuilder, x: float, y: float, width: float, length: float) 
     exactly ``width x length`` -- the extractor computes ``R = L / W * 350``
     from that region and nothing else, so the overhang is what makes the drawn
     resistance equal the one ``lvs_reference.py`` states.
+
+    The SAB overhang (:data:`_R_SAB_OVERHANG`) must stay strictly positive --
+    poly left uncovered by SAB is silicided and would shunt the body in
+    parallel, a defect no deck rule and no extraction can see -- and at most
+    0.29 um, where neighbouring segments' SAB markers would close to under
+    ``sab.space.1``'s 0.42 um. Any non-negative overhang leaves the region's
+    ``x`` bound at Poly2, so the resistance itself cannot move.
     """
     height = length + 2.0 * _R_HEAD
     b.box(POLY2, x, y, x + width, y + height)
     b.box(PPLUS, x - 0.2, y - 0.2, x + width + 0.2, y + height + 0.2)
-    b.box(SAB, x - 0.4, y + _R_HEAD - 0.2, x + width + 0.4, y + _R_HEAD + length + 0.2)
+    b.box(SAB, x - _R_SAB_OVERHANG, y + _R_HEAD - 0.2,
+          x + width + _R_SAB_OVERHANG, y + _R_HEAD + length + 0.2)
     b.box(RES_MK, x - 0.3, y + _R_HEAD, x + width + 0.3, y + _R_HEAD + length)
     for end in (y + _R_HEAD / 2.0, y + height - _R_HEAD / 2.0):
         b.contact(x + width / 2.0, end)
