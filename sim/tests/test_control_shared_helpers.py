@@ -232,6 +232,44 @@ class UsAfterDipTests(unittest.TestCase):
 
 
 # --------------------------------------------------------------------------
+# Deck-tail consolidation guard (#587).
+#
+# Every ``sim/*/control/run_*.py`` that builds its own ngspice deck used to
+# spell out the ``.control`` header by hand -- ``set numdgt=`` and
+# ``set noaskquit`` -- as 15 hand-maintained copies across 14 control
+# scripts of the two settings the harness's own decks carry (``sim/harness/runner.py``), each
+# one a place ``numdgt`` or the quit setting could drift without anything
+# noticing. They now all call ``runner.deck_control_block()``. The guard
+# below fails the moment a second inline copy reappears in any control
+# script, the same way ``test_each_shared_helper_has_exactly_one_definition_
+# in_its_directory`` above guards the #493 helpers.
+# --------------------------------------------------------------------------
+
+
+class ControlSettingsGuardTests(unittest.TestCase):
+    """The control-block settings have exactly one home: harness.runner."""
+
+    def test_no_control_script_spells_the_control_settings_itself(self):
+        for script in _control_scripts():
+            with self.subTest(script=script.relative_to(SIM_DIR)):
+                tree = ast.parse(script.read_text(), filename=str(script))
+                offenders = [
+                    f"line {node.lineno}"
+                    for node in ast.walk(tree)
+                    if isinstance(node, ast.Constant)
+                    and isinstance(node.value, str)
+                    and "set noaskquit" in node.value
+                ]
+                self.assertEqual(
+                    offenders, [],
+                    f"{script.relative_to(SIM_DIR)} spells `set noaskquit` "
+                    "itself -- the control-block settings belong to "
+                    "sim/harness/runner.py's deck_control_block() (#587), so "
+                    "an inline copy is drift waiting to happen",
+                )
+
+
+# --------------------------------------------------------------------------
 # Control-script argv contract (#512).
 #
 # Every ``sim/*/control/run_*.py`` entry point used to fall into one of two

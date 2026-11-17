@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import os
 import re
 import shutil
 import subprocess
@@ -195,6 +196,46 @@ def deck_preamble(pdk: Pdk, corner: Corner, temp_c: float, options: list[str]) -
     return lines
 
 
+def deck_includes(deck_dir: Path, *paths: Path) -> list[str]:
+    """The ``.include`` lines for repo-internal netlists, written relative to
+    ``deck_dir`` so a committed deck is not tied to the checkout it happened
+    to be generated in (ngspice resolves a relative ``.include`` against the
+    including file's directory; the PDK's own paths stay absolute because
+    the PDK lives outside the repo).
+
+    The second half of the deck-tail consolidation ``deck_preamble`` above
+    started (#587): the ``os.path.relpath(<netlist>, deck_dir)`` include
+    pairs every ``sim/*/control/run_*.py`` used to derive by hand. Line
+    shapes match exactly what those call sites emitted, so switching a
+    caller over does not change any generated deck's text.
+    """
+    return [f'.include "{os.path.relpath(path, deck_dir)}"' for path in paths]
+
+
+def deck_control_block(body_lines: list[str], numdgt: int = 10) -> list[str]:
+    """The ``.control`` / ``set numdgt`` / ``set noaskquit`` / ``.endc`` /
+    ``.end`` tail shared by this module's own :func:`compose_deck` and the
+    ``sim/*/control/run_*.py`` scripts that build their own decks (#587).
+
+    ``body_lines`` is everything between ``set noaskquit`` and ``.endc``
+    (the ``tran``/``op``/``run`` card, ``meas``/``let``/``print``/``wrdata``
+    lines), indentation included. ``numdgt`` defaults to the harness decks'
+    own ``set numdgt=10``; the por-brownout control family passes ``8`` to
+    keep their committed decks byte-identical. Line shapes match exactly
+    what the call sites used to spell out, so switching a caller over does
+    not change any generated deck's text.
+    """
+    return [
+        ".control",
+        f"set numdgt={numdgt}",
+        "set noaskquit",
+        *body_lines,
+        ".endc",
+        ".end",
+        "",
+    ]
+
+
 def compose_deck(tb: Testbench, pdk: Pdk, point: PvtPoint) -> str:
     """Build the complete, self-contained ngspice deck for one PVT point."""
     lines: list[str] = [
@@ -222,16 +263,13 @@ def compose_deck(tb: Testbench, pdk: Pdk, point: PvtPoint) -> str:
         f'.include "{tb.netlist}"',
         "",
         "* ---- measurement ----------------------------------------------------",
-        ".control",
-        "set numdgt=10",
-        "set noaskquit",
     ]
-    lines += [f"  {analysis}" for analysis in tb.analyses]
+    body = [f"  {analysis}" for analysis in tb.analyses]
     for name, expr in tb.measure.items():
-        lines.append(f"  let m_{name} = {expr}")
+        body.append(f"  let m_{name} = {expr}")
     for name in tb.measure:
-        lines.append(f"  print m_{name}")
-    lines += [".endc", ".end", ""]
+        body.append(f"  print m_{name}")
+    lines += deck_control_block(body)
     return "\n".join(lines)
 
 

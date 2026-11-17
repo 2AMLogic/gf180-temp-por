@@ -157,9 +157,9 @@ def compose_deck(
     ]
     lines += runner.deck_preamble(pdk, corner, temp_c, options)
     lines += ["", fragment, "", netlist.read_text().rstrip(), ""]
-    lines += [".control", "set numdgt=10", "set noaskquit", f"  tran {tstep_us}u {tstop_ms}m"]
-    lines += [f"  {line}" for line in control_lines]
-    lines += [".endc", ".end", ""]
+    lines += runner.deck_control_block(
+        [f"  tran {tstep_us}u {tstop_ms}m", *(f"  {line}" for line in control_lines)]
+    )
     return "\n".join(lines)
 
 
