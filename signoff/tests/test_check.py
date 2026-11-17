@@ -483,6 +483,8 @@ class GraderSelectionTest(unittest.TestCase):
             ("missing file", None),
             ("malformed JSON", "{not json"),
             ("lacks klt.install", json.dumps({"klt": {}})),
+            ("klt is a string", json.dumps({"klt": "not-a-mapping"})),
+            ("top-level list", json.dumps(["not-a-mapping"])),
         ):
             with self.subTest(case=label):
                 toolchain = self.toolchain(text)
@@ -490,6 +492,44 @@ class GraderSelectionTest(unittest.TestCase):
                     ret, err = self.run_missing_klt()
                 self.assertEqual(ret, 1)
                 self.assertIn(self.FALLBACK_INSTALL, err)
+
+    # Valid JSON of the wrong shape raises TypeError ("string indices must be
+    # integers" / "list indices must be integers or slices"), which a
+    # (OSError, ValueError, KeyError) tuple does not catch -- the gap Judge
+    # flagged on PR #585.
+    WRONG_SHAPE_PAYLOADS = (
+        ("klt is a string", json.dumps({"klt": "not-a-mapping"})),
+        ("top-level list", json.dumps(["not-a-mapping"])),
+    )
+
+    def test_wrong_shape_toolchain_warns_instead_of_traceback(self):
+        for label, text in self.WRONG_SHAPE_PAYLOADS:
+            with self.subTest(case=label):
+                with mock.patch.object(check, "TOOLCHAIN", self.toolchain(text)):
+                    _, out, err = self.run_pin_check(self.stub("klt 9.9.9"))
+                self.assertTrue(err.startswith("warn"))
+                self.assertIn("no readable klt version pin", err)
+
+    def test_pin_version_raises_on_wrong_shape_so_the_cli_can_format_it(self):
+        # Deliberate: a version pin has no last-known literal to fall back to,
+        # and silently grading with a stale pin would be worse than refusing.
+        # The --klt-pin caller catches TypeError and turns it into a clean
+        # parser.error (next test).
+        for label, text in self.WRONG_SHAPE_PAYLOADS:
+            with self.subTest(case=label):
+                with mock.patch.object(check, "TOOLCHAIN", self.toolchain(text)):
+                    with self.assertRaises(TypeError):
+                        check.toolchain_pin_version()
+
+    def test_wrong_shape_toolchain_gives_cli_error_not_traceback(self):
+        for label, text in self.WRONG_SHAPE_PAYLOADS:
+            with self.subTest(case=label):
+                err = io.StringIO()
+                with mock.patch.object(check, "TOOLCHAIN", self.toolchain(text)):
+                    with contextlib.redirect_stderr(err), self.assertRaises(SystemExit) as cm:
+                        check.main(["--klt-pin"])
+                self.assertEqual(cm.exception.code, 2)
+                self.assertIn("--klt-pin:", err.getvalue())
 
     def test_fallback_literal_matches_toolchain_json_install(self):
         self.assertEqual(
