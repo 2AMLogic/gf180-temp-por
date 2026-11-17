@@ -30,11 +30,30 @@ name: CI
 #                                               hand but CI does not invoke
 #                                               npm, so it is also run here
 #                                               directly.
-#   - layout/check_gds_grid.py            -> checks / 3.11 only (issue #553;
+#   - layout/check_gds_grid.py               -> checks / 3.11 only (issue #553;
 #                                               needs the `klayout` python
 #                                               module, which the klt grader
 #                                               install below already pulls
 #                                               in -- no new pip install).
+#   - layout/postlayout.py --check (#573)    -> checks, both legs. Stdlib only:
+#                                               regenerates the
+#                                               layout/postlayout/ artifacts in
+#                                               memory and byte-compares them
+#                                               against what is committed, so
+#                                               it binds the postlayout exports
+#                                               to the committed
+#                                               layout/cells/*.gds.
+#   - layout/build_cells.py --check (#573)   -> checks, 3.11 leg. Rebuilds every
+#                                               cell into a temp dir and
+#                                               byte-compares against the
+#                                               committed layout/cells/*.gds --
+#                                               the generator -> GDS link of
+#                                               the staleness chain. Needs the
+#                                               klayout python module, which it
+#                                               gets transitively from the
+#                                               klayout-tools[yield] install
+#                                               below; a missing module raises
+#                                               and the step fails (no skip).
 #   - signoff/check.py                       -> checks (issue #301). Re-grades
 #                                               signoff/block-manifest.json with
 #                                               `klt signoff --manifest` and
@@ -51,9 +70,10 @@ name: CI
 #   - Python matrix (issue #354)             -> checks runs on 3.9 (the documented
 #                                               floor) and 3.11. The stdlib-only
 #                                               steps run on both; the klt grader
-#                                               install, layout/check_gds_grid.py
-#                                               and signoff/check.py run on 3.11
-#                                               only.
+#                                               install, layout/check_gds_grid.py,
+#                                               signoff/check.py and
+#                                               layout/build_cells.py --check
+#                                               run on 3.11 only.
 #   - design/netlist.py --check              -> pdk-checks (needs xschem + PDK)
 #   - "any pytest under sim/"                -> none exists; sim/tests/ is
 #                                               unittest-based, exercised by
@@ -111,6 +131,12 @@ jobs:
         # #353. Stdlib-only; no bypass -- correct evidence with a superseding record.
         run: python3 sim/check_append_only.py --base origin/${{ github.base_ref }}
 
+      - name: layout/postlayout.py --check (postlayout exports + audit match the committed GDS)
+        # #573. Stdlib only, so it runs on both matrix legs. Regenerates the
+        # layout/postlayout/ artifacts in memory and byte-compares them against
+        # what is committed, binding them to the committed layout/cells/*.gds.
+        run: python3 layout/postlayout.py --check
+
       - name: sim/build_tb.py --check (testbench fragments match the exported netlists)
         run: python3 sim/build_tb.py --check
 
@@ -153,6 +179,17 @@ jobs:
         # so a skipUnless(klayout) test would silently skip in CI instead of
         # guarding anything.
         run: python3 layout/check_gds_grid.py
+
+      - name: layout/build_cells.py --check (committed GDS reproduces from the generator)
+        if: matrix.python-version == '3.11'
+        # #573. Rebuilds every cell into a temp dir and byte-compares against
+        # the committed layout/cells/*.gds: the generator -> GDS link of the
+        # build_cells -> GDS -> postlayout -> testbench staleness chain, whose
+        # last link sim/build_tb.py --check already gates above. Needs the
+        # klayout python module, which comes transitively from the
+        # klayout-tools[yield] install above. With the module absent the
+        # import raises and this step fails -- it cannot pass vacuously.
+        run: python3 layout/build_cells.py --check
 
       - name: signoff/check.py (re-grade the T1 manifest; fail on evidence rot)
         if: matrix.python-version == '3.11'

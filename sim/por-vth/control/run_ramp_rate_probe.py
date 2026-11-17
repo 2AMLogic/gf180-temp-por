@@ -232,25 +232,16 @@ def compose(pdk, corner, dut: str, vdd: float, tramp: float) -> str:
         "",
     ]
     lines += runner.deck_preamble(pdk, corner, TEMP_C, options)
-    lines += [
-        "",
-        # Repo-relative from decks/, so a committed deck does not carry the
-        # absolute path of whatever worktree produced it. ngspice resolves a
-        # relative .include against the including file's directory; the same
-        # idiom is used by sim/por-brownout-slew/control/ and
-        # sim/por-glitch/control/.
-        f'.include "../{FRAGMENT.name}"',
-        f'.include "../../../../{netlist.relative_to(REPO_ROOT)}"',
-        "",
-        ".control",
-        "set numdgt=10",
-        "set noaskquit",
+    # Repo-relative from decks/ via deck_includes, so a committed deck does
+    # not carry the absolute path of whatever worktree produced it. ngspice
+    # resolves a relative .include against the including file's directory.
+    lines += ["", *runner.deck_includes(CONTROL_DIR / "decks", FRAGMENT, netlist), ""]
+    lines += runner.deck_control_block([
         f"  tran 10u {tstop!r}",
-    ]
-    lines += [f"  {a}" for a in analyses(sns, t_settled, t_down)]
-    lines += [f"  let m_{name} = {expr}" for name, expr in MEASURES.items()]
-    lines += [f"  print m_{name}" for name in MEASURES]
-    lines += [".endc", ".end", ""]
+        *(f"  {a}" for a in analyses(sns, t_settled, t_down)),
+        *(f"  let m_{name} = {expr}" for name, expr in MEASURES.items()),
+        *(f"  print m_{name}" for name in MEASURES),
+    ])
     return "\n".join(lines)
 
 

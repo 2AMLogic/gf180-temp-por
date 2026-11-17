@@ -76,7 +76,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import sys
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -139,14 +138,8 @@ def compose(pdk, options: list[str], dut: str, point, tramp: float) -> str:
         "",
     ]
     lines += runner.deck_preamble(pdk, point.corner, point.temp_c, options)
-    lines += [
-        "",
-        f'.include "{os.path.relpath(FRAGMENT, deck_dir)}"',
-        f'.include "{os.path.relpath(netlist, deck_dir)}"',
-        "",
-        ".control",
-        "set numdgt=10",
-        "set noaskquit",
+    lines += ["", *runner.deck_includes(deck_dir, FRAGMENT, netlist), ""]
+    lines += runner.deck_control_block([
         f"tran 5u {t4!r}",
         f"meas tran vref_settle find v(vref) at={t2 - 0.1e-3!r}",
         # The 2.50 V / 2.55 V sample points are identical to
@@ -158,10 +151,7 @@ def compose(pdk, options: list[str], dut: str, point, tramp: float) -> str:
         # corner/supply point.
         "meas tran vref_up find v(vref) when v(vdd)=2.50 rise=1",
         "meas tran vref_dn find v(vref) when v(vdd)=2.55 fall=1",
-        ".endc",
-        ".end",
-        "",
-    ]
+    ])
     return "\n".join(lines)
 
 

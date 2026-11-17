@@ -203,6 +203,25 @@ class DeckCompositionTests(unittest.TestCase):
         self.assertIn(".param vdd_val=3.63", self.deck)
         self.assertIn(".temp -40", self.deck)
 
+    def test_deck_tail_is_the_shared_control_block(self):
+        """The measurement tail is ``runner.deck_control_block()``'s exact
+        shape (#597): the shared settings lines, the indented body, then
+        ``.endc`` / ``.end``."""
+        self.assertTrue(
+            self.deck.endswith(
+                ".control\n"
+                "set numdgt=10\n"
+                "set noaskquit\n"
+                "  dc temp -40 -40 1\n"
+                "  let m_vout = v(out)\n"
+                "  print m_vout\n"
+                ".endc\n"
+                ".end\n"
+            ),
+            "MC deck tail drifted off deck_control_block()'s shape "
+            f"(#597); tail now:\n{self.deck[-300:]}",
+        )
+
 
 class DeriveTempTrimTests(unittest.TestCase):
     def test_zero_curvature_zero_die_gives_only_quantisation(self):

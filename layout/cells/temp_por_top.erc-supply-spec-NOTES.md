@@ -234,8 +234,8 @@ Why each field is shaped this way:
      which is enough to keep the narrowing non-degenerate without
      excluding the ring's own contact row (every guard ring/moat segment
      here is contacted along its centreline at 1 um pitch --
-     `layout/build_cells.py`'s `_draw_guard_ring`/`_top_guard_ring`/
-     `_guard_ring_segments`). `layout/floorplan.md`'s own guard-ring/moat
+     `layout/build_cells.py`'s `_draw_guard_ring`/
+     `_top_guard_ring`). `layout/floorplan.md`'s own guard-ring/moat
      account (`layout/README.md`'s former Item 11 stand-in evidence,
      superseded by this declaration) is the design source these
      coordinates were taken from, cross-checked against the committed

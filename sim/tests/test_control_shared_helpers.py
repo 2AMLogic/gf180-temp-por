@@ -232,6 +232,85 @@ class UsAfterDipTests(unittest.TestCase):
 
 
 # --------------------------------------------------------------------------
+# Deck-tail consolidation guard (#587; harness modules added by #597).
+#
+# Every ``sim/*/control/run_*.py`` that builds its own ngspice deck used to
+# spell out the ``.control`` header by hand -- ``set numdgt=`` and
+# ``set noaskquit`` -- as 15 hand-maintained copies across 14 control
+# scripts of the two settings the harness's own decks carry, each
+# one a place ``numdgt`` or the quit setting could drift without anything
+# noticing. They now all call ``runner.deck_control_block()``. The guard
+# below fails the moment a second inline copy reappears -- in a control
+# script or, since #597, in any ``sim/harness/`` module other than
+# ``runner.py`` itself (``montecarlo.py`` carried the same hand-written
+# tail for its MC decks) -- the same way
+# ``test_each_shared_helper_has_exactly_one_definition_
+# in_its_directory`` above guards the #493 helpers.
+# --------------------------------------------------------------------------
+
+#: The settings ``deck_control_block()`` owns; spelled inline anywhere else
+#: they are drift waiting to happen. ``set numdgt`` is matched with the
+#: ``=`` so prose that merely mentions the setting is not flagged.
+CONTROL_SETTING_SNIPPETS = ("set noaskquit", "set numdgt=")
+
+
+def _inline_control_setting_sites(script: Path) -> list[str]:
+    """``file:line`` of every string constant in ``script`` that spells one
+    of the control-block settings."""
+    tree = ast.parse(script.read_text(), filename=str(script))
+    return [
+        f"{script.relative_to(SIM_DIR)}:{node.lineno}: {node.value!r}"
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Constant)
+        and isinstance(node.value, str)
+        and any(snippet in node.value for snippet in CONTROL_SETTING_SNIPPETS)
+    ]
+
+
+def _harness_modules() -> list[Path]:
+    """Every ``sim/harness/*.py`` except ``runner.py``, the one allowed home."""
+    modules = sorted(
+        p for p in (SIM_DIR / "harness").glob("*.py") if p.name != "runner.py"
+    )
+    if not modules:
+        raise AssertionError(
+            "glob 'harness/*.py' matched nothing under sim/ -- "
+            "the harness guard is covering nothing"
+        )
+    return modules
+
+
+class ControlSettingsGuardTests(unittest.TestCase):
+    """The control-block settings have exactly one home: harness.runner."""
+
+    def test_no_control_script_spells_the_control_settings_itself(self):
+        for script in _control_scripts():
+            with self.subTest(script=script.relative_to(SIM_DIR)):
+                self.assertEqual(
+                    _inline_control_setting_sites(script), [],
+                    f"{script.relative_to(SIM_DIR)} spells a control-block "
+                    "setting itself -- the control-block settings belong to "
+                    "sim/harness/runner.py's deck_control_block() (#587), so "
+                    "an inline copy is drift waiting to happen",
+                )
+
+    def test_no_harness_module_other_than_runner_spells_the_control_settings(self):
+        """#597: the harness's own MC decks compose through
+        ``deck_control_block()`` too -- ``montecarlo.py`` used to carry its
+        own hand-written tail, one ``numdgt`` edit away from drifting off
+        the PVT decks ``compose_deck`` emits."""
+        for script in _harness_modules():
+            with self.subTest(script=script.relative_to(SIM_DIR)):
+                self.assertEqual(
+                    _inline_control_setting_sites(script), [],
+                    f"{script.relative_to(SIM_DIR)} spells a control-block "
+                    "setting itself -- the control-block settings belong to "
+                    "sim/harness/runner.py's deck_control_block() (#597), so "
+                    "an inline copy is drift waiting to happen",
+                )
+
+
+# --------------------------------------------------------------------------
 # Control-script argv contract (#512).
 #
 # Every ``sim/*/control/run_*.py`` entry point used to fall into one of two
