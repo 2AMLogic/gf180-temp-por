@@ -251,9 +251,9 @@ def build_design_inventory(root: Path = REPO_ROOT) -> dict:
 
 
 def _ci_pdk_pin(root: Path) -> str:
-    match = re.search(r"volare enable --pdk gf180mcu ([0-9a-f]{40})", _read(root, CI_WORKFLOW))
+    match = re.search(r"ciel enable --pdk gf180mcu ([0-9a-f]{40})", _read(root, CI_WORKFLOW))
     if not match:
-        raise AuditError(f"{CI_WORKFLOW}: no `volare enable --pdk gf180mcu <commit>` pin")
+        raise AuditError(f"{CI_WORKFLOW}: no `ciel enable --pdk gf180mcu <commit>` pin")
     return match.group(1)
 
 
@@ -342,8 +342,8 @@ def build_testbench_inventory(root: Path = REPO_ROOT) -> dict:
         "pdk": {
             "variant": variant,
             "variant_file": _member(root, "sim/pdk.json"),
-            "volare_pdk": "gf180mcu",
-            "volare_commit": _ci_pdk_pin(root),
+            "ci_pdk": "gf180mcu",
+            "ci_pdk_commit": _ci_pdk_pin(root),
             "pinned_in": CI_WORKFLOW,
         },
         "pvt_grid": f"{SPEC}#corner-grid",
