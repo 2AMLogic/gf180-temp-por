@@ -58,6 +58,7 @@ import argparse
 import math
 import sys
 import tempfile
+from collections.abc import Callable
 from pathlib import Path
 
 LAYOUT_DIR = Path(__file__).resolve().parent
@@ -1370,37 +1371,50 @@ def _draw_tiles(b: CellBuilder, tiles: list[dict], riser) -> None:
 
 
 def _draw_guard_ring(
-    b: CellBuilder, gx0: float, gy0: float, gx1: float, gy1: float
-) -> None:
+    b: CellBuilder,
+    gx0: float,
+    gy0: float,
+    gx1: float,
+    gy1: float,
+    width: float = GUARD_RING_W_UM,
+    box: Callable[..., None] | None = None,
+) -> tuple[tuple[float, float, float, float], ...]:
     """A continuous COMP+Metal1 p-substrate guard ring, contacted at 1 um.
 
     Tied to VSS by the caller abutting the VSS rail to it; no floating segment.
     The deck has no tap/well-label layer, so LVS cannot confirm the tie, and
     nothing in the flow checks the ring's continuity either (filed generically
     as klayout-tools#303) -- that stays a design-review claim for this cell
-    (``layout/README.md``).
+    (``layout/README.md``). Returns the four ring rectangles, so a caller with
+    its own topology check (``_top_guard_ring``) need not rebuild them.
+
+    ``box`` overrides how each COMP/Metal1 rectangle is drawn -- the top cell
+    passes ``_TopRoutes.box`` so its shapes carry a net tag; the blanket and
+    the contacts always go through ``b``.
     """
-    ring = [
-        (gx0, gy0, gx1, gy0 + GUARD_RING_W_UM),
-        (gx0, gy1 - GUARD_RING_W_UM, gx1, gy1),
-        (gx0, gy0, gx0 + GUARD_RING_W_UM, gy1),
-        (gx1 - GUARD_RING_W_UM, gy0, gx1, gy1),
-    ]
+    ring = (
+        (gx0, gy0, gx1, gy0 + width),
+        (gx0, gy1 - width, gx1, gy1),
+        (gx0, gy0, gx0 + width, gy1),
+        (gx1 - width, gy0, gx1, gy1),
+    )
+    draw = b.box if box is None else box
     for rect in ring:
-        b.box(COMP, *rect)
-        b.box(METAL1, *rect)
+        draw(COMP, *rect)
+        draw(METAL1, *rect)
     # The ring is a p-substrate tie, so its COMP carries p+ (#516). The union
     # of the grown segments is one annulus -- the interior stays implant-free.
     b.blanket(PPLUS, ring, IMPLANT_OVERHANG_UM)
-    half = GUARD_RING_W_UM / 2.0
+    half = width / 2.0
     for x in _span(gx0 + half, gx1 - half, TAP_PITCH_UM):
         b.contact(x, gy0 + half)
         b.contact(x, gy1 - half)
-    inner_low = gy0 + GUARD_RING_W_UM + half
-    inner_high = gy1 - GUARD_RING_W_UM - half
+    inner_low = gy0 + width + half
+    inner_high = gy1 - width - half
     for y in _span(inner_low, inner_high, TAP_PITCH_UM):
         b.contact(gx0 + half, y)
         b.contact(gx1 - half, y)
+    return ring
 
 
 def _bias_core_passives(
@@ -2796,27 +2810,7 @@ def por_comparator(b: CellBuilder) -> None:
     # This cell sits on the always-on POR domain's side of the block-level
     # domain seam (layout/floorplan.md, "Guard-ring / isolation plan"), whose
     # correctness the deck cannot check -- klayout-tools#303.
-    ring = [
-        (gx0, gy0, gx1, gy0 + GUARD_RING_W_UM),
-        (gx0, gy1 - GUARD_RING_W_UM, gx1, gy1),
-        (gx0, gy0, gx0 + GUARD_RING_W_UM, gy1),
-        (gx1 - GUARD_RING_W_UM, gy0, gx1, gy1),
-    ]
-    for rect in ring:
-        b.box(COMP, *rect)
-        b.box(METAL1, *rect)
-    # The ring is a p-substrate tie: p+ COMP, one grown annulus (#516 -- see
-    # ``_draw_guard_ring``, this cell's inline copy of it).
-    b.blanket(PPLUS, ring, IMPLANT_OVERHANG_UM)
-    half = GUARD_RING_W_UM / 2.0
-    for x in _span(gx0 + half, gx1 - half, TAP_PITCH_UM):
-        b.contact(x, gy0 + half)
-        b.contact(x, gy1 - half)
-    inner_low = gy0 + GUARD_RING_W_UM + half
-    inner_high = gy1 - GUARD_RING_W_UM - half
-    for y in _span(inner_low, inner_high, TAP_PITCH_UM):
-        b.contact(gx0 + half, y)
-        b.contact(gx1 - half, y)
+    _draw_guard_ring(b, gx0, gy0, gx1, gy1)
 
     # --- sense divider wiring: VDD -[XRTOP]- SNS -[XRBOT]- SNSB -[XRHYS]- VSS
     # (design/netlist/por_comparator.spice's own node order for each card).
@@ -4158,18 +4152,6 @@ def _top_escape(
     routes.via2(net, xe, ty)
 
 
-def _guard_ring_segments(
-    x0: float, y0: float, x1: float, y1: float
-) -> tuple[tuple[float, float, float, float], ...]:
-    """The four overlapping rectangles of a guard ring: bottom, top, left, right."""
-    return (
-        (x0, y0, x1, y0 + TOP_RING_W),
-        (x0, y1 - TOP_RING_W, x1, y1),
-        (x0, y0, x0 + TOP_RING_W, y1),
-        (x1 - TOP_RING_W, y0, x1, y1),
-    )
-
-
 def _top_guard_ring(routes: _TopRoutes, x0: float, y0: float, x1: float, y1: float) -> None:
     """A closed COMP+Metal1 p-substrate guard ring, contacted at 1 um.
 
@@ -4185,13 +4167,20 @@ def _top_guard_ring(routes: _TopRoutes, x0: float, y0: float, x1: float, y1: flo
     """
     import klayout.db as kdb
 
-    segments = _guard_ring_segments(x0, y0, x1, y1)
-    for rect in segments:
-        routes.box(COMP, "VSS", *rect)
-        routes.box(METAL1, "VSS", *rect)
-    # The ring is a p-substrate tie: p+ COMP, one grown annulus over the four
-    # segments (#516 -- same construction as the sub-cells' ``_draw_guard_ring``).
-    routes.b.blanket(PPLUS, segments, IMPLANT_OVERHANG_UM)
+    # Same construction as the sub-cells' rings (``_draw_guard_ring``), at
+    # this cell's wider ring width; drawn through ``routes.box`` so the
+    # Metal1 rectangles carry the ``VSS`` tag for ``_TopRoutes.check``. The
+    # blanket and the contacts need no tag, so they go through the builder
+    # the helper holds.
+    segments = _draw_guard_ring(
+        routes.b,
+        x0,
+        y0,
+        x1,
+        y1,
+        width=TOP_RING_W,
+        box=lambda spec, *rect: routes.box(spec, "VSS", *rect),
+    )
 
     closed = kdb.Region()
     for rect in segments:
@@ -4202,13 +4191,6 @@ def _top_guard_ring(routes: _TopRoutes, x0: float, y0: float, x1: float, y1: flo
             f"guard ring ({x0}, {y0})-({x1}, {y1}) is not a closed annulus: "
             f"{closed.count()} polygon(s), {closed.holes().count()} hole(s)"
         )
-    half = TOP_RING_W / 2.0
-    for x in _span(x0 + half, x1 - half, TAP_PITCH_UM):
-        routes.b.contact(x, y0 + half)
-        routes.b.contact(x, y1 - half)
-    for y in _span(y0 + TOP_RING_W + half, y1 - TOP_RING_W - half, TAP_PITCH_UM):
-        routes.b.contact(x0 + half, y)
-        routes.b.contact(x1 - half, y)
 
 
 def temp_por_top(b: CellBuilder) -> None:
