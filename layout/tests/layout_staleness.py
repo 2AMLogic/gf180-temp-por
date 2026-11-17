@@ -20,24 +20,7 @@ import lvs_reference as lr
 TRACKING = "#458"
 
 
-def _schematic_devices() -> set[str]:
-    spec = lr.CELLS["temp_core"]
-    body = lr.subckt_body((lr.NETLIST_DIR / spec["source"]).read_text(), spec["subckt"])
-    return set(lr.parse_devices(body)) | set(lr.parse_capacitors(body)) | set(
-        lr.parse_passives(body)
-    )
-
-
-def _manifest_devices() -> set[str]:
-    spec = lr.CELLS["temp_core"]
-    names: set[str] = set()
-    for key in ("devices", "caps", "resistors", "bipolars"):
-        value = spec.get(key, [])
-        names |= set(value if not isinstance(value, dict) else value)
-    return names
-
-
-UNDRAWN = sorted(_schematic_devices() - _manifest_devices())
+UNDRAWN = sorted(lr.undrawn_devices("temp_core"))
 
 skip_while_layout_stale = unittest.skipIf(
     bool(UNDRAWN),
