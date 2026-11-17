@@ -100,21 +100,19 @@ def allocate_record_id(
     records_dir: Path,
     when: _dt.datetime | None = None,
     git: dict | None = None,
-    reserve: bool = False,
 ) -> str:
     """Mint a fresh, unused ``<record-id>``.
 
     Append-only: if the id is occupied (same second, same commit) we advance
     the timestamp until it is free rather than overwriting or inventing a
     non-conforming suffix. An id is occupied by a record, a netlist snapshot,
-    or a raw-log directory, so legacy interrupted runs are respected too.
+    or a raw-log directory, so evidence committed before DR-030 and legacy
+    interrupted runs are respected too. The experiment directory is
+    ``records_dir.parent``.
 
-    With ``reserve=True`` the id is claimed atomically by exclusively creating
-    the raw-log directory ``<experiment>/corners/<record-id>`` (``mkdir``
-    fails if it exists), so concurrent processes can never receive the same
-    id. A reservation is never reclaimed: an abandoned one keeps its id
-    occupied so interrupted evidence is not reused. The experiment directory
-    is ``records_dir.parent``.
+    Allocation claims nothing on disk. A run claims its id exclusively by
+    creating its scratch (and, when it writes, its staging) directory --
+    see ``cliutil.provision_record``.
     """
     when = when or _dt.datetime.now(_dt.timezone.utc)
     short_sha = (git or git_provenance(repo_root))["short"]
@@ -122,14 +120,7 @@ def allocate_record_id(
     while True:
         record_id = format_record_id(short_sha, when)
         if not _record_id_occupied(experiment_dir, records_dir, record_id):
-            if not reserve:
-                return record_id
-            (experiment_dir / CORNERS_DIR).mkdir(parents=True, exist_ok=True)
-            try:
-                (experiment_dir / CORNERS_DIR / record_id).mkdir()
-                return record_id
-            except FileExistsError:
-                pass  # lost the race; advance
+            return record_id
         when += _dt.timedelta(seconds=1)
 
 
@@ -256,18 +247,31 @@ def source_provenance(experiment_dir: Path, record_id: str) -> str:
     return f"unknown — {path} states no **Netlist provenance** field"
 
 
-def environment(pdk: Pdk, ngspice: str, repo_root: Path, git: dict | None = None) -> dict:
+def environment(
+    pdk: Pdk,
+    ngspice: str,
+    repo_root: Path,
+    git: dict | None = None,
+    batch: dict | None = None,
+) -> dict:
     """Reproducibility provenance for the record.
 
     ``git`` should be sampled *before* the run starts. The harness writes its
     own per-corner logs into the tracked evidence tree, so sampling afterwards
     would report every record as taken against a dirty tree.
+
+    ``batch`` is ``klt_batch.batch_provenance(cfg)`` for a run that went to
+    the Spot fleet, and ``None`` for a local one (#468). On batch the models
+    come from the fleet runner's own PDK image, so ``pdk`` alone names an
+    install the simulation need not have read; the ``batch`` block names what
+    the runner reported reading, per fleet job. A local-backend record is
+    unchanged: the key is absent, not empty.
     """
     try:
         user = getpass.getuser()
     except Exception:  # pragma: no cover - unusual environments
         user = "unknown"
-    return {
+    env = {
         "harness_version": HARNESS_VERSION,
         "ngspice": ngspice,
         "python": sys.version.split()[0],
@@ -277,6 +281,9 @@ def environment(pdk: Pdk, ngspice: str, repo_root: Path, git: dict | None = None
         "pdk": pdk.provenance(),
         "git": git if git is not None else git_provenance(repo_root),
     }
+    if batch is not None:
+        env["batch"] = batch
+    return env
 
 
 def matrix_conformance(tb: Testbench, points: list[PvtPoint]) -> dict:
@@ -353,6 +360,7 @@ def build_record(
     statistical_convention: str = "",
     subset_reason: str = "",
     git: dict | None = None,
+    batch: dict | None = None,
 ) -> dict:
     measure_names = list(tb.measure)
     summary = summarize(results, measure_names)
@@ -391,7 +399,7 @@ def build_record(
         "subset_reason": subset_reason,
         "matrix": matrix_conformance(tb, points),
         "testbench": tb.provenance(),
-        "environment": environment(pdk, ngspice, repo_root, git),
+        "environment": environment(pdk, ngspice, repo_root, git, batch),
         "grid": {
             "corners": corners,
             "temperatures_c": sorted({p.temp_c for p in points}),
@@ -431,15 +439,16 @@ def write_exclusive(path: Path, text: str) -> None:
 
 
 def write_netlist_snapshot(
-    tb: Testbench, experiment_dir: Path, record_id: str, out_dir: Path | None = None
+    tb: Testbench, experiment_dir: Path, record_id: str, out_dir: Path
 ) -> Path:
-    """Freeze the DUT netlist for this record.
+    """Freeze the DUT netlist for this record, as ``<out_dir>/<record-id>.spice``.
 
-    ``sim/README.md``: ``netlist-snapshots/<record-id>.spice`` is "the frozen
-    DUT netlist used for this record", so later edits to ``testbench/`` never
-    change what an existing record refers to.
+    ``sim/README.md``: the netlist snapshot is "the frozen DUT netlist used
+    for this record", so later edits to ``testbench/`` never change what an
+    existing record refers to. Since DR-030 ``out_dir`` is the run's staging
+    directory, whose contents go to the artifact store rather than into the
+    tracked tree.
     """
-    out_dir = out_dir if out_dir is not None else experiment_dir / SNAPSHOT_DIR
     out_dir.mkdir(parents=True, exist_ok=True)
     path = out_dir / f"{record_id}.spice"
     header = "\n".join(
@@ -532,19 +541,60 @@ def _result_lines(record: dict) -> list[str]:
     return lines
 
 
-def _evidence_link_lines(record: dict, experiment: str, record_id: str, logs_label: str) -> list[str]:
-    """Links to the run's raw bytes: the artifact manifest (DR-030) for a
-    record minted with the store, else the legacy committed paths."""
+def _evidence_link_lines(record: dict, logs_label: str) -> list[str]:
+    """Link to the run's raw bytes: the artifact manifest (DR-030).
+
+    Every record this harness renders was minted through
+    ``cliutil.finish_run``, which publishes the staged bytes and sets
+    ``evidence_manifest`` before the record is rendered. A record without
+    that key never had its bytes stored, so there is nothing to cite and
+    nothing to fall back to -- DR-030 leaves no path that commits them.
+    """
     manifest = record.get("evidence_manifest")
-    if manifest:
-        return [
-            f"  - Artifact manifest (netlist snapshot + {logs_label.lower()}, "
-            f"stored in the artifact store by sha256): `{manifest}`"
-        ]
+    if not manifest:
+        raise ValueError(
+            f"record {record.get('record_id')!r} has no 'evidence_manifest'; "
+            "a record is only rendered after its raw bytes are published to "
+            "the artifact store (DR-030)"
+        )
     return [
-        f"  - Netlist snapshot: `sim/{experiment}/{SNAPSHOT_DIR}/{record_id}.spice`",
-        f"  - {logs_label}: `sim/{experiment}/{CORNERS_DIR}/{record_id}/`",
+        f"  - Artifact manifest (netlist snapshot + {logs_label.lower()}, "
+        f"stored in the artifact store by sha256): `{manifest}`"
     ]
+
+
+def _batch_pdk_lines(env: dict) -> list[str]:
+    """The ``## Environment`` lines naming what the fleet runner simulated.
+
+    Empty for a local-backend record (no ``environment.batch`` block), so a
+    local record renders byte-for-byte as before. For a batch record the
+    aggregate verdict and one line per fleet job sit directly under the
+    ``- PDK:`` line, because on batch that line names an install resolved on
+    the submitting host while the models came from the runner's image (#468).
+    A ``mismatch`` cannot appear here: such a report is rejected, never
+    recorded.
+    """
+    batch = env.get("batch")
+    if not isinstance(batch, dict):
+        return []
+    local = batch.get("models_lib_sha256")
+    lines = [
+        f"- PDK model library sha256 (this host): `{local or 'unavailable'}`",
+        f"- PDK the fleet runner read: {batch.get('models_lib_comparison', 'unknown')}"
+        f" ({len(batch.get('jobs') or [])} fleet job(s), backend"
+        f" {batch.get('backend', 'batch')})",
+    ]
+    for job in batch.get("jobs") or []:
+        comparison = job.get("comparison") or {}
+        status = comparison.get("status", "unknown")
+        reason = comparison.get("reason")
+        runner_hash = job.get("runner_models_lib_sha256")
+        lines.append(
+            f"  - `{job.get('job_id', 'unknown')}`: runner model library sha256 "
+            f"`{runner_hash or 'not reported'}` — {status}"
+            + (f" ({reason})" if reason else "")
+        )
+    return lines
 
 
 def render_record_document(
@@ -608,7 +658,7 @@ def render_record_document(
         "- **Links**:",
         f"  - Testbench: `sim/{experiment}/{testbench_dir}/{tb['netlist']}`, "
         f"`sim/{experiment}/{testbench_dir}/tb.json`",
-        *_evidence_link_lines(record, experiment, record_id, logs_label),
+        *_evidence_link_lines(record, logs_label),
         f"- **Timestamp / author**: {record['started_utc']}, {env['user']}",
         f"- **Supersedes**: {record['supersedes'] or '(none)'}",
         "",
@@ -618,6 +668,7 @@ def render_record_document(
         "",
         f"- PDK: {pdk.get('variant')} @ open_pdks `{pdk.get('open_pdks_version')}`"
         f" ({pdk.get('path')}, found via {pdk.get('discovered_via')})",
+        *_batch_pdk_lines(env),
         f"- ngspice: {env['ngspice']}",
         f"- Harness: sim/harness {env['harness_version']}, python {env['python']}",
         f"- git: `{git['commit']}` on `{git['branch']}`"

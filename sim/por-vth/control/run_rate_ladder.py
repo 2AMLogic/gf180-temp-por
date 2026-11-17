@@ -71,7 +71,7 @@ Stdlib only, no virtualenv required.
 from __future__ import annotations
 
 import argparse
-import os
+import importlib.util
 import sys
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -83,6 +83,21 @@ REPO_ROOT = CONTROL_DIR.parents[2]
 sys.path.insert(0, str(REPO_ROOT / "sim"))
 
 from harness import HARNESS_VERSION, cliutil, corners as corners_mod, runner  # noqa: E402
+
+# run_ramp_rate_probe.py is not an importable module name from here (it lives
+# beside this file, not on sys.path as a package), so load it by path -- the
+# same idiom sim/por-brownout-slew/control/ uses for its own shared sibling.
+# Reuse rather than copy is the point (#493): `static_and_slope` is the one
+# definition of the zero-rate extrapolation that this control's
+# `rate_selection_results.md` and that script's `results.md` both report as
+# their static limit, so the "two slowest rows" selection rule behind it
+# cannot move in one file and not the other.
+_probe_spec = importlib.util.spec_from_file_location(
+    "run_ramp_rate_probe", CONTROL_DIR / "run_ramp_rate_probe.py"
+)
+probe = importlib.util.module_from_spec(_probe_spec)
+_probe_spec.loader.exec_module(probe)
+static_and_slope = probe.static_and_slope
 
 FRAGMENT = CONTROL_DIR / "rate_ladder.spice"
 MANIFEST = EXPERIMENT_DIR / "testbench" / "tb.json"
@@ -137,27 +152,17 @@ def compose(pdk, corner, options: list[str], dut: str, vdd: float, tramp: float)
         "",
     ]
     lines += runner.deck_preamble(pdk, corner, TEMP_C, options)
-    lines += [
-        "",
-        # Repo-relative from decks/, so a committed deck does not carry the
-        # absolute path of whatever worktree produced it -- same idiom as
-        # sim/por-brownout-slew/control/ and sim/por-glitch/control/.
-        f'.include "{os.path.relpath(FRAGMENT, deck_dir)}"',
-        f'.include "{os.path.relpath(netlist, deck_dir)}"',
-        "",
-        ".control",
-        "set numdgt=10",
-        "set noaskquit",
+    # Repo-relative from decks/ via deck_includes, so a committed deck does
+    # not carry the absolute path of whatever worktree produced it.
+    lines += ["", *runner.deck_includes(deck_dir, FRAGMENT, netlist), ""]
+    lines += runner.deck_control_block([
         f"tran 10u {tstop!r}",
         "meas tran vpor_rise find v(vdd) when v(xdut.por_raw)=1.5 rise=1",
         "meas tran vpor_rise_last find v(vdd) when v(xdut.por_raw)=1.5 rise=last",
         "meas tran vpor_fall find v(vdd) when v(xdut.por_raw)=1.5 fall=1",
         "meas tran vpor_fall_last find v(vdd) when v(xdut.por_raw)=1.5 fall=last",
         f"meas tran vref_settle find v(xdut.vref) at={t2 - 0.1e-3!r}",
-        ".endc",
-        ".end",
-        "",
-    ]
+    ])
     return "\n".join(lines)
 
 
@@ -212,14 +217,6 @@ def _ladder_row(r: dict) -> str:
     )
 
 
-def _static_and_slope(rows: list[dict]) -> tuple[float, float]:
-    """(zero-rate limit, slope) from the two slowest rows -- the local
-    gradient closest to the static limit."""
-    a, b = sorted(rows, key=lambda r: r["rate_v_per_s"])[:2]
-    slope = (b["v_hys_mv"] - a["v_hys_mv"]) / (b["rate_v_per_s"] - a["rate_v_per_s"])
-    return a["v_hys_mv"] - slope * a["rate_v_per_s"], slope
-
-
 def render(results: list[dict], pdk, options: list[str]) -> str:
     by_arm: dict[str, list[dict]] = {}
     for row in results:
@@ -269,7 +266,7 @@ def render(results: list[dict], pdk, options: list[str]) -> str:
             continue
         out += [f"### {dut}", "", LADDER_HEADER, LADDER_RULE]
         out += [_ladder_row(r) for r in rows]
-        static, slope = _static_and_slope(rows)
+        static, slope = static_and_slope(rows)
         out += [
             "",
             f"Zero-rate limit (extrapolated from the two slowest rungs): "

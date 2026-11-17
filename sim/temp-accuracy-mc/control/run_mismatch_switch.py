@@ -44,7 +44,6 @@ Stdlib only, no virtualenv required.
 from __future__ import annotations
 
 import json
-import os
 import sys
 import textwrap
 from pathlib import Path
@@ -117,8 +116,6 @@ def compose_deck(
     and the harness resolves it per machine.
     """
     corner = corners_mod.CORNERS[CORNER]
-    fragment_rel = os.path.relpath(FRAGMENT, deck_dir)
-    dut_rel = os.path.relpath(DUT_NETLIST, deck_dir)
     override = None if mismatch is None else f".param sw_stat_mismatch={mismatch}"
     lines = [
         f"* temp-accuracy-mc mismatch-switch control @ {CORNER} / {TEMP_C} C / {VDD_V} V"
@@ -138,18 +135,10 @@ def compose_deck(
         lines += ["", override]
     lines += ["", f".temp {TEMP_C!r}"]
     lines += [f".options {option}" for option in options]
-    lines += [
-        "",
-        f'.include "{fragment_rel}"',
-        f'.include "{dut_rel}"',
-        "",
-        ".control",
-        "set numdgt=10",
-        "set noaskquit",
-        "op",
-    ]
-    lines += [f"print {expr}" for expr, _, _ in PROBES]
-    lines += [".endc", ".end", ""]
+    lines += ["", *runner.deck_includes(deck_dir, FRAGMENT, DUT_NETLIST), ""]
+    lines += runner.deck_control_block(
+        ["op", *(f"print {expr}" for expr, _, _ in PROBES)]
+    )
     return "\n".join(lines)
 
 
@@ -164,7 +153,8 @@ def identical(a: dict[str, float], b: dict[str, float]) -> bool:
     return all(a[expr] == b[expr] for expr, _, _ in PROBES)
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
+    cliutil.parse_no_options(argv, __doc__)
     toolchain = cliutil.locate_toolchain()
     if toolchain is None:
         return cliutil.EXIT_ENVIRONMENT

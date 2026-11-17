@@ -18,9 +18,11 @@ from unittest import mock
 SIM_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(SIM_DIR))
 
-from harness import cli, cliutil, corners, montecarlo, report, runner, testbench  # noqa: E402
+from harness import cli, cliutil, corners, klt_batch, montecarlo, report, runner, testbench  # noqa: E402
 from harness.pdk import PdkNotFound  # noqa: E402
-from testutil import fake_pdk  # noqa: E402
+from testutil import fake_pdk, published  # noqa: E402
+
+import run_mc  # noqa: E402
 
 
 class CornerTests(unittest.TestCase):
@@ -480,6 +482,74 @@ class RunDeckRawTimeoutTests(unittest.TestCase):
         self.assertEqual(self._run(timeout_s=900)["timeout"], 900)
 
 
+class RunDecksTests(unittest.TestCase):
+    """:func:`runner.run_decks` -- the shared thread-pool loop the seven
+    control scripts in sim/*/control/ call instead of each redefining it."""
+
+    JOB = ("d_a", "* x\n.end\n")
+
+    def _max_workers(self, n_jobs: int, workers: int) -> int:
+        """The ``max_workers`` the helper actually opens its pool with."""
+        captured = {}
+        real = runner.ThreadPoolExecutor
+
+        def spy(max_workers):
+            captured["max_workers"] = max_workers
+            return real(max_workers=max_workers)
+
+        jobs = [(f"d{i}", "* x\n.end\n") for i in range(n_jobs)]
+        with mock.patch.object(runner, "ThreadPoolExecutor", spy), \
+                mock.patch.object(runner, "run_deck", return_value={}):
+            runner.run_decks(jobs, Path("/nonexistent"), workers)
+        return captured["max_workers"]
+
+    def test_results_are_keyed_by_deck_name_in_jobs_order(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            control = Path(tmp)
+            proc = mock.Mock(stdout="t_rst = 1.0e-06\n", stderr="", returncode=0)
+            jobs = [("d_b", "* b\n.end\n"), ("d_a", "* a\n.end\n")]
+            with mock.patch.object(runner.subprocess, "run", return_value=proc):
+                out = runner.run_decks(jobs, control, 2)
+            # Keyed by deck name, in jobs order -- not completion order.
+            self.assertEqual(list(out), ["d_b", "d_a"])
+            self.assertEqual(out["d_a"], {"t_rst": 1e-06})
+            self.assertEqual((control / "decks" / "d_b.spice").read_text(), "* b\n.end\n")
+
+    def test_worker_count_is_clamped_to_the_job_count(self):
+        # A caller passing a bare cap of 8 must not open 8 threads for 3 decks.
+        self.assertEqual(self._max_workers(3, 8), 3)
+
+    def test_a_cap_below_the_job_count_is_honoured(self):
+        self.assertEqual(self._max_workers(10, 4), 4)
+
+    def test_an_empty_job_list_does_not_open_a_zero_worker_pool(self):
+        # ThreadPoolExecutor(max_workers=0) raises; the max(1, ...) clamp is
+        # what lets every caller pass its cap unconditionally.
+        self.assertEqual(self._max_workers(0, 8), 1)
+
+    def test_an_empty_job_list_returns_no_results(self):
+        self.assertEqual(runner.run_decks([], Path("/nonexistent"), 8), {})
+
+    def test_the_default_backend_is_local(self):
+        with mock.patch.object(runner, "run_deck", return_value={}) as run_deck:
+            runner.run_decks([self.JOB], Path("/nonexistent"), 1)
+        self.assertEqual(run_deck.call_args.kwargs["backend"], klt_batch.BACKEND_LOCAL)
+        self.assertIsNone(run_deck.call_args.kwargs["batch"])
+
+    def test_backend_and_batch_are_forwarded_to_run_deck(self):
+        cfg = mock.sentinel.batch_config
+        with mock.patch.object(runner, "run_deck", return_value={}) as run_deck:
+            runner.run_decks(
+                [self.JOB], Path("/nonexistent"), 1,
+                backend=klt_batch.BACKEND_BATCH, batch=cfg,
+            )
+        self.assertEqual(
+            run_deck.call_args.args, ("d_a", "* x\n.end\n", Path("/nonexistent"))
+        )
+        self.assertEqual(run_deck.call_args.kwargs["backend"], klt_batch.BACKEND_BATCH)
+        self.assertIs(run_deck.call_args.kwargs["batch"], cfg)
+
+
 class ParseBareMeasurementsTests(unittest.TestCase):
     def test_parses_find_when_output(self):
         # `.measure ... find`/`when` output: "name = value", no `at=` suffix.
@@ -721,45 +791,37 @@ class RecordIdTests(unittest.TestCase):
         (experiment / report.RECORDS_DIR).mkdir(parents=True)
         return experiment
 
-    def test_reserve_claims_distinct_ids_for_same_second(self):
-        when = datetime.datetime(2026, 10, 8, 12, 0, 0, tzinfo=datetime.timezone.utc)
-        git = {"short": "abcdef0"}
-        with tempfile.TemporaryDirectory() as tmp:
-            records = self._experiment(tmp) / report.RECORDS_DIR
-            first = report.allocate_record_id(SIM_DIR, records, when, git=git, reserve=True)
-            second = report.allocate_record_id(SIM_DIR, records, when, git=git, reserve=True)
-            self.assertEqual(first, "20261008-120000-abcdef0")
-            self.assertEqual(second, "20261008-120001-abcdef0")
-            self.assertTrue((records.parent / report.CORNERS_DIR / first).is_dir())
-
-    def test_reserve_is_exclusive_across_processes(self):
+    def test_provision_claims_ids_exclusively_across_processes(self):
+        """`allocate_record_id` reserves nothing, so the exclusive scratch
+        directory is what keeps two concurrent runs off one record id."""
         import subprocess
         import sys
-
-        code = (
-            "import sys, datetime\n"
-            "from pathlib import Path\n"
-            f"sys.path.insert(0, {str(SIM_DIR)!r})\n"
-            "from harness import report\n"
-            "when = datetime.datetime(2026,10,8,12,0,0,tzinfo=datetime.timezone.utc)\n"
-            "while __import__('time').time() < float(sys.argv[2]): pass\n"
-            "print(report.allocate_record_id(Path('.'), Path(sys.argv[1]), when,"
-            " git={'short':'abcdef0'}, reserve=True))\n"
-        )
         import time
 
+        code = (
+            "import sys\n"
+            "from pathlib import Path\n"
+            f"sys.path.insert(0, {str(SIM_DIR)!r})\n"
+            "from harness import cliutil, report\n"
+            "while __import__('time').time() < float(sys.argv[3]): pass\n"
+            "print(cliutil.provision_record(Path(sys.argv[1]), Path(sys.argv[2]),"
+            " Path(sys.argv[1]) / report.RECORDS_DIR, 'an-experiment', True)[0])\n"
+        )
         with tempfile.TemporaryDirectory() as tmp:
-            records = self._experiment(tmp) / report.RECORDS_DIR
+            experiment = self._experiment(tmp)
             go = str(time.time() + 1.5)
             procs = [
                 subprocess.Popen(
-                    [sys.executable, "-I", "-c", code, str(records), go],
+                    [sys.executable, "-I", "-c", code,
+                     str(experiment), str(Path(tmp) / "work"), go],
                     stdout=subprocess.PIPE, text=True,
                 )
                 for _ in range(2)
             ]
             ids = [p.communicate()[0].strip() for p in procs]
             self.assertEqual(len(set(ids)), 2, ids)
+            # ...and no run left anything behind in the tracked evidence tree.
+            self.assertFalse((experiment / report.CORNERS_DIR).exists())
 
     def test_existing_logs_or_snapshot_without_summary_block_reuse(self):
         when = datetime.datetime(2026, 10, 8, 12, 0, 0, tzinfo=datetime.timezone.utc)
@@ -780,25 +842,11 @@ class RecordIdTests(unittest.TestCase):
             experiment = self._experiment(tmp)
             work = Path(tmp) / "work"
             rid, workdir, log_dir, _, _ = cliutil.provision_record(
-                SIM_DIR, work, experiment / report.RECORDS_DIR, experiment, "an-experiment", True
+                SIM_DIR, work, experiment / report.RECORDS_DIR, "an-experiment", True
             )
             self.assertIsNone(log_dir)
             self.assertTrue(workdir.is_dir())
             self.assertFalse((experiment / report.CORNERS_DIR).exists())
-
-    def test_provision_schematic_and_extracted_get_distinct_ids(self):
-        from harness import cliutil
-
-        with tempfile.TemporaryDirectory() as tmp:
-            experiment = self._experiment(tmp)
-            work = Path(tmp) / "work"
-            args = (SIM_DIR, work, experiment / report.RECORDS_DIR, experiment, "an-experiment", False)
-            a = cliutil.provision_record(*args)
-            b = cliutil.provision_record(*args)
-            self.assertNotEqual(a[0], b[0])
-            self.assertNotEqual(a[1], b[1])
-            self.assertNotEqual(a[2], b[2])
-            self.assertTrue(a[2].is_dir() and b[2].is_dir())
 
     def test_snapshot_and_derived_writes_are_exclusive(self):
         from harness import cliutil
@@ -951,7 +999,10 @@ class RecordRenderingTests(unittest.TestCase):
             runner.PointResult(point=p, status="ok", measurements={"vout": 1.0 + i * 0.01})
             for i, p in enumerate(self.points)
         ]
-        self.record = report.build_record(
+        self.record = self._record()
+
+    def _record(self, **extra):
+        return published(report.build_record(
             tb=self.tb,
             pdk=self.pdk,
             points=self.points,
@@ -962,7 +1013,77 @@ class RecordRenderingTests(unittest.TestCase):
             started_utc="2026-07-29T15:30:00+00:00",
             wall_seconds=9.5,
             claim="spec/temp-por.md#example",
-        )
+            **extra,
+        ), "smoke-bias")
+
+    #: What `klt_batch.batch_provenance()` hands the record builder (#468).
+    BATCH_PROVENANCE = {
+        "backend": "batch",
+        "models_lib_sha256": "f6f4a96e18fc5ad11270ad3451aaecc7ac37fc81eb61e15b0d7d94c7bc594a24",
+        "models_lib_comparison": "match",
+        "jobs": [{
+            "job_id": "klt-sim-8613ddc8115a",
+            "runner_models_lib_sha256":
+                "f6f4a96e18fc5ad11270ad3451aaecc7ac37fc81eb61e15b0d7d94c7bc594a24",
+            "models_lib_sha256":
+                "f6f4a96e18fc5ad11270ad3451aaecc7ac37fc81eb61e15b0d7d94c7bc594a24",
+            "comparison": {"status": "match"},
+            "klt_models_lib_comparison": "match",
+        }],
+    }
+
+    def test_a_local_backend_record_is_unchanged_by_the_batch_provenance_field(self):
+        """#468 adds `environment.batch` for a fleet run only: a local record
+        must be identical in JSON and in markdown, not merely similar."""
+        self.assertNotIn("batch", self.record["environment"])
+        explicit_local = self._record(batch=None)
+        self.assertEqual(explicit_local, self.record)
+        self.assertEqual(report.render_record(explicit_local, "smoke-bias"),
+                         report.render_record(self.record, "smoke-bias"))
+        self.assertNotIn("fleet runner", report.render_record(self.record, "smoke-bias"))
+
+    def test_a_batch_record_names_the_pdk_the_fleet_runner_read(self):
+        record = self._record(batch=self.BATCH_PROVENANCE)
+        self.assertEqual(record["environment"]["batch"], self.BATCH_PROVENANCE)
+        # the ONLY JSON difference from the local record is that one key
+        env = dict(record["environment"])
+        env.pop("batch")
+        self.assertEqual(env, self.record["environment"])
+        self.assertEqual({k: v for k, v in record.items() if k != "environment"},
+                         {k: v for k, v in self.record.items() if k != "environment"})
+
+        text = report.render_record(record, "smoke-bias")
+        local_lines = report.render_record(self.record, "smoke-bias").splitlines()
+        lines = text.splitlines()
+        # the new lines sit directly under `- PDK:`, and nothing else moved
+        pdk_at = next(i for i, ln in enumerate(lines) if ln.startswith("- PDK: "))
+        added = lines[pdk_at + 1:pdk_at + 4]
+        self.assertEqual(lines[:pdk_at + 1] + lines[pdk_at + 4:], local_lines)
+        self.assertIn("f6f4a96e18fc5ad11270ad3451aaecc7ac37fc81eb61e15b0d7d94c7bc594a24",
+                      added[0])
+        self.assertIn("PDK the fleet runner read: match", added[1])
+        self.assertIn("klt-sim-8613ddc8115a", added[2])
+        self.assertIn("match", added[2])
+
+    def test_a_batch_record_that_could_not_compare_says_so_rather_than_match(self):
+        provenance = {
+            "backend": "batch",
+            "models_lib_sha256": None,
+            "models_lib_comparison": "not_comparable",
+            "jobs": [{
+                "job_id": "klt-sim-older-runner",
+                "runner_models_lib_sha256": None,
+                "models_lib_sha256": None,
+                "comparison": {"status": "not_comparable",
+                               "reason": "runner_hash_unavailable"},
+                "klt_models_lib_comparison": None,
+            }],
+        }
+        text = report.render_record(self._record(batch=provenance), "smoke-bias")
+        self.assertIn("PDK the fleet runner read: not_comparable", text)
+        self.assertIn("runner_hash_unavailable", text)
+        self.assertIn("not reported", text)
+        self.assertIn("- PDK model library sha256 (this host): `unavailable`", text)
 
     def test_every_ratified_field_is_present_and_in_order(self):
         text = report.render_record(self.record, "smoke-bias")
@@ -974,10 +1095,25 @@ class RecordRenderingTests(unittest.TestCase):
         self.assertEqual(positions, sorted(positions), "fields are out of ratified order")
 
     def test_links_point_at_the_ratified_paths(self):
+        """Post-DR-030 a record's raw bytes are cited as one artifact
+        manifest; the tracked `corners/` and `netlist-snapshots/` paths of a
+        pre-DR-030 record are never emitted for a new one."""
         text = report.render_record(self.record, "smoke-bias")
         self.assertIn("sim/smoke-bias/testbench/x.spice", text)
-        self.assertIn("sim/smoke-bias/netlist-snapshots/20260729-153000-1a7ef75.spice", text)
-        self.assertIn("sim/smoke-bias/corners/20260729-153000-1a7ef75/", text)
+        self.assertIn(
+            "manifests/artifacts/smoke-bias-20260729-153000-1a7ef75.manifest.json", text
+        )
+        self.assertNotIn("sim/smoke-bias/netlist-snapshots/", text)
+        self.assertNotIn("sim/smoke-bias/corners/", text)
+
+    def test_rendering_a_record_with_no_published_manifest_is_refused(self):
+        """DR-030 leaves no fallback that cites uncommitted tracked-tree
+        paths: a record whose bytes were never published must fail loudly."""
+        unpublished = dict(self.record)
+        del unpublished["evidence_manifest"]
+        with self.assertRaises(ValueError) as caught:
+            report.render_record(unpublished, "smoke-bias")
+        self.assertIn("evidence_manifest", str(caught.exception))
 
     def test_result_table_uses_corner_ids_and_reports_overall_verdict(self):
         text = report.render_record(self.record, "smoke-bias")
@@ -1056,12 +1192,17 @@ class RecordRenderingTests(unittest.TestCase):
 
     def test_netlist_snapshot_is_frozen_and_append_only(self):
         experiment = self.tb.experiment_dir
-        path = report.write_netlist_snapshot(self.tb, experiment, "20260729-153000-1a7ef75")
-        self.assertEqual(path.parent.name, report.SNAPSHOT_DIR)
+        out_dir = experiment / "stage" / "netlist-snapshots"
+        path = report.write_netlist_snapshot(
+            self.tb, experiment, "20260729-153000-1a7ef75", out_dir=out_dir
+        )
+        self.assertEqual(path.parent, out_dir)
         self.assertIn("v1 out 0 dc {vdd_val}", path.read_text())
         self.assertIn(self.tb.netlist_sha256, path.read_text())
         with self.assertRaises(report.RecordExists):
-            report.write_netlist_snapshot(self.tb, experiment, "20260729-153000-1a7ef75")
+            report.write_netlist_snapshot(
+                self.tb, experiment, "20260729-153000-1a7ef75", out_dir=out_dir
+            )
 
 
 class ExtractedProvenanceRenderingTests(unittest.TestCase):
@@ -1096,7 +1237,7 @@ class ExtractedProvenanceRenderingTests(unittest.TestCase):
             runner.PointResult(point=p, status="ok", measurements={"vout": 1.0})
             for p in points
         ]
-        self.record = report.build_record(
+        self.record = published(report.build_record(
             tb=self.tb,
             pdk=self.pdk,
             points=points,
@@ -1108,7 +1249,7 @@ class ExtractedProvenanceRenderingTests(unittest.TestCase):
             wall_seconds=1.0,
             claim="spec/target-spec.md#por-reset-pulse",
             git={"commit": "f" * 40, "short": "fffffff", "branch": "main", "dirty": False},
-        )
+        ), "por-output-chain-pulse")
 
     def test_provenance_line_says_extracted_and_carries_the_caveat(self):
         text = report.render_record(self.record, "por-output-chain-pulse")
@@ -1322,6 +1463,42 @@ class DefaultJobsTests(unittest.TestCase):
         # `or 2` fallback for a host where that returns None) rather than
         # raising or silently defaulting to a fixed number.
         self.assertGreaterEqual(cliutil.default_jobs(), 1)
+
+
+class CommonRunArgsTests(unittest.TestCase):
+    """Issue #521: the four run options shared byte-identically by the two
+    CLIs (``-j/--jobs``, ``--no-write``, ``--quiet``, ``--version``) live in
+    ``cliutil.add_common_run_args``, so a change to one of them can no longer
+    land in one parser and silently miss the other; and ``--timeout``'s
+    default must stay pinned to ``runner.DEFAULT_TIMEOUT_S`` rather than a
+    shadowing literal, so raising the constant moves both CLIs together."""
+
+    @staticmethod
+    def _options(parser):
+        return {
+            opt: action for action in parser._actions for opt in action.option_strings
+        }
+
+    def test_shared_options_are_identical_across_the_two_clis(self):
+        corners = self._options(cli.build_parser())
+        mc = self._options(run_mc.build_parser())
+        for opt in ("-j", "--jobs", "--no-write", "--quiet", "--version"):
+            with self.subTest(option=opt):
+                corner_action, mc_action = corners[opt], mc[opt]
+                self.assertIs(type(corner_action), type(mc_action))
+                self.assertEqual(corner_action.dest, mc_action.dest)
+                self.assertEqual(corner_action.default, mc_action.default)
+                self.assertEqual(corner_action.help, mc_action.help)
+        self.assertEqual(corners["--version"].version, mc["--version"].version)
+        self.assertIs(corners["--jobs"].type, mc["--jobs"].type)
+
+    def test_timeout_default_tracks_the_named_constant_in_both_clis(self):
+        for name, parser in (("run_corners", cli.build_parser()),
+                             ("run_mc", run_mc.build_parser())):
+            with self.subTest(cli=name):
+                self.assertEqual(
+                    self._options(parser)["--timeout"].default, runner.DEFAULT_TIMEOUT_S
+                )
 
 
 if __name__ == "__main__":

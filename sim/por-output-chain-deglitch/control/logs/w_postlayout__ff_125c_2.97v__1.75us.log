@@ -15,178 +15,225 @@ Node                                   Voltage
 ----                                   -------
 vdd                                          0
 por_raw                                      0
-nib1                               4.13404e-19
-ibias1                             4.13404e-19
+nib1                               4.13156e-19
+ibias1                             4.13156e-19
 vdd1                                         0
-resetn1                            1.10682e-18
-xdut1.pdn                          1.05265e-18
-xdut1.pgdgb                       -1.94435e-19
-xdut1.pgdg                         3.66179e-18
-xdut1.nd1                          3.13003e-20
-xdut1.ndl                          1.64025e-18
-xdut1.ndg                          1.29535e-18
-xdut1.ndgn                         1.12459e-19
-xdut1.tim                          1.57801e-18
-xdut1.trip                         2.93902e-21
-xdut1.rstb                         -1.7305e-18
-xdut1.nnand                        1.94871e-18
-xdut1.nts                         -1.87092e-18
-xdut1.ndgp                         2.27302e-18
-xdut1.ndgn__par                    1.12459e-19
-xdut1.ndg__par                     1.29535e-18
-xdut1.pgdg__par                    3.66179e-18
-xdut1.tim__par                     1.57801e-18
-xdut1.trip__par                    2.93902e-21
-xdut1.nnand__par                   1.94871e-18
-xdut1.ndgp__par                    2.27302e-18
-xdut1.rstb__par                    -1.7305e-18
-xdut1.pdn__par                     1.05265e-18
-xdut1.ndl__par                     1.64025e-18
-xdut1.pgdgb__par                  -1.94435e-19
-xdut1.nd1__par                     3.13003e-20
-xdut1.nts__par                    -1.87092e-18
-xdut1.ibias__par                   4.13404e-19
-xdut1.por_raw__par                           0
-xdut1.resetn__par                  1.10682e-18
-xdut1.vdd__par                               0
-xdut1.vss__par                               0
-vd1#branch                         7.00337e-29
+resetn1                            1.09717e-18
+xdut1.pdn__t0                      1.37742e-18
+xdut1.ibias__t0                    4.13156e-19
+xdut1.vss__t0                      -8.3632e-30
+xdut1.pgdgb__t2                    1.86749e-18
+xdut1.pgdg__t3                    -3.38372e-18
+xdut1.vss__t1                     -3.88797e-30
+xdut1.nd1__t1                      -1.0587e-19
+xdut1.ndl__t0                     -1.02674e-18
+xdut1.vss__t2                     -8.48671e-29
+xdut1.ndg__t2                      2.85652e-18
+xdut1.por_raw__t1                            0
+xdut1.ndgn__t0                     2.95327e-18
+xdut1.tim__t4                      2.20949e-18
+xdut1.pgdgb__t3                    1.86749e-18
+xdut1.vss__t3                     -2.72868e-28
+xdut1.trip__t3                    -3.74298e-23
+xdut1.nd1__t3                      -1.0587e-19
+xdut1.vss__t16                     2.07212e-32
+xdut1.nd1__t2                      -1.0587e-19
+xdut1.resetn__t2                   1.09717e-18
+xdut1.vss__t15                    -1.25486e-27
+xdut1.ndl__t1                     -1.02674e-18
+xdut1.ndl__t2                     -1.02674e-18
+xdut1.vss__t4                      5.48765e-30
+xdut1.pgdg__t4                    -3.38372e-18
+xdut1.ndg__t3                      2.85652e-18
+xdut1.vss__t5                      3.97229e-29
+xdut1.rstb__t4                    -1.81626e-18
+xdut1.trip__t1                    -3.74298e-23
+xdut1.nnand__t1                    3.52304e-18
+xdut1.nnand__t0                    3.52304e-18
+xdut1.pgdg__t5                    -3.38372e-18
+xdut1.vss__t14                    -1.95891e-28
+xdut1.ibias__t1                    4.13156e-19
+xdut1.ibias__t2                    4.13156e-19
+xdut1.vss__t6                     -2.57183e-30
+xdut1.ndgn__t1                     2.95327e-18
+xdut1.ndl__t3                     -1.02674e-18
+xdut1.vss__t7                     -2.92302e-28
+xdut1.resetn__t0                   1.09717e-18
+xdut1.rstb__t0                    -1.81626e-18
+xdut1.vss__t8                     -4.85982e-29
+xdut1.nts__t0                      4.93742e-18
+xdut1.pdn__t1                      1.37742e-18
+xdut1.vdd__t0                      9.22927e-29
+xdut1.trip__t2                    -3.74298e-23
+xdut1.pdn__t6                      1.37742e-18
+xdut1.vdd__t11                    -2.45201e-33
+xdut1.pgdg__t0                    -3.38372e-18
+xdut1.ndg__t0                      2.85652e-18
+xdut1.vdd__t1                      4.54555e-31
+xdut1.rstb__t5                    -1.81626e-18
+xdut1.resetn__t3                   1.09717e-18
+xdut1.vdd__t10                    -4.46385e-31
+xdut1.ndg__t1                      2.85652e-18
+xdut1.por_raw__t0                            0
+xdut1.ndgp__t0                     1.49808e-18
+xdut1.resetn__t1                   1.09717e-18
+xdut1.rstb__t1                    -1.81626e-18
+xdut1.vdd__t2                     -3.04915e-31
+xdut1.pdn__t2                      1.37742e-18
+xdut1.pdn__t3                      1.37742e-18
+xdut1.vdd__t9                     -7.51393e-30
+xdut1.ndl__t4                     -1.02674e-18
+xdut1.pdn__t5                      1.37742e-18
+xdut1.vdd__t3                      7.90449e-31
+xdut1.pgdgb__t0                    1.86749e-18
+xdut1.pgdg__t1                    -3.38372e-18
+xdut1.vdd__t4                     -4.16249e-30
+xdut1.tim__t5                      2.20949e-18
+xdut1.pgdgb__t1                    1.86749e-18
+xdut1.nts__t1                      4.93742e-18
+xdut1.nd1__t0                     -1.05871e-19
+xdut1.tim__t6                      2.20949e-18
+xdut1.vdd__t5                       1.8396e-27
+xdut1.rstb__t2                    -1.81626e-18
+xdut1.trip__t0                    -3.74298e-23
+xdut1.vdd__t6                     -4.17314e-29
+xdut1.rstb__t3                    -1.81626e-18
+xdut1.pgdg__t2                    -3.38372e-18
+xdut1.vdd__t8                     -4.79339e-29
+xdut1.ndgp__t1                     1.49808e-18
+xdut1.pdn__t4                      1.37742e-18
+xdut1.vdd__t7                     -4.54397e-29
+xdut1.ndg__t4                      2.85652e-18
+xdut1.vss__t9                      1.36007e-33
+xdut1.tim__t0                      2.20949e-18
+xdut1.vss__t10                     1.83537e-32
+xdut1.tim__t3                      2.20949e-18
+xdut1.vss__t13                     1.09395e-32
+xdut1.tim__t2                      2.20949e-18
+xdut1.vss__t12                     2.51182e-32
+xdut1.tim__t1                      2.20949e-18
+xdut1.vss__t11                     2.03406e-32
+xdut1.ndgn                         2.95327e-18
+xdut1.ndg                          2.85652e-18
+xdut1.pgdg                        -3.38372e-18
+xdut1.tim                          2.20949e-18
+xdut1.trip                        -3.74298e-23
+xdut1.nnand                        3.52304e-18
+xdut1.ndgp                         1.49808e-18
+xdut1.rstb                        -1.81626e-18
+xdut1.pdn                          1.37742e-18
+xdut1.ndl                         -1.02674e-18
+xdut1.pgdgb                        1.86749e-18
+xdut1.nd1                          -1.0587e-19
+xdut1.nts                          4.93742e-18
+vd1#branch                        -4.86887e-28
 vib1#branch                                  0
 vpr#branch                                   0
-vsup#branch                       -7.00337e-29
+vsup#branch                        4.86887e-28
 
- Reference value :  1.13656e-05
- Reference value :  2.37917e-05
- Reference value :  3.52317e-05
- Reference value :  3.73717e-05
- Reference value :  3.74517e-05
- Reference value :  4.31317e-05
- Reference value :  4.77117e-05
- Reference value :  5.21917e-05
- Reference value :  5.47717e-05
- Reference value :  5.56117e-05
- Reference value :  5.92917e-05
- Reference value :  6.17517e-05
- Reference value :  6.74038e-05
- Reference value :  7.97838e-05
- Reference value :  9.43238e-05
- Reference value :  1.08406e-04
- Reference value :  1.21226e-04
- Reference value :  1.34546e-04
- Reference value :  1.47086e-04
- Reference value :  1.61566e-04
- Reference value :  1.70086e-04
- Reference value :  1.77426e-04
- Reference value :  1.89586e-04
- Reference value :  2.00726e-04
- Reference value :  2.13946e-04
- Reference value :  2.27366e-04
- Reference value :  2.41946e-04
- Reference value :  2.55026e-04
- Reference value :  2.69746e-04
- Reference value :  2.84106e-04
- Reference value :  2.97626e-04
- Reference value :  3.08098e-04
- Reference value :  3.17251e-04
- Reference value :  3.31771e-04
- Reference value :  3.44891e-04
- Reference value :  3.59251e-04
- Reference value :  3.72411e-04
- Reference value :  3.84931e-04
- Reference value :  3.98511e-04
- Reference value :  4.11491e-04
- Reference value :  4.25471e-04
- Reference value :  4.39791e-04
- Reference value :  4.53111e-04
- Reference value :  4.66811e-04
- Reference value :  4.80431e-04
- Reference value :  4.94951e-04
- Reference value :  5.08071e-04
- Reference value :  5.20431e-04
- Reference value :  5.34931e-04
- Reference value :  5.48451e-04
- Reference value :  5.62511e-04
- Reference value :  5.76411e-04
- Reference value :  5.91091e-04
- Reference value :  6.03731e-04
- Reference value :  6.18331e-04
- Reference value :  6.32811e-04
- Reference value :  6.34011e-04
- Reference value :  6.40731e-04
- Reference value :  6.48571e-04
- Reference value :  6.57691e-04
- Reference value :  6.62351e-04
- Reference value :  6.62851e-04
- Reference value :  6.64711e-04
- Reference value :  6.66791e-04
- Reference value :  6.69211e-04
- Reference value :  6.69291e-04
- Reference value :  6.69371e-04
- Reference value :  6.69451e-04
- Reference value :  6.69531e-04
- Reference value :  6.69611e-04
- Reference value :  6.70951e-04
- Reference value :  6.71011e-04
- Reference value :  6.71071e-04
- Reference value :  6.75971e-04
- Reference value :  6.81911e-04
- Reference value :  6.85911e-04
- Reference value :  6.92291e-04
- Reference value :  6.92371e-04
- Reference value :  7.03051e-04
- Reference value :  7.16511e-04
- Reference value :  7.30831e-04
- Reference value :  7.36611e-04
- Reference value :  7.47211e-04
- Reference value :  7.55711e-04
- Reference value :  7.65031e-04
- Reference value :  7.78831e-04
- Reference value :  7.87951e-04
- Reference value :  8.01171e-04
- Reference value :  8.13871e-04
- Reference value :  8.28431e-04
- Reference value :  8.42191e-04
- Reference value :  8.54891e-04
- Reference value :  8.69371e-04
- Reference value :  8.82671e-04
- Reference value :  8.97131e-04
- Reference value :  9.08911e-04
- Reference value :  9.18811e-04
- Reference value :  9.29291e-04
- Reference value :  9.39971e-04
- Reference value :  9.53451e-04
- Reference value :  9.66251e-04
- Reference value :  9.80191e-04
- Reference value :  9.91811e-04
- Reference value :  1.00126e-03
- Reference value :  1.00881e-03
- Reference value :  1.02261e-03
- Reference value :  1.03659e-03
- Reference value :  1.04923e-03
- Reference value :  1.06363e-03
- Reference value :  1.07495e-03
-No. of Data Rows : 54531
+ Reference value :  1.16456e-05
+ Reference value :  2.60770e-05
+ Reference value :  4.05970e-05
+ Reference value :  5.51970e-05
+ Reference value :  6.64627e-05
+ Reference value :  8.09627e-05
+ Reference value :  9.53427e-05
+ Reference value :  1.09845e-04
+ Reference value :  1.23865e-04
+ Reference value :  1.37225e-04
+ Reference value :  1.51685e-04
+ Reference value :  1.66285e-04
+ Reference value :  1.80865e-04
+ Reference value :  1.95505e-04
+ Reference value :  2.10105e-04
+ Reference value :  2.24185e-04
+ Reference value :  2.38785e-04
+ Reference value :  2.52865e-04
+ Reference value :  2.67425e-04
+ Reference value :  2.80605e-04
+ Reference value :  2.96165e-04
+ Reference value :  3.09027e-04
+ Reference value :  3.20682e-04
+ Reference value :  3.36342e-04
+ Reference value :  3.51782e-04
+ Reference value :  3.66522e-04
+ Reference value :  3.82042e-04
+ Reference value :  3.97642e-04
+ Reference value :  4.12022e-04
+ Reference value :  4.25102e-04
+ Reference value :  4.39942e-04
+ Reference value :  4.54282e-04
+ Reference value :  4.69662e-04
+ Reference value :  4.84282e-04
+ Reference value :  4.99842e-04
+ Reference value :  5.14442e-04
+ Reference value :  5.28942e-04
+ Reference value :  5.42322e-04
+ Reference value :  5.42402e-04
+ Reference value :  5.51982e-04
+ Reference value :  5.64582e-04
+ Reference value :  5.77402e-04
+ Reference value :  5.90282e-04
+ Reference value :  6.03482e-04
+ Reference value :  6.16442e-04
+ Reference value :  6.29182e-04
+ Reference value :  6.42382e-04
+ Reference value :  6.55662e-04
+ Reference value :  6.69422e-04
+ Reference value :  6.83602e-04
+ Reference value :  6.99462e-04
+ Reference value :  7.15222e-04
+ Reference value :  7.29502e-04
+ Reference value :  7.42342e-04
+ Reference value :  7.57462e-04
+ Reference value :  7.71662e-04
+ Reference value :  7.86302e-04
+ Reference value :  8.01302e-04
+ Reference value :  8.15222e-04
+ Reference value :  8.29542e-04
+ Reference value :  8.44122e-04
+ Reference value :  8.57422e-04
+ Reference value :  8.67042e-04
+ Reference value :  8.77342e-04
+ Reference value :  8.85002e-04
+ Reference value :  8.91662e-04
+ Reference value :  8.99742e-04
+ Reference value :  9.10142e-04
+ Reference value :  9.21782e-04
+ Reference value :  9.33782e-04
+ Reference value :  9.44342e-04
+ Reference value :  9.58142e-04
+ Reference value :  9.71502e-04
+ Reference value :  9.84922e-04
+ Reference value :  9.97382e-04
+ Reference value :  1.00183e-03
+ Reference value :  1.01406e-03
+ Reference value :  1.02712e-03
+ Reference value :  1.04174e-03
+ Reference value :  1.05608e-03
+ Reference value :  1.07062e-03
+No. of Data Rows : 54506
 
   Measurements for Transient Analysis
 
-timbefore           =  3.63659e-01
-pgdgmin             =  7.06884e-02 at=  1.00176e-03
-pgdgbmax            =  2.97034e+00 at=  1.00180e-03
-timafter            =  -9.65582e-04 at=  1.00190e-03
+timbefore           =  3.55596e-01
+pgdgmin             =  1.01370e-01 at=  1.00176e-03
+pgdgbmax            =  2.97041e+00 at=  1.00179e-03
+timafter            =  -9.66972e-04 at=  1.00184e-03
 
 
-Total analysis time (seconds) = 4.81893
+Total analysis time (seconds) = 2.69455
 
-Total elapsed time (seconds) = 4.856 
+Total elapsed time (seconds) = 2.732 
 
-Total DRAM available = 15700.234 MB.
-DRAM currently available = 8160.121 MB.
-Maximum ngspice program size =   79.953 MB.
-Current ngspice program size =   17.984 MB.
+Total DRAM available = 63253.434 MB.
+DRAM currently available = 17223.156 MB.
+Maximum ngspice program size =   82.320 MB.
+Current ngspice program size =   18.219 MB.
 
-Shared ngspice pages =    8.867 MB.
-Text (code) pages =    6.355 MB.
+Shared ngspice pages =    9.359 MB.
+Text (code) pages =    6.375 MB.
 Stack = 0 bytes.
-Library pages =   65.270 MB.
+Library pages =   64.922 MB.
 
 

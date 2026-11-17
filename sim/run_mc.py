@@ -35,7 +35,7 @@ WORK_DIR = SIM_DIR / ".work"
 
 sys.path.insert(0, str(SIM_DIR))
 
-from harness import HARNESS_VERSION, cliutil, klt_batch, mc_report, montecarlo, report, testbench as tb_mod  # noqa: E402
+from harness import cliutil, klt_batch, mc_report, montecarlo, report, runner, testbench as tb_mod  # noqa: E402
 from harness.montecarlo import ManifestError  # noqa: E402
 from harness.pdk import PdkNotFound, find_pdk  # noqa: E402
 from harness.runner import NgspiceMissing, ngspice_version  # noqa: E402
@@ -66,20 +66,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--list", action="store_true", help="list MC testbenches and their binding points")
     parser.add_argument("--n", type=int, default=None, help="samples per binding point (overrides tb.json's mc.n)")
     parser.add_argument("--seed-base", type=int, default=None, help="overrides tb.json's mc.seed_base")
-    parser.add_argument(
-        "-j",
-        "--jobs",
-        type=int,
-        default=0,
-        help="parallel ngspice runs (default: half the host's logical cores, "
-        "min 1 -- a per-process default that does not account for other "
-        "concurrent invocations on the same host; see cliutil.default_jobs)",
-    )
-    parser.add_argument("--timeout", type=int, default=300, help="per-sample ngspice timeout in seconds")
+    cliutil.add_common_run_args(parser, "jobs")
+    parser.add_argument("--timeout", type=int, default=runner.DEFAULT_TIMEOUT_S,
+                        help="per-sample ngspice timeout in seconds")
     parser.add_argument("--claim", default="", help="overrides the manifest's 'claim'")
     parser.add_argument("--supersedes", default="", metavar="RECORD_ID", help="prior record-id this run corrects")
-    parser.add_argument("--no-write", action="store_true", help="run but do not record evidence (debugging only)")
-    parser.add_argument("--quiet", action="store_true", help="only print the summary")
+    cliutil.add_common_run_args(parser, "no_write", "quiet")
     klt_batch.add_backend_argument(parser)
     parser.add_argument("--max-in-flight", type=int, default=4, metavar="N",
                         help="batch backend: requests in flight at once in the single "
@@ -90,7 +82,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--capacity-retries", type=int, default=3, metavar="N",
                         help="batch backend: re-submit a request refused for fleet "
                              "capacity up to N more times (default 3)")
-    parser.add_argument("--version", action="version", version=f"gf180-temp-por harness {HARNESS_VERSION}")
+    cliutil.add_common_run_args(parser, "version")
     return parser
 
 
@@ -154,8 +146,7 @@ def run(args: argparse.Namespace) -> int:
 
     jobs = args.jobs or cliutil.default_jobs()
     record_id, workdir, log_dir, git, started = cliutil.provision_record(
-        REPO_ROOT, WORK_DIR, records_dir, experiment_dir, tb.experiment, args.no_write,
-        stage=True,
+        REPO_ROOT, WORK_DIR, records_dir, tb.experiment, args.no_write,
     )
 
     if not args.quiet:
@@ -211,6 +202,9 @@ def run(args: argparse.Namespace) -> int:
         started_utc=started.isoformat(timespec="seconds"), wall_seconds=wall_seconds,
         n_per_point=n, seed_base=seed_base, derived_measures=derived,
         claim=args.claim, supersedes=args.supersedes, git=git,
+        # On batch the models came from the fleet runner's image, not this
+        # host's install: record what the runner read (#468).
+        batch=klt_batch.batch_provenance(batch_cfg) if batch_cfg else None,
     )
 
     print()
@@ -238,7 +232,7 @@ def run(args: argparse.Namespace) -> int:
 
     return cliutil.finish_run(
         tb, record, experiment_dir, record_id, workdir, log_dir, args.no_write, functools.partial(report.write_record, render=mc_report.render_mc_record),
-        stage=True, repo_root=REPO_ROOT,
+        repo_root=REPO_ROOT,
     )
 
 

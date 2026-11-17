@@ -504,7 +504,8 @@ What changes, and what does not:
   resistor marker layers and the bipolar device mark are device geometry, not
   routing — except `temp_core`, the one cell that took the lifted limit up,
   routing its new passives' terminals on Metal2 risers. The assembly's own GDS
-  is the #72 stream still, pending #97. See `layout/README.md`.)*
+  is not the #72 stream any more either: #97 re-derived its instance placement
+  once for all four sub-cells' growth. See `layout/README.md`.)*
 - **The matching plan is untouched, and #90 added to it where the plan was
   silent.** Nothing in ranks 1–4 depended on the metal count, and none of the
   four ranks covers `bias_core`. Drawing that cell's bipolars made one matched

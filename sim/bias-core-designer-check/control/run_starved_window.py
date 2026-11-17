@@ -100,10 +100,6 @@ PARENT_SAMPLE_S = 1.95e-3
 RAIL_RETURN_S = 1.110e-3
 COLLAPSE_START_S = 0.960e-3
 COLLAPSE_END_S = 1.100e-3
-#: `t_false_ok_*`'s integration ceiling in the superseded deck.
-PARENT_TSTOP_S = 2.0e-3
-#: The threshold `Bfob` uses to call the reference "low enough to matter".
-FALSE_VALID_ERR_V = 0.1
 #: A valid BIAS_OK high, as `t_bo_recover_us` defines it.
 OK_VALID_V = 1.4
 
@@ -161,9 +157,9 @@ def compose_deck(
     ]
     lines += runner.deck_preamble(pdk, corner, temp_c, options)
     lines += ["", fragment, "", netlist.read_text().rstrip(), ""]
-    lines += [".control", "set numdgt=10", "set noaskquit", f"  tran {tstep_us}u {tstop_ms}m"]
-    lines += [f"  {line}" for line in control_lines]
-    lines += [".endc", ".end", ""]
+    lines += runner.deck_control_block(
+        [f"  tran {tstep_us}u {tstop_ms}m", *(f"  {line}" for line in control_lines)]
+    )
     return "\n".join(lines)
 
 
@@ -208,7 +204,8 @@ def us(seconds: float) -> str:
     return f"{seconds * 1e6:.1f} us"
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
+    cliutil.parse_no_options(argv, __doc__)
     toolchain = cliutil.locate_toolchain()
     if toolchain is None:
         return cliutil.EXIT_ENVIRONMENT

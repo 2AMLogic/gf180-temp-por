@@ -141,15 +141,6 @@ OUT_DIR = LAYOUT_DIR / "postlayout"
 #: module needs it in the other direction.
 MOS_MODEL = {"nfet": "nfet_03v3", "pfet": "pfet_03v3"}
 
-#: Extracted resistor class -> the golden-netlist model it was drawn from.
-#: Inverse of :data:`lvs_reference.RESISTOR_CLASS`; asserted against each
-#: cell's own golden netlist in :func:`resistor_models`, so a cell that ever
-#: draws two schematic flavours onto one deck class fails loudly instead of
-#: picking one.
-RESISTOR_MODEL = {
-    klass: model for model, (klass, _rho) in ref.RESISTOR_CLASS.items()
-}
-
 #: Extracted MiM class -> the golden-netlist model. Inverse of
 #: :data:`lvs_reference.CAP_CLASS`.
 CAP_MODEL = {klass: model for model, klass in ref.CAP_CLASS.items()}
@@ -487,10 +478,10 @@ def resistor_models(cell: str) -> dict[str, tuple[str, float]]:
     """Extracted resistor class -> ``(golden model, drawn width in um)``.
 
     Both come from the cell's own golden netlist rather than from
-    :data:`RESISTOR_MODEL` alone, so the substitution this undoes is asserted
-    against the schematic every run: a cell that draws two schematic flavours
-    onto one deck class, or one flavour at two widths, fails here instead of
-    being emitted at whichever value happened to be first.
+    :data:`lvs_reference.RESISTOR_CLASS` alone, so the substitution this undoes
+    is asserted against the schematic every run: a cell that draws two
+    schematic flavours onto one deck class, or one flavour at two widths, fails
+    here instead of being emitted at whichever value happened to be first.
     """
     spec = ref.CELLS[cell]
     if "assembly" in spec:

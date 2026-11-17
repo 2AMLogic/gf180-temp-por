@@ -40,7 +40,6 @@ Stdlib only, no virtualenv required.
 from __future__ import annotations
 
 import json
-import os
 import re
 import sys
 from pathlib import Path
@@ -50,8 +49,18 @@ EXPERIMENT_DIR = CONTROL_DIR.parent
 REPO_ROOT = CONTROL_DIR.parents[2]
 
 sys.path.insert(0, str(REPO_ROOT / "sim"))
+# CONTROL_DIR too, so the sibling _deglitch_criterion import below resolves
+# however this script was loaded -- sys.path[0] is only this directory when
+# it is run directly, and sim/tests/ loads controls by path (#493).
+sys.path.insert(0, str(CONTROL_DIR))
 
 from harness import HARNESS_VERSION, cliutil, corners as corners_mod, runner  # noqa: E402
+
+# The glitch-rejection verdict this script shares with
+# run_glitch_width_sweep.py, in its one shared home (#493). Both results
+# files publish the same rejected/partial/**through** names, so the
+# boundaries between them have to have one definition.
+from _deglitch_criterion import verdict  # noqa: E402
 
 FRAGMENT = CONTROL_DIR / "cdg_tradeoff.spice"
 POSTLAYOUT_NETLIST = REPO_ROOT / "layout" / "postlayout" / "por_output_chain.spice"
@@ -81,7 +90,26 @@ FLOOR_POINTS: list[tuple[str, str, float, float]] = [
     ("ff_125c_3.63v", "ff", 125.0, 3.63),
 ]
 
-_CDG_RE = re.compile(r"^(X\d+\s+NDG\s+VSS\s+cap_mim\S*\s+)c_width=\S+\s+c_length=\S+(.*)$", re.M)
+# Paths a re-run is allowed to dirty (see runner.git_describe): this script's
+# own outputs plus its three siblings', which share this control directory's
+# results files, decks/ and logs/. No traces/: this script writes none.
+GENERATED = tuple(
+    str((CONTROL_DIR / n).relative_to(REPO_ROOT))
+    for n in ("results.md", "cdg_results.md", "dwell_results.md",
+              "width_results.md", "decks", "logs")
+)
+
+# XCDG's line in layout/postlayout/por_output_chain.spice. The star
+# extraction emits each terminal as <net>__t<k> (the net name stays the hub,
+# klayout-tools#592); the pre-star extraction emitted bare net names. Anchor
+# on the NDG hub either way -- cap_mim alone matches XCTIM's four lines too
+# (#533) -- and capture through the model name, so the sub() below re-emits
+# whatever terminal spelling it matched and the rewritten DUT keeps the
+# extraction's node names.
+_CDG_RE = re.compile(
+    r"^(X\d+\s+NDG(?:__t\d+)?\s+VSS(?:__t\d+)?\s+cap_mim\S*\s+)c_width=\S+\s+c_length=\S+(.*)$",
+    re.M,
+)
 
 
 def size_slug(size_um: float) -> str:
@@ -93,8 +121,8 @@ def dut_netlist(size_um: float) -> str:
     matches = _CDG_RE.findall(text)
     if len(matches) != 1:
         raise SystemExit(
-            f"expected exactly one 'NDG VSS cap_mim...' line in {POSTLAYOUT_NETLIST},"
-            f" found {len(matches)}"
+            f"expected exactly one 'X* NDG[__tN] VSS[__tN] cap_mim...' line in"
+            f" {POSTLAYOUT_NETLIST}, found {len(matches)}"
         )
     return _CDG_RE.sub(rf"\g<1>c_width={size_um:g}u c_length={size_um:g}u\g<2>", text)
 
@@ -110,7 +138,6 @@ def compose_deck(
     deck_dir: Path,
 ) -> str:
     corner = corners_mod.CORNERS[corner_name]
-    fragment_rel = os.path.relpath(FRAGMENT, deck_dir)
     width_s = width_us * 1e-6
     t_lo = DIP_START_S - EDGE_S
     t_hi = DIP_START_S
@@ -133,7 +160,7 @@ def compose_deck(
     lines += runner.deck_preamble(pdk, corner, temp_c, options)
     lines += [
         "",
-        f'.include "{fragment_rel}"',
+        *runner.deck_includes(deck_dir, FRAGMENT),
         f'.include "dut_cdg_{size_slug(size_um)}.spice"',
         "",
         f".tran {TSTEP_S!r} {{stop_s}}",
@@ -150,20 +177,8 @@ def compose_deck(
     return "\n".join(lines)
 
 
-def verdict(meas: dict[str, float]) -> str:
-    """Same functional criterion as run_glitch_width_sweep.py: TIM is the
-    read-out, because a glitch that reaches PGDG fires XMDIS and discharges the
-    one-shot. TIM only ever *rises* while the filter is rejecting, so any
-    material fall is a disturbance."""
-    lost = (meas["timbefore"] - meas["timafter"]) / meas["timbefore"]
-    if lost > 0.5:
-        return "**through**"
-    if lost > 0.01:
-        return "partial"
-    return "rejected"
-
-
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
+    cliutil.parse_no_options(argv, __doc__)
     toolchain = cliutil.locate_toolchain()
     if toolchain is None:
         return cliutil.EXIT_ENVIRONMENT
@@ -253,6 +268,7 @@ def write_results(ceiling: dict, floor: dict, pdk, ngspice_version: str) -> None
         f"- ngspice: `{ngspice_version}`",
         f"- PDK: `{pdk.variant}@{pdk.version}` ({pdk.source})",
         f"- harness: `{HARNESS_VERSION}`",
+        f"- git: `{runner.git_describe(REPO_ROOT, GENERATED)}`",
         "",
         "## Ceiling: `dwell_pgdg_halfib_us` vs. the ratified 10 us `T_dip,min`",
         "",

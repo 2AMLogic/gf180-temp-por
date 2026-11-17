@@ -84,7 +84,6 @@ import json
 import math
 import os
 import sys
-from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 CONTROL_DIR = Path(__file__).resolve().parent
@@ -163,7 +162,6 @@ def compose_deck(
     deck_dir: Path,
 ) -> str:
     corner = corners_mod.CORNERS[corner_name]
-    fragment_rel = os.path.relpath(FRAGMENT, deck_dir)
     t_lo = T_DIP_S - EDGE_S
     t_hi = T_DIP_S
     t_end = T_DIP_S + dip_s
@@ -188,7 +186,7 @@ def compose_deck(
     lines += runner.deck_preamble(pdk, corner, temp_c, options)
     lines += [
         "",
-        f'.include "{fragment_rel}"',
+        *runner.deck_includes(deck_dir, FRAGMENT),
         f'.include "dut_{variant}.spice"',
         "",
         f".tran {2e-6!r} {{stop_s}}",
@@ -218,19 +216,10 @@ def run_all(
     backend: str = klt_batch.BACKEND_LOCAL,
     batch: "klt_batch.BatchConfig | None" = None,
 ) -> dict[str, dict[str, float]]:
-    """Run every deck; in batch mode each goes through ``klt sim --backend
-    batch`` (decks, measurements and parsing unchanged) and any failure other
-    than an absent measurement aborts the run -- no local fallback."""
-    with ThreadPoolExecutor(max_workers=max(1, min(workers, len(jobs)))) as pool:
-        return dict(
-            zip(
-                [name for name, _ in jobs],
-                pool.map(
-                    lambda job: runner.run_deck(*job, CONTROL_DIR, backend=backend, batch=batch),
-                    jobs,
-                ),
-            )
-        )
+    """Run every deck under this experiment's ``CONTROL_DIR``; see
+    :func:`harness.runner.run_decks`, which this delegates to, for the
+    worker clamp and the batch-backend contract."""
+    return runner.run_decks(jobs, CONTROL_DIR, workers, backend=backend, batch=batch)
 
 
 def main() -> int:

@@ -34,6 +34,19 @@ from layout_staleness import skip_while_layout_stale  # noqa: E402
 CELL = "por_comparator_bias_okb_inv"
 
 
+def substrate_suffix(cell: str) -> set[str]:
+    """The synthetic substrate net's contribution to a declared-net set.
+
+    Only a cell whose own substrate is still synthetic declares
+    ``SUBSTRATE_NET``: #516 put implants on the three always-on cells' rings
+    and straps, so bias_core/por_comparator/por_output_chain resolve every
+    body and bulk to the real VSS and no longer declare it, exactly as
+    temp_core/temp_por_top have not since #312. The one cell left is the
+    tap-less inverter.
+    """
+    return set() if cell in lr.BODY_TIES_RESOLVED_CELLS else {lr.SUBSTRATE_NET}
+
+
 class ParsingTest(unittest.TestCase):
     def test_continuations_are_joined(self):
         text = "* comment\nXM1 d g s b nfet_03v3 L=1u\n+ W=2u nf=1\n\n.ends\n"
@@ -178,8 +191,8 @@ class ManifestReferenceTests:
 class TopologyControlManifestTests:
     """Mixed in alongside ``ManifestReferenceTests`` (not a ``TestCase``
     itself): the check that the "topology" corruption control actually has
-    two different sources to retarget between, via the subclass's own
-    ``golden()`` helper -- otherwise a manifest whose first two devices
+    two different sources to retarget between, via ``golden()`` --
+    otherwise a manifest whose first two devices
     already share a source would pass the control while controlling
     nothing."""
 
@@ -211,29 +224,156 @@ class ControlCoverageTests:
             self.assertEqual(len(differing), 1, f"{corruption} changed too much")
 
 
-class BiasCoreManifestTest(ManifestReferenceTests, TopologyControlManifestTests, unittest.TestCase):
+class GoldenNetlistTests:
+    """Mixed into a CELL-carrying ``TestCase`` (not a ``TestCase`` itself, so
+    it is never collected and run standalone): the golden-netlist accessors,
+    so no subclass restates the read idiom. ``golden_text()`` returns the raw
+    netlist text; ``golden()`` returns the parsed MOS devices. Deriving the
+    path from ``CELL`` is the point: a class that hardcoded its own cell name
+    compared a retargeted manifest against the previous cell's golden text,
+    so each such assertion stopped asserting its own cell."""
+
+    def golden_text(self):
+        return (REPO_ROOT / "design" / "netlist" / f"{self.CELL}.spice").read_text()
+
+    def golden(self):
+        return lr.parse_devices(lr.subckt_body(self.golden_text(), self.CELL))
+
+
+class MimCapManifestTests:
+    """Mixed into the two CELL-carrying ``TestCase``s that draw a MiM-cap
+    array (``por_output_chain``, ``temp_core``; not a ``TestCase`` itself, so
+    it is never collected and run standalone): the checks that the drawn
+    array and the emitted reference agree with the golden netlist's own cap
+    cards. Parameterized on the subclass's ``MIM_ARRAYS`` (build_cells.py's
+    drawn array table) and ``MIM_EXPECTED_VALUE`` -- one real extracted value
+    pinned per cell, two cells two literals, so each cell's number is pinned
+    against the deck's law rather than against the other cell's."""
+
+    def caps(self):
+        return lr.parse_capacitors(lr.subckt_body(self.golden_text(), self.CELL))
+
+    def test_every_mim_cap_in_the_schematic_is_drawn_and_compared(self):
+        # #92 (por_output_chain), #259 (temp_core): no cap is left out of
+        # either the drawn cell or the reference -- manifest, drawn array
+        # table and schematic all name the same cap set.
+        self.assertEqual(set(self.caps()), set(lr.CELLS[self.CELL]["caps"]))
+        self.assertEqual(set(self.caps()), set(self.MIM_ARRAYS))
+
+    def test_cap_value_comes_from_the_golden_plate_size_not_a_typed_number(self):
+        # The extracted capacitance is the drawn plates' overlap area and
+        # perimeter times the deck's two-term law, and the drawn plate size is
+        # the golden card's own c_width/c_length -- so the reference has to be
+        # derived from the same two numbers or it is only ever agreeing with
+        # itself.
+        # Card.value is already the same ``.10g``-rounded string build() writes
+        # (formatted once, at construction, like every other Card) -- so the
+        # expected set is rounded the same way rather than compared at full
+        # float precision against a value that was never emitted at it.
+        expected = {
+            float(
+                f"{lr.mim_capacitance_f(lr.to_um(cap['params']['c_width']), lr.to_um(cap['params']['c_length'])):.10g}"
+            )
+            for cap in self.caps().values()
+        }
+        for card in lr.build_cap_cards(self.CELL):
+            self.assertIn(float(card.value), expected)
+        # ... and one real number per cell is pinned by name -- each
+        # subclass's own MIM_EXPECTED_VALUE, XCDG's for por_output_chain and
+        # XCC's for temp_core -- so the law above cannot drift without the
+        # pinned literal failing alongside it.
+        self.assertIn(self.MIM_EXPECTED_VALUE, lr.build(self.CELL))
+
+    def test_cap_cards_declare_the_decks_own_area_and_perimeter(self):
+        # #312: the pinned deck's CapacitorDevice measures A/P directly off the
+        # drawn plate and defaults either to zero when the reference omits it
+        # -- a device.property mismatch on every MiM in the block the moment
+        # the pinned deck started checking them. A/P are declared from the
+        # same c_width/c_length the capacitance value already is.
+        caps = self.caps()
+        expected_sizes = [
+            (
+                lr.to_um(caps[name]["params"]["c_width"]),
+                lr.to_um(caps[name]["params"]["c_length"]),
+            )
+            for name in lr.CELLS[self.CELL]["caps"]
+            for _ in range(lr.cap_units(caps[name]))
+        ]
+        cards = lr.build_cap_cards(self.CELL)
+        self.assertEqual(len(cards), len(expected_sizes))
+        for card, (width, length) in zip(cards, expected_sizes):
+            params = dict(card.params)
+            self.assertAlmostEqual(
+                float(params["A"].rstrip("P")), width * length, places=6
+            )
+            self.assertAlmostEqual(
+                float(params["P"].rstrip("U")), 2.0 * (width + length), places=6
+            )
+
+    def test_cap_cards_carry_the_decks_own_device_class_name(self):
+        # Without the class name KLayout's SPICE reader builds a generic CAP
+        # class and every cap compares as an unmatched device -- a class
+        # mismatch that reads like a missing device, not like a naming slip.
+        # The class name sits between the bare capacitance value and the
+        # A=/P= parameters (#312), not at the end of the line any more.
+        klass = lr.CAP_CLASS["cap_mim_2f0_m3m4_noshield"]
+        for line in lr.build(self.CELL).splitlines():
+            if line.startswith("C"):
+                fields = line.split()
+                self.assertIn(klass, fields, line)
+                self.assertTrue(fields[fields.index(klass) + 1].startswith("A="), line)
+
+    def test_cap_plate_nets_are_the_golden_cards_own_nodes(self):
+        # #264 (por_output_chain): every drawn MiM unit is routed onto the
+        # schematic nodes its golden card names (build_cells.py's
+        # _cap_bottom_route/_cap_top_route and their strapped counterparts), so
+        # cap_plate_nets no longer synthesizes a per-instance isolated net
+        # pair -- every one of a card's m= drawn units shares the same two
+        # *declared* nets. #259/DR-028 (temp_core): XCC is drawn *routed* too
+        # -- bottom plate onto PG, top plate onto NZ -- rather than floating;
+        # a floating plate would still LVS-match against a synthesized pair,
+        # which is exactly why this is asserted here and not left to the
+        # compare.
+        caps = self.caps()
+        cards = lr.build_cap_cards(self.CELL)
+        for name, cap in caps.items():
+            nodes = list(cap["nodes"])
+            matching = [card for card in cards if card.nodes == nodes]
+            self.assertEqual(len(matching), lr.cap_units(cap), name)
+        declared = set(lr.CELLS[self.CELL]["ports"]) | set(
+            lr.CELLS[self.CELL].get("internal", [])
+        )
+        plates = {net for card in cards for net in card.nodes}
+        self.assertTrue(plates <= declared, plates - declared)
+        self.assertFalse(
+            [net for net in plates if "." in net], "no synthesized XC*. plate net"
+        )
+
+
+class BiasCoreManifestTest(
+    ManifestReferenceTests,
+    TopologyControlManifestTests,
+    GoldenNetlistTests,
+    unittest.TestCase,
+):
     """``bias_core`` is the first manifest entry with unlabelled internal nets
     and a multi-device well, and the first big enough for the negative controls
     to degrade quietly. These check the properties that make it honest."""
 
     CELL = "bias_core"
 
-    def golden(self):
-        text = (REPO_ROOT / "design" / "netlist" / "bias_core.spice").read_text()
-        return lr.parse_devices(lr.subckt_body(text, "bias_core"))
-
     def test_every_mos_device_in_the_schematic_is_in_the_manifest(self):
         # The non-MOS devices (PNPs, poly resistors, MiM caps) are outside the
         # curated deck's coverage and are deliberately absent; every device it
         # *can* model must be present, or the layout is being compared against
         # a quietly reduced circuit.
-        golden = (REPO_ROOT / "design" / "netlist" / "bias_core.spice").read_text()
+        golden = self.golden_text()
         modelled = set(lr.parse_devices(lr.subckt_body(golden, "bias_core")))
         self.assertEqual(modelled, set(lr.CELLS[self.CELL]["devices"]))
 
     def test_every_pfet_is_assigned_to_the_one_drawn_well(self):
         spec = lr.CELLS[self.CELL]
-        golden = (REPO_ROOT / "design" / "netlist" / "bias_core.spice").read_text()
+        golden = self.golden_text()
         devices = lr.parse_devices(lr.subckt_body(golden, "bias_core"))
         pfets = {n for n in spec["devices"] if devices[n]["model"] == "pfet_03v3"}
         self.assertEqual(pfets, set(spec["wells"]["NW1"]))
@@ -256,24 +396,30 @@ class BiasCoreManifestTest(ManifestReferenceTests, TopologyControlManifestTests,
             | set(bc.BIAS_CORE_PASSIVE_TRACKS)
             | {"VDD", "VSS"}
         )
-        self.assertEqual(routed | {lr.SUBSTRATE_NET}, declared)
+        self.assertEqual(routed | substrate_suffix(self.CELL), declared)
 
     def passives(self, kind=None):
-        golden = (REPO_ROOT / "design" / "netlist" / "bias_core.spice").read_text()
+        golden = self.golden_text()
         parsed = lr.parse_passives(lr.subckt_body(golden, "bias_core"))
         if kind is None:
             return parsed
         return {n: c for n, c in parsed.items() if c["kind"] == kind}
 
     def res_cards(self):
-        return [card for card in lr.build_cards(self.CELL) if card.prefix == "R"]
+        return [
+            card
+            for card in lr.build_cards(
+                self.CELL, resolve_body=self.CELL in lr.BODY_TIES_RESOLVED_CELLS
+            )
+            if card.prefix == "R"
+        ]
 
     def test_the_reference_covers_every_non_mos_device_in_the_schematic(self):
         # The whole point of #90: no device in design/bias_core.sch is outside
         # the compare any more. Read the golden netlist's own non-MOS cards
         # rather than restating the list, so a schematic that grew one fails.
         spec = lr.CELLS[self.CELL]
-        golden = (REPO_ROOT / "design" / "netlist" / "bias_core.spice").read_text()
+        golden = self.golden_text()
         body = lr.subckt_body(golden, "bias_core")
         self.assertEqual(set(self.passives("bipolar")), set(spec["bipolars"]))
         self.assertEqual(set(self.passives("resistor")), set(spec["resistors"]))
@@ -377,17 +523,17 @@ class BiasCoreManifestTest(ManifestReferenceTests, TopologyControlManifestTests,
             lr.build(self.CELL)
 
 
-class PorComparatorManifestTest(ManifestReferenceTests, TopologyControlManifestTests, unittest.TestCase):
+class PorComparatorManifestTest(
+    ManifestReferenceTests,
+    TopologyControlManifestTests,
+    GoldenNetlistTests,
+    unittest.TestCase,
+):
     """``por_comparator`` is the first manifest entry whose layout instances
     another cell, and the first with two drawn wells. These check the
     properties that make its clean compare honest."""
 
     CELL = "por_comparator"
-    SOURCE = "por_comparator.spice"
-
-    def golden(self):
-        text = (REPO_ROOT / "design" / "netlist" / self.SOURCE).read_text()
-        return lr.parse_devices(lr.subckt_body(text, "por_comparator"))
 
     def test_every_mos_device_in_the_schematic_is_in_the_manifest(self):
         # The sense divider (poly resistors) is outside the curated deck's
@@ -420,7 +566,7 @@ class PorComparatorManifestTest(ManifestReferenceTests, TopologyControlManifestT
         spec = lr.CELLS[self.CELL]
         declared = set(spec["ports"]) | set(spec["internal"])
         routed = set(bc.POR_COMPARATOR_TRACKS) | {"VDD", "VSS"}
-        self.assertEqual(routed | {lr.SUBSTRATE_NET}, declared)
+        self.assertEqual(routed | substrate_suffix(self.CELL), declared)
 
     def test_bias_okb_is_a_pin_because_the_instanced_sub_cell_labels_it(self):
         # Not cosmetic: the sub-cell is reused as-is, labels included, so the
@@ -521,7 +667,13 @@ class PorComparatorMatchingPlanTest(unittest.TestCase):
         )
 
 
-class PorOutputChainManifestTest(ManifestReferenceTests, TopologyControlManifestTests, unittest.TestCase):
+class PorOutputChainManifestTest(
+    ManifestReferenceTests,
+    TopologyControlManifestTests,
+    GoldenNetlistTests,
+    MimCapManifestTests,
+    unittest.TestCase,
+):
     """``por_output_chain`` is the always-on POR domain's output cell. Beyond
     the structural checks ``bias_core`` gets, it carries one contract that is
     not a layout convention but a ratified one: DR-010 requires an ungated,
@@ -529,26 +681,16 @@ class PorOutputChainManifestTest(ManifestReferenceTests, TopologyControlManifest
     ``XMBD`` is it."""
 
     CELL = "por_output_chain"
-    SOURCE = "por_output_chain.spice"
-
-    def golden(self):
-        text = (REPO_ROOT / "design" / "netlist" / self.SOURCE).read_text()
-        return lr.parse_devices(lr.subckt_body(text, self.CELL))
-
-    def caps(self):
-        text = (REPO_ROOT / "design" / "netlist" / self.SOURCE).read_text()
-        return lr.parse_capacitors(lr.subckt_body(text, self.CELL))
+    # XCDG's extracted value (11 x 11 um), as emitted by build() -- the
+    # real number MimCapManifestTests pins for this cell.
+    MIM_ARRAYS = bc.POC_MIM_ARRAYS
+    MIM_EXPECTED_VALUE = "2.512752e-13"
 
     def test_every_mos_device_in_the_schematic_is_in_the_manifest(self):
         # Every MOS the deck can model must be present, or the layout is being
         # compared against a quietly reduced circuit. The MiM caps live in the
         # manifest's own `caps` field, not here.
         self.assertEqual(set(self.golden()), set(lr.CELLS[self.CELL]["devices"]))
-
-    def test_every_mim_cap_in_the_schematic_is_drawn_and_compared(self):
-        # #92: no cap is left out of either the drawn cell or the reference.
-        self.assertEqual(set(self.caps()), set(lr.CELLS[self.CELL]["caps"]))
-        self.assertEqual(set(self.caps()), set(bc.POC_MIM_ARRAYS))
 
     def test_each_cap_is_drawn_as_many_times_as_its_multiplier_says(self):
         # The deck models no `m` multiplier, so m=4 has to be four drawn plates
@@ -559,87 +701,6 @@ class PorOutputChainManifestTest(ManifestReferenceTests, TopologyControlManifest
             self.assertEqual(columns * rows, lr.cap_units(caps[name]))
         cards = lr.build_cap_cards(self.CELL)
         self.assertEqual(len(cards), sum(lr.cap_units(c) for c in caps.values()))
-
-    def test_cap_value_comes_from_the_golden_plate_size_not_a_typed_number(self):
-        # The extracted capacitance is the drawn plates' overlap area and
-        # perimeter times the deck's two-term law, and the drawn plate size is
-        # the golden card's own c_width/c_length -- so the reference has to be
-        # derived from the same two numbers or it is only ever agreeing with
-        # itself.
-        caps = self.caps()
-        # Card.value is already the same ``.10g``-rounded string build() writes
-        # (formatted once, at construction, like every other Card) -- so the
-        # expected set is rounded the same way rather than compared at full
-        # float precision against a value that was never emitted at it.
-        expected = {
-            float(
-                f"{lr.mim_capacitance_f(lr.to_um(cap['params']['c_width']), lr.to_um(cap['params']['c_length'])):.10g}"
-            )
-            for cap in caps.values()
-        }
-        for card in lr.build_cap_cards(self.CELL):
-            self.assertIn(float(card.value), expected)
-        self.assertIn("2.512752e-13", lr.build(self.CELL))  # XCDG, 11 x 11 um
-
-    def test_cap_cards_declare_the_decks_own_area_and_perimeter(self):
-        # #312: the pinned deck's CapacitorDevice measures A/P directly off the
-        # drawn plate and defaults either to zero when the reference omits it
-        # -- a device.property mismatch on every MiM in the block the moment
-        # the pinned deck started checking them. A/P are declared from the
-        # same c_width/c_length the capacitance value already is.
-        caps = self.caps()
-        expected_sizes = [
-            (
-                lr.to_um(caps[name]["params"]["c_width"]),
-                lr.to_um(caps[name]["params"]["c_length"]),
-            )
-            for name in lr.CELLS[self.CELL]["caps"]
-            for _ in range(lr.cap_units(caps[name]))
-        ]
-        cards = lr.build_cap_cards(self.CELL)
-        self.assertEqual(len(cards), len(expected_sizes))
-        for card, (width, length) in zip(cards, expected_sizes):
-            params = dict(card.params)
-            self.assertAlmostEqual(
-                float(params["A"].rstrip("P")), width * length, places=6
-            )
-            self.assertAlmostEqual(
-                float(params["P"].rstrip("U")), 2.0 * (width + length), places=6
-            )
-
-    def test_cap_cards_carry_the_decks_own_device_class_name(self):
-        # Without the class name KLayout's SPICE reader builds a generic CAP
-        # class and every cap compares as an unmatched device -- a class
-        # mismatch that reads like a missing device, not like a naming slip.
-        # The class name sits between the bare capacitance value and the
-        # A=/P= parameters (#312), not at the end of the line any more.
-        klass = lr.CAP_CLASS["cap_mim_2f0_m3m4_noshield"]
-        for line in lr.build(self.CELL).splitlines():
-            if line.startswith("C"):
-                fields = line.split()
-                self.assertIn(klass, fields, line)
-                self.assertTrue(fields[fields.index(klass) + 1].startswith("A="), line)
-
-    def test_cap_plate_nets_are_the_golden_cards_own_nodes(self):
-        # #264: every drawn MiM unit is routed onto the schematic nodes its
-        # golden card names (build_cells.py's _cap_bottom_route/_cap_top_route
-        # and their strapped counterparts), so cap_plate_nets no longer
-        # synthesizes a per-instance isolated net pair -- every one of a
-        # card's m= drawn units shares the same two *declared* nets.
-        caps = self.caps()
-        cards = lr.build_cap_cards(self.CELL)
-        for name, cap in caps.items():
-            nodes = list(cap["nodes"])
-            matching = [card for card in cards if card.nodes == nodes]
-            self.assertEqual(len(matching), lr.cap_units(cap), name)
-        declared = set(lr.CELLS[self.CELL]["ports"]) | set(
-            lr.CELLS[self.CELL]["internal"]
-        )
-        plates = {net for card in cards for net in card.nodes}
-        self.assertTrue(plates <= declared, plates - declared)
-        self.assertFalse(
-            [net for net in plates if "." in net], "no synthesized XC*. plate net"
-        )
 
     def test_the_caps_own_no_net_by_themselves(self):
         # bias_core's undrawn passives delete three nets from both sides of the
@@ -656,7 +717,7 @@ class PorOutputChainManifestTest(ManifestReferenceTests, TopologyControlManifest
         declared = set(lr.CELLS[self.CELL]["ports"]) | set(
             lr.CELLS[self.CELL]["internal"]
         )
-        self.assertEqual(mos_nets | {lr.SUBSTRATE_NET}, declared)
+        self.assertEqual(mos_nets | substrate_suffix(self.CELL), declared)
 
     def test_the_always_on_ibias_diode_is_ungated(self):
         # DR-010: at least one always-on diode-connected input must remain on
@@ -714,7 +775,7 @@ class PorOutputChainManifestTest(ManifestReferenceTests, TopologyControlManifest
         spec = lr.CELLS[self.CELL]
         declared = set(spec["ports"]) | set(spec["internal"])
         routed = set(bc.POR_OUTPUT_CHAIN_TRACKS) | {"VDD", "VSS"}
-        self.assertEqual(routed | {lr.SUBSTRATE_NET}, declared)
+        self.assertEqual(routed | substrate_suffix(self.CELL), declared)
 
     def test_the_drawn_mim_plates_are_the_golden_plate_sizes(self):
         # Plate area *is* the capacitance, so a plate drawn at a size the
@@ -785,6 +846,59 @@ class GuardTest(unittest.TestCase):
         with self.assertRaises(lr.ReferenceError):
             lr.build(CELL)
 
+    def test_undeclared_cap_plate_net_is_an_error(self):
+        # Until #269 a drawn cap's plates were synthetic per-instance nets,
+        # undeclared by construction, so the cap builder had no guard to
+        # apply. cap_plate_nets now returns the golden card's own nodes --
+        # real schematic nets the manifest is supposed to declare -- so a cap
+        # whose plate lands on a net nothing else touches (the ordinary shape
+        # for a decoupling cap) is checked like every other device's nodes.
+        spec = lr.CELLS["por_output_chain"]
+        self.addCleanup(
+            lr.CELLS.__setitem__, "por_output_chain", lr.CELLS["por_output_chain"]
+        )
+        lr.CELLS["por_output_chain"] = {
+            **spec,
+            "internal": [net for net in spec.get("internal", []) if net != "TIM"],
+        }
+        with self.assertRaises(lr.ReferenceError) as caught:
+            lr.build_cap_cards("por_output_chain")
+        self.assertIn("XCTIM", str(caught.exception))
+        self.assertIn("TIM", str(caught.exception))
+
+    def test_declared_nets_is_the_one_set_every_guard_checks(self):
+        # The threaded path (build_cards) and the build_cap_cards fallback
+        # both take their operand from declared_nets, so they cannot drift.
+        for cell, spec in lr.CELLS.items():
+            with self.subTest(cell=cell):
+                expected = (
+                    set(spec["ports"])
+                    | set(spec.get("wells", {}))
+                    | set(spec.get("internal", []))
+                )
+                if spec.get("bjt_well"):
+                    expected.add(spec["bjt_well"])
+                self.assertEqual(lr.declared_nets(spec), expected)
+                seen = []
+                real = lr.require_declared_nets
+
+                def spy(cell_, name, nets, known_nets, _seen=seen, _real=real):
+                    _seen.append(set(known_nets))
+                    return _real(cell_, name, nets, known_nets)
+
+                with unittest.mock.patch.object(lr, "require_declared_nets", spy):
+                    lr.build_cap_cards(cell)
+                for known in seen:
+                    self.assertEqual(known, expected)
+
+    def test_undeclared_net_hint_names_bjt_well(self):
+        for cell in ("bias_core", "temp_core"):
+            with self.subTest(cell=cell):
+                self.assertTrue(lr.CELLS[cell].get("bjt_well"))
+                with self.assertRaises(lr.ReferenceError) as caught:
+                    lr.require_declared_nets(cell, "XQ1", ["NOPE"], set())
+                self.assertIn("bjt_well", str(caught.exception))
+
     def test_pmos_without_a_well_assignment_is_an_error(self):
         lr.CELLS[CELL] = {**self.spec, "wells": {}}
         with self.assertRaises(lr.ReferenceError):
@@ -812,12 +926,22 @@ class GuardTest(unittest.TestCase):
 
 
 @skip_while_layout_stale
-class TempCoreTest(ManifestReferenceTests, ControlCoverageTests, unittest.TestCase):
+class TempCoreTest(
+    ManifestReferenceTests,
+    ControlCoverageTests,
+    GoldenNetlistTests,
+    MimCapManifestTests,
+    unittest.TestCase,
+):
     """``temp_core`` is drawn with interleaved unit fingers and edge dummies,
     so its reference has to describe more devices than the schematic has -- the
     same electrical devices, described the way the curated deck can see them."""
 
     CELL = "temp_core"
+    # XCC's extracted value (12 x 12 um), as emitted by build() -- the
+    # real number MimCapManifestTests pins for this cell.
+    MIM_ARRAYS = bc.TEMP_CORE_MIM_ARRAYS
+    MIM_EXPECTED_VALUE = "2.979984e-13"
 
     def cards(self, text=None):
         return [
@@ -827,7 +951,7 @@ class TempCoreTest(ManifestReferenceTests, ControlCoverageTests, unittest.TestCa
         ]
 
     def test_finger_split_conserves_the_schematic_width(self):
-        golden = (REPO_ROOT / "design" / "netlist" / "temp_core.spice").read_text()
+        golden = self.golden_text()
         devices = lr.parse_devices(lr.subckt_body(golden, "temp_core"))
         text = lr.build(self.CELL)
         for name, count in lr.CELLS[self.CELL]["fingers"].items():
@@ -863,12 +987,8 @@ class TempCoreTest(ManifestReferenceTests, ControlCoverageTests, unittest.TestCa
         self.assertEqual(len(self.cards()) - without, len(spec["dummies"]))
 
     def passives(self):
-        golden = (REPO_ROOT / "design" / "netlist" / "temp_core.spice").read_text()
+        golden = self.golden_text()
         return lr.parse_passives(lr.subckt_body(golden, "temp_core"))
-
-    def caps(self):
-        golden = (REPO_ROOT / "design" / "netlist" / "temp_core.spice").read_text()
-        return lr.parse_capacitors(lr.subckt_body(golden, "temp_core"))
 
     def test_no_golden_device_is_left_out_of_the_compare(self):
         # #93 folded the PNPs and the poly resistors into the compare; #259
@@ -877,7 +997,7 @@ class TempCoreTest(ManifestReferenceTests, ControlCoverageTests, unittest.TestCa
         # shrink -- so it fails the moment any golden device stops being
         # covered, and it cannot be satisfied by a manifest that quietly drops
         # one.
-        golden = (REPO_ROOT / "design" / "netlist" / "temp_core.spice").read_text()
+        golden = self.golden_text()
         body = lr.subckt_body(golden, "temp_core")
         spec = lr.CELLS[self.CELL]
         covered = (
@@ -893,13 +1013,6 @@ class TempCoreTest(ManifestReferenceTests, ControlCoverageTests, unittest.TestCa
         }
         self.assertEqual(drawn_names - covered, set())
 
-    def test_every_mim_cap_in_the_schematic_is_drawn_and_compared(self):
-        # #259: the manifest, the drawn array table and the schematic all name
-        # the same cap set -- the same three-way agreement por_output_chain's
-        # own caps carry.
-        self.assertEqual(set(self.caps()), set(lr.CELLS[self.CELL]["caps"]))
-        self.assertEqual(set(self.caps()), set(bc.TEMP_CORE_MIM_ARRAYS))
-
     def test_the_cap_is_drawn_as_many_times_as_its_multiplier_says(self):
         # The deck models no `m` multiplier, so m=1 has to be exactly one drawn
         # plate and one reference card.
@@ -908,83 +1021,6 @@ class TempCoreTest(ManifestReferenceTests, ControlCoverageTests, unittest.TestCa
             self.assertEqual(columns * rows, lr.cap_units(caps[name]))
         cards = lr.build_cap_cards(self.CELL)
         self.assertEqual(len(cards), sum(lr.cap_units(c) for c in caps.values()))
-
-    def test_cap_value_comes_from_the_golden_plate_size_not_a_typed_number(self):
-        # The extracted capacitance is the drawn plates' overlap area and
-        # perimeter times the deck's two-term law, and the drawn plate size is
-        # the golden card's own c_width/c_length -- so the reference has to be
-        # derived from the same two numbers or it is only ever agreeing with
-        # itself.
-        expected = {
-            float(
-                f"{lr.mim_capacitance_f(lr.to_um(cap['params']['c_width']), lr.to_um(cap['params']['c_length'])):.10g}"
-            )
-            for cap in self.caps().values()
-        }
-        for card in lr.build_cap_cards(self.CELL):
-            self.assertIn(float(card.value), expected)
-        self.assertIn("2.979984e-13", lr.build(self.CELL))  # XCC, 12 x 12 um
-
-    def test_cap_cards_declare_the_decks_own_area_and_perimeter(self):
-        # #312: the pinned deck's CapacitorDevice measures A/P directly off the
-        # drawn plate and defaults either to zero when the reference omits it
-        # -- a device.property mismatch on every MiM in the block the moment
-        # the pinned deck started checking them. A/P are declared from the
-        # same c_width/c_length the capacitance value already is.
-        caps = self.caps()
-        expected_sizes = [
-            (
-                lr.to_um(caps[name]["params"]["c_width"]),
-                lr.to_um(caps[name]["params"]["c_length"]),
-            )
-            for name in lr.CELLS[self.CELL]["caps"]
-            for _ in range(lr.cap_units(caps[name]))
-        ]
-        cards = lr.build_cap_cards(self.CELL)
-        self.assertEqual(len(cards), len(expected_sizes))
-        for card, (width, length) in zip(cards, expected_sizes):
-            params = dict(card.params)
-            self.assertAlmostEqual(
-                float(params["A"].rstrip("P")), width * length, places=6
-            )
-            self.assertAlmostEqual(
-                float(params["P"].rstrip("U")), 2.0 * (width + length), places=6
-            )
-
-    def test_cap_cards_carry_the_decks_own_device_class_name(self):
-        # Without the class name KLayout's SPICE reader builds a generic CAP
-        # class and the cap compares as an unmatched device -- a class mismatch
-        # that reads like a missing device, not like a naming slip. The class
-        # name sits between the bare capacitance value and the A=/P=
-        # parameters (#312), not at the end of the line any more.
-        klass = lr.CAP_CLASS["cap_mim_2f0_m3m4_noshield"]
-        for line in lr.build(self.CELL).splitlines():
-            if line.startswith("C"):
-                fields = line.split()
-                self.assertIn(klass, fields, line)
-                self.assertTrue(fields[fields.index(klass) + 1].startswith("A="), line)
-
-    def test_cap_plate_nets_are_the_golden_cards_own_nodes(self):
-        # #259 draws XCC *routed* -- bottom plate onto PG, top plate onto NZ,
-        # the two nodes its golden card names -- rather than floating, so the
-        # reference names those nodes instead of synthesizing an isolated pair.
-        # A floating plate would still LVS-match against a synthesized pair,
-        # which is exactly why this is asserted here and not left to the
-        # compare.
-        caps = self.caps()
-        cards = lr.build_cap_cards(self.CELL)
-        for name, cap in caps.items():
-            nodes = list(cap["nodes"])
-            matching = [card for card in cards if card.nodes == nodes]
-            self.assertEqual(len(matching), lr.cap_units(cap), name)
-        declared = set(lr.CELLS[self.CELL]["ports"]) | set(
-            lr.CELLS[self.CELL].get("internal", [])
-        )
-        plates = {net for card in cards for net in card.nodes}
-        self.assertTrue(plates <= declared, plates - declared)
-        self.assertFalse(
-            [net for net in plates if "." in net], "no synthesized XC*. plate net"
-        )
 
     def test_the_drawn_mim_plate_is_the_golden_plate_size(self):
         # Plate area *is* the capacitance, so a plate drawn at a size the
@@ -1083,6 +1119,66 @@ class TempCoreTest(ManifestReferenceTests, ControlCoverageTests, unittest.TestCa
         self.assertEqual(sum(1 for card in cards if card[3] == "NA"), 1)
         self.assertEqual(sum(1 for card in cards if card[3] == "NC"), 8)
 
+    def test_every_pnp_emitter_is_within_the_drms_tap_distance(self):
+        # DRM DF.13_LV -- klt 0.8.0+'s comp.tap_distance.nwell.lv.1 -- caps
+        # the distance of an Nwell tap from PCOMP inside the same well at
+        # 20 um. The pinned 0.6.0 deck cannot see the rule
+        # (layout/drc-newer-klt-triage.md #2), so this recomputes the
+        # worst-case emitter-to-tap distance from the array's own constants:
+        # the tap material is the base ring's COMP bands plus the interior
+        # stripes' COMP (#519), and every one of the 25 emitters has to be
+        # within the limit of at least one of them. A future _Q_PITCH or
+        # _Q_GRID change that quietly outgrows the stripes fails here first,
+        # between deck runs.
+        span = (bc._Q_GRID - 1) * bc._Q_PITCH + bc._Q_EMITTER
+        off, width = bc._Q_TAP_RING_OFFSET_UM, bc._Q_TAP_RING_WIDTH_UM
+        lo, hi = -off, span + off  # the ring's bands, in array-local coords
+        taps = [
+            (lo, lo, hi, lo + width),
+            (lo, hi - width, hi, hi),
+            (lo, lo, lo + width, hi),
+            (hi - width, lo, hi, hi),
+        ]
+        mids = [
+            gap * bc._Q_PITCH + bc._Q_EMITTER + (bc._Q_PITCH - bc._Q_EMITTER) / 2.0
+            for gap in bc._Q_TAP_STRIPE_GAPS
+        ]
+        half = bc._Q_TAP_STRIPE_COMP_UM / 2.0
+        for mid in mids:
+            taps.append((mid - half, -off, mid + half, span + off))
+
+        def rect_gap(a, b):
+            dx = max(b[0] - a[2], a[0] - b[2], 0.0)
+            dy = max(b[1] - a[3], a[1] - b[3], 0.0)
+            return (dx * dx + dy * dy) ** 0.5
+
+        worst = 0.0
+        for row in range(bc._Q_GRID):
+            for col in range(bc._Q_GRID):
+                x0e, y0e = col * bc._Q_PITCH, row * bc._Q_PITCH
+                emitter = (x0e, y0e, x0e + bc._Q_EMITTER, y0e + bc._Q_EMITTER)
+                worst = max(worst, min(rect_gap(emitter, tap) for tap in taps))
+        self.assertLessEqual(worst, 20.0)
+        # The stripes are mirror-symmetric about the centre unit, which is
+        # what preserves the array's common-centroid matching (the same
+        # invariant the 8:1 ratio rests on).
+        centre = (bc._Q_GRID - 1) / 2.0 * bc._Q_PITCH + bc._Q_EMITTER / 2.0
+        self.assertEqual(sum(mids) / len(mids), centre)
+        # Each stripe's COMP stays clear of every active unit's DRC_BJT patch
+        # by BJT.3's 0.1 um -- the 2.0 um inter-patch window minus the stripe
+        # leaves exactly that margin each side. That clearance is also what
+        # keeps the tap from extracting as a 26th emitter (an emitter is Comp
+        # inside a patch's base region), and the implant overhang is what
+        # keeps the tap visible to the tap rules at all.
+        for gap in bc._Q_TAP_STRIPE_GAPS:
+            window = (gap + 1) * bc._Q_PITCH - 1.0 - (
+                gap * bc._Q_PITCH + bc._Q_EMITTER + 1.0
+            )
+            self.assertGreaterEqual(
+                round(window - bc._Q_TAP_STRIPE_COMP_UM, 9), 2 * 0.1
+            )
+        self.assertGreater(bc._Q_TAP_IMPLANT_OVERHANG_UM, 0.0)
+
     def test_a_length_that_does_not_split_on_the_grid_raises(self):
         # Silently rounding would make the drawn resistance differ from the
         # one this reference states, which reads as an unexplainable
@@ -1090,9 +1186,21 @@ class TempCoreTest(ManifestReferenceTests, ControlCoverageTests, unittest.TestCa
         with self.assertRaises(lr.ReferenceError):
             lr.resistor_segments(1.0001)
 
+    def test_every_net_the_layout_routes_is_a_net_the_reference_declares(self):
+        # Every track this cell draws is labelled, and so is a pin
+        # (_Channel.draw), so the manifest has to declare all of them. Nothing
+        # compared the two lists before #499: a net added to one and not the
+        # other surfaced only as a `klt lvs` pin mismatch after a full GDS
+        # build and extraction. Unlike the sibling cells' versions, this is a
+        # bare set equality -- no `| {lr.SUBSTRATE_NET}` and no
+        # `spec["internal"]`: temp_core is in BODY_TIES_RESOLVED_CELLS and
+        # #312 deliberately leaves vsubs undeclared, and the manifest entry
+        # has no "internal" key at all.
+        spec = lr.CELLS[self.CELL]
+        self.assertEqual(set(bc._TEMP_CORE_NETS), set(spec["ports"]))
 
 @skip_while_layout_stale
-class TempPorTopAssemblyTest(ControlCoverageTests, unittest.TestCase):
+class TempPorTopAssemblyTest(ControlCoverageTests, GoldenNetlistTests, unittest.TestCase):
     """``temp_por_top`` (#72) is the one manifest entry with no devices of its
     own: it is composed from the four sub-cells and from the golden top-level
     netlist's own instance lines. These cover the composition, because a
@@ -1100,9 +1208,6 @@ class TempPorTopAssemblyTest(ControlCoverageTests, unittest.TestCase):
     consistent, generates cleanly, and describes the wrong circuit."""
 
     CELL = "temp_por_top"
-
-    def golden(self):
-        return (REPO_ROOT / "design" / "netlist" / "temp_por_top.spice").read_text()
 
     def cards(self, text=None):
         return [
@@ -1113,87 +1218,14 @@ class TempPorTopAssemblyTest(ControlCoverageTests, unittest.TestCase):
 
     def test_reference_matches_the_committed_file(self):
         committed = (LAYOUT_DIR / "cells" / f"{self.CELL}.reference.spice").read_text()
-        fresh = lr.build(self.CELL)
-        if fresh == committed:
-            # #97 has caught temp_por_top's own GDS/reference up with every
-            # sub-cell's manifest -- the documented gap this test works
-            # around below has closed, and there is nothing further to check.
-            return
-        # Three tracked, deliberate sources of drift, all waiting on #97:
-        #
-        #   1. #91 drew por_comparator's sense divider as three real
-        #      ppolyf_u_1k resistors (XRTOP/XRBOT/XRHYS) and added them to
-        #      that cell's manifest under "resistors".
-        #   2. #90 drew bias_core's 10 vertical PNPs, 4 poly resistors and 2
-        #      MiM caps, adding "bipolars"/"resistors"/"caps" to its manifest.
-        #   3. Issue #56 added XMRLK, por_output_chain's release latch, as the
-        #      28th entry of that cell's "devices" list.
-        #
-        # build_assembly composes each sub-cell through the same build_cards()
-        # every standalone cell uses, so all three flow into a freshly
-        # generated temp_por_top reference too -- but temp_por_top's own
-        # committed GDS is deliberately *not* rebuilt for any of them
-        # (rebuilding it against the grown sub-cell footprints is DRC-dirty at
-        # the instance boundary, reproducible on main alone; #97 reworks the
-        # floorplan once for all of #56/#90/#91/#92/#93 rather than once per
-        # sub-cell change). So a fresh build is legitimately ahead of the
-        # committed file by exactly those cards, and this test has to know that
-        # rather than asserting a match it should not expect yet. Re-derive
-        # with every deferred contribution removed from the live manifests and
-        # require *that* to still match byte for byte -- proving the only drift
-        # is the known, tracked one, not something else silently going stale
-        # alongside it.
-        deferred_keys = {
-            # cell -> the manifest keys #97 has not caught this assembly up
-            # with yet. Remove one from this table when #97 lands, not the
-            # whole workaround: the early return above retires it.
-            "por_comparator": ("resistors",),
-            "bias_core": ("resistors", "bipolars", "caps"),
-        }
-        deferred_devices = {
-            # cell -> individual "devices" entries that postdate the committed
-            # assembly. Unlike the passives above these are ordinary MOS, so
-            # they are pruned by name rather than by manifest key.
-            "por_output_chain": ("XMRLK",),
-        }
-        originals = {
-            cell: lr.CELLS[cell] for cell in (*deferred_keys, *deferred_devices)
-        }
-        try:
-            for cell, keys in deferred_keys.items():
-                pruned = dict(lr.CELLS[cell])
-                for key in keys:
-                    pruned.pop(key, None)
-                lr.CELLS[cell] = pruned
-            for cell, names in deferred_devices.items():
-                pruned = dict(lr.CELLS[cell])
-                pruned["devices"] = [
-                    name for name in pruned["devices"] if name not in names
-                ]
-                self.assertEqual(
-                    len(pruned["devices"]),
-                    len(originals[cell]["devices"]) - len(names),
-                    f"{cell}: {', '.join(names)} no longer in the manifest -- "
-                    "this work-around is stale and should be revisited",
-                )
-                lr.CELLS[cell] = pruned
-            pre_drift = lr.build(self.CELL)
-        finally:
-            lr.CELLS.update(originals)
-        self.assertEqual(
-            pre_drift,
-            committed,
-            "temp_por_top's committed reference has drifted from the "
-            "assembly by more than #90's and #91's drawn passives and issue "
-            "#56's XMRLK release latch -- see #97",
-        )
+        self.assertEqual(lr.build(self.CELL), committed)
 
     def test_pin_list_is_the_ratified_pinout_in_the_ratified_order(self):
         # The same assertion design/netlist.py --check makes at the schematic
         # level. Order, not just membership: the pinout is a hard external
         # contract, and agents do not relax a ratified spec to make a result
         # pass (CLAUDE.md).
-        ratified = lr.subckt_ports(self.golden(), "temp_por_top")
+        ratified = lr.subckt_ports(self.golden_text(), "temp_por_top")
         self.assertEqual(ratified, ["VDD", "VSS", "PTAT", "CTAT", "RESETn"])
         declared = [
             port for port in lr.CELLS[self.CELL]["ports"] if port != lr.SUBSTRATE_NET
@@ -1258,30 +1290,33 @@ class TempPorTopAssemblyTest(ControlCoverageTests, unittest.TestCase):
     def test_bjt_collector_and_base_resolve_independently(self):
         # #312: BODY_TIES_RESOLVED_CELLS (the substrate/collector tie) and
         # BJT_WELL_RESOLVED_CELLS (the local Nwell/base tie) are independent
-        # facts about the drawn geometry, not one flag -- bias_core's own
-        # bipolar array has no local Nwell tap even though temp_por_top's
-        # seam ring resolves its collector (and every other substrate-tied
-        # terminal) for real. Collapsing the two into one flag reproduced
-        # false device.unmatched/net.split findings against a live `klt lvs`
-        # run the first time this was tried (see BODY_TIES_RESOLVED_CELLS's
-        # own docstring for the measured extraction this encodes).
+        # facts about the drawn geometry, not one flag -- they are checked
+        # differently (per built sub-cell vs per top-level build call) and
+        # moved independently for years: pre-#516 this cell was the measured
+        # proof, bias_core's collector resolving through the seam ring while
+        # its base stayed the anonymous bjt_well net. #516 put implants on
+        # the drawn taps, and bias_core's own array ring now carries Nplus,
+        # so it resolves its base the way temp_core always has
+        # (BJT_WELL_RESOLVED_CELLS names both) -- every bipolar in this
+        # compare resolves collector and base to the same real VSS, and the
+        # manifest's NWQ net is gone from it.
         q_cards = [
             line.split()
             for line in lr.build(self.CELL).splitlines()
             if line[:1] == "Q"
         ]
-        # bias_core's 10 PNPs (AE=100P, the manifest's emitter window):
-        # collector resolves to VSS, base stays the anonymous bjt_well net.
-        bias_cards = [card for card in q_cards if card[1] == "VSS" and card[2] != "VSS"]
+        # bias_core's 10 PNPs and temp_core's 9, told apart by which
+        # instance's emitter nets they land on.
+        bias_cards = [card for card in q_cards if card[3].startswith("xbias.")]
+        temp_cards = [card for card in q_cards if card[3].startswith("xtemp.")]
         self.assertEqual(len(bias_cards), 10)
-        for card in bias_cards:
-            self.assertEqual(card[2], "xbias.NWQ")
-        # temp_core's 9 PNPs: both collector and base resolve to VSS -- it
-        # draws its own Nwell tap (BJT_WELL_RESOLVED_CELLS), independent of
-        # the assembly's own seam-ring tie.
-        temp_cards = [card for card in q_cards if card[1] == "VSS" and card[2] == "VSS"]
         self.assertEqual(len(temp_cards), 9)
         self.assertEqual(len(bias_cards) + len(temp_cards), len(q_cards))
+        # Both ties resolve for real on every one of them.
+        for card in q_cards:
+            self.assertEqual(card[1], "VSS", card)
+            self.assertEqual(card[2], "VSS", card)
+        self.assertNotIn("xbias.NWQ", {n for c in q_cards for n in c[1:4]})
 
     def test_shared_nets_are_one_net_across_instances(self):
         # The whole point of the assembly: IBIAS is one node all four
@@ -1324,8 +1359,15 @@ class TempPorTopAssemblyTest(ControlCoverageTests, unittest.TestCase):
             self.assertNotIn(net, nodes, f"{net} leaked out of its instance")
         self.assertIn("xbias.PG", nodes)
         self.assertIn("xtemp.PG", nodes)
-        self.assertIn("xcmp.NW1", nodes)
-        self.assertIn("xpor.NW1", nodes)
+        # The wells that still resolve to nothing stay dotted per instance.
+        # The tied ones do not: xbias.NW1, xcmp.NW1 and xpor.NW1 carry
+        # #516's drawn n+ VDD ties and dissolved into VDD, leaving only
+        # temp_core's two untied wells and the instanced inverter's.
+        self.assertIn("xtemp.NW1", nodes)
+        self.assertIn("xtemp.NW2", nodes)
+        self.assertIn("xcmp.NW2", nodes)
+        for resolved in ("xbias.NW1", "xbias.NW2", "xcmp.NW1", "xpor.NW1"):
+            self.assertNotIn(resolved, nodes)
 
     def test_substrate_global_is_never_prefixed(self):
         # temp_por_top is in BODY_TIES_RESOLVED_CELLS (#312): every instanced

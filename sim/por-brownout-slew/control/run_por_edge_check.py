@@ -82,11 +82,11 @@ Stdlib only, no virtualenv required.
 
 from __future__ import annotations
 
+import argparse
 import datetime
 import importlib.util
 import re
 import sys
-from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 CONTROL_DIR = Path(__file__).resolve().parent
@@ -133,9 +133,8 @@ SLEWS_BY_ARM: dict[str, list[float]] = {
     "por": [BASELINE_SLEW_MVUS, *NEW_SLEWS_MVUS],
 }
 
-#: DR-019's ratified bound and the extracted netlist's own transition edge,
-#: quoted for orientation only -- nothing here re-derives or changes either.
-DR019_BOUND_MVUS = 2.30
+#: The extracted netlist's own transition edge, quoted for orientation only
+#: -- nothing here re-derives or changes it.
 EXT_EDGE_LO_MVUS, EXT_EDGE_HI_MVUS = 2.45, 2.50
 
 RESETN_RATIO_KEY = "resetn_ratio_min_in_dip"
@@ -167,8 +166,13 @@ def variant_name(arm: str, slew_mvus: float) -> str:
 
 
 def main(argv: list[str] | None = None) -> int:
-    argv = sys.argv[1:] if argv is None else argv
-    report_only = "--report-only" in argv
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--report-only", action="store_true",
+        help="regenerate the results files from the existing logs instead "
+             "of running the sweep",
+    )
+    report_only = parser.parse_args(argv).report_only
 
     toolchain = cliutil.locate_toolchain(need_ngspice=False)
     if toolchain is None:
@@ -209,13 +213,7 @@ def main(argv: list[str] | None = None) -> int:
             f"running {len(jobs)} deck(s) at {band.CORNER} / {band.TEMP_C:g} C"
             f" / {VDD_V:g} V ..."
         )
-        with ThreadPoolExecutor(max_workers=min(4, len(jobs))) as pool:
-            results = dict(
-                zip(
-                    [name for name, _ in jobs],
-                    pool.map(lambda job: runner.run_deck(*job, CONTROL_DIR), jobs),
-                )
-            )
+        results = runner.run_decks(jobs, CONTROL_DIR, 4)
 
     update_results_md(pdk, options, results)
     print(f"appended to {RESULTS_MD}")
@@ -377,10 +375,6 @@ def update_results_md(pdk, options: list[str], res: dict[str, dict[str, float]])
     lines.append("|---:|---|---:|---:|---:|---:|---:|---:|---|")
     ext_base_margin = margin_us(res, "ext", BASELINE_SLEW_MVUS)
 
-    def us_after_dip(name: str, key: str) -> float | None:
-        t = res.get(name, {}).get(key)
-        return None if t is None else (t - band.T_DIP_S) * 1e6
-
     def fmt_us(value: float | None) -> str:
         return "**never**" if value is None else f"{value:.1f}"
 
@@ -398,9 +392,9 @@ def update_results_md(pdk, options: list[str], res: dict[str, dict[str, float]])
             )
             lines.append(
                 f"| {slew:g} | `{arm}` | {close_us(slew):.1f} | "
-                f"{fmt_us(us_after_dip(name, 't_praw'))} | "
-                f"{fmt_us(us_after_dip(name, 't_pgdg'))} | "
-                f"{fmt_us(us_after_dip(name, 't_rst'))} | "
+                f"{fmt_us(band.us_after_dip(res.get(name, {}).get('t_praw')))} | "
+                f"{fmt_us(band.us_after_dip(res.get(name, {}).get('t_pgdg')))} | "
+                f"{fmt_us(band.us_after_dip(res.get(name, {}).get('t_rst')))} | "
                 + ("—" if m is None else f"{m:+.1f}")
                 + f" | {delta} | {verdict} |"
             )

@@ -29,6 +29,12 @@
 # two controls fail independently (klayout-tools docs/cli/lvs.md, "Negative
 # controls"), so passing all three is what makes the clean run mean something.
 #
+# One downstream gate lives outside layout/: every
+# sim/*/testbench-postlayout/ fragment inlines a layout/postlayout/<cell>.spice
+# verbatim (source sha256 in its header), so once a regenerated layout moves
+# those exports, finish with `python3 sim/build_tb.py` — CI's
+# `sim/build_tb.py --check` step fails on the stale fragments otherwise.
+#
 # Every JSON report is written under layout/reports/ and committed as evidence.
 # The script is the single source of truth for the invocation -- prose in
 # layout/README.md describes it, but this file is what gets run.
@@ -246,15 +252,10 @@ fi
 
 # --- cell selection ----------------------------------------------------------
 #
-# `--regen-all` regenerates every cell in layout/cells/.
+# `--regen-all` takes no cell argument (rejected above), so it falls through
+# to the no-argument arm and regenerates every cell in layout/cells/.
 
-if [ "$REGEN_ALL" -eq 1 ]; then
-  CELLS=()
-  for gds in layout/cells/*.gds; do
-    cell="$(basename "$gds" .gds)"
-    CELLS+=("$cell")
-  done
-elif [ "$#" -gt 0 ]; then
+if [ "$#" -gt 0 ]; then
   CELLS=("$@")
 else
   CELLS=()
@@ -310,11 +311,7 @@ if [ -z "$KLAYOUT_PY" ]; then
   red "no interpreter with the klayout module -- skipping the GDS staleness check"
   red "(install it, or run: uv run --with klayout python3 layout/build_cells.py --check)"
 fi
-if [ "$#" -gt 0 ]; then
-  stale_gate "$@"
-else
-  stale_gate
-fi
+stale_gate "$@"
 
 # --- deck-hash consistency gate -----------------------------------------------
 #
@@ -378,20 +375,34 @@ else
   info "     committed GDS, so the gate is asserted on the result)"
 fi
 
+# --- manufacturing-grid vertex sweep (#553) -------------------------------------
+#
+# The end-product guard the staleness gates above cannot give: every vertex
+# of every committed GDS must be a whole multiple of the manufacturing grid.
+# The generator-level tests (layout/tests/test_grid.py) pin the coordinate
+# *producers*; this pins what they produced, reading the committed GDS
+# directly (layer- and deck-version-agnostic -- the deck has no
+# metal2/metal3 ongrid rule, and _TopRoutes.box/hwire/vwire snap only part
+# of what they draw). Unscoped and never deferred: it reads layout/cells/,
+# which this script never rewrites, so there is nothing a --regen-all run
+# would need to defer it past.
+
+if [ -n "$KLAYOUT_PY" ]; then
+  info "==> sweeping every committed GDS vertex onto the manufacturing grid"
+  $KLAYOUT_PY layout/check_gds_grid.py
+else
+  red "no interpreter with the klayout module -- skipping the grid vertex sweep"
+  red "(install it, or run: uv run --with klayout python3 layout/check_gds_grid.py)"
+fi
+
 # --- per-cell checks ---------------------------------------------------------
 
 status=0
 
-# Record a failed check for the cell being processed.
-cell_failed() {
-  status=1
-}
-
 for cell in "${CELLS[@]}"; do
   gds="layout/cells/${cell}.gds"
   request="layout/cells/${cell}.lvs.json"
-  committed="$REPORTS/${cell}"
-  out="$committed"
+  out="$REPORTS/${cell}"
   mkdir -p "$out"
 
   info "==> $cell"
@@ -401,7 +412,7 @@ for cell in "${CELLS[@]}"; do
     green "    DRC   clean   ($out/drc.json)"
   else
     red "    DRC   FAILED  ($out/drc.json)"
-    cell_failed
+    status=1
     continue
   fi
 
@@ -427,7 +438,7 @@ print(json.load(open(sys.argv[1]))['layout'].get('top_cell_pins', False))
     green "    EXTR  ok      ($out/extracted.spice)"
   else
     red "    EXTR  FAILED  ($out/extract.json)"
-    cell_failed
+    status=1
     continue
   fi
 
@@ -436,7 +447,7 @@ print(json.load(open(sys.argv[1]))['layout'].get('top_cell_pins', False))
     green "    LVS   match   ($out/lvs.json)"
   else
     red "    LVS   FAILED  ($out/lvs.json)"
-    cell_failed
+    status=1
     continue
   fi
 
@@ -450,7 +461,7 @@ print(json.load(open(sys.argv[1]))['layout'].get('top_cell_pins', False))
     green "    STATS ok      ($out/stats.json)"
   else
     red "    STATS FAILED  ($out/stats.json)"
-    cell_failed
+    status=1
     continue
   fi
 
@@ -492,7 +503,7 @@ PY
       green "    CTRL  $corruption -> mismatch (expected)"
     else
       red "    CTRL  $corruption -> exit $code, expected 3 (mismatch)"
-      cell_failed
+      status=1
     fi
   done
   python3 - "$cell" "$control_dir" topology device-param passive-param \

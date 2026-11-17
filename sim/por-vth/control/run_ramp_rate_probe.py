@@ -101,10 +101,6 @@ PARENT_TRAMP_S = 4.0e-3
 PARENT_RATE_V_PER_S = (3.63 - 2.0) / PARENT_TRAMP_S       # 407.5 V/s, 3.63 V column
 PARENT_SLOWEST_RATE_V_PER_S = (2.97 - 2.0) / PARENT_TRAMP_S  # 242.5 V/s, 2.97 V column
 
-#: (RTOP+RBOT)/RBOT, from design/por_comparator.md's sizing table -- the factor
-#: that refers an input-referred (SNS) error out to VDD.
-DIVIDER_RATIO = 2.16667
-
 #: The parent record's own numbers at this corner, quoted for cross-check.
 PARENT_V_HYS_MV = {2.97: 211.382, 3.30: 238.555, 3.63: 261.092}
 PARENT_VPOR_RISE_V = {2.97: 2.62809, 3.30: 2.63855, 3.63: 2.64873}
@@ -236,25 +232,16 @@ def compose(pdk, corner, dut: str, vdd: float, tramp: float) -> str:
         "",
     ]
     lines += runner.deck_preamble(pdk, corner, TEMP_C, options)
-    lines += [
-        "",
-        # Repo-relative from decks/, so a committed deck does not carry the
-        # absolute path of whatever worktree produced it. ngspice resolves a
-        # relative .include against the including file's directory; the same
-        # idiom is used by sim/por-brownout-slew/control/ and
-        # sim/por-glitch/control/.
-        f'.include "../{FRAGMENT.name}"',
-        f'.include "../../../../{netlist.relative_to(REPO_ROOT)}"',
-        "",
-        ".control",
-        "set numdgt=10",
-        "set noaskquit",
+    # Repo-relative from decks/ via deck_includes, so a committed deck does
+    # not carry the absolute path of whatever worktree produced it. ngspice
+    # resolves a relative .include against the including file's directory.
+    lines += ["", *runner.deck_includes(CONTROL_DIR / "decks", FRAGMENT, netlist), ""]
+    lines += runner.deck_control_block([
         f"  tran 10u {tstop!r}",
-    ]
-    lines += [f"  {a}" for a in analyses(sns, t_settled, t_down)]
-    lines += [f"  let m_{name} = {expr}" for name, expr in MEASURES.items()]
-    lines += [f"  print m_{name}" for name in MEASURES]
-    lines += [".endc", ".end", ""]
+        *(f"  {a}" for a in analyses(sns, t_settled, t_down)),
+        *(f"  let m_{name} = {expr}" for name, expr in MEASURES.items()),
+        *(f"  print m_{name}" for name in MEASURES),
+    ])
     return "\n".join(lines)
 
 
@@ -278,9 +265,19 @@ def run_one(pdk, corner, point) -> dict:
     }
 
 
-def _static_and_slope(rows: list[dict], key: str = "v_hys_mv") -> tuple[float, float]:
+def static_and_slope(rows: list[dict], key: str = "v_hys_mv") -> tuple[float, float]:
     """(zero-rate limit, slope) from the two slowest rows -- the local
-    gradient where the curve is closest to its static limit."""
+    gradient where the curve is closest to its static limit.
+
+    The single definition of the zero-rate extrapolation for this directory
+    (#493). ``run_rate_ladder.py`` -- the SECOND control under this
+    ``control/``, which cross-references this script's ``results.md`` -- used
+    to carry its own copy of these six lines with ``key`` hard-coded to
+    ``"v_hys_mv"``, so the selection rule ("the two slowest rows") behind the
+    static limit both controls publish could have moved in one file and not
+    the other. Public rather than ``_``-prefixed because that sibling imports
+    it.
+    """
     a, b = sorted(rows, key=lambda r: r["rate_v_per_s"])[:2]
     slope = (b[key] - a[key]) / (b["rate_v_per_s"] - a["rate_v_per_s"])
     return a[key] - slope * a["rate_v_per_s"], slope
@@ -391,9 +388,9 @@ def render(results: list[dict], pdk) -> str:
             continue
         out += [f"## {title}", "", blurb, "", LADDER_HEADER, LADDER_RULE]
         out += [_ladder_row(r) for r in sorted(rows, key=lambda r: -r["rate_v_per_s"])]
-        static, slope = _static_and_slope(rows)
+        static, slope = static_and_slope(rows)
         stats[arm] = (static, slope)
-        vref_static, vref_slope = _static_and_slope(rows, "vref_err_up_mv")
+        vref_static, vref_slope = static_and_slope(rows, "vref_err_up_mv")
         slowest = min(rows, key=lambda r: r["rate_v_per_s"])
         fastest = max(rows, key=lambda r: r["rate_v_per_s"])
         out += [
@@ -492,9 +489,9 @@ def render(results: list[dict], pdk) -> str:
             for r in rows_a:
                 r["lag_total_mv"] = r["lag_rise_mv"] + r["lag_fall_mv"]
             fast = max(rows_a, key=lambda r: r["rate_v_per_s"])
-            total0, _ = _static_and_slope(rows_a, "v_hys_mv")
-            input0, _ = _static_and_slope(rows_a, "v_hys_sns_mv")
-            lag0, _ = _static_and_slope(rows_a, "lag_total_mv")
+            total0, _ = static_and_slope(rows_a, "v_hys_mv")
+            input0, _ = static_and_slope(rows_a, "v_hys_sns_mv")
+            lag0, _ = static_and_slope(rows_a, "lag_total_mv")
             parts[arm] = {
                 "total": fast["v_hys_mv"],
                 "static": total0,

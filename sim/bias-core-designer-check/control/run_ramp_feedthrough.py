@@ -76,7 +76,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import sys
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -112,15 +111,6 @@ T_PRE_S = 1.0e-3
 T_HOLD_S = 2.0e-3
 T_TAIL_S = 1.0e-3
 
-#: Fixed VDD sample points on the up/down ramp -- identical to
-#: sim/por-vth/control/rate_ladder.spice's own "VREF error" columns, chosen
-#: there to be clear of every POR threshold on its ladder. Both are below
-#: the smallest vdd_val on this grid (2.97 V) and above bias_core's own
-#: worst-case dropout (vdd_ref90_v <= 1.788 V, design/bias_core.md), so both
-#: crossings occur on every corner/supply point.
-VDD_SAMPLE_UP_V = 2.50
-VDD_SAMPLE_DN_V = 2.55
-
 
 def times(tramp: float) -> tuple[float, float, float, float]:
     """(t1, t2, t3, t4) -- ramp-up end, hold end, ramp-down end, tail end."""
@@ -148,22 +138,20 @@ def compose(pdk, options: list[str], dut: str, point, tramp: float) -> str:
         "",
     ]
     lines += runner.deck_preamble(pdk, point.corner, point.temp_c, options)
-    lines += [
-        "",
-        f'.include "{os.path.relpath(FRAGMENT, deck_dir)}"',
-        f'.include "{os.path.relpath(netlist, deck_dir)}"',
-        "",
-        ".control",
-        "set numdgt=10",
-        "set noaskquit",
+    lines += ["", *runner.deck_includes(deck_dir, FRAGMENT, netlist), ""]
+    lines += runner.deck_control_block([
         f"tran 5u {t4!r}",
         f"meas tran vref_settle find v(vref) at={t2 - 0.1e-3!r}",
+        # The 2.50 V / 2.55 V sample points are identical to
+        # sim/por-vth/control/rate_ladder.spice's own "VREF error" columns,
+        # chosen there to be clear of every POR threshold on its ladder. Both
+        # are below the smallest vdd_val on this grid (2.97 V) and above
+        # bias_core's own worst-case dropout (vdd_ref90_v <= 1.788 V,
+        # design/bias_core.md), so both crossings occur on every
+        # corner/supply point.
         "meas tran vref_up find v(vref) when v(vdd)=2.50 rise=1",
         "meas tran vref_dn find v(vref) when v(vdd)=2.55 fall=1",
-        ".endc",
-        ".end",
-        "",
-    ]
+    ])
     return "\n".join(lines)
 
 

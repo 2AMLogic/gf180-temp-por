@@ -76,13 +76,12 @@ Stdlib only, no virtualenv required.
 
 from __future__ import annotations
 
+import argparse
 import importlib.util
 import sys
-from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 CONTROL_DIR = Path(__file__).resolve().parent
-EXPERIMENT_DIR = CONTROL_DIR.parent
 REPO_ROOT = CONTROL_DIR.parents[2]
 
 sys.path.insert(0, str(REPO_ROOT / "sim"))
@@ -119,8 +118,13 @@ def variant_name(arm: str, vdd: float, slew_mvus: float) -> str:
 
 
 def main(argv: list[str] | None = None) -> int:
-    argv = sys.argv[1:] if argv is None else argv
-    report_only = "--report-only" in argv
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--report-only", action="store_true",
+        help="regenerate the results files from the existing logs instead "
+             "of running the sweep",
+    )
+    report_only = parser.parse_args(argv).report_only
 
     toolchain = cliutil.locate_toolchain(need_ngspice=False)
     if toolchain is None:
@@ -152,13 +156,7 @@ def main(argv: list[str] | None = None) -> int:
             f"{len(band.SUPPLIES_V)} supplies) at {band.CORNER} /"
             f" {band.TEMP_C} C ..."
         )
-        with ThreadPoolExecutor(max_workers=min(8, len(jobs))) as pool:
-            results = dict(
-                zip(
-                    [name for name, _ in jobs],
-                    pool.map(lambda job: runner.run_deck(*job, CONTROL_DIR), jobs),
-                )
-            )
+        results = runner.run_decks(jobs, CONTROL_DIR, 8)
 
     write_results(pdk, results)
     print(f"wrote {CONTROL_DIR / 'postlayout_margin_results.md'}")
@@ -171,10 +169,6 @@ def write_results(pdk, res: dict[str, dict[str, float]]) -> None:
 
     def window_close_s(vdd: float, slew: float) -> float:
         return band.T_DIP_S + band.edge_s(vdd, slew) + band.T_DWELL_S
-
-    def us_after_dip(name, key):
-        t = g(name, key)
-        return None if t is None else (t - band.T_DIP_S) * 1e6
 
     def fmt_us(value, never="**never**"):
         return never if value is None else f"{value:.1f}"
@@ -227,7 +221,7 @@ def write_results(pdk, res: dict[str, dict[str, float]]) -> None:
             margins: dict[str, float | None] = {}
             for arm in ARMS:
                 name = variant_name(arm, vdd, slew)
-                t_rst = us_after_dip(name, "t_rst")
+                t_rst = band.us_after_dip(g(name, "t_rst"))
                 margins[arm] = None if t_rst is None else close_us - t_rst
             for arm in ARMS:
                 name = variant_name(arm, vdd, slew)
@@ -239,9 +233,9 @@ def write_results(pdk, res: dict[str, dict[str, float]]) -> None:
                 flag = "" if (m is not None and m > 0) else " **FAIL**"
                 lines.append(
                     f"| {slew:g} | {vdd:.2f} V | {arm} | {close_us:.1f} | "
-                    f"{fmt_us(us_after_dip(name, 't_praw'))} | "
-                    f"{fmt_us(us_after_dip(name, 't_pgdg'))} | "
-                    f"{fmt_us(us_after_dip(name, 't_rst'))} | "
+                    f"{fmt_us(band.us_after_dip(g(name, 't_praw')))} | "
+                    f"{fmt_us(band.us_after_dip(g(name, 't_pgdg')))} | "
+                    f"{fmt_us(band.us_after_dip(g(name, 't_rst')))} | "
                     f"{('—' if m is None else f'{m:+.1f}')}{flag} | {delta} |"
                 )
     lines.append("")

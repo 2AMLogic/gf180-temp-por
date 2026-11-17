@@ -15,9 +15,14 @@ reuse it instead of re-implementing request staging):
 * :func:`translate_deck` -- a harness-composed ngspice deck -> a
   :class:`BatchUnit` (circuit body + analysis + measurements + corner values).
   Raises :class:`BatchIncompatible` for any construct it cannot express.
+* :func:`stage_requests` -- group units and write one ``klt sim`` request
+  per group, submitting nothing (``--emit-request``, #496). The grouping and
+  staging rules live here only; :func:`run_units` uses the same two.
 * :func:`run_units` -- stage, submit via ``klt sim --backend batch``, validate
   the report and copy each corner's raw log byte-for-byte to the unit's
   destination. Returns one :class:`UnitOutcome` per unit, in input order.
+* :func:`measurement_specs` -- a testbench manifest's ``checks`` -> the
+  per-measurement ``limits`` / ``spec_row`` klt grades each corner against.
 
 Invariants (all covered by ``sim/tests/test_klt_batch.py``):
 
@@ -35,6 +40,15 @@ Invariants (all covered by ``sim/tests/test_klt_batch.py``):
 * A report from a fleet runner whose ``klt`` is not the client's build
   (``environment.remote.runner_compatibility`` other than ``match``) is
   rejected, and the rest of that run is refused without being submitted.
+* So is a report whose fleet runner read a different PDK model library than
+  the one this host resolved (``environment.remote.runner_models_lib_sha256``
+  against the SHA-256 of ``cfg.pdk.model_lib``, or klt's own
+  ``models_lib_comparison: mismatch``): on batch the models come from the
+  runner's image, so an accepted result must have been simulated against the
+  build the record is about to name. A report that carries no usable runner
+  hash is accepted and recorded as *not comparable* -- never as a match.
+  What the runner did read is carried out on :attr:`BatchConfig.provenance`
+  for the evidence record (:func:`batch_provenance`).
 * ``--backend batch`` is always passed explicitly. ``klt`` otherwise steps
   back to ``local`` for a single-unit run when the backend came from
   ``$KLT_SIM_BACKEND``; the report must also carry ``environment.remote``
@@ -87,6 +101,15 @@ DEFAULT_TIMEOUT_S = 1800
 #: process (Spot acquisition + boot + artifact download).
 _CLIENT_SLACK_S = 600
 
+#: The value a lifted ``.param`` is declared with in the staged body. klt's
+#: parameter axis rewrites it per corner (``alterparam`` + ``reset``), so this
+#: default is never simulated -- but the declaration must exist, because klt
+#: refuses a ``corners.params`` name no top-level ``.param`` declares. Zero
+#: rather than the nominal on purpose: if the rewrite ever failed to land, a
+#: corner would simulate a 0 V supply and fail loudly, instead of silently
+#: returning the nominal point three times (#464).
+_LIFTED_DEFAULT = "0"
+
 _CAP_REFUSAL = "exceeds BATCH_MAX_CONCURRENT_INSTANCES"
 #: Corner error diagnostics that, for callers whose local contract is "an
 #: absent measurement is simply absent from the log" (the control scripts'
@@ -96,6 +119,23 @@ _CAP_REFUSAL = "exceeds BATCH_MAX_CONCURRENT_INSTANCES"
 ABSENT_MEASUREMENT_CODES = frozenset({"measurement", "no_such_vector"})
 #: ngspice's own marker for an analysis that stopped before completing.
 _ABORTED = "simulation(s) aborted"
+#: A SHA-256 digest as klt reports it (lowercase hex).
+_SHA256_RE = re.compile(r"\A[0-9a-f]{64}\Z")
+#: The ratified spec row a ``tb.json`` ``checks`` entry substantiates, read
+#: from the *leading* reference of its free-text ``description`` (there is no
+#: structured field for it). Deliberately narrower than "mentions a row
+#: anywhere": across this repo's manifests a check that merely cites a row in
+#: prose ("at the fast end of spec/target-spec.md#por-ramp-rate", "(spec/
+#: target-spec.md#supply-voltage)") is *not* evidence for it, and tagging it
+#: as such would claim a bound it does not measure. A check that is evidence
+#: names its row first -- which is what every one of the rows this repo
+#: actually cites does.
+_SPEC_ROW_RE = re.compile(r"\A`?spec/target-spec\.md#([a-z0-9-]+)")
+#: A ratified row id as ``spec/target-spec.md`` anchors it. Same anchors
+#: ``signoff/inventories.py:spec_row_ids`` audits, read here from text rather
+#: than a path: the sim harness is importable on its own and must not depend
+#: on the signoff package.
+_SPEC_ANCHOR_RE = re.compile(r'<a id="([a-z0-9-]+)"></a>`')
 
 
 class BatchError(RuntimeError):
@@ -119,10 +159,23 @@ class BatchResultError(BatchError):
     """The report is valid JSON but does not account for the requested units."""
 
 
-class BatchRunnerMismatch(BatchResultError):
+class BatchRunFatal(BatchResultError):
+    """A rejection that condemns the whole run, not just one report: every
+    later request would reach the same fleet runner, so it is refused without
+    being submitted (:attr:`BatchConfig.halted`)."""
+
+
+class BatchRunnerMismatch(BatchRunFatal):
     """The fleet runner's ``klt`` is not the submitting client's build, so the
     request may have been run with options ignored (or not run at all). Fatal
     for the whole run: later submissions would hit the same runner."""
+
+
+class BatchPdkMismatch(BatchRunFatal):
+    """The fleet runner read a different PDK model library than the one this
+    host resolved, so a record naming the local install would name a build the
+    simulation never used. Fatal for the whole run: the runner's image does
+    not change between requests."""
 
 
 # --------------------------------------------------------------------------
@@ -233,6 +286,108 @@ def klt_version(klt: str = KLT) -> str:
 
 
 @dataclass(frozen=True)
+class MeasurementSpec:
+    """One measurement's ratified pass/fail envelope, as ``klt sim`` grades it.
+
+    ``klt`` reads these as ``measurements[].limits`` (``min`` and ``max``
+    each independently optional -- a measurement with no ``limits`` is
+    reported but can never fail) and grades every corner against them,
+    returning a per-corner ``status`` plus a signed ``margin`` and, in the
+    rollup, the binding corner (``worst_case.corner_id``) and the true
+    ``min``/``max`` extremes. ``spec_row`` is the ratified
+    ``spec/target-spec.md`` row id this measurement is evidence for, carried
+    as ``measurements[].spec_row`` for klt's own row-coverage derivation;
+    empty for a measurement that is not a spec row of its own (a guard or
+    integrity check), which klt accepts and ignores.
+
+    Frozen and hashable so a unit's specs can be part of
+    :func:`_unit_group_key` -- two units graded against different bounds must
+    not share a request, because the request carries one ``measurements[]``
+    block for the whole group.
+    """
+
+    #: The name the *request's* measurement carries, not necessarily the
+    #: manifest's own check key -- see :func:`measurement_specs`.
+    name: str
+    minimum: float | None = None
+    maximum: float | None = None
+    spec_row: str = ""
+
+    def limits(self) -> dict:
+        """``measurements[].limits``, with an undeclared bound simply absent
+        (never a ``null``, which klt would have to interpret)."""
+        out: dict = {}
+        if self.minimum is not None:
+            out["min"] = self.minimum
+        if self.maximum is not None:
+            out["max"] = self.maximum
+        return out
+
+
+def spec_row_ids(spec_text: str) -> frozenset[str]:
+    """Every row id ``spec/target-spec.md``'s text ratifies (its ``<a id=>``
+    anchors), for cross-checking what a testbench check claims to be evidence
+    for."""
+    return frozenset(_SPEC_ANCHOR_RE.findall(spec_text))
+
+
+def spec_row_of(description: str) -> str:
+    """The ratified row id a ``checks`` entry's ``description`` declares, or
+    ``""``. See :data:`_SPEC_ROW_RE` for why only a leading reference counts.
+    """
+    m = _SPEC_ROW_RE.match(description.strip())
+    return m.group(1) if m else ""
+
+
+def measurement_specs(
+    checks: dict[str, dict],
+    *,
+    request_names: dict[str, str],
+    known_rows: frozenset[str] | None = None,
+) -> tuple[MeasurementSpec, ...]:
+    """A testbench manifest's ``checks`` -> the specs klt should grade against.
+
+    One :class:`MeasurementSpec` per entry that declares a ``min`` and/or a
+    ``max``, sorted by request-side name. An entry declaring neither (a
+    grid-level ``max_spread_pct``/``min_spread_pct`` check) contributes
+    nothing: there is no bound for klt to grade a single corner against, and
+    an empty ``limits`` would say "never fails" in a way the manifest does
+    not.
+
+    ``request_names`` maps a check's name to the name the request's own
+    measurement carries, and *selects*: a check with no entry there is not a
+    request measurement at all -- a Python-derived quantity such as the Monte
+    Carlo benches' ``terr_trim_c``, computed from other measurements after
+    the run -- so klt has nothing to attach a bound to and it is skipped.
+
+    ``known_rows`` (from :func:`spec_row_ids`) turns a row id no longer in
+    the ratified spec into an error rather than a ``spec_row`` naming a row
+    that does not exist. ``None`` skips that cross-check.
+    """
+    specs: list[MeasurementSpec] = []
+    for name, spec in checks.items():
+        request_name = request_names.get(name)
+        if request_name is None:
+            continue
+        low, high = spec.get("min"), spec.get("max")
+        if low is None and high is None:
+            continue
+        row = spec_row_of(spec.get("description", ""))
+        if row and known_rows is not None and row not in known_rows:
+            raise BatchIncompatible(
+                f"check {name!r} names spec row {row!r}, which spec/target-spec.md "
+                "does not ratify; a request must not claim a row that does not exist"
+            )
+        specs.append(MeasurementSpec(
+            name=request_name,
+            minimum=None if low is None else float(low),
+            maximum=None if high is None else float(high),
+            spec_row=row,
+        ))
+    return tuple(sorted(specs, key=lambda s: s.name))
+
+
+@dataclass(frozen=True)
 class BatchUnit:
     """One requested simulation: one deck at one corner/temperature/supply."""
 
@@ -241,7 +396,11 @@ class BatchUnit:
     body: str                      # circuit body (no control block / lib / temp)
     process: tuple[str, ...] | None  # ordered .lib sections (None: no process axis)
     temp_c: float
-    supply: tuple[tuple[str, float], ...]  # lifted .param values, sorted by name
+    #: Lifted per-corner ``.param`` values, sorted by name. These ride klt's
+    #: ``corners.params`` axis (``alterparam`` + ``reset``), NOT ``corners.supply_v``:
+    #: ``supply_v`` is an ``alter`` on a voltage *source*, so a ``.param`` name on
+    #: it addresses nothing and klt refuses the request (#464).
+    lifted: tuple[tuple[str, float], ...]
     analysis: tuple[str, str]      # (kind, args)
     measurements: tuple[tuple[str, str, str], ...]  # (name, "spice"|"expr", text)
     init: tuple[str, ...]          # .spiceinit lines
@@ -253,6 +412,12 @@ class BatchUnit:
     #: (``expr`` over ``<step>.<measurement>``), named as the deck's own
     #: ``print``ed vectors, so callers read the same names either way.
     steps: tuple[tuple[str, tuple[str, str], tuple[tuple[str, str, str], ...]], ...] = ()
+    #: Ratified pass/fail envelopes for this unit's measurements, sorted by
+    #: name (#496): what ``measurements[].limits`` / ``.spec_row`` carry, so
+    #: the fleet grades each corner against the spec instead of returning
+    #: ungraded numbers. Empty by default -- a caller that attaches none gets
+    #: byte-for-byte the request it got before.
+    specs: tuple[MeasurementSpec, ...] = ()
 
     @property
     def process_name(self) -> str | None:
@@ -338,13 +503,22 @@ def translate_deck(
     lift_params: tuple[str, ...] = (),
     extra_init: tuple[str, ...] = (),
     timeout_s: int = DEFAULT_TIMEOUT_S,
+    specs: tuple[MeasurementSpec, ...] = (),
 ) -> BatchUnit:
     """Take a harness-composed deck apart into a :class:`BatchUnit`.
 
     ``deck_dir`` is where relative ``.include`` targets resolve (the local
-    run's working directory). ``lift_params`` names ``.param`` cards removed
-    from the body and swept through klt's ``supply_v`` axis instead (lets
-    PVT points that differ only in those values share one request).
+    run's working directory). ``lift_params`` names ``.param`` cards whose
+    value is swept through klt's ``corners.params`` axis instead of being
+    fixed in the body (lets PVT points that differ only in those values share
+    one request). The card itself stays, rewritten to the
+    :data:`_LIFTED_DEFAULT` sentinel: klt's parameter axis is an
+    ``alterparam``, which refuses a name no top-level ``.param`` declares.
+
+    ``specs`` attaches ratified bounds to the unit's measurements (#496).
+    Each :class:`MeasurementSpec` must name a measurement this deck actually
+    produces -- a bound on something the deck never measures is a mismatch
+    between manifest and deck, not a bound to drop silently.
     """
     body: list[str] = ["* gf180-temp-por batch body -- GENERATED by sim/harness/klt_batch.py"]
     sections: list[str] = []
@@ -492,6 +666,13 @@ def translate_deck(
                     raise BatchIncompatible(
                         f"{key}: lifted .param {name} is not a plain number: {stripped}"
                     ) from exc
+                # Keep a top-level declaration in place of the deck's own card.
+                # klt's parameter axis is `alterparam <name>=<value>` + `reset`,
+                # which refuses a name no top-level `.param` declares; the value
+                # here is a sentinel every corner overwrites (see _LIFTED_DEFAULT).
+                # It is constant across units so points differing only in the
+                # lifted value still share one body, and so one request.
+                body.append(f".param {name}={_LIFTED_DEFAULT}")
                 continue
             if pm:
                 try:
@@ -533,6 +714,14 @@ def translate_deck(
     missing_lift = [n for n, v in lifted.items() if math.isnan(v)]
     if missing_lift:
         raise BatchIncompatible(f"{key}: lifted .param {', '.join(missing_lift)} not found")
+    measured = {n for n, _, _ in meas}
+    unmeasured = sorted(s.name for s in specs if s.name not in measured)
+    if unmeasured:
+        raise BatchIncompatible(
+            f"{key}: spec limits name measurement(s) {', '.join(unmeasured[:5])} "
+            f"that this deck does not measure (it measures "
+            f"{', '.join(sorted(measured)[:8])})"
+        )
 
     return BatchUnit(
         key=key,
@@ -540,12 +729,13 @@ def translate_deck(
         body="\n".join(body) + "\n",
         process=tuple(sections) if sections else None,
         temp_c=temp_c,
-        supply=tuple(sorted(lifted.items())),
+        lifted=tuple(sorted(lifted.items())),
         analysis=analysis,
         measurements=tuple(meas),
         init=tuple(dict.fromkeys([*extra_init, *init])),
         timeout_s=timeout_s,
         steps=tuple(steps),
+        specs=tuple(sorted(specs, key=lambda s: s.name)),
     )
 
 
@@ -581,18 +771,43 @@ class BatchConfig:
     #: Where to also copy request.json / report.json (evidence), if anywhere.
     evidence_dir: Path | None = None
     #: Submit every request of a run through ONE ``klt sim --batch-set`` call
-    #: (#440) instead of one blocking ``klt sim`` per request. The three knobs
-    #: below are forwarded as ``--max-in-flight`` / ``--wait-for-capacity`` /
-    #: ``--capacity-retries``.
+    #: (#440) instead of one blocking ``klt sim`` per request. ``max_in_flight``
+    #: and ``capacity_retries`` are forwarded as ``--max-in-flight`` /
+    #: ``--capacity-retries`` on that path only (klt documents both as
+    #: ``--batch-set``-specific).
     batch_set: bool = False
     max_in_flight: int = 4
+    #: Forwarded as ``--wait-for-capacity`` on BOTH paths (#467): how long klt
+    #: waits out a ``batch_no_capacity`` / ``batch_concurrency_cap`` launch
+    #: refusal before giving up. 0 means one attempt. Also added to the
+    #: client-side subprocess bound, since klt does not charge this wait to
+    #: the poll timeout.
     wait_for_capacity_s: int = 600
     capacity_retries: int = 3
-    #: Set once a run-wide fatal condition (runner/client ``klt`` mismatch) is
-    #: seen; every later request in the same run is then refused without
-    #: being submitted, so a grid does not burn one fleet job per deck on a
-    #: runner that cannot run it.
+    #: Set once a run-wide fatal condition (runner/client ``klt`` mismatch, a
+    #: runner PDK that is not the local one) is seen; every later request in
+    #: the same run is then refused without being submitted, so a grid does
+    #: not burn one fleet job per deck on a runner that cannot run it.
     halted: str | None = field(default=None, init=False)
+    #: One row per accepted report, naming what the fleet actually simulated:
+    #: ``{job_id, runner_models_lib_sha256, models_lib_sha256, comparison}``.
+    #: :func:`batch_provenance` turns it into the evidence record's
+    #: ``environment.batch`` block.
+    provenance: list[dict] = field(default_factory=list, init=False)
+    #: Memo for :meth:`local_model_lib_sha256`; ``""`` means "tried, could
+    #: not read it" (distinct from "not computed yet").
+    _model_lib_sha256: str | None = field(default=None, init=False, repr=False)
+
+    def local_model_lib_sha256(self) -> str | None:
+        """SHA-256 of ``pdk.model_lib``, hashed once per run, or ``None`` if
+        it cannot be read. This is the digest the fleet runner's own hash is
+        compared against -- not klt's `models_lib_comparison`, which compares
+        the runner against the install *klt* resolved, which need not be the
+        one ``harness.pdk.find_pdk()`` resolved (#468)."""
+        if self._model_lib_sha256 is None:
+            # A benign race between group threads recomputes the same digest.
+            self._model_lib_sha256 = _sha256_file(self.pdk.model_lib) or ""
+        return self._model_lib_sha256 or None
 
 
 @dataclass
@@ -619,46 +834,76 @@ def _safe(name: str) -> str:
 
 
 def _unit_group_key(u: BatchUnit) -> tuple:
+    # `specs` belongs here for the same reason `measurements` does (#496):
+    # `_build_request` emits one `measurements[]` block for the whole group,
+    # read from its first member, so two units graded against different
+    # bounds that grouped together would silently inherit the first unit's.
+    # Limits are constant per experiment today, so this cannot currently
+    # bite -- which is exactly why leaving it out would go unnoticed.
     return (u.body, u.temp_c, u.analysis, u.measurements, u.init, u.timeout_s,
-            tuple(n for n, _ in u.supply), u.process is None, u.steps)
+            tuple(n for n, _ in u.lifted), u.process is None, u.steps, u.specs)
 
 
 def _same(a: float, b: float) -> bool:
     return math.isclose(a, b, rel_tol=1e-9, abs_tol=1e-12)
 
 
+def _request_measurements(
+    measurements: tuple[tuple[str, str, str], ...],
+    specs: tuple[MeasurementSpec, ...],
+) -> list[dict]:
+    """``measurements[]`` for a request: each measurement plus the ratified
+    bounds (and spec row) klt should grade it against, where there are any."""
+    by_name = {s.name: s for s in specs}
+    out = []
+    for name, form, text in measurements:
+        entry = {"name": name, form: text}
+        spec = by_name.get(name)
+        if spec is not None:
+            limits = spec.limits()
+            if limits:
+                entry["limits"] = limits
+            if spec.spec_row:
+                entry["spec_row"] = spec.spec_row
+        out.append(entry)
+    return out
+
+
 def _build_request(units: list[BatchUnit], pdk: Pdk, cfg: BatchConfig) -> dict:
     first = units[0]
     process_names: list[str] = []
     bundles: dict[str, tuple[str, ...]] = {}
-    supply_rows: list[tuple[float, ...]] = []
+    param_rows: list[tuple[float, ...]] = []
     for u in units:
         if u.process is not None and u.process_name not in bundles:
             bundles[u.process_name] = u.process
             process_names.append(u.process_name)
-        row = tuple(v for _, v in u.supply)
-        if not any(len(row) == len(r) and all(_same(a, b) for a, b in zip(row, r)) for r in supply_rows):
-            supply_rows.append(row)
+        row = tuple(v for _, v in u.lifted)
+        if not any(len(row) == len(r) and all(_same(a, b) for a, b in zip(row, r)) for r in param_rows):
+            param_rows.append(row)
 
     corners: dict = {"temperature_c": [first.temp_c]}
     if process_names:
         corners["process"] = [{"name": n, "sections": list(bundles[n])} for n in process_names]
-    supply_keys = [n for n, _ in first.supply]
-    if supply_keys:
-        corners["supply_v"] = {k: [r[i] for r in supply_rows] for i, k in enumerate(supply_keys)}
+    # The lifted values ride klt's parameter axis, not its supply axis: a
+    # `.param` name on `corners.supply_v` is an `alter` of a voltage source
+    # that does not exist, which klt refuses outright (#464).
+    param_keys = [k for k, _ in first.lifted]
+    if param_keys:
+        corners["params"] = {k: [r[i] for r in param_rows] for i, k in enumerate(param_keys)}
 
-    # Sparse grids: exclude every (process, supply) combination not requested.
-    wanted = {(u.process_name, tuple(v for _, v in u.supply)) for u in units}
+    # Sparse grids: exclude every (process, params) combination not requested.
+    wanted = {(u.process_name, tuple(v for _, v in u.lifted)) for u in units}
     exclude = []
     for n in process_names or [None]:
-        for row in supply_rows:
+        for row in param_rows:
             if not any(n == wn and len(row) == len(wr) and all(_same(a, b) for a, b in zip(row, wr))
                        for wn, wr in wanted):
                 spec: dict = {}
                 if n is not None:
                     spec["process"] = n
-                if supply_keys:
-                    spec["supply_v"] = dict(zip(supply_keys, row))
+                if param_keys:
+                    spec["params"] = dict(zip(param_keys, row))
                 exclude.append(spec)
 
     request: dict = {
@@ -667,9 +912,7 @@ def _build_request(units: list[BatchUnit], pdk: Pdk, cfg: BatchConfig) -> dict:
         "backend": BACKEND_BATCH,
         "netlist_source": "schematic",
         "corners": corners,
-        "measurements": [
-            {"name": n, form: txt} for n, form, txt in first.measurements
-        ],
+        "measurements": _request_measurements(first.measurements, first.specs),
         "options": {
             "timeout_s": first.timeout_s,
             "keep_artifacts": True,
@@ -685,6 +928,21 @@ def _build_request(units: list[BatchUnit], pdk: Pdk, cfg: BatchConfig) -> dict:
     else:
         request["analysis"] = {"kind": first.analysis[0], "args": first.analysis[1]}
     if process_names:
+        # No `models.pdk_root` here, deliberately (#464). Pinning the root the
+        # harness resolved is what klt's own multiple-installs warning asks
+        # for, but on this backend klt refuses it: the field is forwarded to
+        # the fleet runner verbatim, where a submitter-local path does not
+        # exist, so `_validate_batch_pdk_root` rejects any `pdk_root` that is
+        # a real directory here (`models_pdk_root_host_path`, klt #4097). It
+        # is refused at submit time, which `--dry-run` never reaches -- so a
+        # dry run would validate and every real submit would die.
+        #
+        # It would not record the right thing either: on batch the models come
+        # from the runner's own PDK image, not this host's install, so the
+        # submitter's root is not the provenance of the simulation. klt
+        # reports the honest comparison itself, in
+        # `environment.remote.models_lib_comparison` (klt #5321: the runner's
+        # executed model-card hash against the client's).
         request["models"] = {
             "pdk": pdk.variant,
             "lib": str(pdk.model_lib.relative_to(pdk.path)),
@@ -714,6 +972,85 @@ def _stage(units: list[BatchUnit], pdk: Pdk, cfg: BatchConfig, name: str,
     return req_path, request
 
 
+@dataclass(frozen=True)
+class StagedRequest:
+    """One ``klt sim`` request written to disk, and the units it covers."""
+
+    #: Group name: the stage subdirectory, and the ``klt-<name>.request.json``
+    #: evidence filename when the request is submitted.
+    name: str
+    #: The written request JSON. Its ``netlist`` is relative to this path's
+    #: own directory, so ``klt sim <path> --dry-run`` resolves from anywhere.
+    path: Path
+    request: dict
+    units: tuple[BatchUnit, ...]
+    #: Positions of :attr:`units` in the list they were grouped from.
+    indices: tuple[int, ...] = ()
+
+    @property
+    def unit_count(self) -> int:
+        """Requested corners this request expands to -- its own units, not
+        counting the sparse-grid cells ``exclude`` carves back out."""
+        return len(self.units)
+
+    @property
+    def temperature_c(self) -> float:
+        return self.units[0].temp_c
+
+
+def _group_name(members: list[BatchUnit]) -> str:
+    return _safe(members[0].key) + (f"+{len(members) - 1}" if len(members) > 1 else "")
+
+
+def group_units(units: list[BatchUnit]) -> list[list[int]]:
+    """Indices of ``units``, grouped into one ``klt sim`` request each.
+
+    Units that share body/analysis/measurements/specs/temperature become one
+    request (a process x parameter matrix, sparse cells excluded); every
+    other unit is its own. The one home for that rule: both
+    :func:`stage_requests` and :func:`run_units` group through here, so a
+    staged request set and a submitted one can never be packaged differently.
+    Duplicate keys are refused -- a result keyed by a name two units share
+    could not be attributed back.
+    """
+    keys = [u.key for u in units]
+    if len(set(keys)) != len(keys):
+        dup = sorted({k for k in keys if keys.count(k) > 1})
+        raise BatchIncompatible(f"duplicate unit keys in one submission: {', '.join(dup[:5])}")
+    groups: dict[tuple, list[int]] = {}
+    for i, u in enumerate(units):
+        groups.setdefault(_unit_group_key(u), []).append(i)
+    return list(groups.values())
+
+
+def _stage_group(units: list[BatchUnit], cfg: BatchConfig, indices: list[int],
+                 *, named: bool = False) -> StagedRequest:
+    members = [units[i] for i in indices]
+    name = _group_name(members)
+    req_path, request = _stage(members, cfg.pdk, cfg, name,
+                               request_name=f"{name}.json" if named else "request.json")
+    return StagedRequest(name=name, path=req_path, request=request,
+                         units=tuple(members), indices=tuple(indices))
+
+
+def stage_requests(units: list[BatchUnit], cfg: BatchConfig,
+                   *, named: bool = True) -> list[StagedRequest]:
+    """Group ``units`` and write one ``klt sim`` request per group, submitting
+    nothing (#496).
+
+    The request-building half of :func:`run_units`: same grouping
+    (:func:`group_units`), same staging (:func:`_stage_group`), same request
+    shape -- it simply stops before ``klt`` is invoked, so it needs neither
+    ``klt`` on PATH nor a reachable fleet. ``named`` writes each request as
+    ``<group>.json`` rather than ``request.json``, so a whole set is
+    distinguishable in one listing and can be passed to ``klt sim
+    --batch-set`` or validated one-by-one with ``klt sim <request>
+    --dry-run``.
+    """
+    return [_stage_group(units, cfg, indices, named=named)
+            for indices in group_units(units)]
+
+
 # --------------------------------------------------------------------------
 # invocation
 # --------------------------------------------------------------------------
@@ -721,14 +1058,30 @@ def _stage(units: list[BatchUnit], pdk: Pdk, cfg: BatchConfig, name: str,
 
 def invoke_klt(req: Path, outdir: Path, cfg: BatchConfig, timeout_s: float) -> dict:
     """Run ``klt sim`` on ``req`` with the batch backend forced; return the
-    parsed report. Re-submits only on the fleet concurrency-cap refusal,
-    within ``cfg.max_cap_wait_s``; every other failure raises."""
+    parsed report.
+
+    ``--wait-for-capacity cfg.wait_for_capacity_s`` is always passed (#467):
+    the fleet is vCPU-budgeted, so a burst is refused routinely, and klt waits
+    the refusal out with backoff instead of failing the submit. Without it a
+    single-request run got one launch attempt. ``--capacity-retries`` is NOT
+    passed -- ``klt sim --help`` documents it as applying with ``--batch-set``
+    only.
+
+    ``timeout_s`` must therefore already include the capacity wait; see
+    :func:`run_units`. klt measures that wait on its own clock and does not
+    charge it to the request's ``batch.poll_timeout_s``, whose clock starts
+    once a launch succeeds.
+
+    Re-submits only on the fleet concurrency-cap refusal, within
+    ``cfg.max_cap_wait_s``; every other failure raises."""
     exe = shutil.which(cfg.klt)
     if not exe:
         raise KltMissing(
             f"'{cfg.klt}' not found on PATH; batch mode never falls back to a local ngspice run"
         )
-    cmd = [exe, "sim", str(req), "-o", str(outdir), "--format", "json", "--backend", BACKEND_BATCH]
+    cmd = [exe, "sim", str(req), "-o", str(outdir), "--format", "json",
+           "--wait-for-capacity", str(cfg.wait_for_capacity_s),
+           "--backend", BACKEND_BATCH]
     deadline = time.monotonic() + cfg.max_cap_wait_s
     delay = 60.0
     while True:
@@ -807,6 +1160,139 @@ def invoke_klt_set(reqs: list[Path], outdir: Path, cfg: BatchConfig, timeout_s: 
     )
 
 
+def _sha256_file(path: Path) -> str | None:
+    """``path``'s SHA-256 as lowercase hex, or ``None`` if it cannot be read.
+
+    Unreadable is not an error here: it makes the runner comparison *not
+    comparable*, which is recorded as such rather than passed off as a match.
+    """
+    digest = hashlib.sha256()
+    try:
+        with open(path, "rb") as fh:
+            for chunk in iter(lambda: fh.read(1 << 20), b""):
+                digest.update(chunk)
+    except OSError:
+        return None
+    return digest.hexdigest()
+
+
+def _hex64(value) -> str | None:
+    """``value`` as a lowercase 64-hex digest, else ``None``.
+
+    Absent, JSON ``null``, a non-string or anything that is not a SHA-256
+    digest all mean "no usable hash" -- never guessed at, and never allowed to
+    compare equal to a real digest.
+    """
+    if not isinstance(value, str):
+        return None
+    text = value.strip().lower()
+    return text if _SHA256_RE.match(text) else None
+
+
+def _remote_jobs(remote: dict) -> list[dict]:
+    """The per-fleet-job records in ``environment.remote``.
+
+    A single-job report carries ``job_id`` / ``runner_models_lib_sha256`` /
+    ``models_lib_comparison`` on ``remote`` itself; a submission that fanned
+    out to several jobs carries one entry per member under ``remote.fleet``
+    (klt 0.9.2). Both shapes are gated and recorded the same way.
+    """
+    fleet = remote.get("fleet")
+    members = [m for m in fleet if isinstance(m, dict)] if isinstance(fleet, list) else []
+    return members or [remote]
+
+
+def _klt_comparison(value) -> tuple[str | None, str]:
+    """klt's own ``models_lib_comparison`` -> ``(status, reason)``.
+
+    ``status`` is ``None`` for a field that is absent or not an object, so a
+    malformed comparison is never read as a verdict either way.
+    """
+    if not isinstance(value, dict):
+        return None, ""
+    status = value.get("status")
+    reason = value.get("reason") or value.get("warning") or ""
+    return (status if isinstance(status, str) else None), str(reason)[:300]
+
+
+def _models_lib_rows(remote: dict, job_id: str, cfg: BatchConfig) -> list[dict]:
+    """Gate a report's fleet jobs on the PDK the runner actually read, and
+    return one provenance row per job.
+
+    Fail closed, exactly as ``runner_compatibility`` already does: a runner
+    digest that differs from this host's ``pdk.model_lib``, or klt's own
+    client-vs-runner ``mismatch`` verdict, raises :class:`BatchPdkMismatch`
+    (so no unit of the report is ``ok`` and the run halts). A job with no
+    usable runner digest -- an older runner, staged models, a model library
+    this host cannot read -- is accepted and recorded as not comparable.
+    """
+    local = cfg.local_model_lib_sha256()
+    why = "a record of it would name a PDK build the simulation never read"
+    fix = (
+        "point PDK_ROOT (or sim/pdk.local.json) at the install the fleet runner uses, "
+        f"instead of {cfg.pdk.path} (found via {cfg.pdk.source})"
+    )
+    rows: list[dict] = []
+    for job_rec in _remote_jobs(remote):
+        job = str(job_rec.get("job_id") or job_id)
+        runner_hash = _hex64(job_rec.get("runner_models_lib_sha256"))
+        klt_status, klt_reason = _klt_comparison(job_rec.get("models_lib_comparison"))
+        if klt_status == "mismatch":
+            raise BatchPdkMismatch(
+                f"fleet job {job}: klt reports models_lib_comparison='mismatch' -- the "
+                "runner did not read the model library the client resolved"
+                + (f": {klt_reason}" if klt_reason else "")
+                + f"; its result is not accepted, because {why} -- {fix}"
+            )
+        if runner_hash is not None and local is not None and runner_hash != local:
+            raise BatchPdkMismatch(
+                f"fleet job {job}: the runner read model library sha256 {runner_hash}, "
+                f"but this host resolved {local} ({cfg.pdk.model_lib}); its result is "
+                f"not accepted, because {why} -- {fix}"
+            )
+        if runner_hash is None:
+            comparison = {"status": "not_comparable", "reason": "runner_hash_unavailable"}
+        elif local is None:
+            comparison = {"status": "not_comparable", "reason": "client_hash_unavailable"}
+        else:
+            comparison = {"status": "match"}
+        rows.append({
+            "job_id": job,
+            "runner_models_lib_sha256": runner_hash,
+            "models_lib_sha256": local,
+            "comparison": comparison,
+            "klt_models_lib_comparison": klt_status,
+        })
+    return rows
+
+
+def batch_provenance(cfg: BatchConfig) -> dict:
+    """What the fleet actually simulated, for the evidence record (#468).
+
+    One entry per accepted report in ``cfg.provenance`` plus an aggregate
+    verdict: ``match`` only when every job's runner digest was compared and
+    equal, otherwise ``not_comparable`` (``mismatch`` cannot appear -- such a
+    report is rejected before it is recorded). ``no_accepted_report`` when the
+    run accepted none, so an all-failed batch run does not render as a local
+    one. Callers pass the result to ``report.build_record`` /
+    ``mc_report.build_mc_record`` as ``batch=``.
+    """
+    jobs = list(cfg.provenance)
+    statuses = {str(j.get("comparison", {}).get("status")) for j in jobs}
+    if not jobs:
+        overall = "no_accepted_report"
+    elif statuses == {"match"}:
+        overall = "match"
+    else:
+        overall = "not_comparable"
+    return {
+        "backend": BACKEND_BATCH,
+        "models_lib_sha256": cfg.local_model_lib_sha256(),
+        "models_lib_comparison": overall,
+        "jobs": jobs,
+    }
+
+
 def _finite(value) -> float | None:
     """``value`` as a float if it is a finite JSON number, else ``None``.
     Booleans (a JSON ``true`` is a Python ``int``) and strings are refused."""
@@ -824,19 +1310,21 @@ def _match(report_corners: list[dict], unit: BatchUnit) -> list[dict]:
         t = _finite(c.get("temperature_c"))
         if t is None or not _same(t, unit.temp_c):
             continue
-        if unit.supply:
-            sv = c.get("supply_v")
-            if not isinstance(sv, dict):
+        if unit.lifted:
+            # klt reports a parameter-axis point under `params` (present only
+            # when the request had such an axis), not under `supply_v`.
+            pv = c.get("params")
+            if not isinstance(pv, dict):
                 continue
-            if any(_finite(sv.get(k)) is None or not _same(_finite(sv[k]), v)
-                   for k, v in unit.supply):
+            if any(_finite(pv.get(k)) is None or not _same(_finite(pv[k]), v)
+                   for k, v in unit.lifted):
                 continue
         hits.append(c)
     return hits
 
 
 def _collect_group(
-    units: list[BatchUnit], report: dict, tolerate_absent: bool, stage: Path
+    units: list[BatchUnit], report: dict, tolerate_absent: bool, cfg: BatchConfig
 ) -> list[UnitOutcome]:
     remote = (report.get("environment") or {}).get("remote")
     if not isinstance(remote, dict) or not remote.get("job_id"):
@@ -854,6 +1342,10 @@ def _collect_group(
             "submit with a klt client that matches the fleet runner (--klt), or "
             "update the runner image"
         )
+    # What the runner's PDK image actually provided, before any corner is
+    # judged: an accepted result must have been simulated against the model
+    # library the record is about to name (#468).
+    provenance = _models_lib_rows(remote, job_id, cfg)
     corners = report.get("corners")
     if not isinstance(corners, list):
         raise BatchResultError("report 'corners' is not a list")
@@ -866,7 +1358,7 @@ def _collect_group(
         if not hits:
             outcomes.append(UnitOutcome(u, "error", "no result returned for this unit "
                                         f"(process={u.process_name}, temp={u.temp_c:g}, "
-                                        f"supply={dict(u.supply)})", job_id=job_id))
+                                        f"params={dict(u.lifted)})", job_id=job_id))
             continue
         if len(hits) > 1:
             outcomes.append(UnitOutcome(u, "error", f"{len(hits)} results returned for this unit "
@@ -880,6 +1372,9 @@ def _collect_group(
             f"report contains {len(unmatched)} corner(s) that match no requested unit "
             f"(e.g. {unmatched[0].get('corner_id')!r})"
         )
+    # Accepted: record what the fleet read. `list.append` from the group
+    # threads needs no lock; the rows are only read once the run is over.
+    cfg.provenance.extend(provenance)
     return outcomes
 
 
@@ -1009,28 +1504,23 @@ def run_units(
     """Submit ``units`` through ``klt sim --backend batch``; one outcome each,
     in input order.
 
-    Units that share body/analysis/measurements/temperature are submitted as
-    one request (a process x supply matrix, sparse cells excluded); every
-    other unit is its own request. ``tolerate_absent`` keeps a corner whose
-    only error diagnostics are an absent ``.meas`` (see
-    :data:`ABSENT_MEASUREMENT_CODES`) as ``ok`` with the gap listed in
-    ``absent`` -- the contract of the control scripts, where an absent
-    measurement means "never happened". Request-level failures become error
-    outcomes for that request's units; a missing ``klt`` raises
-    :class:`KltMissing`.
+    Units are grouped and staged by the same :func:`group_units` /
+    :func:`_stage_group` pair :func:`stage_requests` uses, so a submitted
+    request is packaged exactly as ``--emit-request`` would have written it.
+
+    ``tolerate_absent`` keeps a corner whose only error diagnostics are an
+    absent ``.meas`` (see :data:`ABSENT_MEASUREMENT_CODES`) as ``ok`` with
+    the gap listed in ``absent`` -- the contract of the control scripts,
+    where an absent measurement means "never happened". Request-level
+    failures become error outcomes for that request's units; a missing
+    ``klt`` raises :class:`KltMissing`.
     """
-    keys = [u.key for u in units]
-    if len(set(keys)) != len(keys):
-        dup = sorted({k for k in keys if keys.count(k) > 1})
-        raise BatchIncompatible(f"duplicate unit keys in one submission: {', '.join(dup[:5])}")
+    batches = group_units(units)
     if not shutil.which(cfg.klt):
         raise KltMissing(
             f"'{cfg.klt}' not found on PATH; batch mode never falls back to a local ngspice run"
         )
 
-    groups: dict[tuple, list[int]] = {}
-    for i, u in enumerate(units):
-        groups.setdefault(_unit_group_key(u), []).append(i)
     results: list[UnitOutcome | None] = [None] * len(units)
 
     def record(members: list[BatchUnit], name: str, req_path: Path, report: dict) -> list[UnitOutcome]:
@@ -1041,7 +1531,7 @@ def run_units(
             shutil.copyfile(req_path, cfg.evidence_dir / f"klt-{name}.request.json")
             shutil.copyfile(req_path.parent / "report.json",
                             cfg.evidence_dir / f"klt-{name}.report.json")
-        return _collect_group(members, report, tolerate_absent, req_path.parent)
+        return _collect_group(members, report, tolerate_absent, cfg)
 
     def deliver(indices: list[int], outs: list[UnitOutcome]) -> None:
         for i, out in zip(indices, outs):
@@ -1049,23 +1539,27 @@ def run_units(
             if on_outcome is not None:
                 on_outcome(out)
 
-    def group_name(members: list[BatchUnit]) -> str:
-        return _safe(members[0].key) + (f"+{len(members) - 1}" if len(members) > 1 else "")
-
     def do_group(indices: list[int]) -> None:
         members = [units[i] for i in indices]
-        name = group_name(members)
+        name = _group_name(members)
         try:
             if cfg.halted:
-                raise BatchRunnerMismatch(f"not submitted: {cfg.halted}")
-            req_path, request = _stage(members, cfg.pdk, cfg, name)
+                raise BatchRunFatal(f"not submitted: {cfg.halted}")
+            staged = _stage_group(units, cfg, indices)
+            req_path, request = staged.path, staged.request
             n_corners = len(members) + len(request.get("exclude", []))
             poll = cfg.poll_timeout_s or (members[0].timeout_s * n_corners + 1800 + 120)
-            report = invoke_klt(req_path, req_path.parent / "klt", cfg, poll + cfg.client_slack_s)
+            # The capacity wait is additive, not part of ``poll`` (#467): klt
+            # runs it on its own clock before the poll clock starts, so a
+            # submit that waits out a full refusal window and then runs must
+            # not be killed by our own subprocess bound. Mirrors the
+            # ``cfg.wait_for_capacity_s * waves`` term in ``do_set``.
+            report = invoke_klt(req_path, req_path.parent / "klt", cfg,
+                                poll + cfg.wait_for_capacity_s + cfg.client_slack_s)
             outs = record(members, name, req_path, report)
         except KltMissing:
             raise
-        except BatchRunnerMismatch as exc:
+        except BatchRunFatal as exc:
             if not cfg.halted:
                 cfg.halted = f"an earlier request in this run was rejected: {exc}"
             outs = [UnitOutcome(u, "error", str(exc)) for u in members]
@@ -1079,10 +1573,8 @@ def run_units(
         outcome for that member's units only -- never dropped, never ok."""
         staged: list[tuple[list[int], list[BatchUnit], str, Path, dict]] = []
         for b in batches:
-            members = [units[i] for i in b]
-            name = group_name(members)
-            req_path, request = _stage(members, cfg.pdk, cfg, name, request_name=f"{name}.json")
-            staged.append((b, members, name, req_path, request))
+            s = _stage_group(units, cfg, b, named=True)
+            staged.append((b, list(s.units), s.name, s.path, s.request))
         longest = max(m[0].timeout_s * (len(m) + len(r.get("exclude", []))) + 1800 + 120
                       for _, m, _, _, r in staged)
         waves = -(-len(staged) // max(1, cfg.max_in_flight))
@@ -1116,10 +1608,14 @@ def run_units(
                     raise BatchResultError(f"request {req_path.name}: report is not a corner report")
                 outs = record(members, name, req_path, report)
             except (BatchError, OSError, json.JSONDecodeError) as exc:
+                # The whole set was already submitted in one klt call, so
+                # halting cannot un-submit a member -- but it still refuses a
+                # later `run_units` on this config, as `do_group` does.
+                if isinstance(exc, BatchRunFatal) and not cfg.halted:
+                    cfg.halted = f"an earlier request in this run was rejected: {exc}"
                 outs = [UnitOutcome(u, "error", str(exc)) for u in members]
             deliver(b, outs)
 
-    batches = list(groups.values())
     if cfg.batch_set:
         if cfg.halted:
             for b in batches:

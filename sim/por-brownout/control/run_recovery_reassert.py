@@ -106,7 +106,6 @@ from __future__ import annotations
 
 import os
 import sys
-from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 CONTROL_DIR = Path(__file__).resolve().parent
@@ -168,13 +167,8 @@ def deck(pdk, options: list[str], corner_name: str, temp_c: float, vdd: float,
         "",
     ]
     lines += runner.deck_preamble(pdk, corner, temp_c, options)
-    lines += [
-        "",
-        f'.include "{os.path.relpath(fragment, deck_dir)}"',
-        "",
-        ".control",
-        "set numdgt=8",
-        "set noaskquit",
+    lines += ["", *runner.deck_includes(deck_dir, fragment), ""]
+    body = [
         f"tran 20u {T_END_MS:g}m",
         # Rail-NORMALISED logic levels, for the same reason
         # run_dip_rootcause.py uses them: during the dip the rail IS 1.0 V,
@@ -205,14 +199,13 @@ def deck(pdk, options: list[str], corner_name: str, temp_c: float, vdd: float,
         f"meas tran t_rst when rst_r=0.1 fall=1 td={T_DIP_MS:g}m",
         f"meas tran rst_min min v(resetn) from={T_DIP_MS:g}m to={T_END_MS:g}m",
         f"meas tran rst_final find v(resetn) at=54.5m",
-        ".endc",
-        ".end",
-        "",
     ]
+    lines += runner.deck_control_block(body, numdgt=8)
     return "\n".join(lines)
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
+    cliutil.parse_no_options(argv, __doc__)
     toolchain = cliutil.locate_toolchain(need_ngspice=False)
     if toolchain is None:
         return cliutil.EXIT_ENVIRONMENT
@@ -228,13 +221,7 @@ def main() -> int:
             jobs.append((name, deck(pdk, options, corner_name, temp_c, vdd, fragment)))
 
     print(f"running {len(jobs)} decks ({len(ARMS)} arms x {len(POINTS)} points) ...")
-    with ThreadPoolExecutor(max_workers=min(8, len(jobs))) as pool:
-        results = dict(
-            zip(
-                [name for name, _ in jobs],
-                pool.map(lambda job: runner.run_deck(*job, CONTROL_DIR), jobs),
-            )
-        )
+    results = runner.run_decks(jobs, CONTROL_DIR, 8)
     for name in results:
         print(f"  {name}: {len(results[name])} measurements")
 

@@ -60,9 +60,7 @@ Stdlib only, no virtualenv required.
 
 from __future__ import annotations
 
-import os
 import sys
-from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 CONTROL_DIR = Path(__file__).resolve().parent
@@ -188,7 +186,7 @@ def patched_bias_core(mult: int, out_path: Path) -> Path:
 
 
 def assembly_deck(
-    pdk, options, name, dip_v, edge_ms, netlist: Path, dwell_ms=T_DWELL_MS
+    pdk, options, dip_v, edge_ms, netlist: Path, dwell_ms=T_DWELL_MS
 ) -> str:
     t_end_ms = T_DIP_MS + 2 * edge_ms + dwell_ms + 1.0
     t_dip_end_ms = T_DIP_MS + edge_ms + dwell_ms
@@ -201,12 +199,10 @@ def assembly_deck(
         f".param t_dwell={dwell_ms}m",
         f".param dip_v={dip_v}",
         "",
-        f'.include "{os.path.relpath(ASSEMBLY_FRAGMENT, deck_dir)}"',
-        f'.include "{os.path.relpath(netlist, deck_dir)}"',
+        *runner.deck_includes(deck_dir, ASSEMBLY_FRAGMENT, netlist),
         "",
-        ".control",
-        "set numdgt=8",
-        "set noaskquit",
+    ]
+    body = [
         f"tran 20u {t_end_ms}m",
         # Rail-NORMALISED logic levels. An absolute threshold is meaningless
         # here: during the dip the rail IS 1.0-2.3 V, so "v(por_raw) crosses
@@ -248,14 +244,12 @@ def assembly_deck(
         f"meas tran rst_min min v(resetn) from={T_DIP_MS}m to={t_dip_end_ms}m",
         f"meas tran t_rst when rst_r=0.1 fall=1 td={T_DIP_MS}m",
         f"meas tran vdd_at_rst find v(vdd) when rst_r=0.1 fall=1 td={T_DIP_MS}m",
-        ".endc",
-        ".end",
-        "",
     ]
+    lines += runner.deck_control_block(body, numdgt=8)
     return "\n".join(lines)
 
 
-def cell_deck(pdk, options, name, ibias_a) -> str:
+def cell_deck(pdk, options, ibias_a) -> str:
     t_edge_ms = 0.001
     t_dip_end_ms = T_DIP_CELL_MS + t_edge_ms + T_DWELL_MS
     deck_dir = CONTROL_DIR / "decks"
@@ -267,12 +261,10 @@ def cell_deck(pdk, options, name, ibias_a) -> str:
         f".param t_dwell={T_DWELL_MS}m",
         f".param ibias_a={ibias_a!r}",
         "",
-        f'.include "{os.path.relpath(CELL_FRAGMENT, deck_dir)}"',
-        f'.include "{os.path.relpath(CELL_NETLIST, deck_dir)}"',
+        *runner.deck_includes(deck_dir, CELL_FRAGMENT, CELL_NETLIST),
         "",
-        ".control",
-        "set numdgt=8",
-        "set noaskquit",
+    ]
+    body = [
         f"tran 20u {t_dip_end_ms}m",
         "let rst_r = v(resetn)/(v(vdd)+0.001)",
         f"meas tran rst_pre find v(resetn) at={T_DIP_CELL_MS - 0.1}m",
@@ -286,10 +278,8 @@ def cell_deck(pdk, options, name, ibias_a) -> str:
         # the end of the dwell
         f"meas tran isink_pre find i(vforce) at={T_DIP_CELL_MS - 0.1}m",
         f"meas tran isink_end find i(vforce) at={t_dip_end_ms}m",
-        ".endc",
-        ".end",
-        "",
     ]
+    lines += runner.deck_control_block(body, numdgt=8)
     return "\n".join(lines)
 
 
@@ -299,7 +289,8 @@ def fmt(value, digits=4, unit="", missing="—"):
     return f"{value:.{digits}f}{unit}"
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
+    cliutil.parse_no_options(argv, __doc__)
     toolchain = cliutil.locate_toolchain(need_ngspice=False)
     if toolchain is None:
         return cliutil.EXIT_ENVIRONMENT
@@ -316,17 +307,17 @@ def main() -> int:
     for depth in DEPTHS_V:
         name = f"a-depth-{depth:.2f}v"
         jobs.append(
-            (name, assembly_deck(pdk, options, name, depth, EDGE_PARENT_MS,
+            (name, assembly_deck(pdk, options, depth, EDGE_PARENT_MS,
                                  ASSEMBLY_NETLIST))
         )
     for edge in EDGES_MS:
         name = f"b-edge-{edge:g}ms"
         jobs.append(
-            (name, assembly_deck(pdk, options, name, 1.0, edge, ASSEMBLY_NETLIST))
+            (name, assembly_deck(pdk, options, 1.0, edge, ASSEMBLY_NETLIST))
         )
     for label, current in IBIAS_A:
         name = f"c-ibias-{label}"
-        jobs.append((name, cell_deck(pdk, options, name, current)))
+        jobs.append((name, cell_deck(pdk, options, current)))
     for label, mult, dwell in BOOTSTRAP:
         name = f"d-cboot-{label}"
         netlist = ASSEMBLY_NETLIST
@@ -336,7 +327,7 @@ def main() -> int:
             (
                 name,
                 assembly_deck(
-                    pdk, options, name, 1.0, EDGE_PARENT_MS, netlist,
+                    pdk, options, 1.0, EDGE_PARENT_MS, netlist,
                     dwell_ms=dwell,
                 ),
             )
@@ -347,20 +338,14 @@ def main() -> int:
             (
                 name,
                 assembly_deck(
-                    pdk, options, name, 1.0, EDGE_PARENT_MS, ASSEMBLY_NETLIST,
+                    pdk, options, 1.0, EDGE_PARENT_MS, ASSEMBLY_NETLIST,
                     dwell_ms=dwell,
                 ),
             )
         )
 
     print(f"running {len(jobs)} decks at {CORNER} / {TEMP_C} C / {VDD_V} V ...")
-    with ThreadPoolExecutor(max_workers=min(8, len(jobs))) as pool:
-        results = dict(
-            zip(
-                [name for name, _ in jobs],
-                pool.map(lambda job: runner.run_deck(*job, CONTROL_DIR), jobs),
-            )
-        )
+    results = runner.run_decks(jobs, CONTROL_DIR, 8)
     for name in results:
         print(f"  {name}: {len(results[name])} measurements")
 

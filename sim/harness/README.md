@@ -272,28 +272,38 @@ does not move with temperature is broken, not perfect.
 
 ## What a run writes
 
-One run mints one `<record-id>` (`<YYYYMMDD>-<HHMMSS>-<short-git-sha>`) and
-writes, under `sim/<experiment-slug>/`:
+One run mints one `<record-id>` (`<YYYYMMDD>-<HHMMSS>-<short-git-sha>`). Per
+[DR-030](../../spec/decision-records/DR-030-evidence-artifact-store.md) the raw
+bytes are **not** committed: the runner stages them under the git-ignored
+`sim/.work/evidence-stage/`, stores them with `klt artifact put`, and commits
+only the manifest and the summary record. One run therefore writes:
 
 | Path | Contents |
 |---|---|
-| `records/<record-id>.md` | the append-only summary record (the nine fields from `sim/README.md`, plus an Environment section with PDK / ngspice / harness / git provenance and the per-corner model sections) |
-| `netlist-snapshots/<record-id>.spice` | verbatim frozen copy of the testbench fragment, with its sha256 |
-| `corners/<record-id>/<corner-id>.log` | raw ngspice output, one file per PVT point |
+| `sim/<experiment-slug>/records/<record-id>.md` | the append-only summary record (the nine fields from `sim/README.md`, plus an Environment section with PDK / ngspice / harness / git provenance and the per-corner model sections); its **Links** field cites the manifest below |
+| `manifests/artifacts/<experiment-slug>-<record-id>.manifest.json` | each stored object by name, size, sha256 and `artifact:` URI — the netlist snapshot (`<record-id>.spice`, a verbatim frozen copy of the testbench fragment) and the raw ngspice output, one `<corner-id>.log` per PVT point |
+
+The store is checked before anything is simulated and the bytes are published
+before the record is written, so a worker that cannot publish records nothing:
+there is no fallback that commits the bytes. Fetch or check a record's raw
+bytes with `klt artifact get` / `klt artifact verify` — see "New records" in
+`sim/README.md`.
 
 Nothing is ever overwritten: the runner refuses to write over an existing
-record or snapshot, and mints a later record-id if one is somehow already
-taken. Corrections and re-runs get a new record-id and reference the prior one
-with `--supersedes <record-id>`. Do not edit or delete anything under
-`records/`, `netlist-snapshots/` or `corners/` — see the append-only rule in
+record or manifest, and mints a later record-id if one is somehow already
+taken (an id is occupied by a record, or by a pre-DR-030 snapshot or raw-log
+directory). Corrections and re-runs get a new record-id and reference the
+prior one with `--supersedes <record-id>`. Do not edit or delete anything
+under `records/`, `manifests/artifacts/`, or the pre-DR-030
+`netlist-snapshots/` and `corners/` directories — see the append-only rule in
 `sim/README.md`.
 
 **A run where every point failed writes nothing.** If not one point in the
 grid produced a measurement — most often because `--timeout` was too short
 for the deck's own transient span, so every point died from the same
 environmental cause rather than from anything about the circuit — the runner
-refuses to write `records/`, `netlist-snapshots/` or `corners/` at all,
-including any `--supersedes` the run was asked to record, and exits `3`. That
+refuses to publish or record anything at all — no record, no manifest,
+including any `--supersedes` the run was asked to record — and exits `3`. That
 mirrors the unjustified-subset gate above: a wall-clock timeout is a property
 of the machine and the flags, not of the circuit, so it is closer to an
 environment problem than to simulation evidence, and it must never be able to
@@ -426,6 +436,37 @@ field names the batch backend and klt version instead of a local ngspice.
   `bash sim/selftest.sh --klt-pin 0.5.0` on a `KLT_SIM_BACKEND=batch` host
   whose runner is on 0.5.0. A pin that still disagrees with the runner is
   refused exactly as before; the full PVT smoke grid is unchanged.
+* PDK skew (#468): on batch the device models come from the **fleet runner's
+  own PDK image**, not from the install `harness.pdk.find_pdk()` resolved on
+  this host — and the two can differ (two `gf180mcuD` installs on the same
+  worker, different open_pdks builds). A report is accepted only when the
+  model library the runner executed is the one this host resolved: the
+  SHA-256 of `pdk.model_lib` is compared with
+  `environment.remote.runner_models_lib_sha256`, and klt's own
+  client-vs-runner verdict `models_lib_comparison: "mismatch"` is refused
+  too. Either way the whole run halts — later requests are refused without
+  being submitted, like a `runner_compatibility` mismatch — and the error
+  names both digests, the local path, and the fix: point `PDK_ROOT` (or
+  `sim/pdk.local.json`) at the install the runner uses. A report that carries
+  no usable runner digest (an older runner, staged models, a model library
+  this host cannot read) is **accepted and recorded as not comparable**,
+  never as a match. The gate is in the one seam every batch path passes
+  through, so the ~20 control scripts that write their own `pdk=` line from
+  the local `Pdk` object are true without being edited: a batch result can
+  only be accepted when the local model library is the runner's. Not covered:
+  `design.ngspice`, which `translate_deck` inlines from the local install and
+  klt reports no digest for.
+* Record fields (#468): a batch-backend record carries
+  `environment.batch` — `{backend, models_lib_sha256, models_lib_comparison,
+  jobs[]}`, one `jobs[]` entry per accepted fleet job with its `job_id`, the
+  runner's digest and the per-job comparison (`match` /
+  `not_comparable` + reason; `mismatch` cannot appear, such a report is never
+  recorded). The rendered record shows them directly under its `- PDK:` line,
+  so a reader sees both the install this host resolved and the build the
+  simulation actually read. A **local**-backend record is byte-for-byte
+  unchanged: the key is absent, not empty. `klt_batch.batch_provenance(cfg)`
+  builds the block; `run_corners.py` / `run_mc.py` pass it to the record
+  builders.
 * An aborted analysis is never an absent measurement: a corner whose raw log
   carries ngspice's `simulation(s) aborted` trailer, or for which no requested
   measurement produced a value at all, is an `error` even where an absent
@@ -458,13 +499,84 @@ field names the batch backend and klt version instead of a local ngspice.
   / the script's worker count; a fleet concurrency-cap refusal is retried with
   bounded jittered backoff.
 
+### Building a request without submitting it (`--emit-request DIR`)
+
+`python3 sim/run_corners.py <testbench> --emit-request DIR` builds the `klt
+sim` request(s) for the experiment's corner grid, writes them under `DIR`, and
+stops. Nothing is submitted, no evidence record is minted, and the path needs
+no `klt`, no fleet and no local ngspice — only the PDK, because the design
+include is inlined and the `.lib` sections are resolved against it.
+
+```bash
+python3 sim/run_corners.py por-vth --emit-request /tmp/por-vth-req
+# DIR/requests/<group>/<group>.json   the request, plus its body.spice
+# DIR/decks/<corner-id>.spice         the local-equivalent deck per point
+
+klt sim /tmp/por-vth-req/requests/<group>/<group>.json --dry-run --format json
+# -> {"status": "valid", "unit_count": 27, "warnings": []}
+```
+
+* The request shape is always the batch backend's, whatever `--backend` says:
+  it is `--backend batch`'s request without the submit. `--corners` /
+  `--corner-set` / `--temps` / `--supply` / `--supply-tol` select the grid
+  exactly as they do for a run; a grid narrower than the mandated PVT matrix
+  is reported (`subset :`) rather than refused, because nothing is recorded.
+* Packaging is the submit path's, not a second one: `klt_batch.group_units()`
+  and `klt_batch.stage_requests()` do the grouping and staging for both, so a
+  staged request is byte-for-byte what a submit would have sent. For `por-vth`
+  that is **81 units in 3 request files** — one request per temperature (a
+  `klt sim` request carries one `corners.temperature_c`), each a 9-process ×
+  3-supply matrix.
+* Each request's `measurements[]` carries the ratified bounds the manifest's
+  `checks` declare as `limits` (`min`/`max`, each present only where `tb.json`
+  declares it — never a `null`), so the fleet grades every corner itself:
+  klt returns a per-corner `status` plus a signed `margin`, and in the rollup
+  the binding corner (`worst_case.corner_id`) and the true `min`/`max`
+  extremes. A check with neither bound (a grid-level `max_spread_pct`)
+  contributes no `limits` at all — an empty `limits` would read as "never
+  fails".
+* A measurement that substantiates a ratified spec row also carries
+  `spec_row`, which klt consumes for row coverage. The row id is read from the
+  **leading** `spec/target-spec.md#<row-id>` reference of the check's
+  `description` — there is no structured field for it. A row cited in prose
+  further in ("at the fast end of `spec/target-spec.md#por-ramp-rate`") is not
+  tagged: that check does not measure that row's bound. For `por-vth` exactly
+  three measurements are tagged (`vpor_rise_v` → `por-vth-rise`, `vpor_fall_v`
+  → `por-vth-fall`, `v_hys_mv` → `por-hysteresis`); the nine guard/integrity
+  checks carry `limits` and no `spec_row`, which is the correct outcome. A
+  `description` naming a row `spec/target-spec.md` does not ratify is an
+  error, not a request claiming a row that does not exist.
+* A deck `translate_deck` cannot express **fails the whole emit** rather than
+  producing a request set with a hole in it — a 2-request set for a 3-request
+  grid looks like a complete one. (On the submit path the same deck is an
+  `error` result for that point, because the other points' results are still
+  evidence.)
+* A `DIR/requests` that already holds a request set is refused: a leftover
+  request from a wider grid is indistinguishable from part of the new one once
+  both are in the directory.
+
+The **submit** path (`--backend batch`) deliberately sends no `limits`. A
+klt-graded `fail` corner is an error outcome there whose measured values are
+dropped (`klt_batch._judge` treats any non-`pass` corner status as a run
+failure), so attaching the bounds would record every out-of-spec corner as a
+simulation error — including the checks whose own manifests document them as
+expected to fail — and, in a Monte Carlo campaign, would remove the
+out-of-bounds samples from the yield denominator entirely: a yield that reads
+100% by construction. The harness's own `checks` (`report.evaluate_checks`)
+remain the only grading of a fleet run; whether the fleet's grade should join
+them, and what a graded `fail` should then be recorded as, is the submit
+half's open decision (#388). The bounds stay on `--emit-request`: a request
+file states what the fleet would be asked to grade.
+
 Reuse `klt_batch.translate_deck()` / `run_units()` for other `run_deck*`
-callers rather than re-implementing request staging.
+callers rather than re-implementing request staging, and
+`klt_batch.stage_requests()` when you need the request without the run.
 
 Before a full grid goes to the fleet, submit one deck first (for example
 `run_dwell_sweep.py --backend batch --smoke`) and compare it with the
-committed local log of the same deck. A runner/client mismatch or a request
-shape that does not translate then shows up after one job instead of 324.
+committed local log of the same deck. A runner/client mismatch, a runner whose
+PDK image is not the install this host resolved, or a request shape that does
+not translate then shows up after one job instead of 324.
 
 ## smoke-bias
 

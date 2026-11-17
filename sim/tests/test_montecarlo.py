@@ -20,7 +20,7 @@ sys.path.insert(0, str(SIM_DIR))
 from harness import mc_report, montecarlo, testbench  # noqa: E402
 from harness.montecarlo import BindingPoint, ManifestError, McPoint  # noqa: E402
 from harness.runner import PointResult  # noqa: E402
-from testutil import fake_pdk  # noqa: E402
+from testutil import fake_pdk, published  # noqa: E402
 
 
 class BindingPointTests(unittest.TestCase):
@@ -203,6 +203,25 @@ class DeckCompositionTests(unittest.TestCase):
         self.assertIn(".param vdd_val=3.63", self.deck)
         self.assertIn(".temp -40", self.deck)
 
+    def test_deck_tail_is_the_shared_control_block(self):
+        """The measurement tail is ``runner.deck_control_block()``'s exact
+        shape (#597): the shared settings lines, the indented body, then
+        ``.endc`` / ``.end``."""
+        self.assertTrue(
+            self.deck.endswith(
+                ".control\n"
+                "set numdgt=10\n"
+                "set noaskquit\n"
+                "  dc temp -40 -40 1\n"
+                "  let m_vout = v(out)\n"
+                "  print m_vout\n"
+                ".endc\n"
+                ".end\n"
+            ),
+            "MC deck tail drifted off deck_control_block()'s shape "
+            f"(#597); tail now:\n{self.deck[-300:]}",
+        )
+
 
 class DeriveTempTrimTests(unittest.TestCase):
     def test_zero_curvature_zero_die_gives_only_quantisation(self):
@@ -336,7 +355,7 @@ class RecordRenderingTests(unittest.TestCase):
             for i, p in enumerate(self.points)
         ]
         self.summary = montecarlo.summarize_mc(self.results, ["vout"], self.tb.checks)
-        self.record = mc_report.build_mc_record(
+        self.record = published(mc_report.build_mc_record(
             tb=self.tb,
             pdk=self.pdk,
             binding_points=self.binding_points,
@@ -352,7 +371,7 @@ class RecordRenderingTests(unittest.TestCase):
             seed_base=1,
             derived_measures=[],
             claim="spec/target-spec.md#example",
-        )
+        ), "mc-experiment")
 
     def test_every_ratified_field_is_present_and_in_order(self):
         text = mc_report.render_mc_record(self.record, "mc-experiment")
@@ -362,6 +381,37 @@ class RecordRenderingTests(unittest.TestCase):
             self.assertIn(marker, text, f"missing ratified field {field!r}")
             positions.append(text.index(marker))
         self.assertEqual(positions, sorted(positions), "fields are out of ratified order")
+
+    def test_a_local_mc_record_carries_no_batch_block_and_a_batch_one_does(self):
+        """#468: on the batch backend the models come from the fleet runner's
+        image, so the MC record names what the runner read; a local record is
+        unchanged."""
+        self.assertNotIn("batch", self.record["environment"])
+        text = mc_report.render_mc_record(self.record, "mc-experiment")
+        self.assertNotIn("fleet runner", text)
+
+        provenance = {
+            "backend": "batch",
+            "models_lib_sha256": "a" * 64,
+            "models_lib_comparison": "match",
+            "jobs": [{"job_id": "klt-sim-mc-1", "runner_models_lib_sha256": "a" * 64,
+                      "models_lib_sha256": "a" * 64,
+                      "comparison": {"status": "match"},
+                      "klt_models_lib_comparison": "match"}],
+        }
+        batch_record = published(mc_report.build_mc_record(
+            tb=self.tb, pdk=self.pdk, binding_points=self.binding_points,
+            points=self.points, results=self.results, summary=self.summary,
+            ngspice="batch via klt sim", repo_root=SIM_DIR,
+            record_id="20260802-153000-1a7ef76",
+            started_utc="2026-08-02T15:30:00+00:00", wall_seconds=120.0,
+            n_per_point=500, seed_base=1, derived_measures=[],
+            claim="spec/target-spec.md#example", batch=provenance,
+        ), "mc-experiment")
+        self.assertEqual(batch_record["environment"]["batch"], provenance)
+        batch_text = mc_report.render_mc_record(batch_record, "mc-experiment")
+        self.assertIn("PDK the fleet runner read: match", batch_text)
+        self.assertIn("klt-sim-mc-1", batch_text)
 
     def test_binding_points_are_named_not_a_grid(self):
         text = mc_report.render_mc_record(self.record, "mc-experiment")
@@ -378,10 +428,15 @@ class RecordRenderingTests(unittest.TestCase):
         self.assertIn("**Overall: PASS**", text)
 
     def test_links_point_at_the_ratified_paths(self):
+        """As for a PVT record (DR-030): one artifact-manifest citation, and
+        no tracked `corners/` / `netlist-snapshots/` paths."""
         text = mc_report.render_mc_record(self.record, "mc-experiment")
         self.assertIn("sim/mc-experiment/testbench/x.spice", text)
-        self.assertIn("sim/mc-experiment/netlist-snapshots/20260802-153000-1a7ef75.spice", text)
-        self.assertIn("sim/mc-experiment/corners/20260802-153000-1a7ef75/", text)
+        self.assertIn(
+            "manifests/artifacts/mc-experiment-20260802-153000-1a7ef75.manifest.json", text
+        )
+        self.assertNotIn("sim/mc-experiment/netlist-snapshots/", text)
+        self.assertNotIn("sim/mc-experiment/corners/", text)
 
     def test_a_schematic_record_still_says_schematic(self):
         """The #86 manifest fields are optional; their absence must keep the
@@ -446,7 +501,7 @@ class ExtractedMcProvenanceRenderingTests(unittest.TestCase):
             PointResult(point=p, status="ok", measurements={"vout": 1.0 + 0.001 * i})
             for i, p in enumerate(points)
         ]
-        self.record = mc_report.build_mc_record(
+        self.record = published(mc_report.build_mc_record(
             tb=self.tb,
             pdk=self.pdk,
             binding_points=binding_points,
@@ -462,7 +517,7 @@ class ExtractedMcProvenanceRenderingTests(unittest.TestCase):
             seed_base=1,
             derived_measures=[],
             claim="spec/target-spec.md#por-vth-rise",
-        )
+        ), "mc-experiment")
 
     def test_provenance_line_says_extracted_and_carries_the_caveat(self):
         text = mc_report.render_mc_record(self.record, "mc-experiment")

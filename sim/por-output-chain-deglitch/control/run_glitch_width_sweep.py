@@ -11,9 +11,13 @@ propagated through to `PGDG`, restarting the one-shot at 30/81 PVT points.
 `PGDG` does not move.
 
 That check answers "is 1 us rejected?" but not "by how much?". Post-layout
-(`records/20260811-055634-d0ee17d.md`) the answer to the second question got
-materially worse without the first one changing: `pgdg_min_during_chatter`
-falls from 2.94 V to 2.54 V against the same 2.5 V bound. This sweep measures
+the answer to the second question got materially worse without the first one
+changing: `pgdg_min_during_chatter` falls from 2.94 V (schematic) to 2.54 V
+against the same 2.5 V bound -- the 2.54 V is on the extraction #314 retired
+(`records/20260811-055634-d0ee17d.md`); on the current star extraction
+(`records/20261002-180956-d4369b3.md`, grid minimum 2.695 V, agreeing with
+this control's own `width_results.md`: 2.6948 V at `ff_125c_2.97v`) it still
+sits materially below the schematic against the same bound. This sweep measures
 the margin directly -- it walks the glitch WIDTH until the filter stops
 rejecting, for the schematic and the post-layout netlist, at the two fast
 corners where the dwell is shortest -- so the lower-bound margin can be
@@ -38,7 +42,6 @@ Stdlib only, no virtualenv required.
 from __future__ import annotations
 
 import json
-import os
 import sys
 from pathlib import Path
 
@@ -47,8 +50,18 @@ EXPERIMENT_DIR = CONTROL_DIR.parent
 REPO_ROOT = CONTROL_DIR.parents[2]
 
 sys.path.insert(0, str(REPO_ROOT / "sim"))
+# CONTROL_DIR too, so the sibling _deglitch_criterion import below resolves
+# however this script was loaded -- sys.path[0] is only this directory when
+# it is run directly, and sim/tests/ loads controls by path (#493).
+sys.path.insert(0, str(CONTROL_DIR))
 
 from harness import HARNESS_VERSION, cliutil, corners as corners_mod, runner  # noqa: E402
+
+# The glitch-rejection verdict this script shares with run_cdg_tradeoff.py,
+# in its one shared home (#493): both results files publish the same
+# rejected/partial/**through** names, so the boundaries between them have to
+# have one definition.
+from _deglitch_criterion import verdict  # noqa: E402
 
 FRAGMENT = CONTROL_DIR / "glitch_width_sweep.spice"
 SCHEMATIC_NETLIST = REPO_ROOT / "design" / "netlist" / "por_output_chain.spice"
@@ -76,8 +89,18 @@ POINTS: list[tuple[str, str, float, float]] = [
     ("ff_125c_3.63v", "ff", 125.0, 3.63),
 ]
 
+# Paths a re-run is allowed to dirty (see runner.git_describe): this script's
+# own outputs plus its three siblings', which share this control directory's
+# results files, decks/ and logs/. No traces/: none are kept (see docstring).
+GENERATED = tuple(
+    str((CONTROL_DIR / n).relative_to(REPO_ROOT))
+    for n in ("results.md", "cdg_results.md", "dwell_results.md",
+              "width_results.md", "decks", "logs")
+)
 
-def main() -> int:
+
+def main(argv: list[str] | None = None) -> int:
+    cliutil.parse_no_options(argv, __doc__)
     toolchain = cliutil.locate_toolchain()
     if toolchain is None:
         return cliutil.EXIT_ENVIRONMENT
@@ -132,7 +155,6 @@ def compose_deck(
     deck_dir: Path,
 ) -> str:
     corner = corners_mod.CORNERS[corner_name]
-    fragment_rel = os.path.relpath(FRAGMENT, deck_dir)
     width_s = width_us * 1e-6
     t_lo = GLITCH_START_S - EDGE_S
     t_hi = GLITCH_START_S
@@ -157,7 +179,7 @@ def compose_deck(
     lines += runner.deck_preamble(pdk, corner, temp_c, options)
     lines += [
         "",
-        f'.include "{fragment_rel}"',
+        *runner.deck_includes(deck_dir, FRAGMENT),
         f'.include "dut_{variant}.spice"',
         "",
         f".tran {TSTEP_S!r} {{stop_s}}",
@@ -171,25 +193,6 @@ def compose_deck(
         "",
     ]
     return "\n".join(lines)
-
-
-def verdict(meas: dict[str, float]) -> str:
-    """Did the glitch get through the filter?
-
-    Functional criterion, not a voltage one: a glitch that reaches PGDG drives
-    PGDGB high, fires XMDIS, and discharges the one-shot's TIM -- which is
-    exactly what restarted the timer at 30/81 points in the historical
-    CDG = 98 fF failure. TIM only ever *rises* while the filter is rejecting
-    (XMPT is still charging it), so any material fall is XMDIS having
-    conducted, and the size of the fall says how far the pulse was set back.
-    PGDG merely drooping is not the failure; losing timer charge is.
-    """
-    lost = (meas["timbefore"] - meas["timafter"]) / meas["timbefore"]
-    if lost > 0.5:
-        return "**through**"
-    if lost > 0.01:
-        return "partial"
-    return "rejected"
 
 
 def write_results(results: dict, pdk, ngspice_version: str) -> None:
@@ -212,6 +215,7 @@ def write_results(results: dict, pdk, ngspice_version: str) -> None:
         f"- ngspice: `{ngspice_version}`",
         f"- PDK: `{pdk.variant}@{pdk.version}` ({pdk.source})",
         f"- harness: `{HARNESS_VERSION}`",
+        f"- git: `{runner.git_describe(REPO_ROOT, GENERATED)}`",
         "",
         "`rejected` = the one-shot's `TIM` keeps its charge (it loses under 1 %);"
         " `partial` = `TIM` lost 1-50 % of it, i.e. the pulse was set back but not"

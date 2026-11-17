@@ -58,13 +58,14 @@ sim/
   Re-runs simply mint a new `<record-id>`; nothing under `records/` is ever
   edited in place. The same `<record-id>` ties together the netlist snapshot,
   the raw per-corner logs, and the summary record for one run.
-  A writing run reserves its id before any simulation starts by exclusively
-  creating `corners/<record-id>/` (post-DR-030 runs: the staging directory,
-  see "New records" below); on a collision (concurrent run, or an
-  existing record, snapshot, or log directory from an interrupted run) the
-  timestamp advances by a second. Reservations are never reclaimed: an empty
-  `corners/<record-id>/` is an abandoned run and keeps its id occupied.
-  `--no-write` runs reserve nothing in the evidence tree.
+  A run claims its id before any simulation starts by exclusively creating
+  its git-ignored scratch directory (and, when it writes, its staging
+  directory — see "New records" below); on a collision (concurrent run, or an
+  existing record, or a pre-DR-030 snapshot or log directory from an
+  interrupted run) the timestamp advances by a second. A pre-DR-030 claim is
+  never reclaimed: an empty `corners/<record-id>/` is an abandoned run and
+  keeps its id occupied. No run — writing or `--no-write` — reserves anything
+  in the tracked evidence tree.
 - **`<corner-id>`** — `<process-corner>_<temp>c_<supply>v.log`, e.g.
   `ss_-40c_2.97v.log`, `tt_27c_3.30v.log`, `ff_125c_3.63v.log`.
 - **`testbench/`** is not versioned per record — it holds the current
@@ -300,6 +301,12 @@ Rules, so this never becomes a back door around the record convention:
   makes no claim, so there is nothing to preserve, and it is cheap enough to
   reproduce on demand. `records/`, `netlist-snapshots/` and `corners/` — the
   things the append-only rule protects — are never touched by a control.
+- **Its CLI rejects what it does not declare.** A `run_*.py` entry point
+  refuses any argument it does not declare — an unrecognized flag exits
+  non-zero, never silently reading as "run the sweep" — and `--help` prints
+  usage and exits 0 without simulating. The contract is asserted for every
+  control script, present and future, by
+  `sim/tests/test_control_shared_helpers.py` (#512, #546).
 
 First instance: [`sim/bias-core-startup/control/`](bias-core-startup/control/),
 the `gmin` control that diagnoses record `20260801-111049-bc599be`. Second:

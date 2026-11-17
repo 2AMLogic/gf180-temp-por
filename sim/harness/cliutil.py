@@ -20,7 +20,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Callable
 
-from . import evidence_store
+from . import HARNESS_VERSION, evidence_store
 from .pdk import Pdk, PdkNotFound, find_pdk
 from .testbench import MANIFEST_NAME, TESTBENCH_DIRNAME, discover
 
@@ -51,6 +51,22 @@ def locate_toolchain(*, need_ngspice: bool = True) -> tuple[Pdk, str | None] | N
         print(exc, file=sys.stderr)
         return None
     return pdk, version
+
+
+def parse_no_options(argv: list[str] | None, doc: str | None) -> None:
+    """Reject unrecognized argv for a control entry point that takes no options.
+
+    The ``--help``/typo guard for the ``sim/*/control/run_*.py`` grids that
+    read no argv (#512): before it, any argument -- including ``--help`` --
+    was silently ignored and ``main()`` proceeded straight into its local
+    ngspice sweep, with no usage message and no non-zero exit. Parsing an
+    empty option set makes ``--help`` print ``doc`` and exit 0, and any
+    unrecognized argument print usage and exit 2 -- both before the caller's
+    ``locate_toolchain()`` runs, so both work on a host with no PDK or
+    ngspice. A bare invocation parses nothing and returns, leaving the
+    caller's behavior unchanged.
+    """
+    argparse.ArgumentParser(description=doc).parse_args(argv)
 
 
 def load_manifest(path: Path) -> dict:
@@ -92,6 +108,57 @@ def default_jobs(cpu_count: int | None = None) -> int:
     """
     cores = cpu_count if cpu_count is not None else (os.cpu_count() or 2)
     return max(1, cores // 2)
+
+
+def add_common_run_args(parser: argparse.ArgumentParser, *which: str) -> None:
+    """Add the run options shared byte-identically by the two CLIs.
+
+    ``-j/--jobs``, ``--no-write``, ``--quiet`` and ``--version`` are
+    declared with identical flags, defaults and help text by both
+    ``sim/harness/cli.py`` and ``sim/run_mc.py``; centralising them here
+    (beside ``add_author_arg``) means a change to one of them only has to
+    happen once. The other options the two parsers share are deliberately
+    *not* here: ``--timeout``'s help text differs ("per-point" vs
+    "per-sample"), as do ``testbench``, ``--list``, ``--claim`` and
+    ``--supersedes``.
+
+    ``which`` optionally names a subset to add, in the order given --
+    argparse lists options in declaration order and both CLIs interleave
+    other options (the backend flags) between these four at different
+    points, so the callers request the slices that keep their ``--help``
+    output unchanged. With no arguments, all four are added in canonical
+    order (jobs, no_write, quiet, version).
+    """
+    if not which:
+        which = ("jobs", "no_write", "quiet", "version")
+    for name in which:
+        if name == "jobs":
+            parser.add_argument(
+                "-j",
+                "--jobs",
+                type=int,
+                default=0,
+                help="parallel ngspice runs (default: half the host's logical cores, "
+                "min 1 -- a per-process default that does not account for other "
+                "concurrent invocations on the same host; see cliutil.default_jobs)",
+            )
+        elif name == "no_write":
+            parser.add_argument(
+                "--no-write",
+                action="store_true",
+                help="run but do not record evidence (debugging only)",
+            )
+        elif name == "quiet":
+            parser.add_argument("--quiet", action="store_true", help="only print the summary")
+        elif name == "version":
+            parser.add_argument(
+                "--version", action="version", version=f"gf180-temp-por harness {HARNESS_VERSION}"
+            )
+        else:
+            raise ValueError(
+                f"unknown common run arg {name!r} "
+                "(expected one of: jobs, no_write, quiet, version)"
+            )
 
 
 def fmt(value) -> str:
@@ -144,10 +211,8 @@ def provision_record(
     repo_root: Path,
     work_dir: Path,
     records_dir: Path,
-    experiment_dir: Path,
     experiment_name: str,
     no_write: bool,
-    stage: bool = False,
 ) -> tuple[str, Path, Path | None, dict, datetime]:
     """Allocate a record id and derive its workdir/log_dir, as both
     ``sim/run_corners.py`` (via ``sim/harness/cli.py``) and ``sim/run_mc.py``
@@ -156,39 +221,36 @@ def provision_record(
     Returns ``(record_id, workdir, log_dir, git, started)``. ``log_dir`` is
     ``None`` when ``no_write`` is set (debugging runs write no evidence).
 
-    With ``stage=True`` (what the entry points pass, DR-030) the run's raw
-    outputs are staged in the git-ignored ``<work_dir>/evidence-stage/`` tree
-    instead of ``<experiment>/corners/<record-id>/``: ``log_dir`` is then
-    ``<stage>/corners`` and ``finish_run(..., stage=True)`` ships the stage to
-    the artifact store. Nothing is reserved in the tracked tree, and the store
-    is checked up front so a worker that cannot publish fails before it
+    Per DR-030 a writing run always stages its raw outputs in the git-ignored
+    ``<work_dir>/evidence-stage/`` tree -- ``log_dir`` is ``<stage>/corners``
+    and ``finish_run`` ships the stage to the artifact store. Nothing is
+    reserved in the tracked tree (the committed ``<experiment>/corners/`` and
+    ``netlist-snapshots/`` directories hold pre-DR-030 evidence only), and the
+    store is checked up front so a worker that cannot publish fails before it
     simulates anything.
     """
     # Local import: sim/harness/report.py imports this module (for `fmt()`),
     # so importing it at module scope here would be circular.
     from . import report as report_mod
 
-    if stage and not no_write:
+    if not no_write:
         evidence_store.preflight()
     started = datetime.now(timezone.utc)
     git = report_mod.git_provenance(repo_root)
     when = started
-    staging = stage and not no_write
     stage_dir = None
     while True:
-        # Writing runs atomically reserve the record id (its raw-log
-        # directory) before any simulation starts; --no-write runs reserve
-        # nothing in the evidence tree.
-        record_id = report_mod.allocate_record_id(
-            repo_root, records_dir, when, git=git, reserve=not no_write and not staging
-        )
+        # Neither a staged run nor a --no-write run reserves anything in the
+        # tracked evidence tree; the id is claimed by the exclusive scratch
+        # (and, for a staged run, stage) directory created just below.
+        record_id = report_mod.allocate_record_id(repo_root, records_dir, when, git=git)
         workdir = work_dir / experiment_name / record_id
         # The scratch directory is claimed exclusively too, so two runs
         # (including --no-write ones) never share decks.
         workdir.parent.mkdir(parents=True, exist_ok=True)
         try:
             workdir.mkdir()
-            if staging:
+            if not no_write:
                 stage_dir = evidence_store.stage_dir_for(work_dir, experiment_name, record_id)
                 stage_dir.parent.mkdir(parents=True, exist_ok=True)
                 stage_dir.mkdir()
@@ -200,11 +262,9 @@ def provision_record(
             ) + timedelta(seconds=1)
     if no_write:
         log_dir = None
-    elif staging:
+    else:
         log_dir = stage_dir / evidence_store.STAGE_CORNERS
         log_dir.mkdir()
-    else:
-        log_dir = experiment_dir / report_mod.CORNERS_DIR / record_id
     return record_id, workdir, log_dir, git, started
 
 
@@ -226,8 +286,7 @@ def finish_run(
     log_dir: Path | None,
     no_write: bool,
     write_record: Callable[[dict, Path], Path],
-    stage: bool = False,
-    repo_root: Path | None = None,
+    repo_root: Path,
 ) -> int:
     """Write evidence to disk (or note that it wasn't written) and print the
     footer shared by ``sim/run_corners.py`` (via ``sim/harness/cli.py``) and
@@ -243,7 +302,7 @@ def finish_run(
     # so importing it at module scope here would be circular.
     from . import report as report_mod
 
-    if not no_write and stage:
+    if not no_write:
         # DR-030: the raw logs and the netlist snapshot go to the artifact
         # store; git gets the manifest and the summary record. Publish first
         # so a failed put leaves no record behind (fail closed, no fallback).
@@ -263,13 +322,6 @@ def finish_run(
         print()
         print(f"record    : {record_path}")
         print(f"manifest  : {manifest}")
-    elif not no_write:
-        snapshot = report_mod.write_netlist_snapshot(tb, experiment_dir, record_id)
-        record_path = write_record(record, experiment_dir)
-        print()
-        print(f"record    : {record_path}")
-        print(f"snapshot  : {snapshot}")
-        print(f"raw logs  : {log_dir}")
     else:
         print()
         print("evidence  : not recorded (--no-write)")

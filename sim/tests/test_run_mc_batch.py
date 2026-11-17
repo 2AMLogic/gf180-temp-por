@@ -104,14 +104,38 @@ class McBatchGridTests(McBatchFixture):
 
 
 class McBatchSetTests(McBatchFixture):
-    def grid_set(self):
+    def grid_set(self, cfg=None):
         seen = []
         res = montecarlo.run_mc_grid(
             self.tb, self.pdk, self.points, self.root / "work", jobs=2,
             log_dir=self.log_dir, on_result=seen.append, backend="batch",
-            batch=self.cfg(batch_set=True, max_in_flight=3),
+            batch=cfg or self.cfg(batch_set=True, max_in_flight=3),
         )
         return res, seen
+
+    def test_every_member_report_contributes_a_pdk_provenance_row(self):
+        """#468: one row per accepted fleet job, all naming the same runner
+        model library -- so the record of a `--batch-set` run says which PDK
+        build each of its jobs actually simulated against."""
+        cfg = self.cfg(batch_set=True, max_in_flight=3)
+        res, _ = self.grid_set(cfg)
+        self.assertTrue(all(r.status == "ok" for r in res), [r.message for r in res])
+        self.assertEqual(len(cfg.provenance), 6)        # one per request/sample
+        self.assertEqual({r["runner_models_lib_sha256"] for r in cfg.provenance},
+                         {self.local_models_sha})
+        self.assertEqual({r["comparison"]["status"] for r in cfg.provenance}, {"match"})
+        self.assertEqual(klt_batch.batch_provenance(cfg)["models_lib_comparison"], "match")
+
+    def test_a_runner_pdk_difference_makes_every_sample_an_error(self):
+        os.environ["FAKE_KLT_RUNNER_MODELS_SHA"] = "c" * 64
+        cfg = self.cfg(batch_set=True, max_in_flight=3)
+        res, _ = self.grid_set(cfg)
+        self.assertEqual(len(res), 6)
+        self.assertTrue(all(r.status == "error" for r in res))
+        self.assertTrue(all("c" * 64 in r.message for r in res))
+        self.assertEqual(cfg.provenance, [])
+        self.assertTrue(cfg.halted)
+        self.assertNoLocalNgspice()
 
     def test_all_samples_go_through_one_batch_set_call(self):
         res, seen = self.grid_set()

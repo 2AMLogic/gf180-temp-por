@@ -23,9 +23,10 @@ run is not a PVT-grid claim:
   repository, not hand-transcribed (the evidence-hygiene lesson #50 flagged,
   named explicitly in issue #15).
 
-This module reuses ``report.py``'s git/environment provenance, record-id
-allocation and the append-only netlist-snapshot writer directly -- those are
-genuinely generic. It does not reuse ``report.py``'s ``build_record`` /
+This module reuses ``report.py``'s git/environment provenance and its shared
+record-document renderer; record-id allocation and the append-only
+netlist-snapshot writer are driven by ``sim/harness/cliutil.py`` on the
+caller's behalf. It does not reuse ``report.py``'s ``build_record`` /
 ``render_record`` / ``matrix_conformance``, which are shaped around the
 deterministic PVT grid.
 """
@@ -38,14 +39,9 @@ from .cliutil import fmt as _fmt
 from .montecarlo import BindingPoint, McPoint
 from .pdk import Pdk
 from .report import (
-    CORNERS_DIR,
-    RECORDS_DIR,
-    SNAPSHOT_DIR,
     TESTBENCH_DIR,
-    RecordExists,
     environment,
     render_record_document,
-    write_exclusive,
 )
 from .runner import PointResult
 from .testbench import Testbench
@@ -70,6 +66,7 @@ def build_mc_record(
     supersedes: str = "",
     statistical_convention: str = "",
     git: dict | None = None,
+    batch: dict | None = None,
 ) -> dict:
     n_ok = sum(1 for r in results if r.status == "ok")
 
@@ -112,7 +109,7 @@ def build_mc_record(
         "supersedes": supersedes,
         "statistical_convention": statistical_convention,
         "testbench": tb.provenance(),
-        "environment": environment(pdk, ngspice, repo_root, git),
+        "environment": environment(pdk, ngspice, repo_root, git, batch),
         "binding_points": [
             {
                 "label": bp.label,

@@ -81,10 +81,9 @@ Stdlib only, no virtualenv required.
 
 from __future__ import annotations
 
+import argparse
 import json
-import os
 import sys
-from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 CONTROL_DIR = Path(__file__).resolve().parent
@@ -146,6 +145,27 @@ def edge_s(vdd: float, slew_mvus: float) -> float:
     DIP_V. Identical arithmetic to ../testbench/gen_rung.py's edge_ms_at();
     mV/us is numerically V/ms, so edge_ms = delta_V / slew_mvus."""
     return (vdd - DIP_V) / slew_mvus * 1e-3
+
+
+def us_after_dip(t: float | None) -> float | None:
+    """A measured absolute time, re-expressed as µs after the dip starts.
+
+    The single definition of this conversion for this directory (#493). Every
+    control under ``control/`` reports its event timeline on that axis -- the
+    "All times are µs after the dip starts" tables in this script's own
+    ``results.md``, in ``postlayout_margin_results.md``, and in the two
+    sections of ``net_attribution_results.md`` that ``run_net_attribution.py``
+    and ``run_por_edge_check.py`` each own -- and the origin they measure
+    from, ``T_DIP_S``, is already shared from this module. Before #493 the
+    conversion itself was four independently-maintained copies, so a change
+    of origin convention could have moved one table's axis and not another's.
+
+    Takes the time value rather than a ``(name, key)`` pair so it needs none
+    of the callers' local results closures: ``band.us_after_dip(g(name, key))``.
+    ``None`` in (the measurement is absent from the log, i.e. the event never
+    happened) is ``None`` out -- callers render that as "**never**".
+    """
+    return None if t is None else (t - T_DIP_S) * 1e6
 
 
 def internal(node: str, flat: bool) -> str:
@@ -213,12 +233,10 @@ def deck(pdk, options: list[str], vdd: float, slew_mvus: float,
         f".param t_margin={n(RECOVERY_MARGIN_S)}",
         f".param dip_v={DIP_V!r}",
         "",
-        f'.include "{os.path.relpath(FRAGMENT, deck_dir)}"',
-        f'.include "{os.path.relpath(netlist, deck_dir)}"',
+        *runner.deck_includes(deck_dir, FRAGMENT, netlist),
         "",
-        ".control",
-        "set numdgt=8",
-        "set noaskquit",
+    ]
+    body = [
         (
             f"tran {n(TSTEP_S)} {n(t_end)}"
             if tmax_s is None
@@ -269,10 +287,8 @@ def deck(pdk, options: list[str], vdd: float, slew_mvus: float,
         f"meas tran ndg_r_close find ndg_r at={n(t_dip_end)}",
         f"meas tran pgdg_r_min min pgdg_r from={n(T_DIP_S)} to={n(t_dip_end)}",
         f"meas tran rst_r_min_overall min rst_r from={n(T_DIP_S)} to={n(t_end)}",
-        ".endc",
-        ".end",
-        "",
     ]
+    lines += runner.deck_control_block(body, numdgt=8)
     return "\n".join(lines)
 
 
@@ -281,8 +297,13 @@ def variant_name(vdd: float, slew_mvus: float, part: str) -> str:
 
 
 def main(argv: list[str] | None = None) -> int:
-    argv = sys.argv[1:] if argv is None else argv
-    report_only = "--report-only" in argv
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--report-only", action="store_true",
+        help="regenerate the results files from the existing logs instead "
+             "of running the sweep",
+    )
+    report_only = parser.parse_args(argv).report_only
 
     toolchain = cliutil.locate_toolchain(need_ngspice=False)
     if toolchain is None:
@@ -325,13 +346,7 @@ def main(argv: list[str] | None = None) -> int:
         f"running {len(jobs)} decks at {CORNER} / {TEMP_C:g} C /"
         f" {', '.join(f'{v:g}' for v in SUPPLIES_V)} V ..."
     )
-    with ThreadPoolExecutor(max_workers=min(6, len(jobs))) as pool:
-        results = dict(
-            zip(
-                [name for name, _ in jobs],
-                pool.map(lambda job: runner.run_deck(*job, CONTROL_DIR), jobs),
-            )
-        )
+    results = runner.run_decks(jobs, CONTROL_DIR, 6)
     missing = [n for n, r in results.items() if "vdd_pre" not in r]
     if missing:
         print(f"  WARNING: {len(missing)} deck(s) produced no measurements: "
@@ -351,12 +366,6 @@ def write_results(pdk, manifest, res: dict[str, dict[str, float]]) -> None:
 
     def g(name, key):
         return res.get(name, {}).get(key)
-
-    def us_after_dip(name, key):
-        t = g(name, key)
-        if t is None:
-            return None
-        return (t - T_DIP_S) * 1e6
 
     def fmt_us(value, digits=1):
         return "**never**" if value is None else f"{value:.{digits}f}"
@@ -440,9 +449,9 @@ def write_results(pdk, manifest, res: dict[str, dict[str, float]]) -> None:
             name = variant_name(vdd, slew, "a")
             edge_us = edge_s(vdd, slew) * 1e6
             close_us = edge_us + T_DWELL_S * 1e6
-            t_praw = us_after_dip(name, "t_praw")
-            t_pgdg = us_after_dip(name, "t_pgdg")
-            t_rst = us_after_dip(name, "t_rst")
+            t_praw = us_after_dip(g(name, "t_praw"))
+            t_pgdg = us_after_dip(g(name, "t_pgdg"))
+            t_rst = us_after_dip(g(name, "t_rst"))
             dg = (
                 f"{t_pgdg - t_praw:.1f}"
                 if (t_praw is not None and t_pgdg is not None)
@@ -454,7 +463,7 @@ def write_results(pdk, manifest, res: dict[str, dict[str, float]]) -> None:
             vdd_praw = g(name, "vdd_at_praw")
             lines.append(
                 f"| {slew:g} | {edge_us:.1f} | {close_us:.1f} | "
-                f"{fmt_us(us_after_dip(name, 't_vpor'))} | "
+                f"{fmt_us(us_after_dip(g(name, 't_vpor')))} | "
                 f"{fmt_us(t_praw)} | "
                 + (f"{vdd_praw:.4f} V" if vdd_praw is not None else "—")
                 + f" | {fmt_us(t_pgdg)} | {dg} | {fmt_us(t_rst)} | "
@@ -503,7 +512,7 @@ def write_results(pdk, manifest, res: dict[str, dict[str, float]]) -> None:
     for slew in RESOLUTION_SLEWS_MVUS:
         for vdd in SUPPLIES_V:
             a, b = variant_name(vdd, slew, "a"), variant_name(vdd, slew, "b")
-            ta, tb = us_after_dip(a, "t_rst"), us_after_dip(b, "t_rst")
+            ta, tb = us_after_dip(g(a, "t_rst")), us_after_dip(g(b, "t_rst"))
             delta = (
                 f"{tb - ta:+.2f}" if (ta is not None and tb is not None) else "—"
             )

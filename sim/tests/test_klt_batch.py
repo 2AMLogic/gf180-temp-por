@@ -9,6 +9,9 @@ No PDK, no ngspice, no klt, no network: a fake ``klt`` executable (and a fake
 
 from __future__ import annotations
 
+import contextlib
+import hashlib
+import io
 import json
 import os
 import stat
@@ -101,7 +104,7 @@ if mode == "cap_then_ok" and not (state / "capped").exists():
 
 c = req["corners"]
 procs = [p["name"] if isinstance(p, dict) else p for p in c.get("process", [None])]
-sv = c.get("supply_v", {})
+sv = c.get("params", {})
 keys = list(sv)
 rows = [dict(zip(keys, vals)) for vals in zip(*[sv[k] for k in keys])] if keys else [{}]
 excl = req.get("exclude", [])
@@ -109,7 +112,7 @@ corners = []
 for p in procs:
     for row in rows:
         for t in c["temperature_c"]:
-            if any(e.get("process", p) == p and e.get("supply_v", row) == row for e in excl):
+            if any(e.get("process", p) == p and e.get("params", row) == row for e in excl):
                 continue
             cid = f"{p}/{row}/{t}"
             d = outdir / ("c%d" % len(corners)); d.mkdir(parents=True, exist_ok=True)
@@ -137,7 +140,8 @@ for p in procs:
                 diags = [{"severity": "error", "code": "measurement", "message": "no value"}]
             if mode == "timeout_corner":
                 status, diags = "error", [{"severity": "error", "code": "batch_poll_timeout", "message": "t"}]
-            corner = {"corner_id": cid, "process": p, "supply_v": row, "temperature_c": t,
+            corner = {"corner_id": cid, "process": p, "supply_v": {}, "temperature_c": t,
+                       **({"params": row} if row else {}),
                        "status": status, "runtime_s": 1.5, "measurements": meas, "diagnostics": diags,
                        "artifacts": {"log": None if mode == "no_log" else str(log), "raw": None,
                                       "waveform": None, "deck": None}}
@@ -155,11 +159,33 @@ env = {"engine": "ngspice"}
 if mode != "no_remote":
     env["remote"] = {"provider": "aws-batch-fleet", "job_id": "klt-sim-fake",
                      "runner_compatibility": "match"}
+    # The model card the runner executed, in klt 0.9.2's shape: a lowercase
+    # 64-hex string or null, plus klt's own client-vs-runner comparison
+    # (`match` / `mismatch` / `not_comparable` + reason).
+    sha = os.environ.get("FAKE_KLT_RUNNER_MODELS_SHA", "")
+    env["remote"]["runner_models_lib_sha256"] = sha or None
+    env["remote"]["models_lib_comparison"] = json.loads(
+        os.environ.get("FAKE_KLT_MODELS_COMPARISON", json.dumps(
+            {"status": "match"} if sha
+            else {"status": "not_comparable", "reason": "runner_hash_unavailable"})))
     if mode == "mismatch":
         env["remote"].update(runner_compatibility="mismatch", runner_klt_version="0.0.1",
                              client_klt_version="0.0.0+fake")
     if mode == "legacy_remote":   # an older client that does not report the comparison
         del env["remote"]["runner_compatibility"]
+        del env["remote"]["runner_models_lib_sha256"]
+        del env["remote"]["models_lib_comparison"]
+    if mode == "fleet_members":
+        # A multi-job submission: klt attaches the comparison per fleet
+        # member rather than on `environment.remote` itself.
+        env["remote"]["fleet"] = [
+            {"job_id": "klt-sim-fake-a", "runner_models_lib_sha256": sha or None,
+             "models_lib_comparison": env["remote"]["models_lib_comparison"]},
+            {"job_id": "klt-sim-fake-b", "runner_models_lib_sha256": sha or None,
+             "models_lib_comparison": env["remote"]["models_lib_comparison"]},
+        ]
+        del env["remote"]["runner_models_lib_sha256"]
+        del env["remote"]["models_lib_comparison"]
 print(json.dumps({"schema_version": 3, "status": "pass", "corner_count": len(corners),
                    "environment": env, "corners": corners}))
 '''
@@ -237,6 +263,10 @@ class BatchTestCase(unittest.TestCase):
         (self.root / "home").mkdir()
         self.pdk = fake_pdk(self.root / "gf180mcuD")
         (self.pdk.ngspice_dir / "design.ngspice").write_text(".param sw_stat_global=0\n")
+        # By default the fake runner reports the model library THIS fixture
+        # resolved, the way a correctly-matched fleet image does (#468).
+        self.local_models_sha = hashlib.sha256(self.pdk.model_lib.read_bytes()).hexdigest()
+        os.environ["FAKE_KLT_RUNNER_MODELS_SHA"] = self.local_models_sha
         self.control = self.root / "control"
         (self.control / "decks").mkdir(parents=True)
         (self.control / "frag.spice").write_text("* fragment\nr1 a b 1k\n")
@@ -409,7 +439,7 @@ class TranslationTests(BatchTestCase):
         )
         self.assertEqual(u.analysis, ("op", ""))
         self.assertEqual(u.measurements, (("m_vout", "expr", "v(out)"), ("m_iq", "expr", "-i(v1)")))
-        self.assertEqual(u.supply, (("vdd_val", 3.63),))
+        self.assertEqual(u.lifted, (("vdd_val", 3.63),))
         self.assertEqual(u.process, tuple(point.corner.sections))
         self.assertNotIn("vdd_val=3.63", u.body)
         self.assertIn(".param vdd_nom=3.3", u.body)
@@ -507,9 +537,63 @@ class RequestTests(BatchTestCase):
         self.assertTrue(all(o.ok for o in outs), [o.message for o in outs])
         self.assertEqual(len(self.calls()), 1)
         req = json.loads((self.state / "req-0.json").read_text())
-        self.assertEqual(req["corners"]["supply_v"], {"vdd_val": [2.97, 3.63]})
-        self.assertEqual(req["exclude"], [{"process": "ff", "supply_v": {"vdd_val": 3.63}}])
+        self.assertEqual(req["corners"]["params"], {"vdd_val": [2.97, 3.63]})
+        self.assertNotIn("supply_v", req["corners"])
+        self.assertEqual(req["exclude"], [{"process": "ff", "params": {"vdd_val": 3.63}}])
         self.assertEqual([o.unit.key for o in outs], ["ss_2.97", "ss_3.63", "ff_2.97"])
+
+    def test_lifted_param_rides_the_params_axis_with_a_declaration_kept(self):
+        """#464: klt's `supply_v` axis is an `alter` of a voltage *source*, so a
+        `.param` name on it addresses nothing and the request is refused. The
+        value must ride `corners.params` instead, and the body must keep a
+        top-level declaration for `alterparam` to rewrite."""
+        u = self.unit("s", lift_params=("vdd_val",))
+        self.assertEqual(u.lifted, (("vdd_val", 3.3),))
+        decls = [ln for ln in u.body.splitlines() if ln.startswith(".param vdd_val")]
+        self.assertEqual(decls, [f".param vdd_val={klt_batch._LIFTED_DEFAULT}"])
+        self.assertNotIn(".param vdd_val=3.3", u.body)
+        outs = klt_batch.run_units([u], self.cfg(), tolerate_absent=True)
+        self.assertTrue(all(o.ok for o in outs), [o.message for o in outs])
+        req = json.loads((self.state / "req-0.json").read_text())
+        self.assertEqual(req["corners"]["params"], {"vdd_val": [3.3]})
+        self.assertNotIn("supply_v", req["corners"])
+
+    def test_lifted_declaration_is_constant_so_points_still_share_one_request(self):
+        """The kept declaration must not carry the unit's own value: bodies
+        would then differ and every supply point would cost its own request."""
+        units = [self.unit(f"s{v}", lift_params=("vdd_val",),
+                           template=CONTROL_DECK.replace(".param vdd_val=3.3", f".param vdd_val={v}"))
+                 for v in (2.97, 3.3, 3.63)]
+        self.assertEqual(len({u.body for u in units}), 1)
+        outs = klt_batch.run_units(units, self.cfg(), tolerate_absent=True)
+        self.assertTrue(all(o.ok for o in outs), [o.message for o in outs])
+        self.assertEqual(len(self.calls()), 1)
+        req = json.loads((self.state / "req-0.json").read_text())
+        self.assertEqual(req["corners"]["params"], {"vdd_val": [2.97, 3.3, 3.63]})
+        self.assertEqual([o.unit.key for o in outs], ["s2.97", "s3.3", "s3.63"])
+
+    def test_no_lifted_params_builds_an_unchanged_axis_set(self):
+        """`lift_params=()` (sim/pex/build_requests.py) keeps the old shape:
+        no parameter axis, no declaration rewritten."""
+        u = self.unit("s")
+        self.assertEqual(u.lifted, ())
+        self.assertIn(".param vdd_val=3.3", u.body)
+        outs = klt_batch.run_units([u], self.cfg(), tolerate_absent=True)
+        self.assertTrue(all(o.ok for o in outs), [o.message for o in outs])
+        req = json.loads((self.state / "req-0.json").read_text())
+        self.assertNotIn("params", req["corners"])
+        self.assertNotIn("supply_v", req["corners"])
+
+    def test_request_does_not_pin_models_pdk_root(self):
+        """#464: klt refuses a `models.pdk_root` that is a directory on the
+        submitting host (`models_pdk_root_host_path`), because the field is
+        forwarded to the fleet runner verbatim. It is refused at submit time,
+        which `--dry-run` never reaches, so the guard has to live here."""
+        klt_batch.run_units([self.unit("s", lift_params=("vdd_val",))], self.cfg(),
+                            tolerate_absent=True)
+        req = json.loads((self.state / "req-0.json").read_text())
+        self.assertEqual(req["models"]["pdk"], self.pdk.variant)
+        self.assertNotIn("pdk_root", req["models"])
 
     def test_distinct_decks_are_distinct_requests(self):
         units = [self.unit("a"), self.unit("b", template=CONTROL_DECK.replace("0.02", "0.03", 1))]
@@ -625,6 +709,42 @@ class GridTests(TbFixture):
         self.assertTrue(all(r.status == "error" and "klt sim request" in r.message for r in res))
         self.assertEqual(self.calls(), [])
 
+    def test_the_submit_path_attaches_no_limits_even_when_the_manifest_declares_them(self):
+        """The ratified bounds ride `--emit-request` only: on the submit path a
+        klt-graded `fail` corner is an error outcome whose values are dropped,
+        so limits here would record out-of-spec corners as run failures and
+        cut them out of a Monte Carlo yield denominator (the #496 review)."""
+        (self.root / "tb" / "tb.json").write_text(json.dumps({
+            "name": "x", "netlist": "x.spice",
+            "measure": {"vout": "v(out)", "iq": "-i(v1)"},
+            "checks": {"vout": {"min": 0.05, "max": 0.5,
+                                "description": "fixture bound, ratifies no row"}},
+        }))
+        self.tb = testbench.load(self.root / "tb")
+        self.assertEqual(len(runner.batch_measurement_specs(self.tb)), 1)
+        res, _ = self.grid()
+        self.assertTrue(all(r.status == "ok" for r in res), [r.message for r in res])
+        self.assertEqual(len(self.calls()), 2)           # -40 C and 125 C
+        for path in self.log_dir.glob("klt-*.request.json"):
+            req = json.loads(path.read_text())
+            for m in req["measurements"]:
+                self.assertNotIn("limits", m, path.name)
+                self.assertNotIn("spec_row", m, path.name)
+
+    def test_a_klt_graded_fail_corner_is_an_error_point_whose_values_are_dropped(self):
+        """`_judge`'s contract, pinned: any non-`pass` corner status is a run
+        error, never an ok -- which is exactly why the submit path must not
+        attach limits (a bound miss must not look like a failed simulation)."""
+        os.environ["FAKE_KLT_CORNER_PATCH"] = json.dumps({"status": "fail"})
+        self.addCleanup(os.environ.pop, "FAKE_KLT_CORNER_PATCH", None)
+        res, _ = self.grid()
+        self.assertEqual(len(res), len(self.points))
+        self.assertTrue(all(r.status == "error" for r in res))
+        self.assertTrue(all("klt corner status 'fail'" in (r.message or "") for r in res),
+                        [r.message for r in res])
+        self.assertTrue(all(not r.measurements for r in res))
+        self.assertNoLocalNgspice()
+
 
 class CliTests(TbFixture):
     def _args(self, *extra):
@@ -682,7 +802,10 @@ class FailureMatrixTests(BatchTestCase):
         self.assertFails("empty", "no JSON report")
 
     def test_timeout(self):
-        self.assertFails("timeout", "did not finish", poll_timeout_s=1, client_slack_s=0.5)
+        # wait_for_capacity_s=0 because the client-side bound now includes it
+        # (#467); the default 600 would make this test wait out that window.
+        self.assertFails("timeout", "did not finish",
+                         poll_timeout_s=1, client_slack_s=0.5, wait_for_capacity_s=0)
 
     def test_failed_corner(self):
         self.assertFails("failed_corner", "netlist")
@@ -736,6 +859,131 @@ class FailureMatrixTests(BatchTestCase):
         self.mode("legacy_remote")
         (out,) = klt_batch.run_units([self.unit()], self.cfg(), tolerate_absent=True)
         self.assertTrue(out.ok, out.message)
+
+    # ---- the PDK the fleet runner actually read (#468) -------------------
+    #
+    # On batch the models come from the runner's own image, so a report is
+    # only accepted when the model library it executed is the one this host
+    # resolved -- otherwise the record would name a build the simulation
+    # never read.
+
+    def test_runner_pdk_matching_this_host_is_accepted_and_recorded(self):
+        cfg = self.cfg()
+        (out,) = klt_batch.run_units([self.unit()], cfg, tolerate_absent=True)
+        self.assertTrue(out.ok, out.message)
+        self.assertEqual(cfg.provenance, [{
+            "job_id": "klt-sim-fake",
+            "runner_models_lib_sha256": self.local_models_sha,
+            "models_lib_sha256": self.local_models_sha,
+            "comparison": {"status": "match"},
+            "klt_models_lib_comparison": "match",
+        }])
+        self.assertEqual(klt_batch.batch_provenance(cfg), {
+            "backend": "batch",
+            "models_lib_sha256": self.local_models_sha,
+            "models_lib_comparison": "match",
+            "jobs": cfg.provenance,
+        })
+
+    def test_runner_pdk_differing_from_this_host_is_rejected_and_halts_the_run(self):
+        other = "a" * 64
+        os.environ["FAKE_KLT_RUNNER_MODELS_SHA"] = other
+        units = [self.unit("a"), self.unit("b", template=CONTROL_DECK.replace("0.02", "0.03", 1))]
+        cfg = self.cfg()
+        outs = klt_batch.run_units(units, cfg, tolerate_absent=True)
+        self.assertEqual([o.status for o in outs], ["error", "error"])
+        self.assertIn(other, outs[0].message)                  # both hashes named
+        self.assertIn(self.local_models_sha, outs[0].message)
+        self.assertIn(str(self.pdk.model_lib), outs[0].message)  # the local path
+        self.assertIn("PDK_ROOT", outs[0].message)               # and the fix
+        self.assertIn("not submitted", outs[1].message)
+        self.assertEqual(len(self.calls()), 1)                 # the second request never left
+        self.assertTrue(cfg.halted)
+        self.assertEqual(cfg.provenance, [])                   # nothing recorded
+        self.assertFalse((self.control / "logs" / "a.log").exists())
+        with self.assertRaises(BatchError):                    # same config, later deck
+            runner.run_deck_raw("r", self.deck(), self.control, backend="batch", batch=cfg)
+        self.assertEqual(len(self.calls()), 1)
+        self.assertNoLocalNgspice()
+
+    def test_klt_own_models_lib_mismatch_verdict_is_rejected_the_same_way(self):
+        # klt compares the runner against the install *klt* resolved, which
+        # need not be the one find_pdk() resolved: its verdict is fatal even
+        # when the hash it reports equals ours.
+        os.environ["FAKE_KLT_MODELS_COMPARISON"] = json.dumps(
+            {"status": "mismatch", "warning": "runner models differ from client"})
+        cfg = self.cfg()
+        (out,) = klt_batch.run_units([self.unit()], cfg, tolerate_absent=True)
+        self.assertEqual(out.status, "error")
+        self.assertIn("models_lib_comparison='mismatch'", out.message)
+        self.assertIn("runner models differ from client", out.message)
+        self.assertTrue(cfg.halted)
+        self.assertEqual(cfg.provenance, [])
+        self.assertNoLocalNgspice()
+
+    def test_no_usable_runner_hash_is_accepted_as_not_comparable_never_a_match(self):
+        for label, sha in (("null", ""), ("not 64-hex", "deadbeef"), ("uppercase junk", "ZZ")):
+            with self.subTest(label):
+                os.environ["FAKE_KLT_RUNNER_MODELS_SHA"] = sha
+                os.environ["FAKE_KLT_MODELS_COMPARISON"] = json.dumps(
+                    {"status": "not_comparable", "reason": "runner_hash_unavailable"})
+                cfg = self.cfg()
+                (out,) = klt_batch.run_units([self.unit()], cfg, tolerate_absent=True)
+                self.assertTrue(out.ok, out.message)
+                self.assertFalse(cfg.halted)
+                (row,) = cfg.provenance
+                self.assertIsNone(row["runner_models_lib_sha256"])
+                self.assertEqual(row["comparison"],
+                                 {"status": "not_comparable", "reason": "runner_hash_unavailable"})
+                self.assertEqual(klt_batch.batch_provenance(cfg)["models_lib_comparison"],
+                                 "not_comparable")
+
+    def test_an_older_runner_reporting_no_models_fields_at_all_is_accepted(self):
+        self.mode("legacy_remote")
+        cfg = self.cfg()
+        (out,) = klt_batch.run_units([self.unit()], cfg, tolerate_absent=True)
+        self.assertTrue(out.ok, out.message)
+        (row,) = cfg.provenance
+        self.assertIsNone(row["runner_models_lib_sha256"])
+        self.assertIsNone(row["klt_models_lib_comparison"])
+        self.assertEqual(row["comparison"]["status"], "not_comparable")
+
+    def test_a_model_library_this_host_cannot_read_is_not_comparable_not_a_match(self):
+        unit = self.unit()
+        self.pdk.model_lib.unlink()
+        cfg = self.cfg()
+        (out,) = klt_batch.run_units([unit], cfg, tolerate_absent=True)
+        self.assertTrue(out.ok, out.message)
+        (row,) = cfg.provenance
+        self.assertIsNone(row["models_lib_sha256"])
+        self.assertEqual(row["comparison"],
+                         {"status": "not_comparable", "reason": "client_hash_unavailable"})
+
+    def test_a_multi_job_report_is_gated_and_recorded_per_fleet_member(self):
+        self.mode("fleet_members")
+        cfg = self.cfg()
+        (out,) = klt_batch.run_units([self.unit()], cfg, tolerate_absent=True)
+        self.assertTrue(out.ok, out.message)
+        self.assertEqual([r["job_id"] for r in cfg.provenance],
+                         ["klt-sim-fake-a", "klt-sim-fake-b"])
+        self.assertEqual({r["comparison"]["status"] for r in cfg.provenance}, {"match"})
+        self.assertEqual(klt_batch.batch_provenance(cfg)["models_lib_comparison"], "match")
+        # ... and one differing member condemns the report
+        os.environ["FAKE_KLT_RUNNER_MODELS_SHA"] = "b" * 64
+        bad = self.cfg()
+        (out,) = klt_batch.run_units([self.unit("b")], bad, tolerate_absent=True)
+        self.assertEqual(out.status, "error")
+        self.assertIn("klt-sim-fake-a", out.message)
+        self.assertTrue(bad.halted)
+        self.assertEqual(bad.provenance, [])
+
+    def test_batch_provenance_of_a_run_that_accepted_nothing_says_so(self):
+        self.mode("refuse")
+        cfg = self.cfg()
+        (out,) = klt_batch.run_units([self.unit()], cfg, tolerate_absent=True)
+        self.assertEqual(out.status, "error")
+        self.assertEqual(klt_batch.batch_provenance(cfg)["models_lib_comparison"],
+                         "no_accepted_report")
 
     def test_klt_client_is_selectable(self):
         other = self.bin / "klt-runner-build"
@@ -827,6 +1075,92 @@ class FailureMatrixTests(BatchTestCase):
         (out,) = klt_batch.run_units([self.unit()], self.cfg(max_cap_wait_s=0), tolerate_absent=True)
         self.assertEqual(out.status, "error")
         self.assertIn("CONCURRENT", out.message)
+
+
+class CapacityWaitTests(BatchTestCase):
+    """The single-request submit path passes ``--wait-for-capacity`` and
+    bounds its own subprocess with room for that wait (#467). Before this,
+    only the ``--batch-set`` path passed the flag, so a ``run_corners.py``
+    batch run got one launch attempt and failed outright on a full fleet."""
+
+    def sim_calls(self):
+        return [c for c in self.calls() if c[:1] == ["sim"]]
+
+    def flag(self, args, name):
+        self.assertIn(name, args, f"{name} missing from {args}")
+        return args[args.index(name) + 1]
+
+    def submit(self, **cfg_kw):
+        (out,) = klt_batch.run_units([self.unit()], self.cfg(**cfg_kw), tolerate_absent=True)
+        self.assertTrue(out.ok, out.message)
+        (call,) = self.sim_calls()
+        return call
+
+    def test_default_capacity_wait_is_passed(self):
+        self.assertEqual(BatchConfig.wait_for_capacity_s, 600)
+        self.assertEqual(self.flag(self.submit(), "--wait-for-capacity"), "600")
+
+    def test_non_default_capacity_wait_is_forwarded(self):
+        self.assertEqual(
+            self.flag(self.submit(wait_for_capacity_s=120), "--wait-for-capacity"), "120")
+
+    def test_zero_capacity_wait_is_forwarded_not_dropped(self):
+        # klt documents 0 as "one attempt" -- an explicit opt-out, which only
+        # reaches klt if the flag is still passed.
+        self.assertEqual(
+            self.flag(self.submit(wait_for_capacity_s=0), "--wait-for-capacity"), "0")
+
+    def test_capacity_retries_is_not_passed_on_this_path(self):
+        # klt documents --capacity-retries as applying "with --batch-set" only.
+        self.assertNotIn("--capacity-retries", self.submit())
+
+    def test_backend_is_still_forced_to_batch(self):
+        self.assertEqual(self.flag(self.submit(), "--backend"), klt_batch.BACKEND_BATCH)
+
+    def test_subprocess_timeout_includes_the_capacity_wait(self):
+        # klt measures the capacity wait on its own clock and does not charge
+        # it to poll_timeout_s, so our bound must carry it on top: a submit
+        # that waits out the window and then runs must not be killed here.
+        seen = []
+        real = klt_batch.subprocess.run
+
+        def spy(cmd, **kw):
+            if "sim" in cmd:
+                seen.append(kw.get("timeout"))
+            return real(cmd, **kw)
+
+        with mock.patch.object(klt_batch.subprocess, "run", spy):
+            (out,) = klt_batch.run_units(
+                [self.unit()],
+                self.cfg(poll_timeout_s=100, wait_for_capacity_s=42, client_slack_s=7),
+                tolerate_absent=True)
+        self.assertTrue(out.ok, out.message)
+        self.assertEqual(seen, [100 + 42 + 7])
+
+    def test_capacity_wait_does_not_shorten_the_bound_when_it_is_zero(self):
+        seen = []
+        real = klt_batch.subprocess.run
+
+        def spy(cmd, **kw):
+            if "sim" in cmd:
+                seen.append(kw.get("timeout"))
+            return real(cmd, **kw)
+
+        with mock.patch.object(klt_batch.subprocess, "run", spy):
+            (out,) = klt_batch.run_units(
+                [self.unit()],
+                self.cfg(poll_timeout_s=100, wait_for_capacity_s=0, client_slack_s=7),
+                tolerate_absent=True)
+        self.assertTrue(out.ok, out.message)
+        self.assertEqual(seen, [107])
+
+    def test_request_content_is_unchanged_by_the_flag(self):
+        # Rejected alternative: writing batch.capacity_wait_s into the request.
+        # The staged request.json is copied into the evidence directory, so it
+        # stays byte-stable; the wait is a command-line concern only.
+        self.submit(wait_for_capacity_s=120)
+        req = json.loads((self.state / "req-0.json").read_text())
+        self.assertNotIn("batch", req)
 
 
 class ResultValidationTests(BatchTestCase):
@@ -983,11 +1317,25 @@ class ResultValidationTests(BatchTestCase):
         self.patch(corner={"status": None})
         self.assertRejected("status")
 
-    def test_malformed_supply_value_is_a_batch_failure(self):
+    def test_corner_matched_by_param_value_not_by_supply_v(self):
+        """A report corner is matched back to its unit on `params`. A corner
+        carrying the right value under the old `supply_v` key matches nothing,
+        so a klt that ignored the axis can never be read as `ok`."""
+        u = self.unit("s", lift_params=("vdd_val",))
+        self.patch(corner={"params": {"vdd_val": 9.99}})
+        (out,) = klt_batch.run_units([u], self.cfg(), tolerate_absent=True)
+        self.assertEqual(out.status, "error")
+        self.assertIn("match no requested unit", out.message)
+        self.patch(corner={"params": None, "supply_v": {"vdd_val": 3.3}})
+        (out,) = klt_batch.run_units([u], self.cfg(), tolerate_absent=True)
+        self.assertEqual(out.status, "error")
+        self.assertNoLocalNgspice()
+
+    def test_malformed_param_value_is_a_batch_failure(self):
         lift = {"lift_params": ("vdd_val",)}
         for sv in ({"vdd_val": "abc"}, ["vdd_val"], "vdd_val"):
             with self.subTest(sv=sv):
-                self.patch(corner={"supply_v": sv})
+                self.patch(corner={"params": sv})
                 for tolerate in (False, True):
                     (out,) = klt_batch.run_units([self.unit("s", **lift)], self.cfg(),
                                                  tolerate_absent=tolerate)
@@ -1002,6 +1350,298 @@ class ResultValidationTests(BatchTestCase):
         (out,) = klt_batch.run_units([u], self.cfg(), tolerate_absent=True)
         self.assertEqual(out.status, "error")
         self.assertIn("match no requested unit", out.message)
+
+
+# ---------------------------------------------------------------------------
+# request building with ratified spec limits (#496)
+# ---------------------------------------------------------------------------
+
+#: A `tb.json`-shaped `checks` block with every bound shape that matters:
+#: min+max, min-only, max-only, neither, and a check on a quantity no deck
+#: measures. Row ids are real `spec/target-spec.md` anchors, because
+#: `runner.batch_measurement_specs` cross-checks them against the file.
+CHECKS = {
+    "vout": {
+        "min": 1.0, "max": 2.0,
+        "description": "spec/target-spec.md#por-vth-rise -- the release threshold.",
+    },
+    "iq": {
+        "max": 5.0,
+        "description": "informative droop guard; mentions spec/target-spec.md#por-iq "
+                       "only in passing, so it is not evidence for that row.",
+    },
+    "ratio": {
+        "min": 0.4,
+        "description": "`spec/target-spec.md#por-reset-valid-floor` valid-low ratio.",
+    },
+    "spread_only": {
+        "max_spread_pct": 5.0,
+        "description": "a grid-level stability check, no per-corner bound at all.",
+    },
+    "derived_in_python": {
+        "min": 0.0, "max": 1.0,
+        "description": "computed after the run from the rows above; no deck vector.",
+    },
+}
+
+REQUEST_NAMES = {"vout": "m_vout", "iq": "m_iq", "ratio": "m_ratio",
+                 "spread_only": "m_spread_only"}
+
+
+def specs_of(request: dict) -> dict[str, tuple[dict | None, str | None]]:
+    """``name -> (limits, spec_row)`` for every measurement of ``request``."""
+    return {m["name"]: (m.get("limits"), m.get("spec_row"))
+            for m in request["measurements"]}
+
+
+class MeasurementSpecTests(unittest.TestCase):
+    """``tb.json`` ``checks`` -> the ``limits``/``spec_row`` klt grades (#496).
+
+    Pure dict-in/dataclass-out: no PDK, no deck, no klt.
+    """
+
+    def specs(self, **kw):
+        return klt_batch.measurement_specs(CHECKS, request_names=REQUEST_NAMES, **kw)
+
+    def test_only_declared_bounds_become_limits(self):
+        by_name = {s.name: s for s in self.specs()}
+        self.assertEqual(by_name["m_vout"].limits(), {"min": 1.0, "max": 2.0})
+        self.assertEqual(by_name["m_iq"].limits(), {"max": 5.0})
+        self.assertEqual(by_name["m_ratio"].limits(), {"min": 0.4})
+
+    def test_a_check_with_no_bound_contributes_no_spec(self):
+        """A grid-level `max_spread_pct` check has nothing klt can grade one
+        corner against; an empty `limits` would read as "never fails"."""
+        self.assertNotIn("m_spread_only", {s.name for s in self.specs()})
+
+    def test_a_check_with_no_request_measurement_is_skipped(self):
+        """`derived_in_python` is bounded, but no deck vector carries it (the
+        MC benches' `terr_trim_c` is the real case)."""
+        self.assertNotIn("derived_in_python", {s.name for s in self.specs()})
+        self.assertEqual(len(self.specs()), 3)
+
+    def test_only_a_leading_reference_is_a_spec_row(self):
+        """A row cited in prose is not a row this measurement substantiates."""
+        rows = {s.name: s.spec_row for s in self.specs()}
+        self.assertEqual(rows["m_vout"], "por-vth-rise")
+        self.assertEqual(rows["m_ratio"], "por-reset-valid-floor")   # backticked
+        self.assertEqual(rows["m_iq"], "")                           # prose mention
+        self.assertEqual(klt_batch.spec_row_of("see spec/target-spec.md#por-iq"), "")
+
+    def test_an_unratified_row_is_refused_not_emitted(self):
+        checks = {"vout": {"min": 1.0, "description": "spec/target-spec.md#no-such-row"}}
+        known = klt_batch.spec_row_ids('| <a id="por-vth-rise"></a>`por-vth-rise` |')
+        with self.assertRaises(klt_batch.BatchIncompatible) as cm:
+            klt_batch.measurement_specs(checks, request_names=REQUEST_NAMES,
+                                        known_rows=known)
+        self.assertIn("no-such-row", str(cm.exception))
+        # Without the cross-check it is emitted as written, not invented.
+        (spec,) = klt_batch.measurement_specs(checks, request_names=REQUEST_NAMES)
+        self.assertEqual(spec.spec_row, "no-such-row")
+
+    def test_spec_row_ids_reads_the_real_spec(self):
+        rows = runner.ratified_spec_rows()
+        self.assertIsNotNone(rows, "spec/target-spec.md unreadable from the repo")
+        for row in ("por-vth-rise", "por-vth-fall", "por-hysteresis"):
+            self.assertIn(row, rows)
+
+    def test_an_unreadable_spec_is_not_comparable_not_empty(self):
+        """`None` must mean "cannot cross-check", never "nothing is ratified"
+        -- an empty set would refuse every row."""
+        self.assertIsNone(runner.ratified_spec_rows(Path("/nonexistent/spec.md")))
+
+
+class SpecLimitRequestTests(BatchTestCase):
+    """The limits reach the staged request, and bound the request grouping."""
+
+    SPECS = (
+        klt_batch.MeasurementSpec("vdd_pre", 1.0, 2.0, "por-vth-rise"),
+        klt_batch.MeasurementSpec("t_praw", None, 0.5),
+        klt_batch.MeasurementSpec("vsg_min", -1.0, None),
+    )
+
+    def test_limits_and_spec_rows_land_on_the_right_measurements(self):
+        (staged,) = klt_batch.stage_requests([self.unit(specs=self.SPECS)], self.cfg())
+        seen = specs_of(staged.request)
+        self.assertEqual(seen["vdd_pre"], ({"min": 1.0, "max": 2.0}, "por-vth-rise"))
+        self.assertEqual(seen["t_praw"], ({"max": 0.5}, None))
+        self.assertEqual(seen["vsg_min"], ({"min": -1.0}, None))
+        # No null bound for an undeclared side, anywhere.
+        for limits, _ in seen.values():
+            self.assertNotIn(None, (limits or {}).values())
+
+    def test_a_unit_without_specs_builds_the_pre_496_request(self):
+        (plain,) = klt_batch.stage_requests([self.unit()], self.cfg())
+        for m in plain.request["measurements"]:
+            self.assertNotIn("limits", m)
+            self.assertNotIn("spec_row", m)
+
+    def test_units_differing_only_in_limits_do_not_share_a_request(self):
+        """`_build_request` reads `measurements[]` from the group's FIRST
+        member, so grouping two differently-bounded units would silently
+        grade one of them against the other's limits."""
+        loose = (klt_batch.MeasurementSpec("vdd_pre", 1.0, 9.0),)
+        tight = (klt_batch.MeasurementSpec("vdd_pre", 1.0, 2.0),)
+        a, b = self.unit("d1", specs=tight), self.unit("d2", specs=loose)
+        self.assertEqual(len(klt_batch.group_units([a, b])), 2)
+        # Same limits still share one request: only the bounds split them.
+        self.assertEqual(len(klt_batch.group_units([a, self.unit("d3", specs=tight)])), 1)
+        got = [specs_of(s.request)["vdd_pre"][0]
+               for s in klt_batch.stage_requests([a, b], self.cfg())]
+        self.assertEqual(got, [{"min": 1.0, "max": 2.0}, {"min": 1.0, "max": 9.0}])
+
+    def test_a_bound_on_an_unmeasured_vector_is_refused(self):
+        with self.assertRaises(klt_batch.BatchIncompatible) as cm:
+            self.unit(specs=(klt_batch.MeasurementSpec("not_measured", 1.0),))
+        self.assertIn("not_measured", str(cm.exception))
+
+    def test_staging_submits_nothing(self):
+        klt_batch.stage_requests([self.unit(specs=self.SPECS)], self.cfg())
+        self.assertEqual(self.calls(), [], "staging invoked klt")
+        self.assertNoLocalNgspice()
+
+    def test_staging_needs_no_klt_on_path(self):
+        (self.bin / "klt").unlink()
+        with mock.patch.dict(os.environ, {"PATH": str(self.bin)}):
+            (staged,) = klt_batch.stage_requests([self.unit()], self.cfg())
+        self.assertTrue(staged.path.is_file())
+        self.assertNoLocalNgspice()
+
+
+class EmitRequestCliTests(BatchTestCase):
+    """``run_corners.py <exp> --emit-request DIR`` (#496)."""
+
+    def setUp(self):
+        super().setUp()
+        self.out = self.root / "emit"
+        (self.root / "tb").mkdir()
+        (self.root / "tb" / "x.spice").write_text(
+            "v1 out 0 dc {vdd_val}\nr1 out 0 1k\n")
+        self.write_tb(CHECKS)
+
+    def write_tb(self, checks):
+        (self.root / "tb" / "tb.json").write_text(json.dumps({
+            "name": "x", "netlist": "x.spice", "corners": ["tt"],
+            "temperatures_c": [-40, 125], "analyses": ["tran 1e-6 1e-3"],
+            "measure": {"vout": "v(out)", "iq": "-i(v1)", "ratio": "v(out)/3.3"},
+            "checks": checks,
+        }))
+
+    def emit(self, *extra, testbench=None, out=None):
+        args = cli.build_parser().parse_args(
+            [testbench or str(self.root / "tb"),
+             "--emit-request", str(out or self.out), *extra])
+        with mock.patch.object(cli, "find_pdk", return_value=self.pdk):
+            with contextlib.redirect_stdout(io.StringIO()) as buf:
+                code = cli.cmd_emit_request(args)
+        return code, buf.getvalue()
+
+    def requests(self, out=None):
+        return sorted((out or self.out).glob("requests/*/*.json"))
+
+    def test_it_writes_requests_and_submits_nothing(self):
+        code, text = self.emit()
+        self.assertEqual(code, cli.EXIT_OK)
+        self.assertTrue(self.requests())
+        self.assertEqual(self.calls(), [], "--emit-request invoked klt")
+        self.assertNoLocalNgspice()
+        self.assertIn("Nothing was submitted", text)
+
+    def test_it_records_no_evidence(self):
+        self.emit()
+        self.assertEqual(list((self.root / "tb").glob("records/*")), [])
+        self.assertEqual(list(self.out.rglob("*.md")), [])
+
+    def test_one_request_per_temperature_carrying_the_ratified_limits(self):
+        self.emit()
+        paths = self.requests()
+        self.assertEqual(len(paths), 2)                     # -40 C and 125 C
+        for path in paths:
+            request = json.loads(path.read_text())
+            self.assertEqual(len(request["corners"]["temperature_c"]), 1)
+            seen = specs_of(request)
+            self.assertEqual(seen["m_vout"], ({"min": 1.0, "max": 2.0}, "por-vth-rise"))
+            self.assertEqual(seen["m_iq"], ({"max": 5.0}, None))
+            self.assertEqual(seen["m_ratio"], ({"min": 0.4}, "por-reset-valid-floor"))
+
+    def test_a_manifest_with_no_checks_still_builds(self):
+        self.write_tb({})
+        code, _ = self.emit()
+        self.assertEqual(code, cli.EXIT_OK)
+        for path in self.requests():
+            for m in json.loads(path.read_text())["measurements"]:
+                self.assertNotIn("limits", m)
+
+    def test_an_unratified_spec_row_is_an_environment_error(self):
+        self.write_tb({"vout": {"min": 1.0,
+                                "description": "spec/target-spec.md#not-a-real-row"}})
+        code, _ = self.emit()
+        self.assertEqual(code, cli.EXIT_ENVIRONMENT)
+        self.assertEqual(self.requests(), [])
+
+    def test_an_untranslatable_deck_is_refused_never_dropped(self):
+        """A request set with a hole in it is worse than no request set: it
+        looks like a complete grid. Mirrors the submit path's
+        `test_untranslatable_deck_becomes_an_error_point`, which instead
+        returns an error *result* per point."""
+        with mock.patch.object(runner, "compose_deck",
+                               return_value="* d\n.control\nwrite x\n.endc\n"):
+            code, _ = self.emit()
+        self.assertEqual(code, cli.EXIT_ENVIRONMENT)
+        self.assertEqual(self.requests(), [])
+        self.assertEqual(self.calls(), [])
+
+    def test_it_refuses_to_mix_with_an_existing_request_set(self):
+        self.assertEqual(self.emit()[0], cli.EXIT_OK)
+        before = {p: p.read_text() for p in self.requests()}
+        code, _ = self.emit("--temps", "27")
+        self.assertEqual(code, cli.EXIT_ENVIRONMENT)
+        self.assertEqual({p: p.read_text() for p in self.requests()}, before)
+
+    def test_the_grid_honours_the_cli_overrides(self):
+        self.emit("--temps", "27", "--supply-tol", "0")
+        (path,) = self.requests()
+        request = json.loads(path.read_text())
+        self.assertEqual(request["corners"]["temperature_c"], [27.0])
+        self.assertEqual(request["corners"]["params"], {"vdd_val": [3.3]})
+
+    def test_por_vth_is_81_units_in_3_requests(self):
+        """The acceptance criterion, on the committed manifest: 9 process x 3
+        supply x 3 temperature = 81 units, packaged one request per
+        temperature (`_unit_group_key` includes `temp_c`)."""
+        out = self.root / "por-vth"
+        code, text = self.emit(testbench="por-vth", out=out)
+        self.assertEqual(code, cli.EXIT_OK, text)
+        paths = self.requests(out)
+        self.assertEqual(len(paths), 3)
+        total = 0
+        for path in paths:
+            request = json.loads(path.read_text())
+            self.assertEqual(len(request["corners"]["temperature_c"]), 1)
+            self.assertEqual(len(request["corners"]["process"]), 9)
+            self.assertEqual(len(request["corners"]["params"]["vdd_val"]), 3)
+            self.assertEqual(request.get("exclude", []), [])
+            total += 9 * 3
+        self.assertEqual(total, 81)
+        self.assertIn("81 unit(s) total", text)
+        self.assertEqual(self.calls(), [])
+        self.assertNoLocalNgspice()
+
+    def test_por_vth_tags_exactly_the_three_ratified_rows(self):
+        out = self.root / "por-vth"
+        self.emit(testbench="por-vth", out=out)
+        request = json.loads(self.requests(out)[0].read_text())
+        seen = specs_of(request)
+        self.assertEqual(
+            {name: row for name, (_, row) in seen.items() if row},
+            {"m_vpor_rise_v": "por-vth-rise", "m_vpor_fall_v": "por-vth-fall",
+             "m_v_hys_mv": "por-hysteresis"},
+        )
+        # Every bounded check is graded; the one unbounded measure is not.
+        self.assertEqual(sum(1 for limits, _ in seen.values() if limits), 12)
+        self.assertIsNone(seen["m_v_hys_guard_mv"][0])
+        self.assertEqual(seen["m_rise_chatter_guard_ms"][0], {"min": 16.0})
+        self.assertEqual(seen["m_por_raw_hi_droop_mv"][0], {"max": 50.0})
 
 
 class ControlScriptWiringTests(BatchTestCase):
