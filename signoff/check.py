@@ -97,30 +97,57 @@ RAN_CLEAN = (0, 3)
 # documents stale again). So the rule is negative: state no aggregate at all.
 PROSE_COUNT_DOCS = ("README.md", "signoff/README.md")
 
-# The T1 item total. Only PROSE_COUNT_PATTERNS' bare-fraction leg needs it;
-# the counted leg ("N of M items") is independent of the total, so a checklist
-# that grows an item still has its prose policed by that leg.
-T1_ITEM_COUNT = 11
+# The T1 item total is deliberately NOT hand-typed here: the checker holding
+# its own copy of the number it polices would rot exactly like the prose
+# aggregates below (#565). `prose_count_patterns` reads the total from
+# tier-report.json, the answer of record, each time the check runs.
+def _t1_item_count(root: Path) -> int | None:
+    """The T1 checklist size, read from `root`'s tier-report.json.
 
-# What an aggregate T1 verdict looks like in prose. Deliberately NOT a bare
-# `N/N`: both documents carry legitimate ratios that must keep passing --
-# #145's "10/10 pass", `klt lvs`'s "145/145 nets", "30/81 points", and deck
-# layer numbers such as "117/10". Single-item prose ("item 7 grades `unmet`")
-# is legitimate too; only a multi-item enumeration is an aggregate.
-PROSE_COUNT_PATTERNS = (
-    (
-        r"\b\d+\s*(?:of|/)\s*\d+\s+(?:T1\s+)?items?\b",
-        "an aggregate T1 item count",
-    ),
-    (
-        rf"\b\d+\s*(?:of|/)\s*{T1_ITEM_COUNT}\b",
-        f"a count against the {T1_ITEM_COUNT}-item T1 checklist",
-    ),
-    (
-        r"\bitems?\s+\d+(?:\s*,\s*\d+)*\s+and\s+\d+\s+(?:are\s+)?`?unmet`?",
-        "a hand-written enumeration of which items are unmet",
-    ),
-)
+    Returns None when the report is missing or unparsable; the bare-fraction
+    leg then stands down for that run while the counted leg keeps policing
+    prose (check_drift flags the report itself).
+    """
+    try:
+        count = json.loads(
+            (root / "signoff" / "tier-report.json").read_text()
+        )["t1_item_count"]
+    except (OSError, ValueError, KeyError, TypeError):
+        return None
+    return count if isinstance(count, int) else None
+
+
+def prose_count_patterns(item_count: int | None):
+    """What an aggregate T1 verdict looks like in prose. Deliberately NOT a bare
+    `N/N`: both documents carry legitimate ratios that must keep passing --
+    #145's "10/10 pass", `klt lvs`'s "145/145 nets", "30/81 points", and deck
+    layer numbers such as "117/10". Single-item prose ("item 7 grades `unmet`")
+    is legitimate too; only a multi-item enumeration is an aggregate.
+
+    Only the bare-fraction leg needs `item_count`; the counted leg
+    ("N of M items") is independent of the total, so a checklist that grows
+    an item still has its prose policed by that leg even without a report.
+    """
+    patterns = [
+        (
+            r"\b\d+\s*(?:of|/)\s*\d+\s+(?:T1\s+)?items?\b",
+            "an aggregate T1 item count",
+        ),
+    ]
+    if item_count is not None:
+        patterns.append(
+            (
+                rf"\b\d+\s*(?:of|/)\s*{item_count}\b",
+                f"a count against the {item_count}-item T1 checklist",
+            ),
+        )
+    patterns.append(
+        (
+            r"\bitems?\s+\d+(?:\s*,\s*\d+)*\s+and\s+\d+\s+(?:are\s+)?`?unmet`?",
+            "a hand-written enumeration of which items are unmet",
+        ),
+    )
+    return tuple(patterns)
 
 
 def fail(msg: str) -> None:
@@ -294,6 +321,14 @@ def check_prose_counts(root: Path = REPO_ROOT) -> bool:
     itself go stale when an item's status moves.
     """
     ok = True
+    item_count = _t1_item_count(root)
+    if item_count is None:
+        print(
+            "warn signoff/tier-report.json is missing or unparsable: the "
+            'bare-fraction prose leg ("N of <item total>") is not policed '
+            "this run; the counted leg still is",
+            file=sys.stderr,
+        )
     for rel in PROSE_COUNT_DOCS:
         try:
             text = (root / rel).read_text()
@@ -302,7 +337,7 @@ def check_prose_counts(root: Path = REPO_ROOT) -> bool:
             ok = False
             continue
         hits = []
-        for pattern, what in PROSE_COUNT_PATTERNS:
+        for pattern, what in prose_count_patterns(item_count):
             for match in re.finditer(pattern, text, re.IGNORECASE):
                 line = text.count("\n", 0, match.start()) + 1
                 hits.append((line, what, " ".join(match.group(0).split())))
