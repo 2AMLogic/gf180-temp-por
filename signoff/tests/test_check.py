@@ -491,6 +491,12 @@ class GraderSelectionTest(unittest.TestCase):
                 self.assertEqual(ret, 1)
                 self.assertIn(self.FALLBACK_INSTALL, err)
 
+    def test_fallback_literal_matches_toolchain_json_install(self):
+        self.assertEqual(
+            json.loads(check.TOOLCHAIN.read_text())["klt"]["install"],
+            self.FALLBACK_INSTALL,
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
