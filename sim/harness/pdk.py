@@ -8,12 +8,13 @@ Resolution order (first hit wins):
 
 1. ``GF180_PDK_PATH``   -- absolute path to the *variant* directory
                            (the one containing ``libs.tech/``), e.g.
-                           ``~/.volare/gf180mcuD``.
+                           ``~/.ciel/gf180mcuD``.
 2. ``PDK_ROOT`` (+ ``PDK``, default ``gf180mcuD``) -- the conventional
-                           open_pdks / volare / OpenLane environment.
+                           open_pdks / ciel / volare / OpenLane environment.
 3. ``sim/pdk.local.json`` -- machine-local override, git-ignored.
 4. ``sim/pdk.json``      -- committed defaults: variant + search roots.
-5. Built-in search roots -- volare store, open_pdks install prefixes.
+5. Built-in search roots -- ciel and volare stores, open_pdks install
+                           prefixes.
 """
 
 from __future__ import annotations
@@ -42,13 +43,15 @@ BUILTIN_SEARCH_ROOTS = (
 INSTALL_HINT = """\
 gf180mcu PDK not found.
 
-Install it with volare (recommended, ~5 GB):
+Install it with ciel (recommended, ~5 GB):
 
-    pip install volare
-    volare enable --pdk gf180mcu <version-hash>     # see: volare ls-remote --pdk gf180mcu
+    pip install ciel
+    ciel enable --pdk gf180mcu <version-hash>       # see: ciel ls-remote --pdk gf180mcu
 
-volare installs into ~/.volare/<variant> and this harness finds it there
-automatically. If your PDK lives somewhere else, point the harness at it:
+ciel installs into ~/.ciel/<variant> and this harness finds it there
+automatically. A volare install (~/.volare/<variant>) works too, but ciel
+is the store this repo's CI and evidence are taken against. If your PDK
+lives somewhere else, point the harness at it:
 
     export GF180_PDK_PATH=/path/to/gf180mcuD        # variant dir, contains libs.tech/
     # or the conventional pair:
@@ -93,7 +96,7 @@ class Pdk:
 
     @property
     def version(self) -> str:
-        """open_pdks commit recorded by volare, or 'unknown'."""
+        """open_pdks commit recorded in ``SOURCES`` (written by ciel/volare), or 'unknown'."""
         sources = self.path / "SOURCES"
         if sources.is_file():
             for line in sources.read_text().splitlines():
