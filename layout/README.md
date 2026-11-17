@@ -173,6 +173,12 @@ python3 layout/build_cells.py   --check   # committed GDS still matches its sour
 python3 layout/lvs_reference.py --check   # reference netlist still matches design/
 ```
 
+The `build_cells.py --check` gate also runs in CI: the headless `checks` job
+runs it on the 3.11 leg, where the `klayout` python module is installed, so a
+PR that commits GDS the generator does not reproduce fails CI before review.
+A missing `klayout` module fails that step rather than skipping it, so the
+gate cannot pass vacuously.
+
 **0b. Deck-hash gate.** A recorded DRC-clean verdict is only meaningful
 relative to one `klt` deck revision, so every committed
 `layout/reports/*/drc.json` has to agree on `provenance.deck.content_hash` —
@@ -402,6 +408,10 @@ python3 sim/build_tb.py                  # regenerate the sim/ fragments that
                                          # (CI gates this with --check; see
                                          # sim/README.md)
 ```
+
+CI also gates `postlayout.py --check` itself (issue #573): it is stdlib-only,
+so the headless `checks` job runs it on both matrix legs, binding the
+committed `layout/postlayout/` exports to the committed `layout/cells/*.gds`.
 
 The last line is part of the layout regen checklist, not a sim/ concern:
 every `sim/*/testbench-postlayout/` fragment inlines its
