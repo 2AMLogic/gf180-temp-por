@@ -82,6 +82,22 @@ current, DRC is clean, extraction succeeded, LVS matches, **and** both LVS
 negative controls were detected. Every JSON report is rewritten under
 `layout/reports/` and committed as evidence.
 
+Underneath all of these sits one unscoped guard (#553):
+
+```bash
+python3 layout/check_gds_grid.py   # every committed GDS vertex on-grid
+```
+
+It sweeps every `layout/cells/*.gds` vertex (box defining points, polygon
+hull/hole points, path points, text anchors, instance origins — compared in
+integer DBU against `build_cells.MFG_GRID_UM`) and fails on any off-grid
+coordinate. `run_checks.sh` runs it too, and CI runs it on the 3.11 matrix
+entry — it needs only the `klayout` python module, no PDK, deck or `klt`,
+which is exactly why it can guard end to end what the deck's
+`*.ongrid.1` rules only cover per layer (they ship no `metal2`/`metal3`
+rule, while `_TopRoutes.box`/`hwire`/`vwire` snap only part of what they
+draw).
+
 ### The pinned toolchain
 
 Every report under `layout/reports/` is evidence for **one** `klt` build, and

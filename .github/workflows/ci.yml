@@ -30,6 +30,11 @@ name: CI
 #                                               hand but CI does not invoke
 #                                               npm, so it is also run here
 #                                               directly.
+#   - layout/check_gds_grid.py               -> checks / 3.11 only (issue #553;
+#                                               needs the `klayout` python
+#                                               module, which the klt grader
+#                                               install below already pulls
+#                                               in -- no new pip install).
 #   - layout/postlayout.py --check (#573)    -> checks, both legs. Stdlib only:
 #                                               regenerates the
 #                                               layout/postlayout/ artifacts in
@@ -65,9 +70,10 @@ name: CI
 #   - Python matrix (issue #354)             -> checks runs on 3.9 (the documented
 #                                               floor) and 3.11. The stdlib-only
 #                                               steps run on both; the klt grader
-#                                               install + signoff/check.py +
-#                                               layout/build_cells.py --check run
-#                                               on 3.11 only.
+#                                               install, layout/check_gds_grid.py,
+#                                               signoff/check.py and
+#                                               layout/build_cells.py --check
+#                                               run on 3.11 only.
 #   - design/netlist.py --check              -> pdk-checks (needs xschem + PDK)
 #   - "any pytest under sim/"                -> none exists; sim/tests/ is
 #                                               unittest-based, exercised by
@@ -160,6 +166,19 @@ jobs:
         # build that PRODUCED layout/reports/ -- see signoff/toolchain.json
         # for why the two cannot be the same version.
         run: pip install "klayout-tools[yield]==0.9.1"
+
+      - name: layout/check_gds_grid.py (every committed GDS vertex on the manufacturing grid)
+        if: matrix.python-version == '3.11'
+        # #553. Layer- and deck-version-agnostic end-product guard: reads the
+        # committed layout/cells/*.gds directly and requires every vertex to
+        # be a whole multiple of build_cells.MFG_GRID_UM. Needs only the
+        # `klayout` python module, which the grader install above already
+        # pulls in (klayout-tools depends on klayout>=0.30) -- no new pip
+        # install. It cannot live in the layout/tests unittest step above:
+        # that step runs on both matrix entries before klayout is installed,
+        # so a skipUnless(klayout) test would silently skip in CI instead of
+        # guarding anything.
+        run: python3 layout/check_gds_grid.py
 
       - name: layout/build_cells.py --check (committed GDS reproduces from the generator)
         if: matrix.python-version == '3.11'

@@ -2340,10 +2340,11 @@ def _resistor_leg_plan(length_um: float, leg_w: float) -> tuple[int, float, floa
     exactly ``DIVIDER_LEG_SPACE_UM`` to the total electrical length -- except
     the *last* leg, which is ``tail_extra_um`` taller than the rest: the one
     place the exact-nanometre integer division below can leave a remainder
-    (at most ``legs`` nm), folded entirely into the one leg whose far end is
-    already an open (unjogged) terminal, so it costs nothing but a few
-    nanometres of that leg's own length -- not a second, misaligned turn.
-    An odd leg count keeps the string's two open ends on opposite sides
+    (at most ``legs`` times one grid pitch -- the pre-#515 bound was ``legs``
+    nm, which the grid snapping below loosens), folded entirely into the one
+    leg whose far end is already an open (unjogged) terminal, so it costs
+    nothing but some of that leg's own length -- not a second, misaligned
+    turn. An odd leg count keeps the string's two open ends on opposite sides
     (see :func:`_resistor_string`), convenient for wiring one to each of two
     different nets without doubling back.
 
