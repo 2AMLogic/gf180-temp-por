@@ -182,6 +182,18 @@ IMPLANT_OVERHANG_UM = 0.25
 IMPLANT_MIN_WIDTH_UM = 0.4  # nplus.width.1 / pplus.width.1 (NP.1 / PP.1)
 IMPLANT_MIN_SPACE_UM = 0.4  # nplus.space.1 / pplus.space.1 (NP.2 / PP.2)
 
+#: The DRM's body-tie distance ceiling for 3.3 V devices: DF.14_LV caps an
+#: n+ source/drain outside every Nwell at 20 um from the nearest p+
+#: substrate tap, DF.13_LV caps a p+ source/drain inside an Nwell at 20 um
+#: from the nearest n+ tap **of the same well** -- two physically separate
+#: wells do not bridge, so the per-well form is the one both the deck
+#: (``comp.tap_distance.psub.lv.1`` / ``comp.tap_distance.nwell.lv.1``,
+#: klt 0.8.0+) and :func:`_assert_tap_coverage` measure. The pinned 0.6.0
+#: deck (``layout/toolchain.json``) predates the rules, which is why the
+#: assertion re-derives the invariant at build time from true polygon
+#: distances rather than waiting for a deck that can see it.
+TAP_DISTANCE_LIMIT_UM = 20.0
+
 #: Golden MOS model -> the implant its source/drain diffusion must carry
 #: (#516). ``DEVICE_CLASS`` in ``layout/lvs_reference.py`` is the source of the
 #: model names; this is the one place the *drawn doping type* is decided from
@@ -421,20 +433,33 @@ def por_comparator_bias_okb_inv(b: CellBuilder) -> None:
 
     Floorplan (um), source column | gate | drain column::
 
-        y=5.6  +--------- Nwell ----------+
-        y=5.0  |  +----- PMOS Comp -----+ |     W = 2.0 um
-        y=3.0  |  +---------------------+ |
-        y=2.4  +--------------------------+
+        y=7.2  +-------------- Nwell ----------------+
+        y=6.7  | +--- n+ well tie strap ---+          |  -> VDD
+        y=5.6  |                                          |
+        y=5.0  |  +----- PMOS Comp -----+                 |  W = 2.0 um
+        y=3.0  |  +---------------------+                 |
+        y=2.4  +------------------------------------------+
         y=2.0        [gate contact]              -> BIAS_OK
-        y=1.0     +----- NMOS Comp -----+        W = 1.0 um
+        y=1.0     +----- NMOS Comp -----+           W = 1.0 um
         y=0.0     +---------------------+
-               x=0    0.5  1.0        1.8
+        y=-0.7    +-- p+ substrate tap strap --+        -> VSS
+        y=-1.7    +-----------------------------+
+               x=-0.2 0  0.5  1.0        1.8  2.0
                       |<L>|  L = 0.5 um
+
+    The tap strap and the well tie (#532) put a body-bias contact within a
+    couple of um of both devices: the DRM's ``DF.13_LV``/``DF.14_LV`` (20 um
+    -- ``comp.tap_distance.*`` in klt 0.8.0+) counted this cell's one NMOS
+    and one PMOS as their own only violations inside ``por_comparator``,
+    through this very instance. Each tap is contacted and strapped on Metal1
+    to the supply its row already carries -- VSS down at the strap, VDD up
+    the clear left margin -- and ``_assert_tap_coverage`` checks both ties at
+    build time.
     """
     # Active. NMOS on field, PMOS in the well.
     b.box(COMP, 0.0, 0.0, 1.8, 1.0)
     b.box(COMP, 0.0, 3.0, 1.8, 5.0)
-    b.box(NWELL, -0.6, 2.4, 2.4, 5.6)
+    b.box(NWELL, -0.6, 2.4, 2.4, 7.2)
     # Source/drain implants, typed by which side of the well each diffusion
     # sits on: n+ on the field NMOS, p+ on the well PMOS (#516). The blankets
     # stay inside the Nwell edge the COMP already keeps (1.0 um -- the well
@@ -456,6 +481,22 @@ def por_comparator_bias_okb_inv(b: CellBuilder) -> None:
     b.box(METAL1, -0.60, 3.75, 0.45, 4.25)  # VDD strap
     b.box(METAL1, -0.60, 1.80, 0.95, 2.20)  # BIAS_OK  (gate)
     b.box(METAL1, 1.20, 0.20, 1.60, 4.30)  # BIAS_OKB (drains)
+
+    # --- substrate tap and Nwell tie (#532) --------------------------------
+    # Both follow their row's edge: a p+ strap 0.7 um below the NMOS comp,
+    # an n+ strap 0.7 um above the PMOS comp, inside the Nwell this cell now
+    # extends to y = 7.2 to enclose. The tie strap is a 1.2 um stub -- one
+    # centred contact -- and its Metal1 cover stops at x = 0.85 so the
+    # parent's BIAS_OKB riser, which lands at x = 1.2..1.6 in this frame
+    # when the cell is instanced, passes 0.35 um clear of it. Each bridge to
+    # its supply spans the VSS/VDD strap's own full x band (-0.60..0.45):
+    # stopping it short of that band leaves a sliver where it meets the
+    # strap cover's inset edge -- a metal1.width.1 neck, which is exactly
+    # how the first cut at this drew it.
+    _tap_strap(b, -0.2, 2.0, 0.0, above=False, implant=PPLUS)
+    b.box(METAL1, -0.60, -0.75, 0.45, 0.25)  # VSS strap down onto the tap
+    _tap_strap(b, -0.2, 1.0, 5.0, above=True, implant=NPLUS, metal_x1=0.85)
+    b.box(METAL1, -0.60, 4.25, 0.45, 5.70)  # VDD strap up onto the tie
 
     b.label("VSS", 0.0, 0.5)
     b.label("VDD", 0.0, 4.0)
@@ -559,6 +600,17 @@ REGION_GAP_UM = 4.0  # spacing between the PMOS and NMOS regions
 GUARD_RING_W_UM = 1.5
 GUARD_RING_CLEAR_UM = 3.0
 TAP_PITCH_UM = 1.0  # contact pitch along guard ring / tap straps
+#: A tap strap's COMP height, and its standoff from the device COMP edge it
+#: follows (#532). The row edges these straps track are ragged (device widths
+#: differ run by run), so each equal-depth run gets its strap at its own
+#: edge -- inside the row a horizontal strap would short fingers together,
+#: and at one end of the whole row it would be too far from the short runs
+#: to satisfy the 20 um tap-distance rules. The standoff keeps the strap's
+#: grown implant clear of the gate poly's 0.3 um overhang past the comp edge:
+#: the blanket's near edge sits TAP_STANDOFF_UM - IMPLANT_OVERHANG_UM
+#: = 0.45 um beyond the comp, 0.15 um past the poly tip.
+TAP_STRAP_H_UM = 1.0
+TAP_STANDOFF_UM = 0.7
 
 # --- bias_core's passive/bipolar block (#90) ------------------------------- #
 #
@@ -1385,9 +1437,13 @@ def _draw_guard_ring(
     Tied to VSS by the caller abutting the VSS rail to it; no floating segment.
     The deck has no tap/well-label layer, so LVS cannot confirm the tie, and
     nothing in the flow checks the ring's continuity either (filed generically
-    as klayout-tools#303) -- that stays a design-review claim for this cell
-    (``layout/README.md``). Returns the four ring rectangles, so a caller with
-    its own topology check (``_top_guard_ring``) need not rebuild them.
+    as klayout-tools#303) -- what the flow *can* check, ``_assert_tap_coverage``
+    (#532), now runs on every cell this module builds and proves each ring
+    polygon is contacted and reaches a labelled supply net; the ring's own
+    closure stays a per-cell claim (``_top_guard_ring`` asserts it for the
+    top cell; ``layout/README.md``). Returns the four ring rectangles, so a
+    caller with its own topology check (``_top_guard_ring``) need not rebuild
+    them.
 
     ``box`` overrides how each COMP/Metal1 rectangle is drawn -- the top cell
     passes ``_TopRoutes.box`` so its shapes carry a net tag; the blanket and
@@ -1416,6 +1472,96 @@ def _draw_guard_ring(
         b.contact(gx0 + half, y)
         b.contact(gx1 - half, y)
     return ring
+
+
+def _equal_depth_runs(
+    spans: list[tuple[float, float, float]],
+) -> list[tuple[float, float, float]]:
+    """Merge x-adjacent same-width device spans into one run (#532).
+
+    ``spans`` is a per-finger ``(x0, x1, width)`` list in table (x) order --
+    exactly what ``_temp_core_body``'s placement loop collects. Two adjacent
+    fingers merge when they abut at the slot pitch and share a width; every
+    interruption (a different width, a differently-typed slot inside the row,
+    a well split) starts a fresh run. Each run is one ragged-row step, and
+    gets one tap strap at its own edge.
+    """
+    runs: list[list[float]] = []
+    for x0, x1, width in spans:
+        if (
+            runs
+            and abs(runs[-1][1] - (x0 - _SLOT_GAP)) < 1e-9
+            and abs(runs[-1][2] - width) < 1e-9
+        ):
+            runs[-1][1] = x1
+        else:
+            runs.append([x0, x1, width])
+    return [(x0, x1, width) for x0, x1, width in runs]
+
+
+def _tap_strap(
+    b: CellBuilder,
+    x0: float,
+    x1: float,
+    edge_y: float,
+    *,
+    above: bool,
+    implant,
+    metal_x1: float | None = None,
+) -> tuple[float, float, float, float]:
+    """One contacted tap strap following a device-row edge (#532).
+
+    A :data:`TAP_STRAP_H_UM`-tall COMP strip :data:`TAP_STANDOFF_UM` beyond
+    ``edge_y`` (above or below it), carrying ``implant`` per #516's blanket
+    convention, contacted at :data:`TAP_PITCH_UM` under a Metal1 cover.
+    Callers pass one strap per equal-depth run (:func:`_equal_depth_runs`);
+    below the NMOS row and above the PMOS row no Poly2 ever reaches, so the
+    strap's contacts land poly-free and the strap itself extracts as tie
+    geometry, never as a parasistic device (a poly crossunder crossing tap
+    COMP would). A strap shorter than one pitch plus its two insets gets a
+    single centred contact -- :func:`_span` would return two centres closer
+    together than ``contact.space.1`` allows. ``metal_x1`` pulls the Metal1
+    cover's right edge in from the strap, for the one strap whose parent
+    routes a riser past it.
+
+    Returns the strap's COMP rectangle, so the caller's riser can land inside
+    its metal.
+    """
+    if above:
+        y0 = edge_y + TAP_STANDOFF_UM
+    else:
+        y0 = edge_y - TAP_STANDOFF_UM - TAP_STRAP_H_UM
+    y1 = y0 + TAP_STRAP_H_UM
+    yc = (y0 + y1) / 2.0
+    b.box(COMP, x0, y0, x1, y1)
+    b.blanket(implant, [(x0, y0, x1, y1)], IMPLANT_OVERHANG_UM)
+    mx1 = x1 + 0.05 if metal_x1 is None else metal_x1
+    b.box(METAL1, x0 - 0.05, y0 - 0.05, mx1, y1 + 0.05)
+    if x1 - x0 < TAP_PITCH_UM + 1.0:
+        b.contact((x0 + x1) / 2.0, yc)
+    else:
+        for x in _span(x0 + 0.5, x1 - 0.5, TAP_PITCH_UM):
+            b.contact(x, yc)
+    return (x0, y0, x1, y1)
+
+
+def _tap_riser(b: CellBuilder, channel: _Channel, net: str, x: float, y_from: float) -> None:
+    """Carry a tap strap's Metal1 to ``net``'s own channel track (#532).
+
+    ``temp_core``'s channel is the mirror of ``bias_core``'s: horizontal
+    Metal1 tracks crossed by vertical Poly2, so a tap strap outside the row
+    cannot reach a supply track on Metal1 without crossing one. It rises on
+    Metal2 instead -- the layer the passive field already reaches the channel
+    on -- through a Via1 pair: one off the strap's own metal, one onto the
+    track. ``_Channel.anchor`` extends ``net``'s track to cover the landing
+    if it did not reach this far, which only ever lengthens a track inside
+    its own empty band.
+    """
+    x = _snap(x)
+    y_to = channel.anchor(net, x)[1]
+    _m1_to_m2(b, x, y_from)
+    _m2_v(b, x, y_from, y_to)
+    _m1_to_m2(b, x, y_to)
 
 
 def _bias_core_passives(
@@ -2898,6 +3044,16 @@ _LANDING = 0.6  # comp edge -> the poly crossunder's landing contact
 _SLOT_GAP = 0.5  # x gap between adjacent device slots
 _WELL_MARGIN = 0.5  # Nwell beyond the comp it holds (>= DF.4d's 0.12)
 _WELL_SPLIT = 2.0  # extra x gap between two differently-biased Nwells
+#: Which net each drawn Nwell's own n+ tie strap (#532) carries it to. The
+#: two wells hold differently-biased PMOS: ``NW1`` is the VDD-biased bulk of
+#: the mirror/cascode/output population, while ``NW2`` holds only the rank-1
+#: input pair, whose sources (and therefore bulk) sit on the tail node ``NT``
+#: -- tying ``NW2`` to ``VDD`` would forward-bias its drain-well junction,
+#: and strapping both wells to one net would short ``NT`` to ``VDD``. The
+#: build-time guard below re-derives the ``NW2`` entry from the row table
+#: itself, so a table edit that moves the pair's source silently changes the
+#: well bias instead of the layout following a stale constant.
+_WELL_TIE_NETS = {"NW1": "VDD", "NW2": "NT"}
 _CONTACT_PITCH = 1.0  # source/drain contact pitch along the channel width
 _ROW_GAP = 3.0  # channel edge -> device row
 
@@ -3270,6 +3426,7 @@ def _temp_core_body(b: CellBuilder) -> None:
 
     x = 0.0
     wells: dict[str, list[tuple[float, float, float]]] = {}
+    nspans: list[tuple[float, float, float]] = []
     for entry in _TEMP_CORE_ROW:
         if entry[0] == "gap":
             x += _WELL_SPLIT
@@ -3290,12 +3447,57 @@ def _temp_core_body(b: CellBuilder) -> None:
         )
         if pmos:
             wells.setdefault(well, []).append((x, x + slot, width))
+        else:
+            nspans.append((x, x + slot, width))
         x += slot + _SLOT_GAP
 
-    for spans in wells.values():
+    # --- the taps and ties (#532) -------------------------------------------
+    # The DRM caps every source/drain at 20 um from a body tie of its own
+    # side (DF.14_LV on the field, DF.13_LV in an Nwell; the deck's
+    # ``comp.tap_distance.*``). The row is 288 um long and ragged -- device
+    # widths run 0.5..32 um -- so one strap at either end reaches nothing.
+    # Each equal-depth run of fingers therefore gets a contacted tap strap at
+    # its own row edge: p+ below the NMOS runs, n+ above the PMOS runs, each
+    # tied to the supply its side carries. See :func:`_tap_strap` for the
+    # strap geometry and :func:`_assert_tap_coverage` for the check that
+    # holds both invariants at build time.
+    drawn_wells = {
+        entry[6] for entry in _TEMP_CORE_ROW if entry[0] != "gap" and entry[6]
+    }
+    assert set(_WELL_TIE_NETS) == drawn_wells, (
+        f"_WELL_TIE_NETS covers {sorted(_WELL_TIE_NETS)} but the row table "
+        f"draws wells {sorted(drawn_wells)}"
+    )
+    for well, tie_net in _WELL_TIE_NETS.items():
+        if tie_net != "VDD":
+            sources = {
+                entry[5]
+                for entry in _TEMP_CORE_ROW
+                if entry[0] != "gap" and entry[6] == well
+            }
+            assert sources == {tie_net}, (
+                f"well {well} is tied to {tie_net!r} but its fingers' "
+                f"sources are {sorted(sources)}: a non-VDD well bias must "
+                "follow its devices' own sources, or the drawn tie "
+                "forward-biases the very junction it is meant to hold"
+            )
+    for rx0, rx1, rwidth in _equal_depth_runs(nspans):
+        rect = _tap_strap(b, rx0, rx1, nrow_y - rwidth, above=False, implant=PPLUS)
+        _tap_riser(b, channel, "VSS", rx0 + TAP_PITCH_UM, (rect[1] + rect[3]) / 2.0)
+
+    for well, spans in wells.items():
+        tie_net = _WELL_TIE_NETS[well]
+        y1 = prow_y + max(span[2] for span in spans) + _WELL_MARGIN
+        for rx0, rx1, rwidth in _equal_depth_runs(spans):
+            rect = _tap_strap(
+                b, rx0, rx1, prow_y + rwidth, above=True, implant=NPLUS
+            )
+            _tap_riser(b, channel, tie_net, rx0 + TAP_PITCH_UM, (rect[1] + rect[3]) / 2.0)
+            # The tie strap rides above the well's own comp, so the well has
+            # to clear the tallest run's strap, not just its comp.
+            y1 = max(y1, rect[3] + _WELL_MARGIN)
         x0 = min(span[0] for span in spans) - _WELL_MARGIN
         x1 = max(span[1] for span in spans) + _WELL_MARGIN
-        y1 = prow_y + max(span[2] for span in spans) + _WELL_MARGIN
         b.box(NWELL, x0, prow_y - _WELL_MARGIN, x1, y1)
 
     _temp_core_passives(b, channel)
@@ -4590,6 +4792,194 @@ def _assert_implant_types(b: CellBuilder, cell: str) -> None:
                 )
 
 
+def _point_segment_distance_um(
+    px: float, py: float, x0: float, y0: float, x1: float, y1: float
+) -> float:
+    """Euclidean distance from point ``(px, py)`` to segment ``(x0,y0)-(x1,y1)``."""
+    dx, dy = x1 - x0, y1 - y0
+    if dx == 0.0 and dy == 0.0:
+        return math.hypot(px - x0, py - y0)
+    t = ((px - x0) * dx + (py - y0) * dy) / (dx * dx + dy * dy)
+    t = max(0.0, min(1.0, t))
+    return math.hypot(px - (x0 + t * dx), py - (y0 + t * dy))
+
+
+def _segments_cross(
+    ax0: float, ay0: float, ax1: float, ay1: float,
+    bx0: float, by0: float, bx1: float, by1: float,
+) -> bool:
+    # Every edge this file measures is axis-aligned, and two axis-aligned
+    # segments intersect exactly when their projections overlap -- an exact
+    # test with no orientation-sign corner cases (the first cut used the
+    # standard orientation form, whose "some d == 0" clause counts a segment
+    # that is merely *collinear with* the other's line as crossing, and read
+    # every flat-against-flat pair in the layout as distance 0).
+    return (
+        min(ax0, ax1) <= max(bx0, bx1) and min(bx0, bx1) <= max(ax0, ax1)
+        and min(ay0, ay1) <= max(by0, by1) and min(by0, by1) <= max(ay0, ay1)
+    )
+
+
+def _polygon_distance_um(dbu: float, a, b_) -> float:
+    """True point-set distance between two disjoint-ish layout polygons, in um.
+
+    Neither ``Region.sized(20 um)`` + ``interacting`` (square corners, up to
+    20*(sqrt(2)-1) ~= 8.3 um too permissive diagonally) nor bounding-box
+    distance (a tap ring's bbox swallows its array, so every distance reads
+    0) reproduces what ``klt drc``'s tap rules measure --
+    ``layout/drc-newer-klt-triage.md`` 5.5 records both traps. This walks
+    every edge pair, hull and hole, on the float side of the DBU grid: the
+    polygons this file draws are Manhattan, so the minimum over edge pairs
+    *is* the polygon distance wherever the two do not overlap.
+    """
+    import klayout.db as kdb
+
+    ba, bb = a.bbox(), b_.bbox()
+    if ba.inside(bb) or bb.inside(ba):
+        # One bbox nests: the polygons may genuinely overlap (a nested tap
+        # reads as a positive edge-pair distance but is 0 away). Only the
+        # boolean answers; it is rare enough to pay for.
+        if not (kdb.Region(a) & kdb.Region(b_)).is_empty():
+            return 0.0
+    best = math.inf
+    for ea in a.each_edge():
+        ax0, ay0 = ea.x1 * dbu, ea.y1 * dbu
+        ax1, ay1 = ea.x2 * dbu, ea.y2 * dbu
+        for eb in b_.each_edge():
+            bx0, by0 = eb.x1 * dbu, eb.y1 * dbu
+            bx1, by1 = eb.x2 * dbu, eb.y2 * dbu
+            if _segments_cross(ax0, ay0, ax1, ay1, bx0, by0, bx1, by1):
+                return 0.0
+            for px, py, sx0, sy0, sx1, sy1 in (
+                (ax0, ay0, bx0, by0, bx1, by1),
+                (ax1, ay1, bx0, by0, bx1, by1),
+                (bx0, by0, ax0, ay0, ax1, ay1),
+                (bx1, by1, ax0, ay0, ax1, ay1),
+            ):
+                best = min(
+                    best,
+                    _point_segment_distance_um(px, py, sx0, sy0, sx1, sy1),
+                )
+    return best
+
+
+def _assert_tap_coverage(b: CellBuilder, cell: str) -> None:
+    """Build-time tap-distance and tap-tie assertion (#532).
+
+    The pinned deck cannot check either half of the body-tie contract:
+    ``comp.tap_distance.*`` arrived in klt 0.8.0, and the deck has no tap or
+    well-label layer at all, so LVS cannot confirm a tie either
+    (klayout-tools#303). This assertion is the mechanical stand-in, over the
+    cell's own flattened geometry:
+
+    * **distance** -- every gated COMP polygon (a MOS source/drain) outside
+      all Nwells is at most :data:`TAP_DISTANCE_LIMIT_UM` (true polygon
+      distance, via :func:`_polygon_distance_um`) from a p+ tap outside all
+      Nwells, and every gated COMP polygon inside an Nwell likewise from an
+      n+ tap **of that same well** -- DF.14_LV / DF.13_LV's own per-well
+      form. Taps are classified by implant, the way the deck classifies
+      them, so an unmarked in-well p+ dummy emitter is not mistaken for a
+      well tie;
+    * **contacted** -- every tap polygon carries at least one contact;
+    * **tied** -- every tap contact lands on metal that is connected,
+      through the Metal1/Via1/Metal2 graph, to a labelled net (a floating or
+      broken tie fails here), and every substrate tap's cluster is the
+      ``VSS`` net. The *named* net a well tap reaches (VDD for a rail well,
+      the tail node for a source-following well) is proven one level up: a
+      resolved well participates in the LVS net compare, so a mis-tied well
+      is a topology mismatch, not a silent pass --
+      ``layout/lvs_reference.py``'s ``resolved_wells`` names them.
+    """
+    import klayout.db as kdb
+
+    def region(spec) -> kdb.Region:
+        return kdb.Region(b.cell.begin_shapes_rec(b._layer(spec))).merged()
+
+    comp = region(COMP)
+    mos_comp = comp.interacting(region(POLY2))
+    tap_comp = comp - mos_comp
+    nwell = region(NWELL)
+    sub_taps = (tap_comp - nwell).not_outside(region(PPLUS))
+    well_taps = (tap_comp & nwell).not_outside(region(NPLUS))
+    all_taps = sub_taps + well_taps
+    contact = region(CONTACT)
+
+    uncontacted = all_taps.not_interacting(contact)
+    if not uncontacted.is_empty():
+        raise AssertionError(
+            f"{cell}: {uncontacted.count()} tap polygon(s) carry no contact "
+            f"(first offender near {uncontacted.bbox().to_dtype(b.layout.dbu)})"
+        )
+
+    texts: dict[str, kdb.Texts] = {}
+    for spec in (METAL1_LABEL, METAL2_LABEL):
+        for item in b.cell.begin_shapes_rec(b._layer(spec)).each():
+            text = item.shape().text.transformed(item.trans())
+            texts.setdefault(text.string, kdb.Texts()).insert(text)
+    # The full stack a tap's Metal1 can ride to a label: sub-cells tie on
+    # Metal1 (temp_core's risers land on their track), but temp_por_top's
+    # seam moat reaches the VSS rail through Via1 -> Metal2 -> Via2 -> a
+    # Metal3 column -> Via2 -> the Metal2 rail, so leaving Metal3/Via2 out
+    # would strand exactly the tie the moat exists to make.
+    conductor = (
+        region(METAL1) + region(METAL2) + region(METAL3)
+        + region(VIA1) + region(VIA2)
+    ).merged()
+    net_metal = {net: conductor.interacting(net_texts) for net, net_texts in texts.items()}
+    labelled_metal = sum(net_metal.values(), kdb.Region())
+    tap_contacts = contact.interacting(all_taps)
+    stranded = tap_contacts - labelled_metal
+    if not stranded.is_empty():
+        raise AssertionError(
+            f"{cell}: {stranded.count()} tap contact(s) reach no labelled net "
+            "-- a floating tie is exactly the defect the deck cannot see"
+        )
+    off_supply = contact.interacting(sub_taps) - net_metal.get("VSS", kdb.Region())
+    if not off_supply.is_empty():
+        raise AssertionError(
+            f"{cell}: {off_supply.count()} substrate tap contact(s) sit on a "
+            "net other than VSS -- the substrate tie is the VSS net"
+        )
+
+    def worst_gap(mos_polys, tap_polys) -> tuple[float, "kdb.Polygon"]:
+        worst = (0.0, None)
+        for mpoly in mos_polys:
+            if not tap_polys:
+                # An empty tap set would make min() over nothing read as
+                # "no offender"; a well with no tap of its own is the
+                # strongest form of the violation, not the absence of one.
+                return (math.inf, mpoly)
+            gap = min(
+                _polygon_distance_um(b.layout.dbu, mpoly, tpoly)
+                for tpoly in tap_polys
+            )
+            if gap > worst[0]:
+                worst = (gap, mpoly)
+        return worst
+
+    field_taps = list(sub_taps.each())
+    gap, offender = worst_gap(list((mos_comp - nwell).each()), field_taps)
+    if gap > TAP_DISTANCE_LIMIT_UM:
+        raise AssertionError(
+            f"{cell}: a source/drain is {gap:.2f} um from the nearest "
+            f"substrate tap (DF.14_LV caps it at {TAP_DISTANCE_LIMIT_UM} um; "
+            f"offender near {offender.bbox().to_dtype(b.layout.dbu)})"
+        )
+    for well_poly in nwell.each():
+        well = kdb.Region(well_poly)
+        mos_in_well = list((mos_comp & well).each())
+        if not mos_in_well:
+            continue
+        gap, offender = worst_gap(mos_in_well, list((well_taps & well).each()))
+        if gap > TAP_DISTANCE_LIMIT_UM:
+            raise AssertionError(
+                f"{cell}: a source/drain is {gap:.2f} um from the nearest "
+                f"tap of its own well (DF.13_LV caps it at "
+                f"{TAP_DISTANCE_LIMIT_UM} um; offender near "
+                f"{offender.bbox().to_dtype(b.layout.dbu)})"
+            )
+
+
 CELLS = {
     "bias_core": bias_core,
     "por_comparator": por_comparator,
@@ -4604,6 +4994,7 @@ def build(name: str, out_dir: Path) -> Path:
     builder = CellBuilder(name)
     CELLS[name](builder)
     _assert_implant_types(builder, name)
+    _assert_tap_coverage(builder, name)
     out_dir.mkdir(parents=True, exist_ok=True)
     path = out_dir / f"{name}.gds"
     builder.write(path)

@@ -72,13 +72,13 @@
         "ppolyf_u_1k": 3
       },
       "device_total": 21,
-      "parasitic_cards": 101,
+      "parasitic_cards": 102,
       "coverage": {
-        "nets_total": 16,
+        "nets_total": 15,
         "nets_with_parasitics": 15,
-        "fraction": 0.9375,
-        "total_resistance_ohm": 18283.0924,
-        "total_capacitance_ff": 526.504287,
+        "fraction": 1.0,
+        "total_resistance_ohm": 18283.0233,
+        "total_capacitance_ff": 526.794236,
         "coupling_capacitance_ff": 0.056665,
         "distributed_rc": false,
         "critical_nets": []
@@ -115,7 +115,7 @@
           "content_hash": "sha256:95c2eb9148b29ded02182aeca4222287ff57f813691d5e2f9f8d7a675f6cb637",
           "released": false
         },
-        "gds_sha256": "1ee4e15f2fd85df4f2d76d237a18c5c65c2ac41e4bea015e78bd91cee568b343"
+        "gds_sha256": "e6e5601250e6c78e25511fe5eb3c669dcd3c5fbe08f577766490571e142533e3"
       },
       "lvs_status": "match"
     },
@@ -181,14 +181,14 @@
         "ppolyf_u": 50
       },
       "device_total": 115,
-      "parasitic_cards": 512,
+      "parasitic_cards": 587,
       "coverage": {
-        "nets_total": 71,
+        "nets_total": 69,
         "nets_with_parasitics": 69,
-        "fraction": 0.9718,
-        "total_resistance_ohm": 66012.2504,
-        "total_capacitance_ff": 1670.396795,
-        "coupling_capacitance_ff": 1.283663,
+        "fraction": 1.0,
+        "total_resistance_ohm": 66108.5088,
+        "total_capacitance_ff": 1740.65655,
+        "coupling_capacitance_ff": 3.070528,
         "distributed_rc": false,
         "critical_nets": []
       },
@@ -224,7 +224,7 @@
           "content_hash": "sha256:95c2eb9148b29ded02182aeca4222287ff57f813691d5e2f9f8d7a675f6cb637",
           "released": false
         },
-        "gds_sha256": "f99f531eb4894132a279f0fce1c1e5fbba169ca250dbd5027476cafb9e1db249"
+        "gds_sha256": "ffcb31808d17884690bd646a4eaae61bd3f013cf73b7f9aa2a9b0690a4221cdd"
       },
       "lvs_status": "match"
     },
@@ -239,14 +239,14 @@
         "ppolyf_u_1k": 27
       },
       "device_total": 239,
-      "parasitic_cards": 1078,
+      "parasitic_cards": 1150,
       "coverage": {
-        "nets_total": 139,
+        "nets_total": 136,
         "nets_with_parasitics": 136,
-        "fraction": 0.9784,
-        "total_resistance_ohm": 283449.6596,
-        "total_capacitance_ff": 7183.36245,
-        "coupling_capacitance_ff": 85.296827,
+        "fraction": 1.0,
+        "total_resistance_ohm": 283499.0064,
+        "total_capacitance_ff": 7253.912154,
+        "coupling_capacitance_ff": 87.083692,
         "distributed_rc": false,
         "critical_nets": []
       },
@@ -294,7 +294,7 @@
           "content_hash": "sha256:95c2eb9148b29ded02182aeca4222287ff57f813691d5e2f9f8d7a675f6cb637",
           "released": false
         },
-        "gds_sha256": "ae403395da1b0703a93a5c93e5c68abec7dcfe63a5f3a902f8196ceb7cb38ae4"
+        "gds_sha256": "77b86ce2189ae17d6922c4940b981d8a9c6294c92a420cf55f013690272f188d"
       },
       "lvs_status": "match"
     }

@@ -3,7 +3,7 @@
 * Do not edit: edit the schematic, re-run design/netlist.py, re-run this.
 .SUBCKT por_comparator BIAS_OK BIAS_OKB IBIAS POR_RAW VDD VREF VSS
 M1 BIAS_OKB BIAS_OK VSS VSS nfet L=0.5U W=1U
-M2 BIAS_OKB BIAS_OK VDD NW2 pfet L=0.5U W=2U
+M2 BIAS_OKB BIAS_OK VDD VDD pfet L=0.5U W=2U
 M3 NA NA VDDA VDD pfet L=1U W=4U
 M4 CMPO NA VDDA VDD pfet L=1U W=4U
 M5 VDDA BIAS_OKB VDD VDD pfet L=0.5U W=4U

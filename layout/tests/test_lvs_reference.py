@@ -110,6 +110,12 @@ class BuildTest(unittest.TestCase):
         self.assertEqual(lr.build(CELL), committed)
 
     def test_form_and_body_rewrites(self):
+        # Through #515 this cell was the living demonstration of both body
+        # rewrites -- vsubs for the NMOS, the anonymous NW1 for the pfet.
+        # #532 drew its own substrate tap and well tie, so it joined
+        # BODY_TIES_RESOLVED_CELLS and its well resolved: both bodies now
+        # declare verbatim and the card-less vsubs port is gone (a resolving
+        # cell must not declare one -- #312).
         lines = [
             line
             for line in lr.build(CELL).splitlines()
@@ -118,9 +124,9 @@ class BuildTest(unittest.TestCase):
         self.assertEqual(
             lines,
             [
-                f".SUBCKT {CELL} BIAS_OK BIAS_OKB VDD VSS vsubs",
-                "M1 BIAS_OKB BIAS_OK VSS vsubs nfet L=0.5U W=1U",
-                "M2 BIAS_OKB BIAS_OK VDD NW1 pfet L=0.5U W=2U",
+                f".SUBCKT {CELL} BIAS_OK BIAS_OKB VDD VSS",
+                "M1 BIAS_OKB BIAS_OK VSS VSS nfet L=0.5U W=1U",
+                "M2 BIAS_OKB BIAS_OK VDD VDD pfet L=0.5U W=2U",
                 f".ENDS {CELL}",
             ],
         )
@@ -1357,14 +1363,19 @@ class TempPorTopAssemblyTest(ControlCoverageTests, GoldenNetlistTests, unittest.
             self.assertNotIn(net, nodes, f"{net} leaked out of its instance")
         self.assertIn("xbias.PG", nodes)
         self.assertIn("xtemp.PG", nodes)
-        # The wells that still resolve to nothing stay dotted per instance.
-        # The tied ones do not: xbias.NW1, xcmp.NW1 and xpor.NW1 carry
-        # #516's drawn n+ VDD ties and dissolved into VDD, leaving only
-        # temp_core's two untied wells and the instanced inverter's.
-        self.assertIn("xtemp.NW1", nodes)
-        self.assertIn("xtemp.NW2", nodes)
-        self.assertIn("xcmp.NW2", nodes)
-        for resolved in ("xbias.NW1", "xbias.NW2", "xcmp.NW1", "xpor.NW1"):
+        # Since #532 no drawn well in this block stays anonymous: the rail
+        # wells dissolved into VDD through #516's drawn n+ ties, the
+        # instanced inverter's well followed (#532 drew its tie inside
+        # por_comparator_bias_okb_inv), and temp_core's two wells dissolved
+        # through #532's per-run tie straps -- NW1 into VDD, and NW2 into
+        # its own tail node, which is the load-bearing one: the pair's well
+        # must ride xtemp.NT, neither leaking out of its instance nor
+        # merging into the VDD it must stay distinct from.
+        self.assertIn("xtemp.NT", nodes)
+        for resolved in (
+            "xbias.NW1", "xbias.NW2", "xcmp.NW1", "xcmp.NW2",
+            "xpor.NW1", "xtemp.NW1", "xtemp.NW2",
+        ):
             self.assertNotIn(resolved, nodes)
 
     def test_substrate_global_is_never_prefixed(self):
