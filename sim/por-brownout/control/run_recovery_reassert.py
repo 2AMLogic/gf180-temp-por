@@ -167,13 +167,8 @@ def deck(pdk, options: list[str], corner_name: str, temp_c: float, vdd: float,
         "",
     ]
     lines += runner.deck_preamble(pdk, corner, temp_c, options)
-    lines += [
-        "",
-        f'.include "{os.path.relpath(fragment, deck_dir)}"',
-        "",
-        ".control",
-        "set numdgt=8",
-        "set noaskquit",
+    lines += ["", *runner.deck_includes(deck_dir, fragment), ""]
+    body = [
         f"tran 20u {T_END_MS:g}m",
         # Rail-NORMALISED logic levels, for the same reason
         # run_dip_rootcause.py uses them: during the dip the rail IS 1.0 V,
@@ -204,10 +199,8 @@ def deck(pdk, options: list[str], corner_name: str, temp_c: float, vdd: float,
         f"meas tran t_rst when rst_r=0.1 fall=1 td={T_DIP_MS:g}m",
         f"meas tran rst_min min v(resetn) from={T_DIP_MS:g}m to={T_END_MS:g}m",
         f"meas tran rst_final find v(resetn) at=54.5m",
-        ".endc",
-        ".end",
-        "",
     ]
+    lines += runner.deck_control_block(body, numdgt=8)
     return "\n".join(lines)
 
 

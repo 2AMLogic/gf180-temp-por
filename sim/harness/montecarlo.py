@@ -65,6 +65,7 @@ from .runner import (
     DEFAULT_TIMEOUT_S,
     PointResult,
     _require_batch,
+    deck_control_block,
     run_batch_grid,
     run_local_grid,
     run_point,
@@ -287,17 +288,13 @@ def compose_mc_deck(tb: Testbench, pdk: Pdk, point: McPoint) -> str:
         f'.include "{tb.netlist}"',
         "",
         "* ---- measurement ----------------------------------------------------",
-        ".control",
-        "set numdgt=10",
-        "set noaskquit",
     ]
-    for analysis in tb.analyses:
-        lines.append(f"  {_format_analysis(analysis, point, tb)}")
+    body = [f"  {_format_analysis(analysis, point, tb)}" for analysis in tb.analyses]
     for name, expr in tb.measure.items():
-        lines.append(f"  let m_{name} = {expr}")
+        body.append(f"  let m_{name} = {expr}")
     for name in tb.measure:
-        lines.append(f"  print m_{name}")
-    lines += [".endc", ".end", ""]
+        body.append(f"  print m_{name}")
+    lines += deck_control_block(body)
     return "\n".join(lines)
 
 

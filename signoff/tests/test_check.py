@@ -498,10 +498,6 @@ class GraderSelectionTest(unittest.TestCase):
         )
 
 
-if __name__ == "__main__":
-    unittest.main()
-
-
 class ProseCountTest(unittest.TestCase):
     """No document restates the graded T1 verdict as a hand-written aggregate."""
 
@@ -628,3 +624,7 @@ class ProseCountTest(unittest.TestCase):
         for rel in ("README.md", "signoff/README.md"):
             self.assertIn(rel, out.getvalue())
         self.assertTrue(ok)
+
+
+if __name__ == "__main__":
+    unittest.main()

@@ -209,9 +209,15 @@ The audits behind each `pass`:
   `--regen` and a look at the diff.
 
 Consequence for the fleet roll-up
-([2AMLogic/2am#956](https://github.com/2AMLogic/2am/issues/956)): the first
-unmet item is now 5, so `blocking_item` reports a real blocker rather than
-item 1. The items the table above still grades `unmet` are what stand
+([2AMLogic/2am#956](https://github.com/2AMLogic/2am/issues/956)): `klt
+signoff --fleet` consumes `block-manifest.json` and names one unmet T1
+item per block as its own `blocks[].blocking_item` — a field of that
+roll-up's output, not of this block's `tier-report.json`. It prefers an
+item with a real check behind it over the structurally ungradeable
+items 1, 2, 9 and 10, so this block is reported against a substantive
+gap. Which items are unmet is the per-item table above; the verdict of
+record is `tier-report.json`.
+The items the table above still grades `unmet` are what stand
 between this block and T1.
 
 ## Item 7 — `klt pex` evidence, its `body_bias` status, and what was patched

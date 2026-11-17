@@ -6,8 +6,37 @@ Merged PRs and closed issues from the initial 30-day snapshot (2026-09-07 onward
 
 - [2026-09](work_log/WORK_LOG_2026-09.md)
 
+### 2026-11-17
+
+- **PR #599**: fix(sim): name the por-vth card-identity pair instead of globbing control/
+- **PR #598**: harness: compose the MC deck tail through deck_control_block
+- **PR #596**: refactor(sim): move the control-script deck tail into runner helpers
+- **PR #595**: refactor: fold por_comparator and _top_guard_ring onto _draw_guard_ring
+- **PR #592**: ci: gate the postlayout and GDS-staleness checks in the headless checks job
+- **Issue #597** (closed): sim/harness/montecarlo.py still spells the deck control block inline, and the #587 guard cannot see it
+- **Issue #587** (closed): Consolidate the duplicated deck tail in sim/*/control scripts into runner helpers
+- **Issue #573** (closed): ci: the GDS staleness chain is gated only at its last link — neither postlayout.py --check nor build_cells.py --check runs in CI
+- **Issue #569** (closed): Remove the inline guard-ring copy in por_comparator: reuse _draw_guard_ring
+- **Issue #550** (closed): test_por_vth_control_fragment_sync asserts card-identity over a directory glob, which sim/README.md:291 permits to be false
+
 ### 2026-11-16
 
+- **PR #593**: Harden SAB geometry: SB.2 budget assert, MFG_GRID_UM snap, marker-containment test
+- **PR #591**: docs: name the extraction generation behind run_glitch_width_sweep.py's 2.54 V figure
+- **PR #589**: fix(signoff): move test_check __main__ guard to end of file
+- **PR #588**: docs(signoff): attribute `blocking_item` to `klt signoff --fleet`, not tier-report.json
+- **Issue #568** (closed): SAB-overhang invariant from #517 is thinner than its own comments claim: no SB.2 assert in _resistor_string(), a duplicated grid literal, and no unit test
+- **Issue #563** (closed): run_glitch_width_sweep.py's docstring cites a pre-star record figure without naming the generation
+- **Issue #527** (closed): signoff/tests/test_check.py: ProseCountTest sits after the __main__ guard, so direct execution reports OK on 39 of 57 tests
+- **Issue #528** (closed): signoff/README.md cites a tier-report.json 'blocking_item' field that does not exist, next to a hand-written 'first unmet item is now 5'
+- **PR #586**: test: discover control scripts by glob in the argv-contract guard
+- **PR #584**: signoff: re-stamp tier-report build provenance with pinned klt 0.9.1
+- **PR #583**: refactor: draw the por_comparator Metal2 divider trunk via _cap_wire
+- **PR #580**: feat: let signoff/check.py grade with a selectable or pinned klt
+- **Issue #546** (closed): Control-script argv contract is pinned by hand-maintained lists, so script #21 is uncovered by construction
+- **Issue #581** (closed): signoff/tier-report.json's committed build.* provenance is an unreleased dev build, not the toolchain.json pin
+- **Issue #558** (closed): A third straight-Metal2-wire site still re-derives _cap_wire inline: the divider trunk in build_cells.py
+- **Issue #543** (closed): signoff: the grader-pin warning reads as a blocker, so drift-only failures get deferred to CI
 - **PR #578**: refactor: single-source declared-net set for reference-netlist guards
 - **Issue #538** (closed): lvs_reference: the declared-net-set derivation is now spelled out twice, and the guard's message omits bjt_well
 - **PR #536**: Consolidate the two CLIs' byte-identical argparse flags into cliutil

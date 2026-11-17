@@ -162,7 +162,6 @@ def compose_deck(
     deck_dir: Path,
 ) -> str:
     corner = corners_mod.CORNERS[corner_name]
-    fragment_rel = os.path.relpath(FRAGMENT, deck_dir)
     t_lo = T_DIP_S - EDGE_S
     t_hi = T_DIP_S
     t_end = T_DIP_S + dip_s
@@ -187,7 +186,7 @@ def compose_deck(
     lines += runner.deck_preamble(pdk, corner, temp_c, options)
     lines += [
         "",
-        f'.include "{fragment_rel}"',
+        *runner.deck_includes(deck_dir, FRAGMENT),
         f'.include "dut_{variant}.spice"',
         "",
         f".tran {2e-6!r} {{stop_s}}",

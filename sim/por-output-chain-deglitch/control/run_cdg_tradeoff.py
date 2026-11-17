@@ -40,7 +40,6 @@ Stdlib only, no virtualenv required.
 from __future__ import annotations
 
 import json
-import os
 import re
 import sys
 from pathlib import Path
@@ -139,7 +138,6 @@ def compose_deck(
     deck_dir: Path,
 ) -> str:
     corner = corners_mod.CORNERS[corner_name]
-    fragment_rel = os.path.relpath(FRAGMENT, deck_dir)
     width_s = width_us * 1e-6
     t_lo = DIP_START_S - EDGE_S
     t_hi = DIP_START_S
@@ -162,7 +160,7 @@ def compose_deck(
     lines += runner.deck_preamble(pdk, corner, temp_c, options)
     lines += [
         "",
-        f'.include "{fragment_rel}"',
+        *runner.deck_includes(deck_dir, FRAGMENT),
         f'.include "dut_cdg_{size_slug(size_um)}.spice"',
         "",
         f".tran {TSTEP_S!r} {{stop_s}}",
