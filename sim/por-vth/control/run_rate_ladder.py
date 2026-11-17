@@ -72,7 +72,6 @@ from __future__ import annotations
 
 import argparse
 import importlib.util
-import os
 import sys
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -153,27 +152,17 @@ def compose(pdk, corner, options: list[str], dut: str, vdd: float, tramp: float)
         "",
     ]
     lines += runner.deck_preamble(pdk, corner, TEMP_C, options)
-    lines += [
-        "",
-        # Repo-relative from decks/, so a committed deck does not carry the
-        # absolute path of whatever worktree produced it -- same idiom as
-        # sim/por-brownout-slew/control/ and sim/por-glitch/control/.
-        f'.include "{os.path.relpath(FRAGMENT, deck_dir)}"',
-        f'.include "{os.path.relpath(netlist, deck_dir)}"',
-        "",
-        ".control",
-        "set numdgt=10",
-        "set noaskquit",
+    # Repo-relative from decks/ via deck_includes, so a committed deck does
+    # not carry the absolute path of whatever worktree produced it.
+    lines += ["", *runner.deck_includes(deck_dir, FRAGMENT, netlist), ""]
+    lines += runner.deck_control_block([
         f"tran 10u {tstop!r}",
         "meas tran vpor_rise find v(vdd) when v(xdut.por_raw)=1.5 rise=1",
         "meas tran vpor_rise_last find v(vdd) when v(xdut.por_raw)=1.5 rise=last",
         "meas tran vpor_fall find v(vdd) when v(xdut.por_raw)=1.5 fall=1",
         "meas tran vpor_fall_last find v(vdd) when v(xdut.por_raw)=1.5 fall=last",
         f"meas tran vref_settle find v(xdut.vref) at={t2 - 0.1e-3!r}",
-        ".endc",
-        ".end",
-        "",
-    ]
+    ])
     return "\n".join(lines)
 
 

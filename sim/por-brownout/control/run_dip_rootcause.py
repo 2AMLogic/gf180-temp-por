@@ -60,7 +60,6 @@ Stdlib only, no virtualenv required.
 
 from __future__ import annotations
 
-import os
 import sys
 from pathlib import Path
 
@@ -200,12 +199,10 @@ def assembly_deck(
         f".param t_dwell={dwell_ms}m",
         f".param dip_v={dip_v}",
         "",
-        f'.include "{os.path.relpath(ASSEMBLY_FRAGMENT, deck_dir)}"',
-        f'.include "{os.path.relpath(netlist, deck_dir)}"',
+        *runner.deck_includes(deck_dir, ASSEMBLY_FRAGMENT, netlist),
         "",
-        ".control",
-        "set numdgt=8",
-        "set noaskquit",
+    ]
+    body = [
         f"tran 20u {t_end_ms}m",
         # Rail-NORMALISED logic levels. An absolute threshold is meaningless
         # here: during the dip the rail IS 1.0-2.3 V, so "v(por_raw) crosses
@@ -247,10 +244,8 @@ def assembly_deck(
         f"meas tran rst_min min v(resetn) from={T_DIP_MS}m to={t_dip_end_ms}m",
         f"meas tran t_rst when rst_r=0.1 fall=1 td={T_DIP_MS}m",
         f"meas tran vdd_at_rst find v(vdd) when rst_r=0.1 fall=1 td={T_DIP_MS}m",
-        ".endc",
-        ".end",
-        "",
     ]
+    lines += runner.deck_control_block(body, numdgt=8)
     return "\n".join(lines)
 
 
@@ -266,12 +261,10 @@ def cell_deck(pdk, options, ibias_a) -> str:
         f".param t_dwell={T_DWELL_MS}m",
         f".param ibias_a={ibias_a!r}",
         "",
-        f'.include "{os.path.relpath(CELL_FRAGMENT, deck_dir)}"',
-        f'.include "{os.path.relpath(CELL_NETLIST, deck_dir)}"',
+        *runner.deck_includes(deck_dir, CELL_FRAGMENT, CELL_NETLIST),
         "",
-        ".control",
-        "set numdgt=8",
-        "set noaskquit",
+    ]
+    body = [
         f"tran 20u {t_dip_end_ms}m",
         "let rst_r = v(resetn)/(v(vdd)+0.001)",
         f"meas tran rst_pre find v(resetn) at={T_DIP_CELL_MS - 0.1}m",
@@ -285,10 +278,8 @@ def cell_deck(pdk, options, ibias_a) -> str:
         # the end of the dwell
         f"meas tran isink_pre find i(vforce) at={T_DIP_CELL_MS - 0.1}m",
         f"meas tran isink_end find i(vforce) at={t_dip_end_ms}m",
-        ".endc",
-        ".end",
-        "",
     ]
+    lines += runner.deck_control_block(body, numdgt=8)
     return "\n".join(lines)
 
 
