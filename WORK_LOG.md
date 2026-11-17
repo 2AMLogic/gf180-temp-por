@@ -6,6 +6,19 @@ Merged PRs and closed issues from the initial 30-day snapshot (2026-09-07 onward
 
 - [2026-09](work_log/WORK_LOG_2026-09.md)
 
+### 2026-11-17
+
+- **PR #599**: fix(sim): name the por-vth card-identity pair instead of globbing control/
+- **PR #598**: harness: compose the MC deck tail through deck_control_block
+- **PR #596**: refactor(sim): move the control-script deck tail into runner helpers
+- **PR #595**: refactor: fold por_comparator and _top_guard_ring onto _draw_guard_ring
+- **PR #592**: ci: gate the postlayout and GDS-staleness checks in the headless checks job
+- **Issue #597** (closed): sim/harness/montecarlo.py still spells the deck control block inline, and the #587 guard cannot see it
+- **Issue #587** (closed): Consolidate the duplicated deck tail in sim/*/control scripts into runner helpers
+- **Issue #573** (closed): ci: the GDS staleness chain is gated only at its last link — neither postlayout.py --check nor build_cells.py --check runs in CI
+- **Issue #569** (closed): Remove the inline guard-ring copy in por_comparator: reuse _draw_guard_ring
+- **Issue #550** (closed): test_por_vth_control_fragment_sync asserts card-identity over a directory glob, which sim/README.md:291 permits to be false
+
 ### 2026-11-16
 
 - **PR #593**: Harden SAB geometry: SB.2 budget assert, MFG_GRID_UM snap, marker-containment test
