@@ -1391,7 +1391,7 @@ Recorded result (`layout/reports/temp_por_top/`):
 | Check | Result |
 | ----- | ------ |
 | `klt drc --deck gf180mcu` | **clean** — 0 violations (was 92 before the floorplan re-derivation, then 2 inherited from #102/#103 until #105 fixed `por_comparator` at the source) |
-| `klt extract --deck gf180mcu --top-cell-pins` | 239 devices (71 nfet, 64 pfet, 50 `ppolyf_u`, 27 `ppolyf_u_1k`, 19 `bjt`, 8 `cap_mim_2f0_m4m5_noshield`), 139 nets, 6 pins |
+| `klt extract --deck gf180mcu --top-cell-pins` | 239 devices (71 nfet, 64 pfet, 50 `ppolyf_u`, 27 `ppolyf_u_1k`, 19 `bjt`, 8 `cap_mim_2f0_m4m5_noshield`), 136 nets, 5 pins |
 | `klt lvs` | **match** — 239/239 devices, 136/136 nets, 5/5 pins, 0 errors, **0 warnings**. Net count dropped from 159 to 145 when #264 routed the 7 already-drawn MiM caps' 14 plates onto their schematic nets instead of 14 synthesized isolated ones; #259's 8th cap (`temp_core`'s `XCC`) added a device but no net, landing on `PG`/`NZ`, which the compare already had; #516 dissolved four more — the tied sub-cells' well nets and `bias_core`'s `NWQ` base net — onto their real `VDD`/`VSS`; #532 dissolved the last three (`xtemp.NW1`, `xtemp.NW2`, `xcmp.NW2`) onto `VDD`, `xtemp.NT` and `VDD` respectively, taking the count to 136 and the last `device.body_unverified` warning with it — no anonymous well is left anywhere in the assembly. |
 | negative control `topology` | detected (exit 3; `device.unmatched` 1, `topology` 1) |
 | negative control `device-param` | detected (exit 3; `device.property` 5, `topology` 1) |
