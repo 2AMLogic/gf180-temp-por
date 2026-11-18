@@ -7,8 +7,8 @@
       "path": "sim/pdk.json",
       "sha256": "sha256:ac953614c421e8c3d3490a0a9cea0109113ee795f7c9bef7482de9a29a72e6cf"
     },
-    "volare_pdk": "gf180mcu",
-    "volare_commit": "c6d73a35f524070e85faff4a6a9eef49553ebc2b",
+    "ci_pdk": "gf180mcu",
+    "ci_pdk_commit": "f6eeac7dad085ffcc829ccfd721f7b4ce39edcf7",
     "pinned_in": ".github/workflows/ci.yml"
   },
   "pvt_grid": "spec/target-spec.md#corner-grid",
@@ -33,7 +33,7 @@
   "cold_start_docs": [
     {
       "path": "sim/harness/README.md",
-      "sha256": "sha256:1591c382f2ea17c462c35f71c7a67d0c658266035a2b70b62731f9e5f07b0b25"
+      "sha256": "sha256:bb2eba0cc57c61d1dbc7e7552b92cd4b2b92e4352a7d4384ba65ae5592b8decb"
     }
   ],
   "rows": {
@@ -260,7 +260,7 @@
         },
         {
           "path": "sim/bias-core-ibias-sharing/testbench-postlayout/tb_ibias_sharing.spice",
-          "sha256": "sha256:7698de11578369e2422c612d59d2bc636d81e0ccfb82c4d58215535f4dcab8ae"
+          "sha256": "sha256:ecd4767cd6790b7ac38d2a775c5b76676cf0ab5bd6d5f3775e071dd349cc9ce8"
         },
         {
           "path": "sim/bias-core-ibias-sharing/testbench/stimulus.spice",
@@ -340,7 +340,7 @@
         },
         {
           "path": "sim/por-brownout/testbench-postlayout/tb_por_brownout_postlayout.spice",
-          "sha256": "sha256:741d296aaf74011b0e77a35d7009938cd555e7dd333460c7337f191f95e56724"
+          "sha256": "sha256:510ccaae28d93f3c334e3beb011695fd86e98db16acb0b0781927f078c1c67ce"
         },
         {
           "path": "sim/por-brownout/testbench/stimulus.spice",
@@ -380,7 +380,7 @@
         },
         {
           "path": "sim/por-brownout-slew/testbench-postlayout/tb_por_brownout_slew_postlayout.spice",
-          "sha256": "sha256:bac28bcbe6e040e97907a804f3c2d5c0e523bfb9a7c7ce82602191c3df1dd6ff"
+          "sha256": "sha256:5b0f003d0c31b47b68fc1f1e2995cdadb05aba9bfd40bb49a0082760d9b578b6"
         },
         {
           "path": "sim/por-brownout-slew/testbench/README.md",
@@ -428,7 +428,7 @@
         },
         {
           "path": "sim/por-brownout-spurious/testbench-postlayout/tb_por_brownout_spurious_postlayout.spice",
-          "sha256": "sha256:39218f4f77d6d52a31a87e6c060b40423102b8d61ed682c74bb9e7c65a513f6f"
+          "sha256": "sha256:ea3609a408ac8a42d1b4d84fac017c1ecf564c50dc949e0d5c748b8883b0e68a"
         },
         {
           "path": "sim/por-brownout-spurious/testbench/stimulus.spice",
@@ -508,7 +508,7 @@
         },
         {
           "path": "sim/por-glitch/testbench-postlayout/tb_por_glitch_postlayout.spice",
-          "sha256": "sha256:cd076f932b31ab2021ae908fcb54d5f5f819673271fcf3844c2d1138d5c61d04"
+          "sha256": "sha256:0a94a0946cc2a7c31f2d36622224716afb238df618e98de7422338ebdfc4e04c"
         },
         {
           "path": "sim/por-glitch/testbench/stimulus.spice",
@@ -628,7 +628,7 @@
         },
         {
           "path": "sim/por-output-chain-ibias-sharing/testbench-postlayout/tb_por_ibias_sharing.spice",
-          "sha256": "sha256:338cb9837d74002077f77e8bf59ba7b9476345e4d677a58b432bdb949774da6f"
+          "sha256": "sha256:0cafb486bdf0d9ee4c3a4b1d4fff41d3df96098a43cd5e2a3072dad0000ca03d"
         },
         {
           "path": "sim/por-output-chain-ibias-sharing/testbench/stimulus.spice",
@@ -708,7 +708,7 @@
         },
         {
           "path": "sim/por-ramp-rate/testbench-postlayout/tb_por_ramp_rate_postlayout.spice",
-          "sha256": "sha256:57018082b89c7fb7731f8b735164e326a4aff08b8d8b3b40bad686a4ec7ee1b1"
+          "sha256": "sha256:5f1e42034091c9835106709776273ac33e52548bb7c3143f7565842caac3917a"
         },
         {
           "path": "sim/por-ramp-rate/testbench/stimulus.spice",
@@ -819,7 +819,7 @@
         },
         {
           "path": "sim/por-vth/testbench-postlayout/tb_por_vth_postlayout.spice",
-          "sha256": "sha256:e2c16717f3ba15e5a606f1ab41141c52677cdeb8680914396cb7f3d24220e203"
+          "sha256": "sha256:32604692dcb4c71d29a744300c8e2e9916770459d5aea47672afcaddcbdb760e"
         },
         {
           "path": "sim/por-vth/testbench/stimulus.spice",
@@ -886,7 +886,7 @@
         },
         {
           "path": "sim/temp-accuracy-mc/testbench-postlayout/tb_temp_accuracy_mc_postlayout.spice",
-          "sha256": "sha256:152e1fd4b2bb4ad75b547b078ac9c3ca55b0e4bbf8843d3d102cb7d55f472bab"
+          "sha256": "sha256:5a35d296abd66a1f0f7cfc39dd4433131ba174b3f99e624294b05469c611c8a1"
         },
         {
           "path": "sim/temp-accuracy-mc/testbench/stimulus.spice",
@@ -958,7 +958,7 @@
         },
         {
           "path": "sim/temp-accuracy-vt/testbench-postlayout/tb_temp_accuracy_vt_postlayout.spice",
-          "sha256": "sha256:3f3068ff2bc37356fccf278b85a19ecdc3299c141139d005a62ae8dfbf0135d5"
+          "sha256": "sha256:f71563c14bf8cc09e3efcb1ed2275ae994ecd446ac012f384ac39818a8288ac0"
         },
         {
           "path": "sim/temp-accuracy-vt/testbench/stimulus.spice",
@@ -1003,7 +1003,7 @@
         },
         {
           "path": "sim/temp-core-designer-check/testbench-postlayout/tb_temp_core_postlayout.spice",
-          "sha256": "sha256:a82b3ff21715ce47d8747d65829f868883189f826828679ddeb089e5e6dca8e8"
+          "sha256": "sha256:8f07de90a8e0b47a08f9d1ea5252ea4b336d2350e0bf1ca16ceb7f3b24e0f6df"
         },
         {
           "path": "sim/temp-core-designer-check/testbench/stimulus.spice",
@@ -1043,7 +1043,7 @@
         },
         {
           "path": "sim/temp-core-loop-stability/testbench-postlayout/tb_temp_core_loop_stability_postlayout.spice",
-          "sha256": "sha256:67d7744db55e6eaa70d70f429a150ee372ce918b9d3cc1b14b527e198a9d0fe7"
+          "sha256": "sha256:17e6ce3b2613b47aef9d462e27766e931955b34083fefbde3ab34d9aa2311cd3"
         },
         {
           "path": "sim/temp-core-loop-stability/testbench/tb.json",
@@ -1079,7 +1079,7 @@
         },
         {
           "path": "sim/temp-core-startup/testbench-postlayout/tb_temp_core_startup_postlayout.spice",
-          "sha256": "sha256:1f05b833e55eb8df5ec84bf55b1882610ddebf362e74ee71ff833bd498d7afa9"
+          "sha256": "sha256:cc3eef27abc9d2b9d00600d751d74284704b1c35922d326823de818d91528566"
         },
         {
           "path": "sim/temp-core-startup/testbench/stimulus.spice",
@@ -1119,7 +1119,7 @@
         },
         {
           "path": "sim/temp-por-top-release/testbench-postlayout/tb_temp_por_top_postlayout.spice",
-          "sha256": "sha256:bee3fc6d06f69f990b135d00aef41a4f5690e2d237f747ef9d66a00df985cf03"
+          "sha256": "sha256:37517b59e7c3ab1784439287b4789dc2ebdef771a78663762fb47b3fc11c00e4"
         },
         {
           "path": "sim/temp-por-top-release/testbench/stimulus.spice",

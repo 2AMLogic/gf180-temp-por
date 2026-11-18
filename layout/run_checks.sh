@@ -375,6 +375,26 @@ else
   info "     committed GDS, so the gate is asserted on the result)"
 fi
 
+# --- manufacturing-grid vertex sweep (#553) -------------------------------------
+#
+# The end-product guard the staleness gates above cannot give: every vertex
+# of every committed GDS must be a whole multiple of the manufacturing grid.
+# The generator-level tests (layout/tests/test_grid.py) pin the coordinate
+# *producers*; this pins what they produced, reading the committed GDS
+# directly (layer- and deck-version-agnostic -- the deck has no
+# metal2/metal3 ongrid rule, and _TopRoutes.box/hwire/vwire snap only part
+# of what they draw). Unscoped and never deferred: it reads layout/cells/,
+# which this script never rewrites, so there is nothing a --regen-all run
+# would need to defer it past.
+
+if [ -n "$KLAYOUT_PY" ]; then
+  info "==> sweeping every committed GDS vertex onto the manufacturing grid"
+  $KLAYOUT_PY layout/check_gds_grid.py
+else
+  red "no interpreter with the klayout module -- skipping the grid vertex sweep"
+  red "(install it, or run: uv run --with klayout python3 layout/check_gds_grid.py)"
+fi
+
 # --- per-cell checks ---------------------------------------------------------
 
 status=0

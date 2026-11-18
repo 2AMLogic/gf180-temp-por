@@ -6,6 +6,36 @@ Merged PRs and closed issues from the initial 30-day snapshot (2026-09-07 onward
 
 - [2026-09](work_log/WORK_LOG_2026-09.md)
 
+### 2026-11-17
+
+- **Issue #617** (closed): DRC-clean claim is graded at the unreleased 0.6.0 deck; the released 0.8.0 deck reports 16753 violations on temp_por_top bytes (OFFGRID/SB/GR families it never evaluated)
+- **PR #613**: docs: name ciel first in sim/harness README prerequisites
+- **Issue #612** (closed): sim/harness/README.md still recommends volare as the install route after DR-032 made ciel primary
+- **PR #610**: ci: pin the gf180mcu PDK to open_pdks f6eeac7d via ciel (DR-032)
+- **Issue #602** (closed): Decide which open_pdks revision is authoritative for sim/ evidence (README/CI pin c6d73a35 vs the fleet's f6eeac7d)
+- **PR #608**: layout: draw _r_segment()'s widened SAB from SAB_OVERHANG_UM, not a duplicate
+- **PR #606**: fix: catch TypeError from wrong-shape toolchain.json in signoff readers
+- **PR #605**: fix: derive the prose-count item total from tier-report.json instead of a hand-typed constant
+- **PR #604**: feat: guard every committed GDS vertex against the manufacturing grid
+- **PR #585**: fix: single-source the missing-klt install hint from signoff/toolchain.json
+- **PR #552**: fix(layout): clear sab.space.1 in temp_core's resistor bank (SAB overhang 0.4 -> 0.25 um)
+- **PR #599**: fix(sim): name the por-vth card-identity pair instead of globbing control/
+- **PR #598**: harness: compose the MC deck tail through deck_control_block
+- **PR #596**: refactor(sim): move the control-script deck tail into runner helpers
+- **PR #595**: refactor: fold por_comparator and _top_guard_ring onto _draw_guard_ring
+- **PR #592**: ci: gate the postlayout and GDS-staleness checks in the headless checks job
+- **Issue #607** (closed): layout: _r_segment() duplicates SAB_OVERHANG_UM/SAB_SPACE_MIN_UM instead of reusing them
+- **Issue #603** (closed): Catch TypeError from wrong-shape toolchain.json in signoff/check.py readers
+- **Issue #582** (closed): signoff/check.py's 'klt is not on PATH' hint hardcodes the pin that toolchain.json already carries in klt.install
+- **Issue #565** (closed): Remove hand-typed T1_ITEM_COUNT from signoff/check.py: read it from tier-report.json
+- **Issue #553** (closed): Guard the manufacturing-grid invariant end-to-end: assert every committed GDS vertex is on-grid
+- **Issue #518** (closed): temp_core resistor tile: neighbouring SAB markers 0.2 um apart where SB.2 requires 0.42 um
+- **Issue #597** (closed): sim/harness/montecarlo.py still spells the deck control block inline, and the #587 guard cannot see it
+- **Issue #587** (closed): Consolidate the duplicated deck tail in sim/*/control scripts into runner helpers
+- **Issue #573** (closed): ci: the GDS staleness chain is gated only at its last link — neither postlayout.py --check nor build_cells.py --check runs in CI
+- **Issue #569** (closed): Remove the inline guard-ring copy in por_comparator: reuse _draw_guard_ring
+- **Issue #550** (closed): test_por_vth_control_fragment_sync asserts card-identity over a directory glob, which sim/README.md:291 permits to be false
+
 ### 2026-11-16
 
 - **PR #593**: Harden SAB geometry: SB.2 budget assert, MFG_GRID_UM snap, marker-containment test

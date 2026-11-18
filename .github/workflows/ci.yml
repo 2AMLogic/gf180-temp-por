@@ -4,7 +4,7 @@ name: CI
 #
 #   checks       -- headless, no PDK/xschem/ngspice download. Runs on every
 #                   push to main and every PR. Must stay green and fast.
-#   pdk-checks   -- needs xschem + ngspice + a ~5 GB PDK install (via volare).
+#   pdk-checks   -- needs xschem + ngspice + a ~5 GB PDK install (via ciel).
 #                   Kept off the default PR path per #30: nightly schedule +
 #                   manual dispatch only, so no PR is ever blocked on a PDK
 #                   download.
@@ -30,6 +30,11 @@ name: CI
 #                                               hand but CI does not invoke
 #                                               npm, so it is also run here
 #                                               directly.
+#   - layout/check_gds_grid.py               -> checks / 3.11 only (issue #553;
+#                                               needs the `klayout` python
+#                                               module, which the klt grader
+#                                               install below already pulls
+#                                               in -- no new pip install).
 #   - layout/postlayout.py --check (#573)    -> checks, both legs. Stdlib only:
 #                                               regenerates the
 #                                               layout/postlayout/ artifacts in
@@ -65,9 +70,10 @@ name: CI
 #   - Python matrix (issue #354)             -> checks runs on 3.9 (the documented
 #                                               floor) and 3.11. The stdlib-only
 #                                               steps run on both; the klt grader
-#                                               install + signoff/check.py +
-#                                               layout/build_cells.py --check run
-#                                               on 3.11 only.
+#                                               install, layout/check_gds_grid.py,
+#                                               signoff/check.py and
+#                                               layout/build_cells.py --check
+#                                               run on 3.11 only.
 #   - design/netlist.py --check              -> pdk-checks (needs xschem + PDK)
 #   - "any pytest under sim/"                -> none exists; sim/tests/ is
 #                                               unittest-based, exercised by
@@ -161,6 +167,19 @@ jobs:
         # for why the two cannot be the same version.
         run: pip install "klayout-tools[yield]==0.9.1"
 
+      - name: layout/check_gds_grid.py (every committed GDS vertex on the manufacturing grid)
+        if: matrix.python-version == '3.11'
+        # #553. Layer- and deck-version-agnostic end-product guard: reads the
+        # committed layout/cells/*.gds directly and requires every vertex to
+        # be a whole multiple of build_cells.MFG_GRID_UM. Needs only the
+        # `klayout` python module, which the grader install above already
+        # pulls in (klayout-tools depends on klayout>=0.30) -- no new pip
+        # install. It cannot live in the layout/tests unittest step above:
+        # that step runs on both matrix entries before klayout is installed,
+        # so a skipUnless(klayout) test would silently skip in CI instead of
+        # guarding anything.
+        run: python3 layout/check_gds_grid.py
+
       - name: layout/build_cells.py --check (committed GDS reproduces from the generator)
         if: matrix.python-version == '3.11'
         # #573. Rebuilds every cell into a temp dir and byte-compares against
@@ -221,12 +240,20 @@ jobs:
             exit 1
           }
 
-      - name: Install the gf180mcu PDK (volare)
+      - name: Install the gf180mcu PDK (ciel)
         run: |
-          pip install volare
-          # Pinned to the commit this repo's committed evidence records were
-          # produced against (sim/devchar/SUMMARY.md, sim/smoke-bias/records/).
-          volare enable --pdk gf180mcu c6d73a35f524070e85faff4a6a9eef49553ebc2b
+          pip install ciel
+          # DR-032 (issue #602): open_pdks f6eeac7d is the authoritative
+          # revision for sim/ evidence, so CI grades the same device models
+          # the dispatch fleet and klt resolve. Records minted against the
+          # pre-DR-032 build stay valid as history and name their own
+          # build in their provenance.
+          ciel enable --pdk gf180mcu f6eeac7dad085ffcc829ccfd721f7b4ce39edcf7
+          # Select this install explicitly: sim/harness/pdk.py's built-in
+          # search order still lists ~/.volare first on main (reordering it
+          # is PR #601's change), so point the harness straight at the ciel
+          # variant directory instead of relying on search order.
+          echo "GF180_PDK_PATH=$HOME/.ciel/gf180mcuD" >> "$GITHUB_ENV"
 
       - name: Install klt (netlist export front-end for design/netlist.py)
         # design/netlist.py shells out to `klt netlist`, which owns the xschem

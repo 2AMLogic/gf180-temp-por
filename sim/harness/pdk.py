@@ -10,7 +10,7 @@ Resolution order (first hit wins):
                            (the one containing ``libs.tech/``), e.g.
                            ``~/.ciel/gf180mcuD``.
 2. ``PDK_ROOT`` (+ ``PDK``, default ``gf180mcuD``) -- the conventional
-                           open_pdks / volare / OpenLane environment.
+                           open_pdks / ciel / volare / OpenLane environment.
 3. ``sim/pdk.local.json`` -- machine-local override, git-ignored.
 4. ``sim/pdk.json``      -- committed defaults: variant + search roots.
 5. Built-in search roots -- the ciel store, then the volare store (the
@@ -54,14 +54,15 @@ BUILTIN_SEARCH_ROOTS = (
 INSTALL_HINT = """\
 gf180mcu PDK not found.
 
-Install it with volare (recommended, ~5 GB):
+Install it with ciel (recommended, ~5 GB):
 
-    pip install volare
-    volare enable --pdk gf180mcu <version-hash>     # see: volare ls-remote --pdk gf180mcu
+    pip install ciel
+    ciel enable --pdk gf180mcu <version-hash>       # see: ciel ls-remote --pdk gf180mcu
 
-volare installs into ~/.volare/<variant>; this harness finds it there, but
-searches ~/.ciel first (as the klt client does), so on a host with both
-installs the ~/.ciel build is the one used. If your PDK lives somewhere else, point the harness at it:
+ciel installs into ~/.ciel/<variant> and this harness finds it there
+automatically. A volare install (~/.volare/<variant>) works too, but ciel
+is the store this repo's CI and evidence are taken against. If your PDK
+lives somewhere else, point the harness at it:
 
     export GF180_PDK_PATH=/path/to/gf180mcuD        # variant dir, contains libs.tech/
     # or the conventional pair:
@@ -106,7 +107,7 @@ class Pdk:
 
     @property
     def version(self) -> str:
-        """open_pdks commit recorded by volare, or 'unknown'."""
+        """open_pdks commit recorded in ``SOURCES`` (written by ciel/volare), or 'unknown'."""
         sources = self.path / "SOURCES"
         if sources.is_file():
             for line in sources.read_text().splitlines():

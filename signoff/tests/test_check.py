@@ -17,6 +17,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 SIGNOFF_DIR = Path(__file__).resolve().parents[1]
 REPO_ROOT = SIGNOFF_DIR.parent
@@ -228,8 +229,8 @@ class AnchoredEvidenceTest(unittest.TestCase):
 
     def test_pdk_pin_removed_fails(self):
         ci = self.tmp / ".github/workflows/ci.yml"
-        ci.write_text(ci.read_text().replace("volare enable --pdk gf180mcu", "volare enable"))
-        self.assert_fails("volare")
+        ci.write_text(ci.read_text().replace("ciel enable --pdk gf180mcu", "ciel enable"))
+        self.assert_fails("ciel")
 
     def test_hygiene_member_edit_fails(self):
         with (self.tmp / "README.md").open("a") as f:
@@ -437,6 +438,105 @@ class GraderSelectionTest(unittest.TestCase):
             self.assertEqual(check.main(["--klt", "/nonexistent/klt"]), 1)
         self.assertIn("not on PATH", err.getvalue())
 
+    # The hand-typed literal check.py falls back to when toolchain.json
+    # cannot supply klt.install.
+    FALLBACK_INSTALL = "uv tool install --force 'klayout-tools[yield]==0.9.1'"
+
+    def toolchain(self, text: str | None) -> Path:
+        """A temp file to stand in for check.TOOLCHAIN (None = don't write it)."""
+        tmp = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, tmp, True)
+        path = tmp / "toolchain.json"
+        if text is not None:
+            path.write_text(text)
+        return path
+
+    def run_missing_klt(self) -> tuple[int, str]:
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err):
+            ret = check.main(["--klt", "/nonexistent/klt"])
+        return ret, err.getvalue()
+
+    def test_install_hint_is_read_from_toolchain_json(self):
+        toolchain = self.toolchain(
+            json.dumps(
+                {"klt": {"install": "uv tool install --force 'klt==9.9.9-hint'"}}
+            )
+        )
+        with mock.patch.object(check, "TOOLCHAIN", toolchain):
+            ret, err = self.run_missing_klt()
+        self.assertEqual(ret, 1)
+        self.assertIn("klt==9.9.9-hint", err)
+
+    def test_changed_install_value_changes_output(self):
+        toolchain = self.toolchain(json.dumps({"klt": {"install": "hint-one"}}))
+        with mock.patch.object(check, "TOOLCHAIN", toolchain):
+            _, first = self.run_missing_klt()
+            toolchain.write_text(json.dumps({"klt": {"install": "hint-two"}}))
+            _, second = self.run_missing_klt()
+        self.assertIn("hint-one", first)
+        self.assertIn("hint-two", second)
+        self.assertNotIn("hint-one", second)
+
+    def test_unreadable_or_malformed_toolchain_prints_fallback_hint(self):
+        for label, text in (
+            ("missing file", None),
+            ("malformed JSON", "{not json"),
+            ("lacks klt.install", json.dumps({"klt": {}})),
+            ("klt is a string", json.dumps({"klt": "not-a-mapping"})),
+            ("top-level list", json.dumps(["not-a-mapping"])),
+        ):
+            with self.subTest(case=label):
+                toolchain = self.toolchain(text)
+                with mock.patch.object(check, "TOOLCHAIN", toolchain):
+                    ret, err = self.run_missing_klt()
+                self.assertEqual(ret, 1)
+                self.assertIn(self.FALLBACK_INSTALL, err)
+
+    # Valid JSON of the wrong shape raises TypeError ("string indices must be
+    # integers" / "list indices must be integers or slices"), which a
+    # (OSError, ValueError, KeyError) tuple does not catch -- the gap Judge
+    # flagged on PR #585.
+    WRONG_SHAPE_PAYLOADS = (
+        ("klt is a string", json.dumps({"klt": "not-a-mapping"})),
+        ("top-level list", json.dumps(["not-a-mapping"])),
+    )
+
+    def test_wrong_shape_toolchain_warns_instead_of_traceback(self):
+        for label, text in self.WRONG_SHAPE_PAYLOADS:
+            with self.subTest(case=label):
+                with mock.patch.object(check, "TOOLCHAIN", self.toolchain(text)):
+                    _, out, err = self.run_pin_check(self.stub("klt 9.9.9"))
+                self.assertTrue(err.startswith("warn"))
+                self.assertIn("no readable klt version pin", err)
+
+    def test_pin_version_raises_on_wrong_shape_so_the_cli_can_format_it(self):
+        # Deliberate: a version pin has no last-known literal to fall back to,
+        # and silently grading with a stale pin would be worse than refusing.
+        # The --klt-pin caller catches TypeError and turns it into a clean
+        # parser.error (next test).
+        for label, text in self.WRONG_SHAPE_PAYLOADS:
+            with self.subTest(case=label):
+                with mock.patch.object(check, "TOOLCHAIN", self.toolchain(text)):
+                    with self.assertRaises(TypeError):
+                        check.toolchain_pin_version()
+
+    def test_wrong_shape_toolchain_gives_cli_error_not_traceback(self):
+        for label, text in self.WRONG_SHAPE_PAYLOADS:
+            with self.subTest(case=label):
+                err = io.StringIO()
+                with mock.patch.object(check, "TOOLCHAIN", self.toolchain(text)):
+                    with contextlib.redirect_stderr(err), self.assertRaises(SystemExit) as cm:
+                        check.main(["--klt-pin"])
+                self.assertEqual(cm.exception.code, 2)
+                self.assertIn("--klt-pin:", err.getvalue())
+
+    def test_fallback_literal_matches_toolchain_json_install(self):
+        self.assertEqual(
+            json.loads(check.TOOLCHAIN.read_text())["klt"]["install"],
+            self.FALLBACK_INSTALL,
+        )
+
 
 class ProseCountTest(unittest.TestCase):
     """No document restates the graded T1 verdict as a hand-written aggregate."""
@@ -458,7 +558,7 @@ class ProseCountTest(unittest.TestCase):
     def setUp(self):
         self.tmp = Path(tempfile.mkdtemp())
         self.addCleanup(shutil.rmtree, self.tmp, True)
-        for rel in check.PROSE_COUNT_DOCS:
+        for rel in check.PROSE_COUNT_DOCS + ("signoff/tier-report.json",):
             dst = self.tmp / rel
             dst.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy(REPO_ROOT / rel, dst)
@@ -511,6 +611,33 @@ class ProseCountTest(unittest.TestCase):
     def test_slash_form_fails(self):
         self.append("README.md", "The block sits at 8/11 items met.")
         self.assert_fails("8/11 items")
+
+    def test_item_total_is_read_from_the_report(self):
+        """The bare-fraction leg tracks tier-report.json, not a hand-typed total.
+
+        A total copied into the checker would rot exactly like the prose
+        aggregates this check forbids: when the checklist grows an item, the
+        report moves to 12 and prose saying "9 of 12" must start failing.
+        """
+        report = self.tmp / "signoff" / "tier-report.json"
+        data = json.loads(report.read_text())
+        data["t1_item_count"] = 12
+        report.write_text(json.dumps(data))
+        self.append("signoff/README.md", "**9 of 12 is a lower number.**")
+        self.assert_fails("9 of 12")
+        # Against the new total, the old total's fraction is no longer an
+        # aggregate -- and must not fail.
+        shutil.copy(REPO_ROOT / "signoff/README.md", self.tmp / "signoff/README.md")
+        self.append("README.md", "**8 of 11 is a lower number.**")
+        self.assert_passes()
+
+    def test_unreadable_report_drops_only_the_bare_fraction_leg(self):
+        """Without a report the counted leg still polices prose."""
+        (self.tmp / "signoff" / "tier-report.json").unlink()
+        self.append("README.md", "**9 of 11 is a lower number.**")
+        self.assert_passes()
+        self.append("signoff/README.md", "9 of 11 items met today.")
+        self.assert_fails("9 of 11 items")
 
     def test_unmet_enumeration_fails(self):
         self.append("signoff/README.md", "Items 5, 6 and 7 are unmet.")

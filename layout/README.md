@@ -82,6 +82,22 @@ current, DRC is clean, extraction succeeded, LVS matches, **and** both LVS
 negative controls were detected. Every JSON report is rewritten under
 `layout/reports/` and committed as evidence.
 
+Underneath all of these sits one unscoped guard (#553):
+
+```bash
+python3 layout/check_gds_grid.py   # every committed GDS vertex on-grid
+```
+
+It sweeps every `layout/cells/*.gds` vertex (box defining points, polygon
+hull/hole points, path points, text anchors, instance origins — compared in
+integer DBU against `build_cells.MFG_GRID_UM`) and fails on any off-grid
+coordinate. `run_checks.sh` runs it too, and CI runs it on the 3.11 matrix
+entry — it needs only the `klayout` python module, no PDK, deck or `klt`,
+which is exactly why it can guard end to end what the deck's
+`*.ongrid.1` rules only cover per layer (they ship no `metal2`/`metal3`
+rule, while `_TopRoutes.box`/`hwire`/`vwire` snap only part of what they
+draw).
+
 ### The pinned toolchain
 
 Every report under `layout/reports/` is evidence for **one** `klt` build, and
@@ -1910,7 +1926,7 @@ This repo had neither the spec nor the report until #300; both now exist —
   toolchain note below).
 - [`layout/reports/temp_por_top/erc_supply.json`](reports/temp_por_top/erc_supply.json)
   — the committed run, `provenance.input.content_hash ==
-  sha256:e1a3a089f45327182cadb7d372982f16c05544627c9af1503a971320c3ac6b72`,
+  sha256:ae403395da1b0703a93a5c93e5c68abec7dcfe63a5f3a902f8196ceb7cb38ae4`,
   matching the committed `layout/cells/temp_por_top.gds` (`shasum -a 256`),
   and `provenance.spec.content_hash ==
   sha256:773047b13bc8e858ee6a284d0f6e00843a727bd0bb177267ca8bca24d616b170`,
