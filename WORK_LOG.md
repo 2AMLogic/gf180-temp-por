@@ -8,6 +8,7 @@ Merged PRs and closed issues from the initial 30-day snapshot (2026-09-07 onward
 
 ### 2026-11-17
 
+- **Issue #617** (closed): DRC-clean claim is graded at the unreleased 0.6.0 deck; the released 0.8.0 deck reports 16753 violations on temp_por_top bytes (OFFGRID/SB/GR families it never evaluated)
 - **PR #613**: docs: name ciel first in sim/harness README prerequisites
 - **Issue #612** (closed): sim/harness/README.md still recommends volare as the install route after DR-032 made ciel primary
 - **PR #610**: ci: pin the gf180mcu PDK to open_pdks f6eeac7d via ciel (DR-032)
