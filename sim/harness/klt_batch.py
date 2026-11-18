@@ -40,7 +40,7 @@ Invariants (all covered by ``sim/tests/test_klt_batch.py``):
 * A report from a fleet runner whose ``klt`` is not the client's build
   (``environment.remote.runner_compatibility`` other than ``match``) is
   rejected, and the rest of that run is refused without being submitted.
-* With ``cfg.stage_model_inputs`` (the default) the request opts in to
+* With ``cfg.stage_model_inputs`` (the default; ``$GF180_STAGE_MODEL_INPUTS=0`` turns it off) the request opts in to
   ``options.stage_model_inputs`` and the runner executes this repo's pinned
   models, so the image digest is not compared. Instead a report is refused
   unless every fleet job says ``worker_environment.pdk.models_staged`` and
@@ -103,6 +103,14 @@ KLT = "klt"
 BACKEND_LOCAL = "local"
 BACKEND_BATCH = "batch"
 ENV_BACKEND = "KLT_SIM_BACKEND"
+ENV_STAGE_MODEL_INPUTS = "GF180_STAGE_MODEL_INPUTS"
+
+
+def stage_model_inputs_default(environ=None) -> bool:
+    """Staging is on unless ``$GF180_STAGE_MODEL_INPUTS`` is a false word."""
+    environ = os.environ if environ is None else environ
+    value = (environ.get(ENV_STAGE_MODEL_INPUTS) or "").strip().lower()
+    return value not in ("0", "false", "no", "off")
 DEFAULT_TIMEOUT_S = 1800
 #: Slack added to the fleet poll timeout when bounding the local ``klt``
 #: process (Spot acquisition + boot + artifact download).
@@ -797,7 +805,11 @@ class BatchConfig:
     #: bake. The acceptance check then compares the staged-file digests the
     #: client sent with the ones the runner reports receiving, instead of the
     #: image's ``models.lib`` digest, which staging makes meaningless.
-    stage_model_inputs: bool = True
+    #: ``$GF180_STAGE_MODEL_INPUTS=0`` (or ``false``/``no``/``off``) selects
+    #: the image path for every caller that builds a config (corner grids,
+    #: Monte Carlo, PEX, the sweeps) without a code edit; the acceptance check
+    #: then compares the runner's ``models.lib`` digest as before.
+    stage_model_inputs: bool = field(default_factory=lambda: stage_model_inputs_default())
     #: Set once a run-wide fatal condition (runner/client ``klt`` mismatch, a
     #: runner PDK that is not the local one) is seen; every later request in
     #: the same run is then refused without being submitted, so a grid does
@@ -1289,6 +1301,8 @@ def _staged_rows(
         if isinstance(r, dict) and r.get("kind") == "library"
         and Path(str(r.get("name", ""))).name.endswith(lib_name)
     }
+    # The staged check compares only the names the client staged; extra runner-side
+    # inputs are deliberately tolerated.
     if local is not None and local not in lib_sources:
         raise BatchPdkMismatch(
             f"the staged {lib_name} was sourced from sha256 {sorted(lib_sources)}, but "
@@ -1320,11 +1334,18 @@ def _staged_rows(
                 f"fleet job {job}: staged model file(s) {differing} are missing from the "
                 "runner's received inputs or differ in sha256; its result is not accepted"
             )
+        # No local digest -> the library-source test above was skipped; record
+        # that honestly rather than a `match` nothing compared.
+        comparison = (
+            {"status": "match", "basis": "staged_model_inputs"} if local is not None
+            else {"status": "not_comparable", "reason": "client_hash_unavailable",
+                  "basis": "staged_model_inputs"}
+        )
         rows.append({
             "job_id": job,
             "runner_models_lib_sha256": None,
             "models_lib_sha256": local,
-            "comparison": {"status": "match", "basis": "staged_model_inputs"},
+            "comparison": comparison,
             "klt_models_lib_comparison": None,
             "models_staged": True,
             "staged_model_inputs": [{"name": n, "sha256": h} for n, h in sorted(client.items())],

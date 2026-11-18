@@ -1755,6 +1755,20 @@ class StagedModelInputTests(BatchTestCase):
             if "models" in req:
                 self.assertIs(req["options"].get("stage_model_inputs", False), flag)
 
+    def test_unreadable_local_digest_is_not_recorded_as_a_match(self):
+        st = self.staged()
+        cfg = self.cfg(stage_model_inputs=True)
+        cfg.local_model_lib_sha256 = lambda: None
+        row = klt_batch._models_lib_rows(self.remote(st), "j1", cfg, st)[0]
+        self.assertEqual(row["comparison"]["status"], "not_comparable")
+
+    def test_env_switch_selects_the_image_path(self):
+        d = klt_batch.stage_model_inputs_default
+        self.assertTrue(d({}))
+        self.assertTrue(d({"GF180_STAGE_MODEL_INPUTS": "1"}))
+        for v in ("0", "false", "No", "OFF"):
+            self.assertFalse(d({"GF180_STAGE_MODEL_INPUTS": v}))
+
 
 if __name__ == "__main__":
     unittest.main()
