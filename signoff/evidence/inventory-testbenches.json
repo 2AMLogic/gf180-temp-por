@@ -1011,7 +1011,7 @@
         },
         {
           "path": "sim/temp-core-designer-check/testbench/tb.json",
-          "sha256": "sha256:e02306400dffb7c743ebacd8ed99a39722e202b0d168e1be238ad7173c31f423"
+          "sha256": "sha256:75c561c48b3919e944098964a4292db051e917e5031755219de32f7a880dfa5e"
         },
         {
           "path": "sim/temp-core-designer-check/testbench/tb_temp_core.spice",
