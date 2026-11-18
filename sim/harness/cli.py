@@ -471,24 +471,27 @@ def run(args: argparse.Namespace) -> int:
             f"got {_fmt(failure['value'])} at {failure['at']}"
         )
 
-    # A "no data" summary row means not one point produced that measurement
-    # -- e.g. every batch corner rejected before judgement (fleet PDK /
-    # klt-version provenance gates), which shows up here as opaque
-    # "got n/a" spread failures (#555). Print the per-point statuses and the
-    # distinct causes, so a --require-pdk failure names what actually died.
-    no_data = sorted(name for name, stats in record["summary"].items()
-                     if not stats.get("n"))
-    if no_data:
+    # Any point that did not come back ``ok`` is reported here, not just the
+    # total wipeout (#555). A partial loss is the more dangerous shape: the
+    # surviving points still yield statistics, computed over a truncated PVT
+    # axis (e.g. one temperature group of three) and printed as if they were
+    # the grid's -- so a spread can read like a circuit property when it is an
+    # artifact of the points that never ran. Name the dead-point count, the
+    # distinct causes, and (separately) any measurement with no samples at all.
+    dead = [r for r in results if r.status != "ok"]
+    if dead:
+        no_data = sorted(name for name, stats in record["summary"].items()
+                         if not stats.get("n"))
         causes: dict[tuple[str, str], int] = {}
-        for r in results:
-            if r.status == "ok":
-                continue
+        for r in dead:
             key = (r.status, r.message or "(no message)")
             causes[key] = causes.get(key, 0) + 1
         print(
-            f"\n  no measurement for {', '.join(no_data)}: "
-            f"{sum(causes.values())}/{len(points)} point(s) did not produce one"
+            f"\n  {len(dead)}/{len(points)} point(s) did not produce a result; "
+            "the statistics above cover the surviving points only"
         )
+        if no_data:
+            print(f"  no measurement for {', '.join(no_data)}")
         for (status, message), count in sorted(
                 causes.items(), key=lambda item: (-item[1], item[0])):
             print(f"    {count:>3} x [{status}] {message[:600]}")

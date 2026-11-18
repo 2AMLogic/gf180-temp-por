@@ -337,7 +337,7 @@ class FooterLoudFailureTests(unittest.TestCase):
         # The old, opaque lines are still there...
         self.assertIn("got n/a at grid", text)
         # ...but the footer now names how many points died and why.
-        self.assertIn("did not produce one", text)
+        self.assertIn("did not produce a result", text)
         self.assertIn("3 x [error]", text)
         self.assertIn("the runner read model library sha256", text)
         self.assertIn("point PDK_ROOT (or sim/pdk.local.json)", text)
@@ -345,15 +345,48 @@ class FooterLoudFailureTests(unittest.TestCase):
     def test_mixed_causes_are_grouped_by_distinct_message(self):
         exit_code, text = self._run(["error", "failed", "error"])
         self.assertEqual(exit_code, cliutil.EXIT_SIM_ERROR)
-        self.assertIn("did not produce one", text)
+        self.assertIn("did not produce a result", text)
         self.assertIn("2 x [error]", text)
         self.assertIn("1 x [failed]", text)
+
+    def test_partial_loss_is_reported_even_though_every_measurement_has_samples(self):
+        # The review's failure shape: some points die, the survivors still
+        # give every measurement n > 0, so no "no data" row appears -- the
+        # footer must still name the dead points and the truncated coverage.
+        _, text = self._run(["ok", "error", "error"])
+        self.assertNotIn("no measurement for", text)
+        self.assertIn("2/3 point(s) did not produce a result", text)
+        self.assertIn("surviving points only", text)
+        self.assertIn("2 x [error]", text)
 
     def test_healthy_run_prints_no_failure_block(self):
         exit_code, text = self._run(["ok", "ok", "ok"])
         self.assertEqual(exit_code, cliutil.EXIT_OK)
-        self.assertNotIn("did not produce one", text)
+        self.assertNotIn("did not produce a result", text)
+
+
+class KltFailureTextTests(unittest.TestCase):
+    """A refused submit must surface klt's refusal reason, not the advisory
+    warnings that precede it on stderr (#555)."""
+
+    WARNING = ("klt: warning: 2 installs provide PDK variant 'gf180mcuD'; "
+               "read /home/u/.ciel ..., skipped /home/u/.volare ...\n") * 3
+
+    def test_real_refusal_survives_long_leading_warnings(self):
+        stderr = self.WARNING + ("batch job bound 8220s exceeds ceiling " * 20
+                                 + "\nklt: error: REAL-REFUSAL-REASON")
+        text = klt_batch._failure_text(None, stderr)
+        self.assertIn("REAL-REFUSAL-REASON", text)
+        self.assertLessEqual(len(text), 900)
+
+    def test_json_error_message_comes_first(self):
+        text = klt_batch._failure_text({"error": {"message": "JSON-ERR"}}, self.WARNING)
+        self.assertTrue(text.startswith("JSON-ERR"))
+
+    def test_short_stderr_is_kept_whole(self):
+        self.assertEqual(klt_batch._failure_text(None, "boom\n"), "boom")
 
 
 if __name__ == "__main__":
     unittest.main()
+
