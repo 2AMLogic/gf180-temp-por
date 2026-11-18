@@ -6,6 +6,11 @@ Merged PRs and closed issues from the initial 30-day snapshot (2026-09-07 onward
 
 - [2026-09](work_log/WORK_LOG_2026-09.md)
 
+### 2026-11-18
+
+- **PR #601**: fix(sim): resolve the PDK install klt reads; fail unmeasured smoke runs loudly
+- **Issue #555** (closed): sim/selftest.sh PVT smoke fails on PDK-equipped hosts: grid spread checks read n/a
+
 ### 2026-11-17
 
 - **Issue #617** (closed): DRC-clean claim is graded at the unreleased 0.6.0 deck; the released 0.8.0 deck reports 16753 violations on temp_por_top bytes (OFFGRID/SB/GR families it never evaluated)
