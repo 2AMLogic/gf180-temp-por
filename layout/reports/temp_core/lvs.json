@@ -38,31 +38,22 @@
     "finding_count": 0
   },
   "body_verification": {
-    "status": "unverified",
+    "status": "verified",
     "reason": null,
-    "device_classes": [
-      "pfet"
-    ],
-    "device_count": 28,
-    "findings": [
-      {
-        "class": "pfet",
-        "device_count": 28
-      }
-    ],
-    "finding_count": 1
+    "device_classes": [],
+    "device_count": 0,
+    "findings": [],
+    "finding_count": 0
   },
-  "mismatch_count": 1,
+  "mismatch_count": 0,
   "error_count": 0,
-  "category_counts": {
-    "device.body_unverified": 1
-  },
+  "category_counts": {},
   "category_error_counts": {},
   "counts": {
     "nets": {
-      "layout": 71,
-      "reference": 71,
-      "matched": 71
+      "layout": 69,
+      "reference": 69,
+      "matched": 69
     },
     "devices": {
       "layout": 115,
@@ -87,8 +78,8 @@
   "environment": {
     "engine": "klayout",
     "engine_version": "0.30.13",
-    "layout_sha256": "f99f531eb4894132a279f0fce1c1e5fbba169ca250dbd5027476cafb9e1db249",
-    "reference_sha256": "cd6d91bdccbb972cb940e576e054e9101278dfe8c11896bb5517eff14aa23308",
+    "layout_sha256": "ffcb31808d17884690bd646a4eaae61bd3f013cf73b7f9aa2a9b0690a4221cdd",
+    "reference_sha256": "f22660d15131f608ba53cd726cdbb6b2170dbe848d9c1bcdba81e1fadd5f0a5a",
     "extracted_netlist": null
   },
   "provenance": {
@@ -101,30 +92,12 @@
       "released": false
     },
     "input": {
-      "content_hash": "sha256:f99f531eb4894132a279f0fce1c1e5fbba169ca250dbd5027476cafb9e1db249",
+      "content_hash": "sha256:ffcb31808d17884690bd646a4eaae61bd3f013cf73b7f9aa2a9b0690a4221cdd",
       "role": "layout"
     },
     "klayout_version_mismatch": true
   },
-  "mismatches": [
-    {
-      "category": "device.body_unverified",
-      "severity": "warning",
-      "description": "28 PMOS device body terminal(s) were compared against an anonymous, KLayout-synthesized well net, not a real schematic net -- no drawn or derived well-tap geometry resolved these device(s)' body terminal to a real net (see docs/cli/extract.md, \"Coverage\")",
-      "side": "layout",
-      "net": null,
-      "device": {
-        "layout": null,
-        "reference": null,
-        "class": "pfet"
-      },
-      "property": null,
-      "details": null,
-      "circuit": null,
-      "instance": null,
-      "subcircuit": null
-    }
-  ],
+  "mismatches": [],
   "net_correspondence": [
     {
       "layout": "CTAT",
@@ -207,16 +180,6 @@
       "pin": true
     },
     {
-      "layout": "\\$29",
-      "reference": "NW1",
-      "pin": false
-    },
-    {
-      "layout": "\\$28",
-      "reference": "NW2",
-      "pin": false
-    },
-    {
       "layout": "NZ",
       "reference": "NZ",
       "pin": true
@@ -282,202 +245,202 @@
       "pin": true
     },
     {
-      "layout": "\\$69",
+      "layout": "\\$67",
       "reference": "XR1_1",
       "pin": false
     },
     {
-      "layout": "\\$75",
+      "layout": "\\$73",
       "reference": "XR2F_1",
       "pin": false
     },
     {
-      "layout": "\\$38",
+      "layout": "\\$36",
       "reference": "XR2F_10",
       "pin": false
     },
     {
-      "layout": "\\$80",
+      "layout": "\\$78",
       "reference": "XR2F_11",
       "pin": false
     },
     {
-      "layout": "\\$39",
+      "layout": "\\$37",
       "reference": "XR2F_12",
       "pin": false
     },
     {
-      "layout": "\\$81",
+      "layout": "\\$79",
       "reference": "XR2F_13",
       "pin": false
     },
     {
-      "layout": "\\$40",
+      "layout": "\\$38",
       "reference": "XR2F_14",
       "pin": false
     },
     {
-      "layout": "\\$82",
+      "layout": "\\$80",
       "reference": "XR2F_15",
       "pin": false
     },
     {
-      "layout": "\\$41",
+      "layout": "\\$39",
       "reference": "XR2F_16",
       "pin": false
     },
     {
-      "layout": "\\$83",
+      "layout": "\\$81",
       "reference": "XR2F_17",
       "pin": false
     },
     {
-      "layout": "\\$42",
+      "layout": "\\$40",
       "reference": "XR2F_18",
       "pin": false
     },
     {
-      "layout": "\\$84",
+      "layout": "\\$82",
       "reference": "XR2F_19",
       "pin": false
     },
     {
-      "layout": "\\$34",
+      "layout": "\\$32",
       "reference": "XR2F_2",
       "pin": false
     },
     {
-      "layout": "\\$43",
+      "layout": "\\$41",
       "reference": "XR2F_20",
       "pin": false
     },
     {
-      "layout": "\\$85",
+      "layout": "\\$83",
       "reference": "XR2F_21",
       "pin": false
     },
     {
-      "layout": "\\$44",
+      "layout": "\\$42",
       "reference": "XR2F_22",
       "pin": false
     },
     {
-      "layout": "\\$86",
+      "layout": "\\$84",
       "reference": "XR2F_23",
       "pin": false
     },
     {
-      "layout": "\\$76",
+      "layout": "\\$74",
       "reference": "XR2F_3",
       "pin": false
     },
     {
-      "layout": "\\$35",
+      "layout": "\\$33",
       "reference": "XR2F_4",
       "pin": false
     },
     {
-      "layout": "\\$77",
+      "layout": "\\$75",
       "reference": "XR2F_5",
       "pin": false
     },
     {
-      "layout": "\\$36",
+      "layout": "\\$34",
       "reference": "XR2F_6",
       "pin": false
     },
     {
-      "layout": "\\$78",
+      "layout": "\\$76",
       "reference": "XR2F_7",
       "pin": false
     },
     {
-      "layout": "\\$37",
+      "layout": "\\$35",
       "reference": "XR2F_8",
       "pin": false
     },
     {
-      "layout": "\\$79",
+      "layout": "\\$77",
       "reference": "XR2F_9",
       "pin": false
     },
     {
-      "layout": "\\$50",
+      "layout": "\\$48",
       "reference": "XR2T0_1",
       "pin": false
     },
     {
-      "layout": "\\$51",
+      "layout": "\\$49",
       "reference": "XR2T1_1",
       "pin": false
     },
     {
-      "layout": "\\$55",
+      "layout": "\\$53",
       "reference": "XR2T2_1",
       "pin": false
     },
     {
-      "layout": "\\$59",
+      "layout": "\\$57",
       "reference": "XR2T3_1",
       "pin": false
     },
     {
-      "layout": "\\$68",
+      "layout": "\\$66",
       "reference": "XR2T4_1",
       "pin": false
     },
     {
-      "layout": "\\$87",
+      "layout": "\\$85",
       "reference": "XR2T5_1",
       "pin": false
     },
     {
-      "layout": "\\$67",
+      "layout": "\\$65",
       "reference": "XRISO_1",
       "pin": false
     },
     {
-      "layout": "\\$70",
+      "layout": "\\$68",
       "reference": "XRZ_1",
       "pin": false
     },
     {
-      "layout": "\\$30",
+      "layout": "\\$28",
       "reference": "XRZ_2",
       "pin": false
     },
     {
-      "layout": "\\$71",
+      "layout": "\\$69",
       "reference": "XRZ_3",
       "pin": false
     },
     {
-      "layout": "\\$31",
+      "layout": "\\$29",
       "reference": "XRZ_4",
       "pin": false
     },
     {
-      "layout": "\\$72",
+      "layout": "\\$70",
       "reference": "XRZ_5",
       "pin": false
     },
     {
-      "layout": "\\$32",
+      "layout": "\\$30",
       "reference": "XRZ_6",
       "pin": false
     },
     {
-      "layout": "\\$73",
+      "layout": "\\$71",
       "reference": "XRZ_7",
       "pin": false
     },
     {
-      "layout": "\\$33",
+      "layout": "\\$31",
       "reference": "XRZ_8",
       "pin": false
     },
     {
-      "layout": "\\$74",
+      "layout": "\\$72",
       "reference": "XRZ_9",
       "pin": false
     }

@@ -5,20 +5,20 @@
   "top_cell": "temp_core",
   "bbox_um": {
     "left": -3.0,
-    "bottom": -32.3,
+    "bottom": -33.95,
     "right": 566.25,
     "top": 179.055,
     "width": 569.25,
-    "height": 211.35500000000002
+    "height": 213.005
   },
   "total": {
-    "area_um2": 80135.11020000001,
-    "density": 0.6660506751577102,
-    "polygon_count": 5253,
-    "vertex_count": 21012
+    "area_um2": 81844.3114,
+    "density": 0.6749873935693416,
+    "polygon_count": 5747,
+    "vertex_count": 22988
   },
   "layers": null,
   "provenance": {
-    "gds_sha256": "f99f531eb4894132a279f0fce1c1e5fbba169ca250dbd5027476cafb9e1db249"
+    "gds_sha256": "ffcb31808d17884690bd646a4eaae61bd3f013cf73b7f9aa2a9b0690a4221cdd"
   }
 }

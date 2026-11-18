@@ -38,37 +38,24 @@
     "finding_count": 0
   },
   "body_verification": {
-    "status": "unverified",
+    "status": "verified",
     "reason": null,
-    "device_classes": [
-      "nfet",
-      "pfet"
-    ],
-    "device_count": 2,
-    "findings": [
-      {
-        "class": "nfet",
-        "device_count": 1
-      },
-      {
-        "class": "pfet",
-        "device_count": 1
-      }
-    ],
-    "finding_count": 2
+    "device_classes": [],
+    "device_count": 0,
+    "findings": [],
+    "finding_count": 0
   },
-  "mismatch_count": 3,
+  "mismatch_count": 1,
   "error_count": 0,
   "category_counts": {
-    "device.body_unverified": 2,
     "topology": 1
   },
   "category_error_counts": {},
   "counts": {
     "nets": {
-      "layout": 6,
-      "reference": 6,
-      "matched": 6
+      "layout": 4,
+      "reference": 4,
+      "matched": 4
     },
     "devices": {
       "layout": 2,
@@ -76,9 +63,9 @@
       "matched": 2
     },
     "pins": {
-      "layout": 5,
-      "reference": 5,
-      "matched": 5
+      "layout": 4,
+      "reference": 4,
+      "matched": 4
     }
   },
   "device_classes": [
@@ -93,8 +80,8 @@
   "environment": {
     "engine": "klayout",
     "engine_version": "0.30.13",
-    "layout_sha256": "101a38f0cccc9b457784e70b8a59c56828ddb4a89b2476b5f08cfbd6e340c9b2",
-    "reference_sha256": "15a2a6d99eba95e327967a379e6032cbfcd02cbd1d6a124cb42ea73501e34430",
+    "layout_sha256": "92b3ba65ac0124517dc3512ed22b832edf8e46426d9fc7ff09c8360868c4cdb8",
+    "reference_sha256": "da1430a1331f8fdd3a702d41bd72a15fbb534cffe038dd3f581f2536f0234035",
     "extracted_netlist": null
   },
   "provenance": {
@@ -107,46 +94,12 @@
       "released": false
     },
     "input": {
-      "content_hash": "sha256:101a38f0cccc9b457784e70b8a59c56828ddb4a89b2476b5f08cfbd6e340c9b2",
+      "content_hash": "sha256:92b3ba65ac0124517dc3512ed22b832edf8e46426d9fc7ff09c8360868c4cdb8",
       "role": "layout"
     },
     "klayout_version_mismatch": true
   },
   "mismatches": [
-    {
-      "category": "device.body_unverified",
-      "severity": "warning",
-      "description": "1 NMOS device body terminal(s) were compared against the 'vsubs' deck-synthesized substrate net, not a real schematic net -- no drawn substrate-tap geometry resolved these device(s)' body terminal to a real net (see docs/cli/extract.md, \"Coverage\")",
-      "side": "layout",
-      "net": null,
-      "device": {
-        "layout": null,
-        "reference": null,
-        "class": "nfet"
-      },
-      "property": null,
-      "details": null,
-      "circuit": null,
-      "instance": null,
-      "subcircuit": null
-    },
-    {
-      "category": "device.body_unverified",
-      "severity": "warning",
-      "description": "1 PMOS device body terminal(s) were compared against an anonymous, KLayout-synthesized well net, not a real schematic net -- no drawn or derived well-tap geometry resolved these device(s)' body terminal to a real net (see docs/cli/extract.md, \"Coverage\")",
-      "side": "layout",
-      "net": null,
-      "device": {
-        "layout": null,
-        "reference": null,
-        "class": "pfet"
-      },
-      "property": null,
-      "details": null,
-      "circuit": null,
-      "instance": null,
-      "subcircuit": null
-    },
     {
       "category": "topology",
       "severity": "warning",
@@ -173,11 +126,6 @@
       "pin": true
     },
     {
-      "layout": "\\$5",
-      "reference": "NW1",
-      "pin": false
-    },
-    {
       "layout": "VDD",
       "reference": "VDD",
       "pin": true
@@ -185,11 +133,6 @@
     {
       "layout": "VSS",
       "reference": "VSS",
-      "pin": true
-    },
-    {
-      "layout": "vsubs",
-      "reference": "VSUBS",
       "pin": true
     }
   ]

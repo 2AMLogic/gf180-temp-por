@@ -5,11 +5,11 @@
   "top": "por_comparator_bias_okb_inv",
   "dbu_um": 0.001,
   "netlist_path": "layout/reports/por_comparator_bias_okb_inv/extracted.spice",
-  "netlist_sha256": "58abbab8d589656620ca38f5e988895d42529b6e66f61c1da89926595db8323a",
+  "netlist_sha256": "867a51239c5638ee9ba8b9a0e5d5ecfcbadd68a7c5c9c3f79f7bf23a559f6f29",
   "status": "extracted",
   "device_count": 2,
-  "net_count": 6,
-  "pin_count": 5,
+  "net_count": 4,
+  "pin_count": 4,
   "device_counts": {
     "nfet": 1,
     "pfet": 1
@@ -34,7 +34,7 @@
         "s": "VSS",
         "g": "BIAS_OK",
         "d": "BIAS_OKB",
-        "b": "vsubs"
+        "b": "VSS"
       },
       "params": {
         "l_um": 0.5,
@@ -53,7 +53,7 @@
         "s": "VDD",
         "g": "BIAS_OK",
         "d": "BIAS_OKB",
-        "b": "\\$5"
+        "b": "VDD"
       },
       "params": {
         "l_um": 0.5,
@@ -71,7 +71,7 @@
       "name": "BIAS_OK",
       "pin": true,
       "device_count": 2,
-      "net_id": 3,
+      "net_id": 2,
       "pin_index": 0,
       "label_positions_um": [
         {
@@ -85,7 +85,7 @@
       "name": "BIAS_OKB",
       "pin": true,
       "device_count": 2,
-      "net_id": 2,
+      "net_id": 1,
       "pin_index": 1,
       "label_positions_um": [
         {
@@ -98,8 +98,8 @@
     {
       "name": "VDD",
       "pin": true,
-      "device_count": 1,
-      "net_id": 4,
+      "device_count": 2,
+      "net_id": 3,
       "pin_index": 2,
       "label_positions_um": [
         {
@@ -112,8 +112,8 @@
     {
       "name": "VSS",
       "pin": true,
-      "device_count": 1,
-      "net_id": 1,
+      "device_count": 2,
+      "net_id": 5,
       "pin_index": 3,
       "label_positions_um": [
         {
@@ -122,47 +122,16 @@
           "y_um": 0.5
         }
       ]
-    },
-    {
-      "name": "\\$5",
-      "pin": false,
-      "device_count": 1,
-      "net_id": 5,
-      "pin_index": null,
-      "label_positions_um": []
-    },
-    {
-      "name": "vsubs",
-      "pin": true,
-      "device_count": 1,
-      "net_id": 6,
-      "pin_index": 4,
-      "label_positions_um": []
     }
   ],
-  "warnings": [
-    "1 PMOS device tie their body to an anonymous net with no DC bias path -- no drawn (or derivable) well tie connects this PMOS body to a real supply rail on this layout, so it is left floating rather than tied to a real supply rail; resimulating this netlist directly will not reproduce the schematic-level PMOS body bias -- see unbiased_pmos_body_nets[] for the full list. See docs/cli/extract.md's 'Parasitic (RC) extraction' section.",
-    "1 net connect to exactly one device terminal -- source/drain/body/resistor-equivalent, not a gate -- and are not a declared pin; this can be a legitimate single-terminal tie (e.g. an intentionally unterminated dummy's diffusion tie), but confirm these nets have no other intended connectivity -- see single_terminal_nets[] for the full list."
-  ],
+  "warnings": [],
   "black_box_regions": [],
   "abstracted_cells": [],
   "unmodelled_poly": [],
   "merged_net_labels": [],
   "voltage_domain_warnings": [],
-  "unbiased_pmos_body_nets": [
-    {
-      "device": "$2",
-      "net": "\\$5"
-    }
-  ],
-  "single_terminal_nets": [
-    {
-      "net": "\\$5",
-      "device": "$2",
-      "terminal": "b",
-      "terminal_kind": "body"
-    }
-  ],
+  "unbiased_pmos_body_nets": [],
+  "single_terminal_nets": [],
   "dead_metal": [],
   "matched_device_groups": [],
   "pdk": null,
@@ -176,17 +145,17 @@
       "released": false
     },
     "input": {
-      "content_hash": "sha256:101a38f0cccc9b457784e70b8a59c56828ddb4a89b2476b5f08cfbd6e340c9b2",
+      "content_hash": "sha256:92b3ba65ac0124517dc3512ed22b832edf8e46426d9fc7ff09c8360868c4cdb8",
       "role": "layout"
     },
-    "gds_sha256": "101a38f0cccc9b457784e70b8a59c56828ddb4a89b2476b5f08cfbd6e340c9b2"
+    "gds_sha256": "92b3ba65ac0124517dc3512ed22b832edf8e46426d9fc7ff09c8360868c4cdb8"
   },
   "parasitics": null,
   "spef_path": null,
   "subcircuit": null,
   "metrics": {
     "extract__device__count": 2,
-    "extract__net__count": 6,
-    "extract__pin__count": 5
+    "extract__net__count": 4,
+    "extract__pin__count": 4
   }
 }
