@@ -14,7 +14,7 @@
 # `make` behavior: a recipe line's non-zero exit aborts the target.
 #
 #   make test          all unit-test suites: sim, layout, signoff (headless, seconds)
-#   make check         unit tests + environment/PDK check (headless, seconds)
+#   make check         evidence-rot gate + unit tests + environment/PDK check (headless, seconds; needs klt on PATH)
 #   make smoke         fast end-to-end proof the toolchain works (seconds)
 #   make characterize  full PVT/Monte-Carlo campaign, writes sim/ evidence
 #
@@ -27,7 +27,7 @@ help:
 	@echo "gf180-temp-por -- make targets:"
 	@echo ""
 	@echo "  make test          all unit-test suites: sim, layout, signoff (headless, seconds)"
-	@echo "  make check         unit tests + environment/PDK check (headless, seconds)"
+	@echo "  make check         evidence-rot gate + unit tests + environment/PDK check (headless, seconds; needs klt on PATH)"
 	@echo "  make smoke         fast end-to-end proof the toolchain works (seconds)"
 	@echo "  make characterize  full PVT/Monte-Carlo campaign -> sim/*/records/ (dozens of minutes, host-dependent)"
 	@echo ""
@@ -50,16 +50,23 @@ test:
 	@echo "== scripts/tests (artifact-manifest check unit tests, no broker/klt required) =="
 	python3 -m unittest discover -s scripts/tests -t scripts/tests
 
-# Unit tests (via `make test`) + a staleness check + an explicit environment/PDK report.
-# Nothing here needs ngspice or the PDK except the last step, which reports
-# (and fails loudly on) their absence rather than letting `make smoke` or
-# `make characterize` fail later with a less specific error.
+# Staleness checks + the evidence-rot gate + unit tests (via `make test`) + an
+# explicit environment/PDK report. signoff/check.py is CI's exact invocation
+# (bare, not --klt-pin, so no uvx download): a green `make check` means CI's
+# evidence-rot step passes. It needs `klt` on PATH (it exits 1 with an install
+# hint otherwise); a grader newer than the pin only warns. Nothing here needs
+# ngspice or the PDK except the last step, which reports (and fails loudly on)
+# their absence rather than letting `make smoke` or `make characterize` fail
+# later with a less specific error.
 check:
 	@echo "== sim/check_append_only.py (no edited/deleted sim/ evidence vs origin/main) =="
 	python3 sim/check_append_only.py --base origin/main
 	@echo
 	@echo "== sim/build_tb.py --check (testbench fragments match design/netlist/ exports) =="
 	python3 sim/build_tb.py --check
+	@echo
+	@echo "== signoff/check.py (re-grade the T1 manifest; fail on evidence rot, as CI does) =="
+	python3 signoff/check.py
 	@echo
 	@$(MAKE) --no-print-directory test
 	@echo
