@@ -386,6 +386,23 @@ class KltFailureTextTests(unittest.TestCase):
     def test_short_stderr_is_kept_whole(self):
         self.assertEqual(klt_batch._failure_text(None, "boom\n"), "boom")
 
+    def _batch_set_error(self, stderr):
+        proc = mock.Mock(returncode=2, stdout="", stderr=stderr)
+        with mock.patch.object(klt_batch.shutil, "which", return_value="/bin/klt"), \
+                mock.patch.object(klt_batch.subprocess, "run", return_value=proc):
+            with self.assertRaises(klt_batch.BatchSubmitError) as ctx:
+                klt_batch.invoke_klt_set([Path("a.json")], Path("out"),
+                                         klt_batch.BatchConfig(pdk=None, stage_root=Path(".")), 10.0)
+        return str(ctx.exception)
+
+    def test_batch_set_refusal_survives_long_leading_warnings(self):
+        stderr = self.WARNING + ("batch job bound 8220s exceeds ceiling " * 20
+                                 + "\nklt: error: REAL-REFUSAL-REASON")
+        self.assertIn("REAL-REFUSAL-REASON", self._batch_set_error(stderr))
+
+    def test_batch_set_empty_stderr_reports_no_output(self):
+        self.assertIn("no output", self._batch_set_error(""))
+
 
 if __name__ == "__main__":
     unittest.main()

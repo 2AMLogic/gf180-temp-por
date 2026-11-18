@@ -1164,13 +1164,10 @@ def invoke_klt_set(reqs: list[Path], outdir: Path, cfg: BatchConfig, timeout_s: 
         env = None
     if proc.returncode in (0, 3, 4) and isinstance(env, dict) and isinstance(env.get("requests"), list):
         return env
-    message = ""
-    if isinstance(env, dict) and isinstance(env.get("error"), dict):
-        message = str(env["error"].get("message", ""))
-    message = (message + " " + proc.stderr).strip()
+    message = _failure_text(env, proc.stderr)
     raise BatchSubmitError(
         f"klt sim --batch-set failed (exit {proc.returncode}): "
-        f"{message[:800] or proc.stdout[:400] or 'no output'}"
+        f"{message or proc.stdout[:400] or 'no output'}"
     )
 
 
