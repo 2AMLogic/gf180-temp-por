@@ -3,6 +3,7 @@
 Current workflow state, maintained by Guide.
 
 <!-- guide:plan-body:start -->
+_Generated: 2026-11-18T21:01:08Z (snapshot; compare against live labels)_
 ## Operator Attention: Merge-Risk-Hold Pileup
 
 Judge-approved PRs under a hold (`loom:blocked` or `loom:operator`) — only a human merge decision is missing.
@@ -30,20 +31,18 @@ Judge-approved PRs under a hold (`loom:blocked` or `loom:operator`) — only a h
 Human-approved issues (`loom:issue`) ready for implementation — excluding held (`loom:blocked`/`loom:operator`/`loom:frozen`), `loom:building`, and issues closed by an open `loom:pr` PR (listed under Approved).
 
 - **#452**: temp_core: implement amplifier chop/auto-zero, gain mirror fix and trim re-balance (#415 step 2/3)
-- **#611**: make check does not run signoff/check.py, so evidence rot is only ever caught in CI
 
 ## In Progress
 
 Issues currently being built (`loom:building`).
 
 - **#532**: temp_core and por_comparator_bias_okb_inv have no substrate or well tap within 20 um of their MOS rows (DF.13_LV / DF.14_LV)
-- **#620**: sim harness: klt --batch-set refusals still head-truncate stderr, hiding klt's reason
 
 ## PRs Awaiting Review
 
 PRs waiting on Judge (`loom:review-requested`).
 
-- **#621**: fix: keep refusal reason in --batch-set submit failures
+_None._
 
 ## Approved (Awaiting Merge)
 
@@ -70,8 +69,6 @@ Issues carrying `loom:curated`.
 - **#510**: LVS net and pin counts quoted in prose drifted from the committed lvs.json reports *(curated)*
 - **#532**: temp_core and por_comparator_bias_okb_inv have no substrate or well tap within 20 um of their MOS rows (DF.13_LV / DF.14_LV) *(curated)*
 - **#551**: Re-run temp_por_top PEX grid: pex.json still cites the pre-#518 GDS revision *(curated)* *(held)*
-- **#611**: make check does not run signoff/check.py, so evidence rot is only ever caught in CI *(curated)*
-- **#620**: sim harness: klt --batch-set refusals still head-truncate stderr, hiding klt's reason *(curated)*
 
 ## Proposed (Architect / Hermit)
 
@@ -89,11 +86,11 @@ _None._
 | Operator merge-risk holds | 2 |
 | Very important | 1 |
 | Important | 4 |
-| Ready (`loom:issue`, net of holds/building/merge-pending) | 2 |
-| In Progress (`loom:building`) | 2 |
-| PRs awaiting review | 1 |
+| Ready (`loom:issue`, net of holds/building/merge-pending) | 1 |
+| In Progress (`loom:building`) | 1 |
+| PRs awaiting review | 0 |
 | Approved PRs awaiting merge | 2 |
-| Curated | 16 |
+| Curated | 14 |
 | Architect / Hermit proposals | 2 |
 | Active epics | 0 |
 <!-- guide:plan-body:end -->
