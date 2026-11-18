@@ -13,8 +13,9 @@ Resolution order (first hit wins):
                            open_pdks / ciel / volare / OpenLane environment.
 3. ``sim/pdk.local.json`` -- machine-local override, git-ignored.
 4. ``sim/pdk.json``      -- committed defaults: variant + search roots.
-5. Built-in search roots -- ciel and volare stores, open_pdks install
-                           prefixes.
+5. Built-in search roots -- the ciel store, then the volare store (the
+                           order the klt client reads them), then open_pdks
+                           install prefixes.
 """
 
 from __future__ import annotations
@@ -31,9 +32,19 @@ DEFAULT_VARIANT = "gf180mcuD"
 
 # Search roots used when nothing else pins the PDK down. Each is a directory
 # that is expected to *contain* variant directories (gf180mcuA..D).
+#
+# ``~/.ciel`` before ``~/.volare``: the klt client resolves a PDK variant the
+# same way, first match wins, and reads ``~/.ciel`` first -- it prints a
+# resolution warning naming the skipped roots on a multi-install host. The
+# harness must resolve the SAME install the klt client does, or the batch
+# provenance gate (which compares the fleet runner's model-library digest
+# against this resolution, #468) rejects every corner on a host provisioned
+# with both -- the smoke's spread checks then all read n/a (#555, measured
+# 2026-11-17: the fleet reads the ``~/.ciel`` build, ``~/.volare`` held an
+# older open_pdks).
 BUILTIN_SEARCH_ROOTS = (
-    "~/.volare",
     "~/.ciel",
+    "~/.volare",
     "/usr/share/pdk",
     "/usr/local/share/pdk",
     "~/share/pdk",

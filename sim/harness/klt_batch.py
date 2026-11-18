@@ -1100,11 +1100,8 @@ def invoke_klt(req: Path, outdir: Path, cfg: BatchConfig, timeout_s: float) -> d
             report = None
         if isinstance(report, dict) and "error" not in report and "corners" in report:
             return report
-        message = ""
-        if isinstance(report, dict) and isinstance(report.get("error"), dict):
-            message = str(report["error"].get("message", ""))
-        message = (message + " " + proc.stderr).strip()
-        if _CAP_REFUSAL in message and time.monotonic() + delay < deadline:
+        message = _failure_text(report, proc.stderr)
+        if (_CAP_REFUSAL in message or _CAP_REFUSAL in proc.stderr) and time.monotonic() + delay < deadline:
             wait = delay * random.uniform(0.5, 1.0)
             cfg.log(f"  fleet at its concurrency cap; re-submitting {req.parent.name} in {wait:.0f}s")
             cfg.sleep(wait)
@@ -1116,8 +1113,25 @@ def invoke_klt(req: Path, outdir: Path, cfg: BatchConfig, timeout_s: float) -> d
                     else "returned output that is not a JSON report")
         raise BatchSubmitError(
             f"klt sim {what} for {req.parent.name} (exit {proc.returncode}): "
-            f"{message[:800] or proc.stdout[:400] or 'no output'}"
+            f"{message or proc.stdout[:400] or 'no output'}"
         )
+
+
+def _failure_text(report, stderr: str, limit: int = 800) -> str:
+    """What klt said when it refused or failed, for an error message.
+
+    klt's own error (the JSON ``error.message``) comes first. stderr follows,
+    but only its TAIL is kept: klt prints advisory warnings (multi-install PDK
+    resolution, job-bound notices) at the start of stderr and the actual
+    failure last, so truncating the head would fill the budget with warnings
+    and drop the refusal reason (#555)."""
+    message = ""
+    if isinstance(report, dict) and isinstance(report.get("error"), dict):
+        message = str(report["error"].get("message", "")).strip()
+    tail = (stderr or "").strip()
+    if len(tail) > limit:
+        tail = "..." + tail[-limit:]
+    return (message + " " + tail).strip()
 
 
 def invoke_klt_set(reqs: list[Path], outdir: Path, cfg: BatchConfig, timeout_s: float) -> dict:
