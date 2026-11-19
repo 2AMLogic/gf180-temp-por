@@ -6,6 +6,11 @@ Merged PRs and closed issues from the initial 30-day snapshot (2026-09-07 onward
 
 - [2026-09](work_log/WORK_LOG_2026-09.md)
 
+### 2026-11-19
+
+- **PR #628**: refactor: read the sense divider's resistor cards through the shared golden reader
+- **Issue #627** (closed): Remove the comparator divider’s duplicate SPICE resistor parser
+
 ### 2026-11-18
 
 - **PR #623**: build: run signoff/check.py in make check to catch evidence rot locally
