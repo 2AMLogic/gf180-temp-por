@@ -2277,38 +2277,22 @@ DIVIDER_BASE_Y_UM = -3.5
 DIVIDER_RESISTOR_MK = RESISTOR_ID
 
 
-def _poly_resistors(source: str, subckt: str, names: tuple[str, ...]) -> dict:
-    """Parse ``design/netlist/<source>``'s ``<subckt>`` for the named resistors.
-
-    ``lvs_reference.parse_devices`` deliberately drops every card the curated
-    deck cannot model, resistors included, so this reads their ``r_width`` /
-    ``r_length`` directly -- still out of the same golden netlist, so no
-    dimension is retyped here either.
-    """
-    text = (REPO_ROOT / "design" / "netlist" / source).read_text()
-    found: dict[str, dict[str, str]] = {}
-    for line in lvsref.subckt_body(text, subckt):
-        fields = line.split()
-        if fields[0] not in names:
-            continue
-        found[fields[0]] = {
-            key.lower(): value.strip("'\"")
-            for key, _, value in (f.partition("=") for f in fields[1:] if "=" in f)
-        }
-    missing = [name for name in names if name not in found]
-    if missing:
-        raise KeyError(f"{source}:{subckt}: no resistor card for {missing}")
-    return found
-
-
 def _divider_resistor_lengths() -> tuple[float, dict[str, float]]:
     """``(leg_width_um, {name: r_length_um})`` for the sense divider's three
     segments, read straight from the golden netlist.
+
+    The shared :func:`_golden_resistors` reader recognises the divider's
+    ``ppolyf_u_3k`` model (:data:`lvs_reference.RESISTOR_CLASS`), so the cards
+    need no second parser here.
     """
-    cards = _poly_resistors(
-        "por_comparator.spice", "por_comparator", POR_DIVIDER_RESISTORS
-    )
-    widths = {lvsref.to_um(card["r_width"]) for card in cards.values()}
+    cards = _golden_resistors("por_comparator.spice", "por_comparator")
+    missing = [name for name in POR_DIVIDER_RESISTORS if name not in cards]
+    if missing:
+        raise KeyError(
+            f"por_comparator.spice:por_comparator: no resistor card for {missing}"
+        )
+    cards = {name: cards[name] for name in POR_DIVIDER_RESISTORS}
+    widths = {lvsref.to_um(card["params"]["r_width"]) for card in cards.values()}
     if len(widths) != 1:
         # Same-width legs are the premise of the TC/sheet-rho-in-ratio
         # cancellation this divider's accuracy rests on (design/
@@ -2318,7 +2302,10 @@ def _divider_resistor_lengths() -> tuple[float, dict[str, float]]:
         # plan.
         raise ValueError(f"sense divider legs are not one width: {sorted(widths)}")
     leg_w = widths.pop()
-    lengths = {name: lvsref.to_um(card["r_length"]) for name, card in cards.items()}
+    lengths = {
+        name: lvsref.to_um(card["params"]["r_length"])
+        for name, card in cards.items()
+    }
     return leg_w, lengths
 
 
