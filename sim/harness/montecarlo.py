@@ -54,6 +54,7 @@ the deterministic-grid equivalent):
 
 from __future__ import annotations
 
+import re
 import statistics
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -170,6 +171,92 @@ class McPoint:
             "seed": self.seed,
             "corner_id": self.corner_id,
         }
+
+
+#: The inverse of :attr:`McPoint.corner_id`. The harness owns the forward
+#: direction of the ``<label>_<process>_<temp>c_<supply>v_s<sample>``
+#: naming, so it owns taking it back apart too -- analysis scripts should
+#: not each hand-roll their own reverse-parser for the same format (same
+#: ruling as ``corners._CORNER_ID_RE``). ``_SAMPLE_TAIL_RE`` covers
+#: everything after a binding-point label the caller already knows.
+#: ``_SAMPLE_ID_RE`` additionally splits the label off when no label list
+#: is available: the process part must then name a known corner (it is a
+#: ``corners.CORNERS`` key by construction -- ``BindingPoint`` resolves it
+#: through that table), and the label is lazy so the split prefers the
+#: longest corner name, which keeps ``vth-rise-max`` + ``bjt_ff`` from
+#: re-splitting as ``vth-rise-max_bjt`` + ``ff``.
+_SAMPLE_TAIL_RE = re.compile(
+    r"^(?P<process>[a-z_0-9]+)_(?P<temp>-?\d+(?:\.\d+)?)c_"
+    r"(?P<supply>\d+\.\d+)v_s(?P<sample>\d+)$"
+)
+_CORNER_NAME_ALT = "|".join(
+    sorted((re.escape(name) for name in CORNERS), key=len, reverse=True)
+)
+_SAMPLE_ID_RE = re.compile(
+    rf"^(?P<label>.+?)_(?P<process>(?:{_CORNER_NAME_ALT}))_"
+    r"(?P<temp>-?\d+(?:\.\d+)?)c_(?P<supply>\d+\.\d+)v_s(?P<sample>\d+)$"
+)
+
+
+def parse_sample_id(
+    stem: str, labels: list[str] | None = None
+) -> tuple[str, str, float, str, int] | None:
+    """Split an MC sample id back into ``(label, process, temp_c, supply,
+    sample)``.
+
+    The inverse of :attr:`McPoint.corner_id`, the same way
+    :func:`corners.parse_corner_id` is the inverse of
+    :attr:`corners.PvtPoint.corner_id`: analysis scripts that read a
+    record's ``corners/<record-id>/<sample-id>.log`` names back off disk
+    recover the binding-point coordinates and sample index of each log
+    from the id alone.
+
+    Returns ``None`` -- rather than raising -- for anything that is not a
+    sample id in this shape, so callers can skip foreign names with a
+    plain ``if`` (a caller that treats an unmatched stem as an error
+    raises at its own call site; see ``signoff/yield_samples.py``).
+
+    The supply comes back as the *string* it was written as (``"3.30"``,
+    not ``3.3``), matching :func:`corners.parse_corner_id`: the id itself
+    carries the two-decimal form. Pass it through ``float()`` when a
+    number is wanted.
+
+    ``labels`` -- the binding-point labels from ``mc.binding_points`` in
+    ``tb.json`` -- should be passed whenever the caller has them:
+    binding-point labels are manifest data, not syntax, so only the
+    manifest can break an id whose label and corner names split more than
+    one way (``a`` + ``b_tt`` vs ``a_b`` + ``tt``). Each known label
+    anchors the split longest-first and the corner name is whatever
+    follows it, which is the parse the manifest intended. Without
+    ``labels`` the split requires the process part to name a known corner
+    and prefers the shortest label, which is exact for every id the
+    harness emits from non-adversarial labels but remains a guess on
+    paper -- prefer passing ``labels``.
+    """
+    if labels is not None:
+        for label in sorted(labels, key=len, reverse=True):
+            if not stem.startswith(label + "_"):
+                continue
+            match = _SAMPLE_TAIL_RE.match(stem[len(label) + 1 :])
+            if match is not None:
+                return (
+                    label,
+                    match.group("process"),
+                    float(match.group("temp")),
+                    match.group("supply"),
+                    int(match.group("sample")),
+                )
+        return None
+    match = _SAMPLE_ID_RE.match(stem)
+    if match is None:
+        return None
+    return (
+        match.group("label"),
+        match.group("process"),
+        float(match.group("temp")),
+        match.group("supply"),
+        int(match.group("sample")),
+    )
 
 
 def build_mc_grid(
@@ -340,9 +427,12 @@ def run_mc_grid(
 
 #: design/temp_core.md "Trim: single 25 C gain trim" / analyze_derived.py:
 #: one trim LSB as a fraction of R2, quoted at the wider (conservative) end
-#: of the measured 0.2287-0.2423 % range.
-_TRIM_LSB_FRAC = 0.002423
-_TRIM_REFERENCE_K = 298.15  # 25 C
+#: of the measured 0.2287-0.2423 % range. Public (no underscore): the trim
+#: model's constants are part of the derive hook's contract, and derived
+#: analysis (sim/temp-accuracy-mc/analyze_breakdown.py) re-uses them rather
+#: than reciting a second copy.
+TRIM_LSB_FRAC = 0.002423
+TRIM_REFERENCE_K = 298.15  # 25 C
 
 
 def derive_temp_trim(measurements: dict[str, float]) -> dict[str, float]:
@@ -364,12 +454,12 @@ def derive_temp_trim(measurements: dict[str, float]) -> dict[str, float]:
     """
     if not {"vptat25_v", "vptattgt_v", "vtktgt_k"} <= measurements.keys():
         return {}
-    k25 = measurements["vptat25_v"] / _TRIM_REFERENCE_K
+    k25 = measurements["vptat25_v"] / TRIM_REFERENCE_K
     if k25 == 0:
         return {}
     t_k = measurements["vtktgt_k"]
     curvature_c = measurements["vptattgt_v"] / k25 - t_k
-    quant_c = (_TRIM_LSB_FRAC / 2.0) * t_k
+    quant_c = (TRIM_LSB_FRAC / 2.0) * t_k
     total_c = curvature_c + (quant_c if curvature_c >= 0 else -quant_c)
     return {"terr_trim_c": total_c, "k25_derived_mvk": k25 * 1e3}
 

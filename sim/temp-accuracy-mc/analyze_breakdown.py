@@ -68,7 +68,6 @@ from __future__ import annotations
 
 import argparse
 import math
-import re
 import statistics
 import sys
 from pathlib import Path
@@ -86,10 +85,13 @@ sys.path.insert(0, str(REPO_ROOT / "sim"))
 # that formula is exactly how the two records would drift apart.
 from harness.cliutil import add_author_arg, now_iso, write_derived_record  # noqa: E402
 from harness.report import RecordExists, source_provenance  # noqa: E402
-from harness.montecarlo import _TRIM_LSB_FRAC as TRIM_LSB_FRAC  # noqa: E402
-from harness.montecarlo import _TRIM_REFERENCE_K as TRIM_REFERENCE_K  # noqa: E402
-from harness.montecarlo import derive_temp_trim  # noqa: E402
-from harness.runner import parse_measurements  # noqa: E402
+from harness.montecarlo import (  # noqa: E402
+    TRIM_LSB_FRAC,
+    TRIM_REFERENCE_K,
+    derive_temp_trim,
+    parse_sample_id,
+)
+from harness.runner import load_points  # noqa: E402
 
 #: design/temp_core.md "V(T) transfer and output range": the declared nominal
 #: transfer constant K0 = 4.308842 mV/K (tt, 25 C). Same constant the deck's
@@ -100,28 +102,24 @@ K0_V_PER_K = 4.308842e-3
 #: one term" column. spec/target-spec.md#temp-accuracy-untrimmed / -trimmed.
 BUDGET_UNTRIMMED_C = 3.0
 
-_CORNER_ID_RE = re.compile(r"^(?P<label>.+)_(?P<corner>[a-z_0-9]+)_(?P<temp>-?[\d.]+)c_"
-                           r"(?P<vdd>[\d.]+)v_s(?P<sample>\d+)$")
-
-
 def load_samples(record_id: str) -> dict[str, list[dict[str, float]]]:
     """Per-binding-point lists of per-sample measurements, from the raw logs."""
     log_dir = CORNERS_DIR / record_id
     if not log_dir.is_dir():
         raise FileNotFoundError(f"no raw logs at {log_dir}")
     by_label: dict[str, list[dict[str, float]]] = {}
-    for path in sorted(log_dir.glob("*.log")):
-        match = _CORNER_ID_RE.match(path.stem)
-        if not match:
+    for stem, values in load_points(CORNERS_DIR, record_id).items():
+        parsed = parse_sample_id(stem)
+        if parsed is None:
             continue
-        values = parse_measurements(path.read_text(errors="replace"))
+        label, corner, temp_c, supply, _sample = parsed
         if not values:
             continue
         values.update(derive_temp_trim(values))
-        values["_temp_c"] = float(match.group("temp"))
-        values["_vdd"] = float(match.group("vdd"))
-        values["_corner"] = match.group("corner")
-        by_label.setdefault(match.group("label"), []).append(values)
+        values["_temp_c"] = temp_c
+        values["_vdd"] = float(supply)
+        values["_corner"] = corner
+        by_label.setdefault(label, []).append(values)
     return by_label
 
 
