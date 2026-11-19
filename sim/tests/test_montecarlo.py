@@ -158,6 +158,7 @@ class ParseSampleIdTests(unittest.TestCase):
         self.bp = [
             BindingPoint(label="temp_lo_vdd_lo", corner=CORNERS["tt"], temp_c=-40.0, vdd=2.97),
             BindingPoint(label="vth-rise-max", corner=CORNERS["bjt_ff"], temp_c=125.0, vdd=3.63),
+            BindingPoint(label="temp_frac", corner=CORNERS["ss"], temp_c=1e-5, vdd=3.30),
         ]
 
     def test_parse_sample_id_splits_the_ratified_naming(self):
@@ -180,7 +181,7 @@ class ParseSampleIdTests(unittest.TestCase):
     def test_parse_sample_id_round_trips_every_point_of_an_mc_grid(self):
         """The parser is the exact inverse of McPoint.corner_id."""
         points = montecarlo.build_mc_grid(self.bp, n=500, seed_base=1)
-        self.assertEqual(len(points), 1000)
+        self.assertEqual(len(points), 1500)
         for point in points:
             with self.subTest(corner_id=point.corner_id):
                 parsed = montecarlo.parse_sample_id(point.corner_id)
@@ -211,6 +212,31 @@ class ParseSampleIdTests(unittest.TestCase):
         self.assertEqual(parsed, ("a_b", "tt", 27.0, "3.30", 7))
         parsed = montecarlo.parse_sample_id("a_b_tt_27c_3.30v_s7", ["a"])
         self.assertEqual(parsed, ("a", "b_tt", 27.0, "3.30", 7))
+
+    def test_known_labels_recover_a_compound_label_before_a_short_corner(self):
+        """``sensor_bjt`` + ``ff`` splits two ways (``sensor`` + ``bjt_ff``
+        also names a known corner); the manifest's label list picks the
+        intended pair, the way analyze_breakdown.load_samples passes the
+        record's own binding points."""
+        parsed = montecarlo.parse_sample_id("sensor_bjt_ff_25c_3.30v_s0000", ["sensor_bjt"])
+        self.assertEqual(parsed, ("sensor_bjt", "ff", 25.0, "3.30", 0))
+
+    def test_parse_sample_id_accepts_exponent_notation_temperatures(self):
+        """``:g`` writes a small temp as ``1e-05``; both parsing paths must
+        read back what the formatter wrote (breakdown and signoff both
+        parse ids off disk)."""
+        self.assertEqual(
+            montecarlo.parse_sample_id("test_tt_1e-05c_3.30v_s0000"),
+            ("test", "tt", 1e-05, "3.30", 0),
+        )
+        self.assertEqual(
+            montecarlo.parse_sample_id("test_tt_1e-05c_3.30v_s0000", ["test"]),
+            ("test", "tt", 1e-05, "3.30", 0),
+        )
+        self.assertEqual(
+            montecarlo.parse_sample_id("test_tt_1.23457e+06c_3.30v_s0000", ["test"]),
+            ("test", "tt", 1.23457e06, "3.30", 0),
+        )
 
     def test_parse_sample_id_returns_none_for_foreign_ids(self):
         """Callers skip names in other shapes instead of catching an exception."""

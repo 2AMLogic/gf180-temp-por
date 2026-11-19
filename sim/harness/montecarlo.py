@@ -177,7 +177,10 @@ class McPoint:
 #: direction of the ``<label>_<process>_<temp>c_<supply>v_s<sample>``
 #: naming, so it owns taking it back apart too -- analysis scripts should
 #: not each hand-roll their own reverse-parser for the same format (same
-#: ruling as ``corners._CORNER_ID_RE``). ``_SAMPLE_TAIL_RE`` covers
+#: ruling as ``corners._CORNER_ID_RE``). The temp group accepts the
+#: exponent notation ``:g`` emits once the magnitude leaves fixed-point
+#: range (``temp_c=1e-5`` is written ``1e-05c``), so the inverse reads
+#: back everything the formatter can write. ``_SAMPLE_TAIL_RE`` covers
 #: everything after a binding-point label the caller already knows.
 #: ``_SAMPLE_ID_RE`` additionally splits the label off when no label list
 #: is available: the process part must then name a known corner (it is a
@@ -186,7 +189,7 @@ class McPoint:
 #: longest corner name, which keeps ``vth-rise-max`` + ``bjt_ff`` from
 #: re-splitting as ``vth-rise-max_bjt`` + ``ff``.
 _SAMPLE_TAIL_RE = re.compile(
-    r"^(?P<process>[a-z_0-9]+)_(?P<temp>-?\d+(?:\.\d+)?)c_"
+    r"^(?P<process>[a-z_0-9]+)_(?P<temp>-?\d+(?:\.\d+)?(?:[eE][-+]?\d+)?)c_"
     r"(?P<supply>\d+\.\d+)v_s(?P<sample>\d+)$"
 )
 _CORNER_NAME_ALT = "|".join(
@@ -194,7 +197,7 @@ _CORNER_NAME_ALT = "|".join(
 )
 _SAMPLE_ID_RE = re.compile(
     rf"^(?P<label>.+?)_(?P<process>(?:{_CORNER_NAME_ALT}))_"
-    r"(?P<temp>-?\d+(?:\.\d+)?)c_(?P<supply>\d+\.\d+)v_s(?P<sample>\d+)$"
+    r"(?P<temp>-?\d+(?:\.\d+)?(?:[eE][-+]?\d+)?)c_(?P<supply>\d+\.\d+)v_s(?P<sample>\d+)$"
 )
 
 

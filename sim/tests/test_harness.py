@@ -440,6 +440,41 @@ class ParseTests(unittest.TestCase):
         )
 
 
+class LoadPointsTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        record = Path(self.tmp.name) / "corners" / "rec"
+        record.mkdir(parents=True)
+        (record / "a_tt_25c_3.30v_s0000.log").write_text("m_probe = 1.5\n")
+        self.record = record
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def test_reads_each_log_stem_with_its_measurements(self):
+        self.assertEqual(
+            runner.load_points(self.record.parent, "rec"),
+            {"a_tt_25c_3.30v_s0000": {"probe": 1.5}},
+        )
+
+    def test_strict_decoding_rejects_a_non_utf8_log(self):
+        (self.record / "a_tt_25c_3.30v_s0000.log").write_bytes(b"25\xb0C\nm_probe = 1.5\n")
+        with self.assertRaises(UnicodeDecodeError):
+            runner.load_points(self.record.parent, "rec")
+
+    def test_replace_decoding_keeps_the_good_sample(self):
+        """A non-UTF-8 diagnostic byte -- in the good sample's own log or in
+        a foreign notes.log beside it -- must not take the measurement set
+        down when the caller passes errors="replace" (the MC breakdown's
+        contract)."""
+        (self.record / "a_tt_25c_3.30v_s0000.log").write_bytes(b"25\xb0C\nm_probe = 1.5\n")
+        (self.record / "notes.log").write_bytes(b"hand note: 25\xb0C\n")
+        self.assertEqual(
+            runner.load_points(self.record.parent, "rec", errors="replace"),
+            {"a_tt_25c_3.30v_s0000": {"probe": 1.5}, "notes": {}},
+        )
+
+
 class ParsePrintsTests(unittest.TestCase):
     def test_parses_bare_print_output(self):
         # `print <expr>` (as opposed to `print m_<name>`, which

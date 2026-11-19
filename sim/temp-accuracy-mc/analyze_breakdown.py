@@ -67,6 +67,7 @@ Stdlib only, no virtualenv required.
 from __future__ import annotations
 
 import argparse
+import json
 import math
 import statistics
 import sys
@@ -102,14 +103,26 @@ K0_V_PER_K = 4.308842e-3
 #: one term" column. spec/target-spec.md#temp-accuracy-untrimmed / -trimmed.
 BUDGET_UNTRIMMED_C = 3.0
 
+def _binding_labels() -> list[str]:
+    """The manifest's binding-point labels, the anchors ``parse_sample_id``
+    needs to split a label from its corner the way this experiment's
+    ``mc.binding_points`` intended: ``sensor_bjt`` + ``ff`` and ``sensor`` +
+    ``bjt_ff`` both match the id shape, and only the manifest can tell them
+    apart (same contract as ``signoff/yield_samples.py``).
+    """
+    tb = json.loads((EXPERIMENT_DIR / "testbench" / "tb.json").read_text())
+    return [bp["label"] for bp in tb["mc"]["binding_points"]]
+
+
 def load_samples(record_id: str) -> dict[str, list[dict[str, float]]]:
     """Per-binding-point lists of per-sample measurements, from the raw logs."""
     log_dir = CORNERS_DIR / record_id
     if not log_dir.is_dir():
         raise FileNotFoundError(f"no raw logs at {log_dir}")
     by_label: dict[str, list[dict[str, float]]] = {}
-    for stem, values in load_points(CORNERS_DIR, record_id).items():
-        parsed = parse_sample_id(stem)
+    labels = _binding_labels()
+    for stem, values in load_points(CORNERS_DIR, record_id, errors="replace").items():
+        parsed = parse_sample_id(stem, labels)
         if parsed is None:
             continue
         label, corner, temp_c, supply, _sample = parsed
