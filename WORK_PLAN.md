@@ -3,7 +3,7 @@
 Current workflow state, maintained by Guide.
 
 <!-- guide:plan-body:start -->
-_Generated: 2026-11-18T21:01:08Z (snapshot; compare against live labels)_
+_Generated: 2026-11-19T09:30:13Z (snapshot; compare against live labels)_
 ## Operator Attention: Merge-Risk-Hold Pileup
 
 Judge-approved PRs under a hold (`loom:blocked` or `loom:operator`) — only a human merge decision is missing.
@@ -23,14 +23,14 @@ Judge-approved PRs under a hold (`loom:blocked` or `loom:operator`) — only a h
 
 - **#388**: T1 item 5 phase 2: klt sim envelope with per-row limits over the 81-point grid, piloted on por-vth *(held)*
 - **#400**: Bump klayout-tools pin 0.6.0, 0.7.0 → 0.8.0 *(held)*
-- **#452**: temp_core: implement amplifier chop/auto-zero, gain mirror fix and trim re-balance (#415 step 2/3)
+- **#452**: temp_core: implement amplifier chop/auto-zero, gain mirror fix and trim re-balance (#415 step 2/3) *(held)*
 - **#453**: temp-accuracy-mc: re-run Monte Carlo and klt yield grade on revised temp_core (#415 step 3/3) *(held)*
 
 ## Ready
 
 Human-approved issues (`loom:issue`) ready for implementation — excluding held (`loom:blocked`/`loom:operator`/`loom:frozen`), `loom:building`, and issues closed by an open `loom:pr` PR (listed under Approved).
 
-- **#452**: temp_core: implement amplifier chop/auto-zero, gain mirror fix and trim re-balance (#415 step 2/3)
+_None._
 
 ## In Progress
 
@@ -64,7 +64,7 @@ Issues carrying `loom:curated`.
 - **#400**: Bump klayout-tools pin 0.6.0, 0.7.0 → 0.8.0 *(curated)* *(held)*
 - **#416**: POR threshold rows: N=500 cannot demonstrate the 99.73 % [3σ] yield; need a larger campaign *(curated)* *(held)*
 - **#417**: Item 6: sampled negative control for the Monte Carlo yield campaigns *(curated)* *(held)*
-- **#452**: temp_core: implement amplifier chop/auto-zero, gain mirror fix and trim re-balance (#415 step 2/3) *(curated)*
+- **#452**: temp_core: implement amplifier chop/auto-zero, gain mirror fix and trim re-balance (#415 step 2/3) *(curated)* *(held)*
 - **#508**: run_dwell_sweep.py's dwell_results.md carries no `- git:` provenance line (the fleet-scale fourth of the deglitch control set) *(curated)* *(held)*
 - **#510**: LVS net and pin counts quoted in prose drifted from the committed lvs.json reports *(curated)*
 - **#532**: temp_core and por_comparator_bias_okb_inv have no substrate or well tap within 20 um of their MOS rows (DF.13_LV / DF.14_LV) *(curated)*
@@ -86,7 +86,7 @@ _None._
 | Operator merge-risk holds | 2 |
 | Very important | 1 |
 | Important | 4 |
-| Ready (`loom:issue`, net of holds/building/merge-pending) | 1 |
+| Ready (`loom:issue`, net of holds/building/merge-pending) | 0 |
 | In Progress (`loom:building`) | 1 |
 | PRs awaiting review | 0 |
 | Approved PRs awaiting merge | 2 |
