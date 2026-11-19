@@ -3,7 +3,7 @@
 Current workflow state, maintained by Guide.
 
 <!-- guide:plan-body:start -->
-_Generated: 2026-11-19T09:30:13Z (snapshot; compare against live labels)_
+_Generated: 2026-11-19T19:21:25Z (snapshot; compare against live labels)_
 ## Operator Attention: Merge-Risk-Hold Pileup
 
 Judge-approved PRs under a hold (`loom:blocked` or `loom:operator`) — only a human merge decision is missing.
@@ -74,6 +74,7 @@ Issues carrying `loom:curated`.
 
 - **#470**: Give run_por_edge_check.py its own results file: remove the §7 splice into net_attribution_results.md *(hermit)* *(held)*
 - **#474**: Remove tolerated pre-pin card shapes from layout/postlayout.py's extracted-netlist reader *(hermit)* *(held)*
+- **#630**: Consolidate the MC log-stem inverse parser into the harness (two hand-rolled copies) *(hermit)*
 
 ## Epics
 
@@ -91,6 +92,6 @@ _None._
 | PRs awaiting review | 0 |
 | Approved PRs awaiting merge | 2 |
 | Curated | 14 |
-| Architect / Hermit proposals | 2 |
+| Architect / Hermit proposals | 3 |
 | Active epics | 0 |
 <!-- guide:plan-body:end -->
