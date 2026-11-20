@@ -186,6 +186,19 @@ if mode != "no_remote":
         ]
         del env["remote"]["runner_models_lib_sha256"]
         del env["remote"]["models_lib_comparison"]
+if mode != "no_remote" and (req.get("options") or {}).get("stage_model_inputs"):
+    # options.stage_model_inputs (klt 0.7.0): the client lists what it staged,
+    # each runner job reports what it received and that the models were staged.
+    import hashlib
+    lib = os.path.basename((req.get("models") or {}).get("lib") or "models.lib")
+    staged = [{"name": lib, "field": "models.lib", "kind": "library",
+               "sha256": hashlib.sha256(b"staged").hexdigest(),
+               "source_sha256": os.environ.get("FAKE_KLT_RUNNER_MODELS_SHA", ""),
+               "rewritten": True}]
+    env["staged_model_inputs"] = staged
+    for rec in (env["remote"].get("fleet") or [env["remote"]]):
+        rec["worker_environment"] = {"pdk": {"models_staged": True}}
+        rec["runner_model_inputs"] = [{"name": r["name"], "sha256": r["sha256"]} for r in staged]
 print(json.dumps({"schema_version": 3, "status": "pass", "corner_count": len(corners),
                    "environment": env, "corners": corners}))
 '''
@@ -282,6 +295,9 @@ class BatchTestCase(unittest.TestCase):
     def cfg(self, **kw) -> BatchConfig:
         kw.setdefault("sleep", lambda s: None)
         kw.setdefault("log", lambda m: None)
+        # The legacy fixtures model the image-PDK path; the staged path has
+        # its own tests (StagedModelInputTests).
+        kw.setdefault("stage_model_inputs", False)
         return BatchConfig(pdk=self.pdk, stage_root=self.root / "stage", **kw)
 
     def deck(self, template=CONTROL_DECK):
@@ -1673,6 +1689,85 @@ class ControlScriptWiringTests(BatchTestCase):
             out = mod.run_all([("d_a", "* x\n.end\n")], 1)
         self.assertEqual(out["d_a"]["t_trip"], 1e-06)
         self.assertEqual(run.call_args[0][0][:2], [runner.NGSPICE, "-b"])
+
+
+class StagedModelInputTests(BatchTestCase):
+    """options.stage_model_inputs: the runner executes the staged models, so
+    acceptance compares staged-file digests, never the image's models.lib."""
+
+    def staged(self, **over):
+        h = self.local_models_sha
+        row = {"name": self.pdk.model_lib.name, "field": "models.lib", "kind": "library",
+               "sha256": hashlib.sha256(b"rewritten").hexdigest(), "source_sha256": h,
+               "rewritten": True}
+        row.update(over)
+        return [row]
+
+    def remote(self, staged, **over):
+        rec = {"job_id": "j1",
+               "worker_environment": {"pdk": {"models_staged": True}},
+               "runner_model_inputs": [{"name": r["name"], "sha256": r["sha256"]} for r in staged]}
+        rec.update(over)
+        return rec
+
+    def rows(self, remote, staged):
+        return klt_batch._models_lib_rows(remote, "j1", self.cfg(stage_model_inputs=True), staged)
+
+    def test_matching_staged_digests_are_accepted_and_recorded_with_their_basis(self):
+        st = self.staged()
+        row = self.rows(self.remote(st), st)[0]
+        self.assertEqual(row["comparison"], {"status": "match", "basis": "staged_model_inputs"})
+        self.assertTrue(row["models_staged"])
+
+    def test_the_image_digest_is_not_compared_under_staging(self):
+        st = self.staged()
+        rem = self.remote(st, runner_models_lib_sha256="f" * 64,
+                          models_lib_comparison={"status": "not_comparable"})
+        self.assertEqual(len(self.rows(rem, st)), 1)
+
+    def test_refusals_never_pass(self):
+        st = self.staged()
+        bad = {
+            "digest differs": (self.remote(st, runner_model_inputs=[{"name": self.pdk.model_lib.name, "sha256": "0" * 64}]), st),
+            "file missing on runner": (self.remote(st, runner_model_inputs=[]), st),
+            "runner reports nothing": (self.remote(st, runner_model_inputs=None), st),
+            "not staged": (self.remote(st, worker_environment={"pdk": {"models_staged": False}}), st),
+            "no worker env": (self.remote(st, worker_environment=None), st),
+            "client list absent": (self.remote(st), None),
+            "client list empty": (self.remote(st), []),
+            "staged lib not the pinned one": (self.remote(self.staged(source_sha256="1" * 64)),
+                                              self.staged(source_sha256="1" * 64)),
+        }
+        for label, (rem, staged) in bad.items():
+            with self.subTest(label), self.assertRaises(klt_batch.BatchPdkMismatch):
+                self.rows(rem, staged)
+
+    def test_each_fleet_member_is_checked(self):
+        st = self.staged()
+        good, off = self.remote(st), self.remote(st, job_id="j2", runner_model_inputs=[])
+        with self.assertRaises(klt_batch.BatchPdkMismatch):
+            self.rows({"job_id": "j1", "fleet": [good, off]}, st)
+
+    def test_request_opts_in_and_can_opt_out(self):
+        u = self.unit(process=("typical",)) if "process" in self.unit.__code__.co_varnames else self.unit()
+        for flag in (True, False):
+            req = klt_batch._build_request([u], self.pdk, self.cfg(stage_model_inputs=flag))
+            if "models" in req:
+                self.assertIs(req["options"].get("stage_model_inputs", False), flag)
+
+    def test_unreadable_local_digest_is_not_recorded_as_a_match(self):
+        st = self.staged()
+        cfg = self.cfg(stage_model_inputs=True)
+        cfg.local_model_lib_sha256 = lambda: None
+        row = klt_batch._models_lib_rows(self.remote(st), "j1", cfg, st)[0]
+        self.assertEqual(row["comparison"]["status"], "not_comparable")
+
+    def test_env_switch_selects_the_image_path(self):
+        d = klt_batch.stage_model_inputs_default
+        self.assertTrue(d({}))
+        self.assertTrue(d({"GF180_STAGE_MODEL_INPUTS": "1"}))
+        for v in ("0", "false", "No", "OFF"):
+            self.assertFalse(d({"GF180_STAGE_MODEL_INPUTS": v}))
 
 
 if __name__ == "__main__":

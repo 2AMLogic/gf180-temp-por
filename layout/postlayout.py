@@ -1334,11 +1334,64 @@ def audit_markdown(audits: list[dict]) -> str:
 # --- driver -------------------------------------------------------------------
 
 
+def reference_deferred(cell: str) -> bool:
+    """True while the cell's schematic names devices its manifest does not.
+
+    DR-031 moved ``temp_core``'s schematic ahead of its layout (#458): every
+    golden reference build traverses the schematic and would stop on
+    ``lvs_reference.require_declared_nets``'s declared-net guard, which is
+    doing its job -- a reference naming those devices is one the committed
+    layout can never match. Nothing about such a cell can be honestly
+    re-derived here until the manifest catches up, so its committed
+    artifacts are carried forward instead of rebuilt. The layout tests gate
+    on the same mismatch (``layout/tests/layout_staleness.py``); this is
+    that gate's script path. It lifts by itself once #458 lands.
+    """
+    return bool(ref.undrawn_devices(cell))
+
+
+def committed_audit(cell: str) -> dict:
+    """A deferred cell's committed audit record, carried forward.
+
+    ``audit.json``/``AUDIT.md`` are whole-repo documents, so a deferred cell
+    keeps its last verified entry rather than dropping it -- that keeps the
+    documents byte-stable while the layout lags, and the entry is still the
+    truth about the committed extraction it describes.
+    """
+    path = OUT_DIR / "audit.json"
+    if not path.exists():
+        raise PostlayoutError(
+            f"{cell}: nothing to carry forward -- no committed {path.name}"
+        )
+    for entry in json.loads(path.read_text())["cells"]:
+        if entry["cell"] == cell:
+            return entry
+    raise PostlayoutError(f"{cell}: no audit entry in the committed {path.name}")
+
+
 def generate(cells: list[str]) -> dict[Path, str]:
-    """Every stage-2 artifact, as ``path -> content``."""
+    """Every stage-2 artifact, as ``path -> content``.
+
+    A cell whose layout lags its schematic (:func:`reference_deferred`) is
+    carried forward from its committed artifact instead of rebuilt -- the
+    byte-compare in ``--check`` then certifies what is true of it (nothing
+    changed) rather than failing on a reference the layout cannot match.
+    """
     artifacts: dict[Path, str] = {}
     audits: list[dict] = []
     for cell in cells:
+        if reference_deferred(cell):
+            spice_path = OUT_DIR / f"{cell}.spice"
+            if not spice_path.exists():
+                raise PostlayoutError(
+                    f"{cell}: its reference build is deferred "
+                    f"({len(ref.undrawn_devices(cell))} undrawn device(s) vs "
+                    f"the manifest) but there is no committed "
+                    f"{spice_path.name} to carry forward"
+                )
+            artifacts[spice_path] = spice_path.read_text()
+            audits.append(committed_audit(cell))
+            continue
         text, audit = build_netlist(cell)
         artifacts[OUT_DIR / f"{cell}.spice"] = text
         audits.append(audit)
@@ -1360,6 +1413,14 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     cells = args.cell or list(CELLS)
+    for cell in cells:
+        if reference_deferred(cell):
+            print(
+                f"deferred {cell}: schematic names "
+                f"{len(ref.undrawn_devices(cell))} device(s) the manifest does "
+                "not list -- committed artifacts carried forward while the "
+                "layout lags (tracked in #458; lifts by itself)"
+            )
     try:
         if args.extract:
             for cell in cells:

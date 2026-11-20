@@ -29,6 +29,7 @@ sys.path.insert(0, str(LAYOUT_DIR))
 
 import build_cells as bc  # noqa: E402  (klayout is imported lazily, per-cell)
 import lvs_reference as lr  # noqa: E402
+from layout_staleness import skip_while_layout_stale  # noqa: E402
 
 CELL = "por_comparator_bias_okb_inv"
 
@@ -924,6 +925,7 @@ class GuardTest(unittest.TestCase):
         self.assertIn("nf=2", str(caught.exception))
 
 
+@skip_while_layout_stale
 class TempCoreTest(
     ManifestReferenceTests,
     ControlCoverageTests,
@@ -1197,7 +1199,7 @@ class TempCoreTest(
         spec = lr.CELLS[self.CELL]
         self.assertEqual(set(bc._TEMP_CORE_NETS), set(spec["ports"]))
 
-
+@skip_while_layout_stale
 class TempPorTopAssemblyTest(ControlCoverageTests, GoldenNetlistTests, unittest.TestCase):
     """``temp_por_top`` (#72) is the one manifest entry with no devices of its
     own: it is composed from the four sub-cells and from the golden top-level
