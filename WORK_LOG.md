@@ -8,6 +8,8 @@ Merged PRs and closed issues from the initial 30-day snapshot (2026-09-07 onward
 
 ### 2026-11-19
 
+- **PR #632**: refactor: consolidate the MC log-stem inverse into montecarlo.parse_sample_id
+- **Issue #630** (closed): Consolidate the MC log-stem inverse parser into the harness (two hand-rolled copies)
 - **PR #628**: refactor: read the sense divider's resistor cards through the shared golden reader
 - **Issue #627** (closed): Remove the comparator divider’s duplicate SPICE resistor parser
 
