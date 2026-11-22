@@ -6,8 +6,25 @@ Merged PRs and closed issues from the initial 30-day snapshot (2026-09-07 onward
 
 - [2026-09](work_log/WORK_LOG_2026-09.md)
 
+### 2026-11-19
+
+- **PR #632**: refactor: consolidate the MC log-stem inverse into montecarlo.parse_sample_id
+- **Issue #630** (closed): Consolidate the MC log-stem inverse parser into the harness (two hand-rolled copies)
+- **PR #628**: refactor: read the sense divider's resistor cards through the shared golden reader
+- **Issue #627** (closed): Remove the comparator divider’s duplicate SPICE resistor parser
+
+### 2026-11-18
+
+- **PR #623**: build: run signoff/check.py in make check to catch evidence rot locally
+- **Issue #611** (closed): make check does not run signoff/check.py, so evidence rot is only ever caught in CI
+- **PR #621**: fix: keep refusal reason in --batch-set submit failures
+- **Issue #620** (closed): sim harness: klt --batch-set refusals still head-truncate stderr, hiding klt's reason
+- **PR #601**: fix(sim): resolve the PDK install klt reads; fail unmeasured smoke runs loudly
+- **Issue #555** (closed): sim/selftest.sh PVT smoke fails on PDK-equipped hosts: grid spread checks read n/a
+
 ### 2026-11-17
 
+- **Issue #617** (closed): DRC-clean claim is graded at the unreleased 0.6.0 deck; the released 0.8.0 deck reports 16753 violations on temp_por_top bytes (OFFGRID/SB/GR families it never evaluated)
 - **PR #613**: docs: name ciel first in sim/harness README prerequisites
 - **Issue #612** (closed): sim/harness/README.md still recommends volare as the install route after DR-032 made ciel primary
 - **PR #610**: ci: pin the gf180mcu PDK to open_pdks f6eeac7d via ciel (DR-032)

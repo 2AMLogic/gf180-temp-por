@@ -314,7 +314,9 @@ def parse_measurements(text: str) -> dict[str, float]:
     return found
 
 
-def load_points(corners_dir: Path, record_id: str) -> dict[str, dict[str, float]]:
+def load_points(
+    corners_dir: Path, record_id: str, *, errors: str = "strict"
+) -> dict[str, dict[str, float]]:
     """corner-id -> measurements, for one record-id's raw per-point logs
     under ``corners_dir``.
 
@@ -323,6 +325,13 @@ def load_points(corners_dir: Path, record_id: str) -> dict[str, dict[str, float]
     ``CORNERS_DIR``) and sim/por-iq/analyze_por_iq.py (reading
     ``SOURCE_CORNERS_DIR``) -- identical apart from which corners
     directory each experiment's raw logs live under, now a parameter.
+
+    ``errors`` is passed through to ``Path.read_text``. The default
+    (``"strict"``) is right for a directory the harness itself wrote; a
+    caller re-reading raw ngspice logs that may carry a non-UTF-8
+    diagnostic byte (e.g. ``\xb0`` in a hand note) beside good samples
+    passes ``"replace"`` so one bad byte does not take the whole
+    measurement set down.
     """
     log_dir = corners_dir / record_id
     if not log_dir.is_dir():
@@ -331,7 +340,8 @@ def load_points(corners_dir: Path, record_id: str) -> dict[str, dict[str, float]
             f"'python3 sim/run_corners.py temp-accuracy-vt' first"
         )
     points = {
-        p.stem: parse_measurements(p.read_text()) for p in sorted(log_dir.glob("*.log"))
+        p.stem: parse_measurements(p.read_text(errors=errors))
+        for p in sorted(log_dir.glob("*.log"))
     }
     if not points:
         raise FileNotFoundError(f"no *.log files under {log_dir}")
