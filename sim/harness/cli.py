@@ -9,7 +9,7 @@ import time
 from pathlib import Path
 from typing import NamedTuple
 
-from . import HARNESS_VERSION, cliutil, corners as corners_mod, klt_batch, report, runner, testbench as tb_mod
+from . import cliutil, corners as corners_mod, klt_batch, report, runner, testbench as tb_mod
 from .pdk import PdkNotFound, find_pdk
 from .runner import NgspiceMissing
 
@@ -84,15 +84,7 @@ def build_parser() -> argparse.ArgumentParser:
         metavar="FRAC",
         help="supply tolerance as a fraction, e.g. 0.10 (0 disables the V axis)",
     )
-    parser.add_argument(
-        "-j",
-        "--jobs",
-        type=int,
-        default=0,
-        help="parallel ngspice runs (default: half the host's logical cores, "
-        "min 1 -- a per-process default that does not account for other "
-        "concurrent invocations on the same host; see cliutil.default_jobs)",
-    )
+    cliutil.add_common_run_args(parser, "jobs")
     parser.add_argument(
         "--timeout",
         type=int,
@@ -124,11 +116,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="why this run is not the full mandated PVT matrix; required before "
         "a subset run may be recorded as evidence",
     )
-    parser.add_argument(
-        "--no-write",
-        action="store_true",
-        help="run but do not record evidence (debugging only)",
-    )
+    cliutil.add_common_run_args(parser, "no_write")
     parser.add_argument(
         "--emit-request",
         metavar="DIR",
@@ -141,10 +129,7 @@ def build_parser() -> argparse.ArgumentParser:
         "shape is always the batch backend's, whatever --backend says",
     )
     klt_batch.add_backend_argument(parser)
-    parser.add_argument("--quiet", action="store_true", help="only print the summary")
-    parser.add_argument(
-        "--version", action="version", version=f"gf180-temp-por harness {HARNESS_VERSION}"
-    )
+    cliutil.add_common_run_args(parser, "quiet", "version")
     return parser
 
 
@@ -485,6 +470,31 @@ def run(args: argparse.Namespace) -> int:
             f"  CHECK FAIL {failure['measurement']} {failure['kind']}={_fmt(failure['limit'])} "
             f"got {_fmt(failure['value'])} at {failure['at']}"
         )
+
+    # Any point that did not come back ``ok`` is reported here, not just the
+    # total wipeout (#555). A partial loss is the more dangerous shape: the
+    # surviving points still yield statistics, computed over a truncated PVT
+    # axis (e.g. one temperature group of three) and printed as if they were
+    # the grid's -- so a spread can read like a circuit property when it is an
+    # artifact of the points that never ran. Name the dead-point count, the
+    # distinct causes, and (separately) any measurement with no samples at all.
+    dead = [r for r in results if r.status != "ok"]
+    if dead:
+        no_data = sorted(name for name, stats in record["summary"].items()
+                         if not stats.get("n"))
+        causes: dict[tuple[str, str], int] = {}
+        for r in dead:
+            key = (r.status, r.message or "(no message)")
+            causes[key] = causes.get(key, 0) + 1
+        print(
+            f"\n  {len(dead)}/{len(points)} point(s) did not produce a result; "
+            "the statistics above cover the surviving points only"
+        )
+        if no_data:
+            print(f"  no measurement for {', '.join(no_data)}")
+        for (status, message), count in sorted(
+                causes.items(), key=lambda item: (-item[1], item[0])):
+            print(f"    {count:>3} x [{status}] {message[:600]}")
 
     # sim/README.md: sim/ is append-only evidence. A run where *every* point
     # died is not evidence of the circuit -- it's an environment problem (an

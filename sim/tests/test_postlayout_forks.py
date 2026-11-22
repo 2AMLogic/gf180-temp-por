@@ -25,6 +25,7 @@ and a fragment outside `POSTLAYOUT_FRAGMENTS` must cite one.
 from __future__ import annotations
 
 import hashlib
+import importlib.util
 import re
 import sys
 import unittest
@@ -115,6 +116,57 @@ class PostlayoutFragmentProvenanceTests(unittest.TestCase):
             "neither this test nor sim/postlayout_delta.py can tell what they "
             "were forked from:\n  " + "\n  ".join(missing),
         )
+
+
+class ControlScriptNetlistPatternTests(unittest.TestCase):
+    """A control script that pattern-matches *inside* a post-layout netlist
+    still finds what it anchors on (#533).
+
+    The fragment checks above pin testbenches that fork a netlist's text.
+    The controls under ``sim/*/control/`` have a sibling exposure: one of
+    them rewrites a line of ``layout/postlayout/por_output_chain.spice`` in
+    a copied DUT. When the star extraction re-emitted every terminal as
+    ``<net>__t<k>`` (2026-10-02), ``run_cdg_tradeoff._CDG_RE`` -- anchored
+    on the pre-star ``X… NDG VSS cap_mim`` spelling -- stopped matching
+    anything, and ``cdg_results.md`` went six weeks unregenerable with
+    nothing in CI to say so. This test runs the script's own matcher
+    against the committed netlist, so the next regeneration that breaks it
+    fails here, by name, before anyone burns a simulation run.
+    """
+
+    def test_run_cdg_tradeoffs_netlist_pattern_matches_the_committed_netlist(self):
+        control = (
+            SIM_DIR / "por-output-chain-deglitch" / "control" / "run_cdg_tradeoff.py"
+        )
+        spec = importlib.util.spec_from_file_location("run_cdg_tradeoff_guard", control)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        netlist = mod.POSTLAYOUT_NETLIST.read_text()
+        matches = mod._CDG_RE.findall(netlist)
+        self.assertEqual(
+            len(matches),
+            1,
+            f"{mod.POSTLAYOUT_NETLIST.relative_to(REPO_ROOT)} no longer gives "
+            "run_cdg_tradeoff.py exactly one XCDG line to rewrite: its _CDG_RE "
+            f"matched {len(matches)}. If the extraction's shape for the XCDG "
+            "line changed, update _CDG_RE -- keeping the NDG hub anchor "
+            "(cap_mim alone matches XCTIM's four lines too, #533) -- and "
+            "regenerate cdg_results.md by running the script, never by "
+            "hand-editing it.",
+        )
+        # And the rewrite must keep the extraction's terminal nodes: the
+        # sub() template re-emits group 1 verbatim, so whatever terminal
+        # spelling was matched survives the c_width/c_length substitution.
+        # Only XCDG's dims change -- the DUT still carries XCTIM's four MiM
+        # lines verbatim.
+        rewritten = [
+            line
+            for line in mod.dut_netlist(12.0).splitlines()
+            if "c_width=12u c_length=12u" in line and "cap_mim" in line
+        ]
+        self.assertEqual(len(rewritten), 1)
+        source_nodes = matches[0][0].split()[1:3]
+        self.assertEqual(rewritten[0].split()[1:3], source_nodes)
 
 
 if __name__ == "__main__":

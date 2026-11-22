@@ -14,8 +14,8 @@ no longer exists.
 
 This script is what stops that. It re-runs the grader and refuses to pass on
 any drift between what is committed and what the current tree actually
-grades to. Seven distinct checks, because `klt signoff` alone cannot cover all
-of them (see signoff/README.md, "What the grader cannot check"):
+grades to. Eight distinct checks, because `klt signoff` alone cannot cover
+all of them (see signoff/README.md, "What the grader cannot check"):
 
 1. **Hand-rolled evidence is self-consistent.** A generic evidence envelope
    (`"kind": "generic"`) is written by hand, and so is the `content_hash`
@@ -59,17 +59,26 @@ of them (see signoff/README.md, "What the grader cannot check"):
    that cell's committed `lvs.json`, failing closed on anything it cannot
    bind unless it is an allowlisted historical quotation.
 
-Pure stdlib; no PDK, no xschem, no ngspice. Only `klt` on PATH.
+8. **No document restates the verdict as a hand-written count.** The grader
+   never reads prose, so a sentence saying "9 of 11 items met" rots silently
+   while the report beside it says 8. `check_prose_counts` forbids the
+   aggregate outright rather than policing its value: `tier-report.json` is
+   the answer of record, and prose should cite it, not copy it.
+
+Pure stdlib; no PDK, no xschem, no ngspice. Only `klt` on PATH
+(or `--klt EXE` / `--klt-pin`).
 """
 
 from __future__ import annotations
 
 import argparse
+import atexit
 import json
 import re
 import shutil
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -87,6 +96,65 @@ EVIDENCE_DIR = SIGNOFF_DIR / "evidence"
 # tier T1, 3 is "ran fine, at least one item unmet". Anything else is a
 # malformed manifest / unparsable tiers doc / usage error.
 RAN_CLEAN = (0, 3)
+
+# Documents that describe the T1 verdict in prose. `tier-report.json` is the
+# answer of record; an aggregate copied into prose drifts the moment any
+# item's status moves, and is only ever caught by a human reading the two side
+# by side (#401 corrected one 8 -> 9; item 7 then reverted and #491 found both
+# documents stale again). So the rule is negative: state no aggregate at all.
+PROSE_COUNT_DOCS = ("README.md", "signoff/README.md")
+
+# The T1 item total is deliberately NOT hand-typed here: the checker holding
+# its own copy of the number it polices would rot exactly like the prose
+# aggregates below (#565). `prose_count_patterns` reads the total from
+# tier-report.json, the answer of record, each time the check runs.
+def _t1_item_count(root: Path) -> int | None:
+    """The T1 checklist size, read from `root`'s tier-report.json.
+
+    Returns None when the report is missing or unparsable; the bare-fraction
+    leg then stands down for that run while the counted leg keeps policing
+    prose (check_drift flags the report itself).
+    """
+    try:
+        count = json.loads(
+            (root / "signoff" / "tier-report.json").read_text()
+        )["t1_item_count"]
+    except (OSError, ValueError, KeyError, TypeError):
+        return None
+    return count if isinstance(count, int) else None
+
+
+def prose_count_patterns(item_count: int | None):
+    """What an aggregate T1 verdict looks like in prose. Deliberately NOT a bare
+    `N/N`: both documents carry legitimate ratios that must keep passing --
+    #145's "10/10 pass", `klt lvs`'s "145/145 nets", "30/81 points", and deck
+    layer numbers such as "117/10". Single-item prose ("item 7 grades `unmet`")
+    is legitimate too; only a multi-item enumeration is an aggregate.
+
+    Only the bare-fraction leg needs `item_count`; the counted leg
+    ("N of M items") is independent of the total, so a checklist that grows
+    an item still has its prose policed by that leg even without a report.
+    """
+    patterns = [
+        (
+            r"\b\d+\s*(?:of|/)\s*\d+\s+(?:T1\s+)?items?\b",
+            "an aggregate T1 item count",
+        ),
+    ]
+    if item_count is not None:
+        patterns.append(
+            (
+                rf"\b\d+\s*(?:of|/)\s*{item_count}\b",
+                f"a count against the {item_count}-item T1 checklist",
+            ),
+        )
+    patterns.append(
+        (
+            r"\bitems?\s+\d+(?:\s*,\s*\d+)*\s+and\s+\d+\s+(?:are\s+)?`?unmet`?",
+            "a hand-written enumeration of which items are unmet",
+        ),
+    )
+    return tuple(patterns)
 
 
 def fail(msg: str) -> None:
@@ -428,6 +496,51 @@ def check_lvs_prose_counts(root: Path = REPO_ROOT) -> bool:
     return ok
 
 
+def check_prose_counts(root: Path = REPO_ROOT) -> bool:
+    """No document restates the graded T1 verdict as a hand-written aggregate.
+
+    A *negative* check on purpose: it asserts that no aggregate count appears,
+    rather than parsing a sentence and comparing it with `t1_met_count`. There
+    is no regex contract about which number is correct, and nothing here can
+    itself go stale when an item's status moves.
+    """
+    ok = True
+    item_count = _t1_item_count(root)
+    if item_count is None:
+        print(
+            "warn signoff/tier-report.json is missing or unparsable: the "
+            'bare-fraction prose leg ("N of <item total>") is not policed '
+            "this run; the counted leg still is",
+            file=sys.stderr,
+        )
+    for rel in PROSE_COUNT_DOCS:
+        try:
+            text = (root / rel).read_text()
+        except OSError as exc:
+            fail(f"{rel}: unreadable ({exc})")
+            ok = False
+            continue
+        hits = []
+        for pattern, what in prose_count_patterns(item_count):
+            for match in re.finditer(pattern, text, re.IGNORECASE):
+                line = text.count("\n", 0, match.start()) + 1
+                hits.append((line, what, " ".join(match.group(0).split())))
+        if hits:
+            for line, what, snippet in sorted(hits):
+                fail(f"{rel}:{line}: {what} in prose: {snippet!r}")
+            print(
+                "     the T1 verdict belongs in signoff/tier-report.json "
+                "(tier, t1_met_count, per-item status), not in prose -- cite "
+                "the report instead of copying a number that goes stale the "
+                "moment an item moves",
+                file=sys.stderr,
+            )
+            ok = False
+        else:
+            print(f"ok   {rel}: states no hand-written T1 verdict aggregate")
+    return ok
+
+
 def check_anchored_evidence(
     root: Path = REPO_ROOT, manifest_path: Path | None = None
 ) -> bool:
@@ -483,32 +596,102 @@ def regen_anchored_evidence(
     return True
 
 
-def check_toolchain_pin() -> None:
-    """Warn -- never fail -- when the grader on PATH is not the pinned one."""
+# A plain klayout-tools version, e.g. 0.9.1. Copied from
+# sim/harness/klt_batch.py (_PIN_RE) rather than imported: that module lives
+# in a package whose relative imports pull in PDK discovery, which would break
+# this file's "Pure stdlib; no PDK" contract and make the signoff gate depend
+# on the simulation harness.
+_PIN_RE = re.compile(r"^[0-9]+(\.[0-9]+)*([.+-]?[0-9A-Za-z.]+)?$")
+
+
+def pinned_klt(version: str) -> str:
+    """Path of a wrapper that runs ``klt`` at exactly ``version``.
+
+    The wrapper is ``uvx --from klayout-tools==<version> klt``: a throwaway
+    environment resolved by uv's cache, so the host's installed ``klt`` is
+    neither read nor modified. Deliberate, commented duplicate of
+    ``pinned_klt`` in ``sim/harness/klt_batch.py`` (the original) -- see the
+    ``_PIN_RE`` note above for why it is not imported.
+    """
+    if not _PIN_RE.match(version):
+        raise ValueError(
+            f"{version!r} is not a plain klayout-tools version (e.g. 0.9.1)"
+        )
+    base = Path(tempfile.mkdtemp(prefix="klt-pin-"))
+    atexit.register(shutil.rmtree, base, ignore_errors=True)
+    wrapper = base / "klt"
+    wrapper.write_text(
+        f'#!/bin/sh\nexec uvx --from "klayout-tools=={version}" klt "$@"\n'
+    )
+    wrapper.chmod(0o755)
+    return str(wrapper)
+
+
+def toolchain_pin_version() -> str:
+    """The bare package version signoff/toolchain.json pins (e.g. ``0.9.1``).
+
+    Deliberately raises (OSError/ValueError/KeyError/TypeError) instead of
+    falling back: a version pin has no last-known literal worth trusting, and
+    silently grading with a stale pin would be worse than refusing. The
+    ``--klt-pin`` caller catches these and turns them into a clean
+    ``parser.error``.
+    """
+    return json.loads(TOOLCHAIN.read_text())["klt"]["release"]["package_version"]
+
+
+def klt_install_hint() -> str:
+    """The pinned grader's install command: signoff/toolchain.json ``klt.install``.
+
+    Single-sourced so a pin bump cannot leave a stale install hint in this
+    file. When the JSON is unreadable, malformed, wrong-shaped (e.g. ``klt``
+    a string, or a top-level list), or lacks ``klt.install``, fall back to
+    the last-known literal: the missing-``klt`` guard must still print a
+    usable hint, never a traceback.
+    """
+    try:
+        hint = json.loads(TOOLCHAIN.read_text())["klt"]["install"]
+        if isinstance(hint, str) and hint.strip():
+            return hint
+    except (OSError, ValueError, KeyError, TypeError):
+        pass
+    return "uv tool install --force 'klayout-tools[yield]==0.9.1'"
+
+
+def check_toolchain_pin(klt: str = "klt") -> None:
+    """Warn -- never fail -- when the grader in use is not the pinned one."""
     try:
         pinned = json.loads(TOOLCHAIN.read_text())["klt"]["version"]
-    except (OSError, ValueError, KeyError):
+    except (OSError, ValueError, KeyError, TypeError):
         print(f"warn {TOOLCHAIN.name}: no readable klt version pin", file=sys.stderr)
         return
-    proc = subprocess.run(["klt", "--version"], capture_output=True, text=True)
+    proc = subprocess.run([klt, "--version"], capture_output=True, text=True)
     actual = proc.stdout.strip() or proc.stderr.strip()
     if actual != pinned:
         print(
             f"warn grader is {actual!r}, signoff/toolchain.json pins {pinned!r}.\n"
             "     Not a failure: a newer grader is how a newly-added T1 item "
             "reaches this repo.\n"
-            "     The report-drift check below is what turns that into an "
-            "actionable failure.",
+            "     Which failures this affects:\n"
+            "       - citation-hash drift is computed from file digests and is "
+            "NOT affected by this mismatch;\n"
+            "         a drift failure below is real and can be re-anchored on "
+            "this host.\n"
+            "       - only a *verdict* difference is pin-sensitive.\n"
+            "       - --regen IS pin-sensitive: it rewrites tier-report.json "
+            "with this grader's build\n"
+            "         identity. Run it with the pinned grader instead (installs "
+            "nothing host-wide):\n"
+            "           python3 signoff/check.py --klt-pin --regen",
             file=sys.stderr,
         )
     else:
         print(f"ok   grader is the pinned {actual}")
 
 
-def run_grader() -> tuple[dict, bool]:
+def run_grader(klt: str = "klt") -> tuple[dict, bool]:
     proc = subprocess.run(
         [
-            "klt",
+            klt,
             "signoff",
             "--manifest",
             str(MANIFEST.relative_to(REPO_ROOT)),
@@ -685,18 +868,45 @@ def main(argv: list[str] | None = None) -> int:
             "comparing against it"
         ),
     )
+    pin = parser.add_mutually_exclusive_group()
+    pin.add_argument(
+        "--klt",
+        metavar="EXE",
+        default="klt",
+        help="grader executable to run (default: klt on PATH)",
+    )
+    pin.add_argument(
+        "--klt-pin",
+        nargs="?",
+        const="",
+        default=None,
+        metavar="VERSION",
+        help=(
+            "grade with klayout-tools==VERSION from a throwaway `uvx` "
+            "environment, installing nothing host-wide; VERSION defaults to "
+            "signoff/toolchain.json's pin"
+        ),
+    )
     args = parser.parse_args(argv)
 
-    if shutil.which("klt") is None:
+    klt = args.klt
+    if args.klt_pin is not None:
+        try:
+            klt = pinned_klt(args.klt_pin or toolchain_pin_version())
+        except (ValueError, OSError, KeyError, TypeError) as exc:
+            parser.error(f"--klt-pin: {exc}")
+
+    if shutil.which(klt) is None:
         fail(
-            "klt is not on PATH. Install the pinned grader:\n"
-            "       uv tool install --force 'klayout-tools[yield]==0.9.1'\n"
+            f"klt is not on PATH ({klt!r}). Install the pinned grader:\n"
+            f"       {klt_install_hint()}\n"
+            "     or, without touching the host: python3 signoff/check.py --klt-pin\n"
             "     (see signoff/toolchain.json for why this pin is separate "
             "from layout/toolchain.json's)"
         )
         return 1
 
-    check_toolchain_pin()
+    check_toolchain_pin(klt)
 
     if args.regen and not regen_anchored_evidence():
         return 1
@@ -706,8 +916,9 @@ def main(argv: list[str] | None = None) -> int:
     ok = check_committed_report_hashes() and ok
     ok = check_erc_supply_freshness() and ok
     ok = check_lvs_prose_counts() and ok
+    ok = check_prose_counts() and ok
 
-    report, ran = run_grader()
+    report, ran = run_grader(klt)
     if not ran:
         return 1
 

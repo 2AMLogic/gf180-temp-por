@@ -58,6 +58,7 @@ import argparse
 import math
 import sys
 import tempfile
+from collections.abc import Callable
 from pathlib import Path
 
 LAYOUT_DIR = Path(__file__).resolve().parent
@@ -164,17 +165,62 @@ RESISTOR_ID = (62, 0)
 RES_MK = (110, 5)
 DRC_BJT = (127, 5)
 
+#: gf180mcu DRM "NP.5b"/"PP.5b" floor is 0.16 um (implant beyond its own
+#: COMP) and the "NP.5a"/"PP.5a" gate-region floor is 0.23 um; the ceiling is
+#: set by the measured minimum COMP-to-COMP gap in this block -- 0.50 um in
+#: every cell (#516's curation pass, ``Region.space_check`` at 0.50) minus the
+#: 0.16 um ``nplus.space.pcomp.1``/``pplus.space.ncomp.1`` clearance the grown
+#: implant must keep to opposite-type COMP. Everything in [0.23, 0.34] works;
+#: 0.25 um is on the manufacturing grid (50 dbu), which
+#: ``nplus.ongrid.1``/``pplus.ongrid.1`` ask for.
+IMPLANT_OVERHANG_UM = 0.25
+
+#: The same implant floors/ceilings the deck checks, held here so the
+#: build-time implant checks in :func:`_assert_implant_types` read the same
+#: numbers the 0.8.0+ deck enforces (``klt deck rules --deck gf180mcu``;
+#: gf180mcu DRM 7.8 Nplus / 7.9 Pplus).
+IMPLANT_MIN_WIDTH_UM = 0.4  # nplus.width.1 / pplus.width.1 (NP.1 / PP.1)
+IMPLANT_MIN_SPACE_UM = 0.4  # nplus.space.1 / pplus.space.1 (NP.2 / PP.2)
+
+#: Golden MOS model -> the implant its source/drain diffusion must carry
+#: (#516). ``DEVICE_CLASS`` in ``layout/lvs_reference.py`` is the source of the
+#: model names; this is the one place the *drawn doping type* is decided from
+#: them -- never from a drawing order or a group index, which do not agree
+#: across the three ``_draw_tiles`` callers and which nothing else in the flow
+#: checks (the deck cannot: ``comp.coverage.1`` is satisfied by *either*
+#: implant, so a type-swapped implant passes both DRC and LVS clean).
+DEVICE_IMPLANT = {"nfet_03v3": NPLUS, "pfet_03v3": PPLUS}
+
+
+def _implant_for_model(model: str) -> tuple[int, int]:
+    """The implant layer a golden MOS model's source/drain must carry.
+
+    Raises on a model the deck recognises as a MOS that this table does not
+    name: silently skipping one would leave its diffusion implant-free, which
+    is exactly the defect this module exists not to reintroduce (#516).
+    """
+    implant = DEVICE_IMPLANT.get(model)
+    if implant is None:
+        raise AssertionError(
+            f"no implant type known for MOS model {model!r} "
+            f"(have: {sorted(DEVICE_IMPLANT)})"
+        )
+    return implant
+
 #: gf180mcu DRM "CO.1": contact is a fixed 0.22 x 0.22 um square.
 CONTACT_SIDE_UM = 0.22
-#: gf180mcu DRM "V1.1"/"V2.1": Via1/Via2 are a fixed 0.26 x 0.26 um square.
-#: ``klt``'s curated ``gf180mcu`` DRC deck carries no via rule at all (see
-#: ``layout/README.md`` -> "Known deck limits"), so this size is held to the
-#: DRM by construction here rather than by a check.
+#: gf180mcu DRM "Vn.1" (7.14 Vian): one rule, emitted per level as "V1.1"
+#: through "V5.1" -- every via level is the same fixed 0.26 um square. The
+#: pinned deck checks each drawn level's minimum width (``via1.width.1`` ...
+#: ``via4.width.1``) but approximates the DRM's min/max rule with a
+#: minimum-only check, so the "max" half -- an oversized square -- is held to
+#: the DRM by construction here.
 VIA_SIDE_UM = 0.26
 
 
 def _via_square(cx: float, cy: float) -> tuple[float, float, float, float]:
-    """The DRM-fixed Via1/Via2 square centred at ``cx, cy``.
+    """The DRM-fixed via square centred at ``cx, cy`` -- the same square at
+    every level, Via1 through Via4 (DRM "Vn.1"; see :data:`VIA_SIDE_UM`).
 
     The centre is snapped to the manufacturing grid first (:func:`_snap`,
     #515): callers pass :func:`_span`-derived centres that are arbitrary DBU
@@ -182,10 +228,10 @@ def _via_square(cx: float, cy: float) -> tuple[float, float, float, float]:
     snapped centre keeps the square exactly that size with every edge on-grid.
 
     The single derivation of that square's edges, and so -- per
-    :data:`VIA_SIDE_UM` above, which no deck rule checks -- the single place
-    the "by construction" guarantee is constructed. Every via drawer comes
-    through here: :meth:`CellBuilder.via` inserts the square itself, while
-    ``_TopRoutes.via1``/``_TopRoutes.via2`` take the coordinates alone,
+    :data:`VIA_SIDE_UM` above, whose max-size half is held by construction --
+    the single place that "by construction" is constructed. Every via drawer
+    comes through here: :meth:`CellBuilder.via` inserts the square itself,
+    while ``_TopRoutes.via1``/``_TopRoutes.via2`` take the coordinates alone,
     because their own net-tagging ``_TopRoutes.box`` has to stay on the
     insertion path.
 
@@ -238,6 +284,39 @@ class CellBuilder:
             self._kdb.DBox(x0, y0, x1, y1).to_itype(self.layout.dbu)
         )
 
+    def blanket(
+        self,
+        spec,
+        rects: list[tuple[float, float, float, float]],
+        grow: float,
+    ) -> None:
+        """Insert the merged union of ``rects``, each grown by ``grow``.
+
+        This is how implant layers are drawn (#516), and the shape of the
+        union matters as much as the growth: two same-type COMP shapes whose
+        gap sits in (0.50, 0.90) um -- a pitch this block really contains --
+        would grow into two implant boxes *inside* the 0.40 um
+        ``nplus.space.1``/``pplus.space.1`` limit if drawn per shape, so any
+        caller whose same-type COMP comes in such pairs passes the whole
+        region's rectangles here and lets the union carry the gap as implant.
+        Same-layer shapes merge freely; separate results are grown edges
+        that genuinely are >= the rule space apart.
+
+        Rings are unions too, not bounding boxes: a ring's four overlapping
+        segments grow into one annulus, leaving the ring's interior free of
+        implant, which a bounding-box blanket would plate across.
+        """
+        region = self._kdb.Region()
+        for x0, y0, x1, y1 in rects:
+            region.insert(
+                self._kdb.DBox(
+                    _snap(x0 - grow), _snap(y0 - grow),
+                    _snap(x1 + grow), _snap(y1 + grow),
+                ).to_itype(self.layout.dbu)
+            )
+        region.merge()
+        self.cell.shapes(self._layer(spec)).insert(region)
+
     def contact(self, cx: float, cy: float) -> None:
         # Snap the centre to the PDK's 0.005 um manufacturing grid *before*
         # deriving the two edges: computing them straight from a `cx`/`cy`
@@ -259,7 +338,8 @@ class CellBuilder:
         self.box(CONTACT, cx - half, cy - half, cx + half, cy + half)
 
     def via(self, spec, cx: float, cy: float) -> None:
-        """One DRM-sized Via1/Via2 square centred at ``cx, cy``.
+        """One DRM-sized via square centred at ``cx, cy`` -- the same
+        square at every level, Via1 through Via4.
 
         The centre is snapped to the manufacturing grid first, for the same
         reason :meth:`contact` snaps its own (:func:`_span`-derived centres
@@ -355,6 +435,13 @@ def por_comparator_bias_okb_inv(b: CellBuilder) -> None:
     b.box(COMP, 0.0, 0.0, 1.8, 1.0)
     b.box(COMP, 0.0, 3.0, 1.8, 5.0)
     b.box(NWELL, -0.6, 2.4, 2.4, 5.6)
+    # Source/drain implants, typed by which side of the well each diffusion
+    # sits on: n+ on the field NMOS, p+ on the well PMOS (#516). The blankets
+    # stay inside the Nwell edge the COMP already keeps (1.0 um -- the well
+    # tie the Nwell tie straps of the drawn cells keep), and 1.75 um clear of
+    # the other diffusion, so neither implant's spacing rule sees the other.
+    b.blanket(NPLUS, [(0.0, 0.0, 1.8, 1.0)], IMPLANT_OVERHANG_UM)
+    b.blanket(PPLUS, [(0.0, 3.0, 1.8, 5.0)], IMPLANT_OVERHANG_UM)
 
     # One shared gate strip through both channels: L = 0.5 um.
     b.box(POLY2, 0.5, -0.3, 1.0, 5.3)
@@ -702,9 +789,12 @@ def _cap_wire(
     """A Manhattan wire on ``spec`` from ``(x0, y0)`` to ``(x1, y1)`` -- one
     straight box if the two points already share an x or y (a single point,
     if they share both), an "L" (vertical leg then horizontal) otherwise.
-    Every MiM plate route below is a short chain of these, one per metal
-    level, so a via at either end always lands inside the wire that carries
-    it rather than needing its own separate pad.
+    ``width`` is the wire's **full** width, not a half of it, so a
+    half-width constant must be doubled before it is handed here.
+    This is the file's one fixed-width-wire primitive: the MiM plate routes
+    below and ``temp_core``'s field routing alike are short chains of these,
+    one per metal level, so a via at either end always lands inside the wire
+    that carries it rather than needing its own separate pad.
     """
     half = width / 2.0
     if x0 == x1 and y0 == y1:
@@ -737,7 +827,8 @@ def _cap_via(
     pad: float = CAP_ROUTE_W_UM,
 ) -> None:
     """One via at ``(x, y)``, plus a ``pad``-square on each of the two metal
-    layers it connects.
+    layers it connects. ``pad`` is a *full* size, not a half -- a caller
+    holding a half-size constant must pass it doubled.
 
     A wire built by :func:`_cap_wire` stops exactly at the via it lands on,
     so relying on the wire's own edge for enclosure leaves the via uncovered
@@ -928,6 +1019,36 @@ RES_SPACE_UM = 1.0
 #: contact, because two or more would trip klayout-tools#288's resistor-body
 #: heuristic on the head itself (see ``layout/README.md``).
 RES_HEAD_UM = 4.0
+#: How far the SAB (salicide block) marker hangs past the marked poly leg,
+#: per side, in um (#517). gf180mcu DRM ``SB.10`` asks for 0.22 um of Poly2
+#: beyond related SAB; drawing SAB coincident with the leg left every leg
+#: side at 0.000 um and fired ``poly2.enclosing.sab.1`` on each. Making SAB
+#: the *wider* layer takes the rule out of play instead of satisfying it --
+#: where SAB encloses Poly2 there is no "Poly2 beyond SAB" edge for the
+#: deck's enclosing check to measure, which is exactly why ``_r_segment()``'s
+#: wider-than-poly SAB reports zero. The recognised body is the intersection
+#: ``Poly2 & RES_MK & Pplus & SAB``, so an SAB overhang in ``x`` is
+#: extraction-neutral: the intersection stays bounded by the unmoved
+#: ``RES_MK``/``Pplus`` at the leg rectangle, and the extracted ``L``/``W``
+#: -- hence every resistance -- is bit-identical.
+#:
+#: The overhang's ceiling is ``SB.2`` (deck rule ``sab.space.1``, 0.42 um
+#: minimum SAB-to-SAB space): two neighbouring SABs face each other across
+#: ``RES_SPACE_UM`` (``_poly_resistor``), ``DIVIDER_LEG_SPACE_UM``
+#: (``_resistor_string``) and the ``_R_PITCH`` segment gap (``_r_segment``),
+#: each overhanging toward the other, so
+#: ``space - 2 * SAB_OVERHANG_UM >= 0.42`` caps the overhang at 0.29 um.
+#: 0.25 is on the 0.005 um grid, leaves 0.50 um of SAB space, and keeps a
+#: 0.08 um margin to the cap. (``_r_segment()``'s 0.4 um overhang would
+#: leave 0.20 um here -- that is issue #518's own defect, not a number to
+#: copy.)
+SAB_OVERHANG_UM = 0.25
+#: Minimum SAB-to-SAB space, in um -- gf180mcu DRM ``SB.2`` (deck rule
+#: ``sab.space.1``). Not a drawing dimension: this is the budget the
+#: overhang above spends, asserted against all three neighbouring gaps in
+#: the three constructions that draw a widened SAB, so a future change to
+#: any of the numbers fails at generator time instead of as a DRC violation.
+SAB_SPACE_MIN_UM = 0.42
 
 
 def _poly_resistor(
@@ -943,10 +1064,17 @@ def _poly_resistor(
     heads at the bottom edge so each terminal risers straight down to its
     routing track with nothing to cross.
 
-    The marker rectangles are the legs *exactly*: the deck's recognised body is
-    ``Poly2 & RES_MK & SAB & Resistor``, and KLayout derives the device's
-    ``L``/``W`` from that region's own area and perimeter, so a marker that
-    overshot a leg into a bend would silently lengthen the extracted resistor.
+    The unmarked-for-recognition layers (``PPLUS``, ``RESISTOR_ID``, ``RES_MK``)
+    are the leg rectangle *exactly*; ``SAB`` hangs :data:`SAB_OVERHANG_UM`
+    past them per side in ``x`` (#517 -- why is on the constant). The deck's
+    recognised body is ``Poly2 & RES_MK & SAB & Resistor``, and KLayout
+    derives the device's ``L``/``W`` from that region's own area and
+    perimeter, so the body is still the leg rectangle exactly: the
+    intersection stays bounded by the marker layers that did not move. It is
+    the Poly2/``RES_MK`` rectangles that must never overshoot into a bend --
+    that would silently lengthen the extracted resistor; an SAB ``x``-overhang
+    cannot, because the bends and heads are above/below the legs, not beside
+    them.
 
     Returns the two heads' centre x, in ``(first, last)`` order -- i.e. the
     golden netlist's own ``(a, b)`` node order.
@@ -956,6 +1084,11 @@ def _poly_resistor(
     ``lvs_reference.resistor_segments`` for the current netlist), so the
     snapped origin is what puts every drawn vertex on-grid.
     """
+    # SB.2 budget (#517): neighbouring legs' SABs face each other across
+    # RES_SPACE_UM, each overhanging toward the other. Keep the deck's
+    # sab.space.1 minimum between them -- fail here, at generator time,
+    # rather than as a DRC violation three constants from now.
+    assert RES_SPACE_UM - 2 * SAB_OVERHANG_UM >= SAB_SPACE_MIN_UM
     x0 = _snap(x0)
     y0 = _snap(y0)
     pitch = width + RES_SPACE_UM
@@ -963,9 +1096,19 @@ def _poly_resistor(
 
     for x in leg_x:
         b.box(POLY2, x, y0, x + width, y0 + leg)
-        # Marked body: coincident on all four layers, from one rectangle.
-        for spec in (PPLUS, SAB, RESISTOR_ID, RES_MK):
+        # Marked body: the marker layers sit exactly on the leg rectangle --
+        # except SAB, drawn below with the #517 overhang.
+        for spec in (PPLUS, RESISTOR_ID, RES_MK):
             b.box(spec, x, y0, x + width, y0 + leg)
+        # #517: SAB strictly contains every other marker layer in x, so each
+        # leg side presents SB.10 with SAB as the wider layer instead of a
+        # coincident Poly2 edge at 0.000 um extension (the source of all 48
+        # bias_core poly2.enclosing.sab.1 violations before #517: two per
+        # leg, both lateral). If SAB ever moves back into the coincident
+        # loop above, this invariant breaks with it.
+        sab_x0, sab_x1 = x - SAB_OVERHANG_UM, x + width + SAB_OVERHANG_UM
+        assert sab_x0 < x and x + width < sab_x1
+        b.box(SAB, sab_x0, y0, sab_x1, y0 + leg)
 
     for index in range(legs - 1):
         x = leg_x[index]
@@ -1004,6 +1147,16 @@ def _pnp_unit(b: CellBuilder, x0: float, y0: float, width: float, length: float)
     ordinary PMOS well, and what fixes the extracted base area.
     """
     b.box(COMP, x0, y0, x0 + width, y0 + length)
+    # The emitter window is p+ inside the Nwell base, same as
+    # ``_temp_core_pnp_array()``'s emitters draw (#516) -- the two PNP paths
+    # drew the implant on one and not the other before this.
+    b.box(
+        PPLUS,
+        x0 - IMPLANT_OVERHANG_UM,
+        y0 - IMPLANT_OVERHANG_UM,
+        x0 + width + IMPLANT_OVERHANG_UM,
+        y0 + length + IMPLANT_OVERHANG_UM,
+    )
     margin = lvsref.BIPOLAR_BASE_MARGIN_UM
     b.box(DRC_BJT, x0 - margin, y0 - margin, x0 + width + margin, y0 + length + margin)
     for cx in _span(
@@ -1108,6 +1261,10 @@ def _place_tiles(devices: dict[str, dict], groups) -> list[dict]:
                     "d": drain,
                     "g": gate,
                     "s": source,
+                    # The golden card's own model, carried so the implant type
+                    # is decided from the netlist -- the one source of truth
+                    # that already fixes every drawn dimension here (#516).
+                    "model": device["model"],
                 }
             )
             cursor = x0 + 2 * SD_EXT_UM + length + TILE_GAP_UM
@@ -1161,7 +1318,26 @@ def _draw_tiles(b: CellBuilder, tiles: list[dict], riser) -> None:
 
     ``riser(x, net, y_low, y_high)`` is the caller's frame-aware router: it
     knows where that cell's supply rails and Poly2 tracks are.
+
+    Each device group gets one implant blanket, typed from the golden netlist
+    model each tile carries -- never from the group index, which does not
+    agree across this function's three callers (``bias_core`` and
+    ``por_comparator`` put PMOS in group 0, ``por_output_chain`` NMOS) and
+    which nothing else in the flow would catch (#516).
     """
+    for group in sorted({tile["group"] for tile in tiles}):
+        group_tiles = [tile for tile in tiles if tile["group"] == group]
+        models = {tile["model"] for tile in group_tiles}
+        if len(models) != 1:
+            raise AssertionError(
+                f"device group {group} mixes models ({sorted(models)}); "
+                "one implant blanket cannot type both"
+            )
+        b.blanket(
+            _implant_for_model(group_tiles[0]["model"]),
+            [(tile["x0"], 0.0, _tile_x1(tile), tile["w"]) for tile in group_tiles],
+            IMPLANT_OVERHANG_UM,
+        )
     for tile in tiles:
         x0, length, width = tile["x0"], tile["l"], tile["w"]
         tile_w = 2 * SD_EXT_UM + length
@@ -1196,34 +1372,50 @@ def _draw_tiles(b: CellBuilder, tiles: list[dict], riser) -> None:
 
 
 def _draw_guard_ring(
-    b: CellBuilder, gx0: float, gy0: float, gx1: float, gy1: float
-) -> None:
+    b: CellBuilder,
+    gx0: float,
+    gy0: float,
+    gx1: float,
+    gy1: float,
+    width: float = GUARD_RING_W_UM,
+    box: Callable[..., None] | None = None,
+) -> tuple[tuple[float, float, float, float], ...]:
     """A continuous COMP+Metal1 p-substrate guard ring, contacted at 1 um.
 
     Tied to VSS by the caller abutting the VSS rail to it; no floating segment.
     The deck has no tap/well-label layer, so LVS cannot confirm the tie, and
     nothing in the flow checks the ring's continuity either (filed generically
     as klayout-tools#303) -- that stays a design-review claim for this cell
-    (``layout/README.md``).
+    (``layout/README.md``). Returns the four ring rectangles, so a caller with
+    its own topology check (``_top_guard_ring``) need not rebuild them.
+
+    ``box`` overrides how each COMP/Metal1 rectangle is drawn -- the top cell
+    passes ``_TopRoutes.box`` so its shapes carry a net tag; the blanket and
+    the contacts always go through ``b``.
     """
-    ring = [
-        (gx0, gy0, gx1, gy0 + GUARD_RING_W_UM),
-        (gx0, gy1 - GUARD_RING_W_UM, gx1, gy1),
-        (gx0, gy0, gx0 + GUARD_RING_W_UM, gy1),
-        (gx1 - GUARD_RING_W_UM, gy0, gx1, gy1),
-    ]
+    ring = (
+        (gx0, gy0, gx1, gy0 + width),
+        (gx0, gy1 - width, gx1, gy1),
+        (gx0, gy0, gx0 + width, gy1),
+        (gx1 - width, gy0, gx1, gy1),
+    )
+    draw = b.box if box is None else box
     for rect in ring:
-        b.box(COMP, *rect)
-        b.box(METAL1, *rect)
-    half = GUARD_RING_W_UM / 2.0
+        draw(COMP, *rect)
+        draw(METAL1, *rect)
+    # The ring is a p-substrate tie, so its COMP carries p+ (#516). The union
+    # of the grown segments is one annulus -- the interior stays implant-free.
+    b.blanket(PPLUS, ring, IMPLANT_OVERHANG_UM)
+    half = width / 2.0
     for x in _span(gx0 + half, gx1 - half, TAP_PITCH_UM):
         b.contact(x, gy0 + half)
         b.contact(x, gy1 - half)
-    inner_low = gy0 + GUARD_RING_W_UM + half
-    inner_high = gy1 - GUARD_RING_W_UM - half
+    inner_low = gy0 + width + half
+    inner_high = gy1 - width - half
     for y in _span(inner_low, inner_high, TAP_PITCH_UM):
         b.contact(gx0 + half, y)
         b.contact(gx1 - half, y)
+    return ring
 
 
 def _bias_core_passives(
@@ -1337,6 +1529,9 @@ def _bias_core_passives(
     for rect in ring:
         b.box(COMP, *rect)
         b.box(METAL1, rect[0] - 0.1, rect[1] - 0.1, rect[2] + 0.1, rect[3] + 0.1)
+    # A tie into the Nwell is n+ COMP (#516) -- the same type the shared base
+    # ring of ``_temp_core_pnp_array()`` already carries.
+    b.blanket(NPLUS, ring, IMPLANT_OVERHANG_UM)
     tap_half = PNP_TAP_W_UM / 2.0
     for y in _span(tap_y0 + tap_half, tap_y1 + tap_half, TAP_PITCH_UM):
         b.contact(tap_x0 + tap_half, y)
@@ -1513,6 +1708,8 @@ def bias_core(b: CellBuilder) -> None:
     # --- Nwell, and its tie strap -----------------------------------------
     b.box(NWELL, p_x0 - 1.0, -2.6, p_x1 + 1.0, max_pw + 1.5)
     b.box(COMP, p_x0 - 0.5, tie_y0, p_x1 + 0.5, tie_y1)
+    # A tie into the Nwell is n+ COMP (#516).
+    b.blanket(NPLUS, [(p_x0 - 0.5, tie_y0, p_x1 + 0.5, tie_y1)], IMPLANT_OVERHANG_UM)
     b.box(METAL1, p_x0 - 0.6, tie_y0 - 0.05, p_x1 + 0.6, tie_y1 + 0.05)
     for x in _span(p_x0 - 0.1, p_x1 + 0.1, TAP_PITCH_UM):
         b.contact(x, (tie_y0 + tie_y1) / 2.0)
@@ -1552,6 +1749,15 @@ def bias_core(b: CellBuilder) -> None:
     b.box(METAL1, gx0 + 2.5, vdd_y0, block_x1 + 1.0, vdd_y1)
     b.box(METAL1, gx0 + 1.0, vss_y0, block_x1 + 1.0, vss_y1)
     b.box(COMP, gx0 + 2.3, vss_y0, block_x1 + 0.7, vss_y1)
+    # A p-substrate tap is p+ COMP (#516). The blanket's junction rect runs
+    # from the guard ring's edge so ring and strap are ONE implant shape: the
+    # 0.8 um COMP gap between them would leave two grown blankets 0.3 um
+    # apart, inside ``pplus.space.1``'s 0.40 um.
+    b.blanket(
+        PPLUS,
+        [(gx0 + GUARD_RING_W_UM, vss_y0, block_x1 + 0.7, vss_y1)],
+        IMPLANT_OVERHANG_UM,
+    )
     for x in _span(gx0 + 2.8, block_x1 + 0.2, TAP_PITCH_UM):
         b.contact(x, (vss_y0 + vss_y1) / 2.0)
 
@@ -1874,6 +2080,8 @@ def por_output_chain(b: CellBuilder) -> None:
     # well edge clears the pad-facing nfet by 4 um.
     b.box(NWELL, p_x0 - 1.0, -2.6, p_x1 + 1.0, max_pw + 1.5)
     b.box(COMP, p_x0 - 0.5, tie_y0, p_x1 + 0.5, tie_y1)
+    # A tie into the Nwell is n+ COMP (#516).
+    b.blanket(NPLUS, [(p_x0 - 0.5, tie_y0, p_x1 + 0.5, tie_y1)], IMPLANT_OVERHANG_UM)
     b.box(METAL1, p_x0 - 0.6, tie_y0 - 0.05, p_x1 + 0.6, tie_y1 + 0.05)
     for x in _span(p_x0 - 0.1, p_x1 + 0.1, TAP_PITCH_UM):
         b.contact(x, (tie_y0 + tie_y1) / 2.0)
@@ -1885,6 +2093,13 @@ def por_output_chain(b: CellBuilder) -> None:
     b.box(METAL1, gx0 + 2.5, vdd_y0, row_x1 + 2.0, vdd_y1)
     b.box(METAL1, gx0 + 1.0, vss_y0, row_x1 + 2.0, vss_y1)
     b.box(COMP, gx0 + 2.3, vss_y0, row_x1 + 1.7, vss_y1)
+    # A p-substrate tap is p+ COMP (#516); the junction rect reaches the guard
+    # ring's own blanket so the two are one shape (see bias_core's strap).
+    b.blanket(
+        PPLUS,
+        [(gx0 + GUARD_RING_W_UM, vss_y0, row_x1 + 1.7, vss_y1)],
+        IMPLANT_OVERHANG_UM,
+    )
     for x in _span(gx0 + 2.8, row_x1 + 1.2, TAP_PITCH_UM):
         b.contact(x, (vss_y0 + vss_y1) / 2.0)
 
@@ -2062,38 +2277,22 @@ DIVIDER_BASE_Y_UM = -3.5
 DIVIDER_RESISTOR_MK = RESISTOR_ID
 
 
-def _poly_resistors(source: str, subckt: str, names: tuple[str, ...]) -> dict:
-    """Parse ``design/netlist/<source>``'s ``<subckt>`` for the named resistors.
-
-    ``lvs_reference.parse_devices`` deliberately drops every card the curated
-    deck cannot model, resistors included, so this reads their ``r_width`` /
-    ``r_length`` directly -- still out of the same golden netlist, so no
-    dimension is retyped here either.
-    """
-    text = (REPO_ROOT / "design" / "netlist" / source).read_text()
-    found: dict[str, dict[str, str]] = {}
-    for line in lvsref.subckt_body(text, subckt):
-        fields = line.split()
-        if fields[0] not in names:
-            continue
-        found[fields[0]] = {
-            key.lower(): value.strip("'\"")
-            for key, _, value in (f.partition("=") for f in fields[1:] if "=" in f)
-        }
-    missing = [name for name in names if name not in found]
-    if missing:
-        raise KeyError(f"{source}:{subckt}: no resistor card for {missing}")
-    return found
-
-
 def _divider_resistor_lengths() -> tuple[float, dict[str, float]]:
     """``(leg_width_um, {name: r_length_um})`` for the sense divider's three
     segments, read straight from the golden netlist.
+
+    The shared :func:`_golden_resistors` reader recognises the divider's
+    ``ppolyf_u_3k`` model (:data:`lvs_reference.RESISTOR_CLASS`), so the cards
+    need no second parser here.
     """
-    cards = _poly_resistors(
-        "por_comparator.spice", "por_comparator", POR_DIVIDER_RESISTORS
-    )
-    widths = {lvsref.to_um(card["r_width"]) for card in cards.values()}
+    cards = _golden_resistors("por_comparator.spice", "por_comparator")
+    missing = [name for name in POR_DIVIDER_RESISTORS if name not in cards]
+    if missing:
+        raise KeyError(
+            f"por_comparator.spice:por_comparator: no resistor card for {missing}"
+        )
+    cards = {name: cards[name] for name in POR_DIVIDER_RESISTORS}
+    widths = {lvsref.to_um(card["params"]["r_width"]) for card in cards.values()}
     if len(widths) != 1:
         # Same-width legs are the premise of the TC/sheet-rho-in-ratio
         # cancellation this divider's accuracy rests on (design/
@@ -2103,7 +2302,10 @@ def _divider_resistor_lengths() -> tuple[float, dict[str, float]]:
         # plan.
         raise ValueError(f"sense divider legs are not one width: {sorted(widths)}")
     leg_w = widths.pop()
-    lengths = {name: lvsref.to_um(card["r_length"]) for name, card in cards.items()}
+    lengths = {
+        name: lvsref.to_um(card["params"]["r_length"])
+        for name, card in cards.items()
+    }
     return leg_w, lengths
 
 
@@ -2126,10 +2328,11 @@ def _resistor_leg_plan(length_um: float, leg_w: float) -> tuple[int, float, floa
     exactly ``DIVIDER_LEG_SPACE_UM`` to the total electrical length -- except
     the *last* leg, which is ``tail_extra_um`` taller than the rest: the one
     place the exact-nanometre integer division below can leave a remainder
-    (at most ``legs`` nm), folded entirely into the one leg whose far end is
-    already an open (unjogged) terminal, so it costs nothing but a few
-    nanometres of that leg's own length -- not a second, misaligned turn.
-    An odd leg count keeps the string's two open ends on opposite sides
+    (at most ``legs`` times one grid pitch -- the pre-#515 bound was ``legs``
+    nm, which the grid snapping below loosens), folded entirely into the one
+    leg whose far end is already an open (unjogged) terminal, so it costs
+    nothing but some of that leg's own length -- not a second, misaligned
+    turn. An odd leg count keeps the string's two open ends on opposite sides
     (see :func:`_resistor_string`), convenient for wiring one to each of two
     different nets without doubling back.
 
@@ -2199,7 +2402,11 @@ def _resistor_string(
     body's area exactly reconstructs the segment's schematic length. Each
     leg is fully marked except a :data:`DIVIDER_CAP_UM` unmarked cap at the
     string's two open (leg 0's bottom, the last leg's top) ends, where a
-    contact lands.
+    contact lands. ``SAB`` hangs :data:`SAB_OVERHANG_UM` past the other
+    marker layers per side in ``x`` (#517, on the legs and on the turns) --
+    that makes SAB the wider layer, so ``SB.10`` has no coincident Poly2
+    edge to measure on the lateral boundaries, and the recognised body
+    (``RES_MK``-bounded) still reconstructs the schematic length exactly.
 
     Returns ``{"a": (x, y), "b": (x, y), "x0", "y0", "x1", "y1"}``: the two
     open ends' own contact points (for wiring) and the drawn bounding box.
@@ -2210,12 +2417,47 @@ def _resistor_string(
     :func:`_resistor_leg_plan` are grid multiples, so a snapped origin puts
     every drawn vertex on-grid.
     """
+    # SB.2 budget (#517): neighbouring legs' SABs face each other across
+    # DIVIDER_LEG_SPACE_UM, each overhanging toward the other -- the same
+    # budget _poly_resistor asserts against RES_SPACE_UM. Fail here, at
+    # generator time, rather than as a DRC violation three constants from
+    # now.
+    assert DIVIDER_LEG_SPACE_UM - 2 * SAB_OVERHANG_UM >= SAB_SPACE_MIN_UM
     x0 = _snap(x0)
     y0 = _snap(y0)
     pitch = leg_w + DIVIDER_LEG_SPACE_UM
     y1 = y0 + leg_len  # shared top for every leg except the last
     x1 = x0 + (legs - 1) * pitch + leg_w
     last_top = y1 + tail_extra
+
+    # #517, row lines first. SB.10 pairs a Poly2 edge with a facing SAB edge
+    # and reports the Poly2 edge's points within 0.22 um of it; a SAB edge
+    # lying *on* the same line as a Poly2 boundary edge (same side) is
+    # therefore a 0.000 um "Poly2 beyond SAB" violation even though SAB
+    # touches Poly2 -- and every row line of this serpentine (the legs' and
+    # turns' shared top y1 and bottom y0) is exactly such a line. So the SAB
+    # must cross both row lines strictly, everywhere except the two capped
+    # ends (there the unmarked cap already gives Poly2 0.8 um beyond SAB,
+    # and the cap is where the contact lives). The x-overhang on the leg
+    # sides (below) removes the lateral-leg-edge violations, which were the
+    # bulk of the 454 before #517.
+    #
+    # The row heights come from _resistor_leg_plan's exact-nanometre
+    # arithmetic and are generally NOT on the 0.005 um manufacturing grid
+    # (#515's family -- por_comparator's y1 is e.g. 150.402), so a plain
+    # 0.25 um row overhang would put new SAB vertices off-grid and mint
+    # sab.ongrid.1 violations. Snap each row boundary outward to the next
+    # 0.005 um grid point instead: the snap only ever *increases* the
+    # overhang, so SB.10 stays inapplicable, and every SAB coordinate this
+    # function emits stays on the grid. The bottom row sits at
+    # DIVIDER_BASE_Y_UM (grid-exact), so its snap is a no-op; the top row is
+    # the one that moves.
+    nm = round(1.0 / DBU_UM)
+    grid_nm = round(MFG_GRID_UM * nm)  # sab.ongrid.1's manufacturing-grid pitch
+    y0_nm = round(y0 * nm)
+    y1_nm = round(y1 * nm)
+    sab_row_y0 = math.floor((y0_nm - round(SAB_OVERHANG_UM * nm)) / grid_nm) * grid_nm / nm
+    sab_row_y1 = math.ceil((y1_nm + round(SAB_OVERHANG_UM * nm)) / grid_nm) * grid_nm / nm
 
     for i in range(legs):
         lx0 = x0 + i * pitch
@@ -2224,16 +2466,51 @@ def _resistor_string(
         b.box(POLY2, lx0, y0, lx1, leg_top)
         mark_y0 = y0 + DIVIDER_CAP_UM if i == 0 else y0
         mark_y1 = leg_top - DIVIDER_CAP_UM if i == legs - 1 else leg_top
-        for spec in (SAB, RES_MK, DIVIDER_RESISTOR_MK):
+        for spec in (RES_MK, DIVIDER_RESISTOR_MK):
             b.box(spec, lx0, mark_y0, lx1, mark_y1)
+        # SAB strictly wider than the other marker layers in x (#517), and
+        # beyond both row lines it touches (see the row block above) -- but
+        # never over a cap: the cap's unmarked poly is the device terminal,
+        # and the contact's SB.4 clearance to SAB is set by the unchanged
+        # vertical gap, which the x-overhang only widens.
+        sab_y0 = sab_row_y0 if i > 0 else mark_y0
+        sab_y1 = sab_row_y1 if i < legs - 1 else mark_y1
+        assert lx0 - SAB_OVERHANG_UM < lx0 and lx1 < lx1 + SAB_OVERHANG_UM
+        assert sab_y0 <= mark_y0 and sab_y1 >= mark_y1
+        b.box(SAB, lx0 - SAB_OVERHANG_UM, sab_y0, lx1 + SAB_OVERHANG_UM, sab_y1)
 
     for i in range(legs - 1):
         lx0 = x0 + i * pitch
         gx0, gx1 = lx0 + leg_w, lx0 + pitch
         gy0, gy1 = (y1 - leg_w, y1) if i % 2 == 0 else (y0, y0 + leg_w)
         b.box(POLY2, gx0, gy0, gx1, gy1)
-        for spec in (SAB, RES_MK, DIVIDER_RESISTOR_MK):
+        for spec in (RES_MK, DIVIDER_RESISTOR_MK):
             b.box(spec, gx0, gy0, gx1, gy1)
+        # Same x-overhang as the legs, and out past BOTH of the turn's own
+        # row lines: a turn's top and bottom Poly2 edges are exposed
+        # field-facing boundary, and a SAB edge sitting on either line
+        # measures 0.000 um -- the x-only variant left one pair per turn row
+        # edge (224 on por_comparator), crossing only the outer line left
+        # the inner ones (112). The inner-line overhang snaps outward to the
+        # 0.005 um grid like the rows above, for the same reason: the row
+        # heights are nm-exact, not grid-exact. Outward is free -- no other
+        # SAB lies beyond a turn's outer edge, and the caps/contacts sit
+        # inside the legs, x-clear of it. (_r_segment() grows SAB past its
+        # poly on all four sides for the same reason -- SB.10 has no edge
+        # left to measure.)
+        assert gx0 - SAB_OVERHANG_UM < gx0 and gx1 < gx1 + SAB_OVERHANG_UM
+        gy0_nm, gy1_nm = round(gy0 * nm), round(gy1 * nm)
+        if i % 2 == 0:
+            turn_y0 = (
+                math.floor((gy0_nm - round(SAB_OVERHANG_UM * nm)) / grid_nm) * grid_nm / nm
+            )
+            turn_y1 = sab_row_y1
+        else:
+            turn_y0 = sab_row_y0
+            turn_y1 = (
+                math.ceil((gy1_nm + round(SAB_OVERHANG_UM * nm)) / grid_nm) * grid_nm / nm
+            )
+        b.box(SAB, gx0 - SAB_OVERHANG_UM, turn_y0, gx1 + SAB_OVERHANG_UM, turn_y1)
 
     def terminal(cy0: float, cy1: float, cx: float) -> tuple[float, float]:
         mid = (cy0 + cy1) / 2.0
@@ -2443,8 +2720,7 @@ def por_comparator(b: CellBuilder) -> None:
     # Metal1 riser on a different layer with no via is not a connection.
     def _via1_pad(cx: float, cy: float) -> None:
         b.via(VIA1, cx, cy)
-        pad = 0.25
-        b.box(METAL2, cx - pad, cy - pad, cx + pad, cy + pad)
+        _cap_pad(b, METAL2, cx, cy)
 
     for net in ("SNS", "SNSB"):
         y = track_y[net]
@@ -2464,11 +2740,13 @@ def por_comparator(b: CellBuilder) -> None:
         # The Metal2 trunk itself, all the way across the divider region.
         # Each resistor terminal's own Metal1 riser (below) meets it with its
         # own Via1, not by touching this trunk's Metal1 predecessor.
-        b.box(METAL2, div_trunk_x0, y - TRACK_W_UM / 2.0, div_x1, y + TRACK_W_UM / 2.0)
+        _cap_wire(b, METAL2, div_trunk_x0, y, div_x1, y, width=TRACK_W_UM)
 
     # --- Nwell, and its tie strap ------------------------------------------
     b.box(NWELL, p_x0 - 1.0, -2.6, p_x1 + 1.0, max_pw + 1.5)
     b.box(COMP, p_x0 - 0.5, tie_y0, p_x1 + 0.5, tie_y1)
+    # A tie into the Nwell is n+ COMP (#516).
+    b.blanket(NPLUS, [(p_x0 - 0.5, tie_y0, p_x1 + 0.5, tie_y1)], IMPLANT_OVERHANG_UM)
     b.box(METAL1, p_x0 - 0.6, tie_y0 - 0.05, p_x1 + 0.6, tie_y1 + 0.05)
     for x in _span(p_x0 - 0.1, p_x1 + 0.1, TAP_PITCH_UM):
         b.contact(x, (tie_y0 + tie_y1) / 2.0)
@@ -2505,6 +2783,14 @@ def por_comparator(b: CellBuilder) -> None:
     b.box(METAL1, gx0 + 2.5, vdd_y0, div_terms["XRTOP"]["x1"] + 1.0, vdd_y1)
     b.box(METAL1, gx0 + 1.0, vss_y0, div_terms["XRHYS"]["a"][0] + 2.0, vss_y1)
     b.box(COMP, gx0 + 2.3, vss_y0, inv_x1 + 1.7, vss_y1)
+    # A p-substrate tap is p+ COMP (#516); the junction rect reaches the
+    # guard ring's own blanket so the two are one shape (see bias_core's
+    # strap).
+    b.blanket(
+        PPLUS,
+        [(gx0 + GUARD_RING_W_UM, vss_y0, inv_x1 + 1.7, vss_y1)],
+        IMPLANT_OVERHANG_UM,
+    )
     for x in _span(gx0 + 2.8, inv_x1 + 1.2, TAP_PITCH_UM):
         b.contact(x, (vss_y0 + vss_y1) / 2.0)
 
@@ -2513,24 +2799,7 @@ def por_comparator(b: CellBuilder) -> None:
     # This cell sits on the always-on POR domain's side of the block-level
     # domain seam (layout/floorplan.md, "Guard-ring / isolation plan"), whose
     # correctness the deck cannot check -- klayout-tools#303.
-    ring = [
-        (gx0, gy0, gx1, gy0 + GUARD_RING_W_UM),
-        (gx0, gy1 - GUARD_RING_W_UM, gx1, gy1),
-        (gx0, gy0, gx0 + GUARD_RING_W_UM, gy1),
-        (gx1 - GUARD_RING_W_UM, gy0, gx1, gy1),
-    ]
-    for rect in ring:
-        b.box(COMP, *rect)
-        b.box(METAL1, *rect)
-    half = GUARD_RING_W_UM / 2.0
-    for x in _span(gx0 + half, gx1 - half, TAP_PITCH_UM):
-        b.contact(x, gy0 + half)
-        b.contact(x, gy1 - half)
-    inner_low = gy0 + GUARD_RING_W_UM + half
-    inner_high = gy1 - GUARD_RING_W_UM - half
-    for y in _span(inner_low, inner_high, TAP_PITCH_UM):
-        b.contact(gx0 + half, y)
-        b.contact(gx1 - half, y)
+    _draw_guard_ring(b, gx0, gy0, gx1, gy1)
 
     # --- sense divider wiring: VDD -[XRTOP]- SNS -[XRBOT]- SNSB -[XRHYS]- VSS
     # (design/netlist/por_comparator.spice's own node order for each card).
@@ -2706,7 +2975,7 @@ class _Channel:
         back the ``(x, y)`` the route takes as its anchor. Draws nothing
         itself: the route owns every shape it lands.
         """
-        self._reach[net] = max(self._reach[net], x_center + CAP_ROUTE_W_UM / 2.0)
+        self._reach[net] = max(self._reach[net], x_center + _VIA_PAD_HALF)
         return (x_center, self.track_y[net])
 
     def draw(self) -> None:
@@ -2750,6 +3019,18 @@ def _mos_finger(
     # --- active + gate ------------------------------------------------------
     comp_lo, comp_hi = band(0.0, width)
     b.box(COMP, x, comp_lo, comp_x1, comp_hi)
+    # Source/drain implant off the row table's ``p``/``n`` column (#516).
+    # Slots sit _SLOT_GAP (0.5 um) apart, so adjacent fingers' grown boxes
+    # abut exactly and merge; a well split's _WELL_SPLIT (2.0 um) leaves them
+    # 1.5 um apart, above ``pplus.space.1``/``nplus.space.1``'s 0.40 um.
+    implant = PPLUS if pmos else NPLUS
+    b.box(
+        implant,
+        x - IMPLANT_OVERHANG_UM,
+        comp_lo - IMPLANT_OVERHANG_UM,
+        comp_x1 + IMPLANT_OVERHANG_UM,
+        comp_hi + IMPLANT_OVERHANG_UM,
+    )
     bar_lo, bar_hi = band(-_POLY_OVERHANG, width + _POLY_OVERHANG)
     b.box(POLY2, gate_x0, bar_lo, gate_x1, bar_hi)
 
@@ -2863,6 +3144,69 @@ _TEMP_CORE_ROW: list[tuple] = [
 ]
 
 
+def _assert_row_type_matches_netlist(entries: list[tuple], devices: dict) -> None:
+    """Every drawn finger's row type must agree with the golden card's model.
+
+    ``_TEMP_CORE_ROW`` is a hand-kept table: its ``p``/``n`` column decides
+    which implant :func:`_mos_finger` draws, and nothing else in the flow
+    ties that column back to the netlist the cell claims to implement. This
+    assertion is the tie (#516): fingers are matched to golden cards by
+    their (drain, gate, source) node triple -- the netlist's own device
+    identity, which the row table copies verbatim -- and every triple must
+    carry exactly one model class on both sides. A finger drawn on the wrong
+    row (and so implanted with the wrong type) fails here, at build time.
+
+    Entries whose three nets are all one net are edge dummies; no golden
+    card can share a dummy's triple, and if one ever did, this refuses to
+    guess rather than pass it.
+    """
+    expected: dict[tuple[str, str, str], set[str]] = {}
+    for name, card in devices.items():
+        drain, gate, source, _body = card["nodes"][:4]
+        triple = (drain, gate, source)
+        models = expected.setdefault(triple, set())
+        models.add(card["model"])
+        if len(models) != 1:
+            raise AssertionError(
+                f"golden cards share node triple {triple} with different "
+                f"models ({sorted(models)}): the row table cannot be typed "
+                "against it"
+            )
+
+    drawn: set[tuple[str, str, str]] = set()
+    for entry in entries:
+        if entry[0] == "gap":
+            continue
+        row, _length, _width, drain, gate, source, _well = entry
+        triple = (drain, gate, source)
+        if drain == gate == source:
+            if triple in expected:
+                raise AssertionError(
+                    f"row-table dummy {triple} is also a golden card's node "
+                    "triple; the type check cannot tell them apart"
+                )
+            continue
+        models = expected.get(triple)
+        if models is None:
+            raise AssertionError(
+                f"row-table finger {triple} matches no golden MOS card"
+            )
+        want = "pfet_03v3" if row == "p" else "nfet_03v3"
+        if models != {want}:
+            raise AssertionError(
+                f"row-table finger {triple} is drawn on the {row!r} row "
+                f"(expects {want}) but its golden card(s) are {sorted(models)}"
+            )
+        drawn.add(triple)
+
+    unmatched = set(expected) - drawn
+    if unmatched:
+        raise AssertionError(
+            f"golden MOS card(s) {sorted(unmatched)} are never matched by a "
+            "row-table finger; their implant type is unchecked"
+        )
+
+
 def temp_core(b: CellBuilder) -> None:
     """``temp_core`` -- one top cell holding every device the deck can model.
 
@@ -2902,6 +3246,11 @@ def _temp_core_body(b: CellBuilder) -> None:
     block-level assembly rather than calling :func:`temp_core` -- a cell body
     handed to :meth:`CellBuilder.instance` must not retarget the builder.
     """
+    # The row table decides implant types from its own p/n column (#516);
+    # tie it to the netlist before drawing anything from it.
+    _assert_row_type_matches_netlist(
+        _TEMP_CORE_ROW, _golden_devices("temp_core.spice", "temp_core")
+    )
     channel = _Channel(b, _TEMP_CORE_NETS)
     nrow_y = 0.0
     prow_y = channel.top + _ROW_GAP
@@ -2970,6 +3319,35 @@ _Q_PITCH = 14.0
 _Q_GRID = 5
 _Q_GAP = 25.0  # x between the resistor bank and the PNP array
 
+#: The array's Nwell tap geometry (#519), named so the tap-distance invariant
+#: ``layout/tests/test_lvs_reference.py`` asserts against is derived from the
+#: same numbers the drawing is. The base ring is the tap: ``ring(COMP,
+#: _Q_TAP_RING_OFFSET_UM, _Q_TAP_RING_WIDTH_UM)`` is the n+ COMP band, with
+#: its NPLUS extending :data:`_Q_TAP_IMPLANT_OVERHANG_UM` beyond the COMP on
+#: every side -- the convention every tap this cell draws follows, because a
+#: tap COMP without its own implant is invisible to the tap rules (it is the
+#: implant layers that classify a tap) and an uncovered ``comp.coverage.1``
+#: violation besides.
+_Q_TAP_RING_OFFSET_UM = 4.0
+_Q_TAP_RING_WIDTH_UM = 2.0
+_Q_TAP_IMPLANT_OVERHANG_UM = 0.3
+
+#: A perimeter-only tap ring cannot satisfy the DRM's ``DF.13_LV`` (the
+#: deck's ``comp.tap_distance.nwell.lv.1``: an Nwell tap may sit at most
+#: 20 um from PCOMP inside the same well) at *any* width: the centre emitter
+#: is 28 um inside the emitter bounding box, so tap material outside that box
+#: is at least 28 um away. #519 therefore runs two interior stripes through
+#: the array, in the gaps either side of the centre column -- the only pair
+#: of stripe sites that is free of Metal2 routing (the Metal2 verticals sit
+#: over emitter centres at ``cx()``, not in the gaps) and mirror-symmetric
+#: about the centre unit, so the common-centroid matching the 8:1 emitter
+#: ratio rests on is preserved. Each neighbouring active unit's ``DRC_BJT``
+#: patch eats 1.0 um of the 4.0 um gap and ``BJT.3`` keeps a patch 0.1 um off
+#: unrelated COMP, leaving a 2.0 um inter-patch window; the stripe COMP is
+#: centred in it at 1.8 um.
+_Q_TAP_STRIPE_GAPS = (1, 2)  # the col1/col2 and col2/col3 gaps
+_Q_TAP_STRIPE_COMP_UM = 1.8
+
 #: The MiM cap ``XCC`` (#259, executing DR-028): the lower-left corner of its
 #: bottom plate. It sits in the band above the PMOS row's Nwell (which tops out
 #: at y = 54.5) and left of the passive field's own x0, which is empty in this
@@ -2998,19 +3376,16 @@ _MIM_ISLAND_XY = (210.0, 59.5)
 
 
 def _m2_h(b: CellBuilder, x0: float, x1: float, y: float) -> None:
-    b.box(METAL2, min(x0, x1), y - _M2_HALF, max(x0, x1), y + _M2_HALF)
+    _cap_wire(b, METAL2, x0, y, x1, y, width=_M2_HALF * 2.0)
 
 
 def _m2_v(b: CellBuilder, x: float, y0: float, y1: float) -> None:
-    b.box(METAL2, x - _M2_HALF, min(y0, y1), x + _M2_HALF, max(y0, y1))
+    _cap_wire(b, METAL2, x, y0, x, y1, width=_M2_HALF * 2.0)
 
 
 def _m1_to_m2(b: CellBuilder, x: float, y: float) -> None:
     """One Via1 with its own landing pad on both levels."""
-    half = _VIA_PAD_HALF
-    b.box(METAL1, x - half, y - half, x + half, y + half)
-    b.box(METAL2, x - half, y - half, x + half, y + half)
-    b.via(VIA1, x, y)
+    _cap_via(b, VIA1, METAL1, METAL2, x, y, pad=_VIA_PAD_HALF * 2.0)
 
 
 def _r_segment(b: CellBuilder, x: float, y: float, width: float, length: float) -> float:
@@ -3021,11 +3396,28 @@ def _r_segment(b: CellBuilder, x: float, y: float, width: float, length: float) 
     exactly ``width x length`` -- the extractor computes ``R = L / W * 350``
     from that region and nothing else, so the overhang is what makes the drawn
     resistance equal the one ``lvs_reference.py`` states.
+
+    The SAB overhang (:data:`SAB_OVERHANG_UM`, shared with the other two
+    widened-SAB constructions since #607; #518 originally gave this bank its
+    own ``_R_SAB_OVERHANG``) must stay strictly positive -- poly left
+    uncovered by SAB is silicided and would shunt the body in parallel, a
+    defect no deck rule and no extraction can see -- and at most 0.29 um,
+    where neighbouring segments' SAB markers would close to under
+    ``sab.space.1``'s 0.42 um; the ``assert`` below states that ceiling
+    against :data:`SAB_SPACE_MIN_UM` at generator time, like the other two
+    constructions do. Any non-negative overhang leaves the region's ``x``
+    bound at Poly2, so the resistance itself cannot move.
     """
+    # SB.2 budget (#607): neighbouring segments' SABs face each other across
+    # the _R_PITCH - width gap, each overhanging toward the other. Keep the
+    # deck's sab.space.1 minimum between them -- fail here, at generator
+    # time, rather than as a DRC violation.
+    assert _R_PITCH - width - 2 * SAB_OVERHANG_UM >= SAB_SPACE_MIN_UM
     height = length + 2.0 * _R_HEAD
     b.box(POLY2, x, y, x + width, y + height)
     b.box(PPLUS, x - 0.2, y - 0.2, x + width + 0.2, y + height + 0.2)
-    b.box(SAB, x - 0.4, y + _R_HEAD - 0.2, x + width + 0.4, y + _R_HEAD + length + 0.2)
+    b.box(SAB, x - SAB_OVERHANG_UM, y + _R_HEAD - 0.2,
+          x + width + SAB_OVERHANG_UM, y + _R_HEAD + length + 0.2)
     b.box(RES_MK, x - 0.3, y + _R_HEAD, x + width + 0.3, y + _R_HEAD + length)
     for end in (y + _R_HEAD / 2.0, y + height - _R_HEAD / 2.0):
         b.contact(x + width / 2.0, end)
@@ -3208,7 +3600,12 @@ def _temp_core_resistor_bank(
 def _temp_core_pnp_array(b: CellBuilder, channel: _Channel, x0: float, y0: float) -> None:
     """rank 3's vertical-PNP centroid array: ``XQ1`` at the centre of the
     active 3x3, the eight ``XQ8`` units around it, one shared base/collector
-    ring construction, and a dummy unit cell on the whole perimeter.
+    ring construction, and a dummy unit cell on the whole perimeter. The
+    ring's tap job is finished by two interior Nwell tap stripes (#519), in
+    the gaps either side of the centre column: a perimeter-only tap cannot
+    reach the centre emitter inside the DRM's 20 um ``DF.13_LV`` limit at any
+    ring width, so tap material has to run through the array (see
+    :data:`_Q_TAP_STRIPE_GAPS`).
 
     Only the nine active units carry a ``DRC_BJT`` patch, and each patch is
     scoped to its own emitter rather than blanketing the array. That is what
@@ -3268,9 +3665,13 @@ def _temp_core_pnp_array(b: CellBuilder, channel: _Channel, x0: float, y0: float
             b.contact(hi - mid, pos)
 
     # Shared base ring (n+ COMP inside the Nwell) ...
-    ring(COMP, 4.0, 2.0)
-    ring(NPLUS, 4.3, 2.6)
-    ring_contacts(4.0, 2.0)
+    ring(COMP, _Q_TAP_RING_OFFSET_UM, _Q_TAP_RING_WIDTH_UM)
+    ring(
+        NPLUS,
+        _Q_TAP_RING_OFFSET_UM + _Q_TAP_IMPLANT_OVERHANG_UM,
+        _Q_TAP_RING_WIDTH_UM + 2.0 * _Q_TAP_IMPLANT_OVERHANG_UM,
+    )
+    ring_contacts(_Q_TAP_RING_OFFSET_UM, _Q_TAP_RING_WIDTH_UM)
     ring(METAL1, 3.8, 1.6)
     # ... one Nwell holding the whole array and its base ring ...
     b.box(NWELL, x0 - 5.5, y0 - 5.5, x0 + span + 5.5, y0 + span + 5.5)
@@ -3279,6 +3680,42 @@ def _temp_core_pnp_array(b: CellBuilder, channel: _Channel, x0: float, y0: float
     ring(PPLUS, 10.3, 2.6)
     ring_contacts(10.0, 2.0)
     ring(METAL1, 9.8, 1.6)
+
+    # --- interior tap stripes (#519) ---------------------------------------
+    # The base ring above is the array's only Nwell tap, and it leaves the
+    # centre emitter 2 * _Q_PITCH + 2 = 30 um from tap material where DF.13_LV
+    # caps it at 20 um. Each stripe runs the full array height and merges into
+    # the ring's own COMP/NPLUS/Metal1 bands at top and bottom -- the stripes
+    # are the same net (the Nwell base) as the ring, and the merge is what
+    # ties them to the ring's Metal1 without any new routing. The lane()
+    # Metal2 runs that cross here (lane(0)/lane(3) over both stripes, lane(2)
+    # over the col1/col2 one) pass over the stripe Metal1 on another layer,
+    # with no via at any crossing, so nothing is bridged.
+    for gap in _Q_TAP_STRIPE_GAPS:
+        mid = x0 + gap * _Q_PITCH + _Q_EMITTER + (_Q_PITCH - _Q_EMITTER) / 2.0
+        half = _Q_TAP_STRIPE_COMP_UM / 2.0
+        overhang = half + _Q_TAP_IMPLANT_OVERHANG_UM
+        b.box(
+            COMP,
+            mid - half,
+            y0 - _Q_TAP_RING_OFFSET_UM,
+            mid + half,
+            y0 + span + _Q_TAP_RING_OFFSET_UM,
+        )
+        b.box(
+            NPLUS,
+            mid - overhang,
+            y0 - _Q_TAP_RING_OFFSET_UM - _Q_TAP_IMPLANT_OVERHANG_UM,
+            mid + overhang,
+            y0 + span + _Q_TAP_RING_OFFSET_UM + _Q_TAP_IMPLANT_OVERHANG_UM,
+        )
+        for y in _span(
+            y0 - _Q_TAP_RING_WIDTH_UM, y0 + span + _Q_TAP_RING_WIDTH_UM, TAP_PITCH_UM
+        ):
+            b.contact(mid, y)
+        # the ring's own Metal1 width (1.6) and extent (offset 3.8), so the
+        # stripe merges into its band rather than stopping clear of it.
+        b.box(METAL1, mid - 0.8, y0 - 3.8, mid + 0.8, y0 + span + 3.8)
 
     # --- the eight XQ8 emitters, all on NC --------------------------------
     # Every wire below stays out of lane(2), which is XQ1's only way out of
@@ -3533,10 +3970,12 @@ class _TopRoutes:
     so the guard is here and it raises.
     """
 
-    #: layer -> (name, minimum spacing between different nets, um). Thresholds
-    #: are the curated deck's own (``metal1.space.1`` 0.23, ``metal2.space.1``
-    #: and ``metal3.space.1`` 0.28); via layers have no deck rule, so they are
-    #: checked for overlap only.
+    #: layer -> (name, minimum spacing between different nets, um). Metal
+    #: thresholds are the curated deck's own (``metal1.space.1`` 0.23,
+    #: ``metal2.space.1`` and ``metal3.space.1`` 0.28). Via layers are checked
+    #: for overlap only: spacing between different nets is the deck's own
+    #: ``viaN.space.1`` rules' job (0.26 um), so this guard does not
+    #: duplicate it.
     LIMITS = {
         METAL1: ("Metal1", 0.23),
         METAL2: ("Metal2", 0.28),
@@ -3719,18 +4158,6 @@ def _top_escape(
     routes.via2(net, xe, ty)
 
 
-def _guard_ring_segments(
-    x0: float, y0: float, x1: float, y1: float
-) -> tuple[tuple[float, float, float, float], ...]:
-    """The four overlapping rectangles of a guard ring: bottom, top, left, right."""
-    return (
-        (x0, y0, x1, y0 + TOP_RING_W),
-        (x0, y1 - TOP_RING_W, x1, y1),
-        (x0, y0, x0 + TOP_RING_W, y1),
-        (x1 - TOP_RING_W, y0, x1, y1),
-    )
-
-
 def _top_guard_ring(routes: _TopRoutes, x0: float, y0: float, x1: float, y1: float) -> None:
     """A closed COMP+Metal1 p-substrate guard ring, contacted at 1 um.
 
@@ -3746,10 +4173,20 @@ def _top_guard_ring(routes: _TopRoutes, x0: float, y0: float, x1: float, y1: flo
     """
     import klayout.db as kdb
 
-    segments = _guard_ring_segments(x0, y0, x1, y1)
-    for rect in segments:
-        routes.box(COMP, "VSS", *rect)
-        routes.box(METAL1, "VSS", *rect)
+    # Same construction as the sub-cells' rings (``_draw_guard_ring``), at
+    # this cell's wider ring width; drawn through ``routes.box`` so the
+    # Metal1 rectangles carry the ``VSS`` tag for ``_TopRoutes.check``. The
+    # blanket and the contacts need no tag, so they go through the builder
+    # the helper holds.
+    segments = _draw_guard_ring(
+        routes.b,
+        x0,
+        y0,
+        x1,
+        y1,
+        width=TOP_RING_W,
+        box=lambda spec, *rect: routes.box(spec, "VSS", *rect),
+    )
 
     closed = kdb.Region()
     for rect in segments:
@@ -3760,13 +4197,6 @@ def _top_guard_ring(routes: _TopRoutes, x0: float, y0: float, x1: float, y1: flo
             f"guard ring ({x0}, {y0})-({x1}, {y1}) is not a closed annulus: "
             f"{closed.count()} polygon(s), {closed.holes().count()} hole(s)"
         )
-    half = TOP_RING_W / 2.0
-    for x in _span(x0 + half, x1 - half, TAP_PITCH_UM):
-        routes.b.contact(x, y0 + half)
-        routes.b.contact(x, y1 - half)
-    for y in _span(y0 + TOP_RING_W + half, y1 - TOP_RING_W - half, TAP_PITCH_UM):
-        routes.b.contact(x0 + half, y)
-        routes.b.contact(x1 - half, y)
 
 
 def temp_por_top(b: CellBuilder) -> None:
@@ -3971,6 +4401,20 @@ def temp_por_top(b: CellBuilder) -> None:
         TOP_SEAM_X1,
         TOP_SEAM_Y + TOP_RING_W / 2.0,
     )
+    # The moat is the always-on domain's p-substrate tie: p+ COMP (#516),
+    # grown off the strip it is drawn from.
+    b.blanket(
+        PPLUS,
+        [
+            (
+                TOP_SEAM_X0,
+                TOP_SEAM_Y - TOP_RING_W / 2.0,
+                TOP_SEAM_X1,
+                TOP_SEAM_Y + TOP_RING_W / 2.0,
+            )
+        ],
+        IMPLANT_OVERHANG_UM,
+    )
     for x in _span(TOP_SEAM_X0 + 1.0, TOP_SEAM_X1 - 1.0, TAP_PITCH_UM):
         b.contact(x, TOP_SEAM_Y)
 
@@ -4009,12 +4453,18 @@ def temp_por_top(b: CellBuilder) -> None:
 
 
 def _top_assert_connected(b: CellBuilder) -> None:
-    """Every via this cell drew lands inside metal on both of its levels.
+    """Every Via1/Via2 this cell's hierarchy drew lands inside metal on both
+    of its levels (Via3/Via4 -- the MiM caps' vias -- are not covered; see
+    ``layout/README.md`` -> "DRC is a curated subset").
 
-    A via drawn a hair off its landing pad costs nothing in DRC (the curated
-    deck has no via rule at all) and produces an open, not a short -- which
-    LVS *does* catch, but only as an unexplained topology mismatch a long way
-    from its cause. Checking it here turns that into a build-time failure that
+    A via drawn off its landing pad produces an open, not a short. The deck's
+    enclosure rules catch the partial case -- ``metal1.enclosing.via1.1``/
+    ``metal2.enclosing.via2.1`` fire on a via hanging over its pad's edge
+    (measured on the pinned deck) -- but a via landed *wholly* off its metal
+    reports clean: those rules' zero-overlap escape term only considers vias
+    that touch the pad (klayout-tools#5737, reproduced here). LVS catches
+    either case, but only as an unexplained topology mismatch a long way from
+    its cause. Checking it here turns both into a build-time failure that
     names the layer.
     """
     import klayout.db as kdb
@@ -4035,6 +4485,98 @@ def _top_assert_connected(b: CellBuilder) -> None:
 
 
 #: cell name -> body. Add a cell here and it joins ``layout/run_checks.sh``.
+def _assert_implant_types(b: CellBuilder, cell: str) -> None:
+    """Build-time implant-type assertion (#516).
+
+    ``comp.coverage.1`` is satisfied by *either* implant and no deck rule
+    checks the type, so a p+ diffusion over an NMOS passes DRC and LVS clean
+    while being wrong in silicon -- ``klt``'s device recognition carries
+    ``requires: []`` for the implant layers, so LVS cannot see the swap
+    either. This assertion is the check that can, over the cell's own
+    flattened geometry:
+
+    * MOS COMP -- any polygon the gate poly crosses -- outside every Nwell
+      is inside ``Nplus`` (field NMOS), and inside an Nwell inside
+      ``Pplus`` (well PMOS);
+    * PNP emitter COMP (``Comp & DRC_BJT``) is inside ``Pplus`` -- it sits
+      inside the base Nwell, but it is p+ all the same;
+    * every other ungated COMP polygon on the substrate side (taps, straps,
+      rings) is inside ``Pplus``;
+    * every other ungated COMP polygon inside an Nwell is inside *either*
+      implant. This is the one deliberate weakening: an unmarked in-well
+      diffusion can legitimately be p+ -- ``temp_core``'s PNP array draws
+      sixteen dummy emitters with no ``DRC_BJT`` patch, because marking
+      them would put sixteen devices in the netlist -- and nothing
+      geometry-visible distinguishes such a dummy from an n+ well tie, so
+      the assertion demands coverage here and the tie *type* stays a
+      design-review claim, ring by ring;
+    * and the implants obey the same-layer rules among themselves --
+      ``nplus.space.1``/``pplus.space.1`` and ``nplus.width.1``/
+      ``pplus.width.1``, all 0.40 um -- so a blanket pair an unlucky COMP
+      pitch pushes inside the space rule fails here, at build time.
+
+    A swapped implant fails the first two bullets; a missing one fails
+    whichever bullet names its COMP; a same-layer implant spacing or width
+    defect fails the last. These are claims about this layout the deck
+    cannot make, the same way ``_top_guard_ring``'s annulus assertion is
+    (``layout/README.md`` -> "Known deck limits").
+    """
+    import klayout.db as kdb
+
+    def region(spec) -> kdb.Region:
+        return kdb.Region(b.cell.begin_shapes_rec(b._layer(spec))).merged()
+
+    def require_covered(covered: kdb.Region, cover: kdb.Region, what: str) -> None:
+        missed = covered.not_inside(cover)
+        if not missed.is_empty():
+            raise AssertionError(
+                f"{cell}: {what} is not covered by the required implant "
+                f"(first offender near {missed.bbox().to_dtype(b.layout.dbu)})"
+            )
+
+    comp = region(COMP)
+    poly = region(POLY2)
+    nwell = region(NWELL)
+    nplus = region(NPLUS)
+    pplus = region(PPLUS)
+
+    # A MOS diffusion is one COMP polygon -- gate strip in the middle, bare
+    # source/drain either side -- so "gated" is a property of the *polygon*
+    # (it interacts with Poly2 somewhere), never of the region intersection:
+    # ``comp - poly2`` would classify every MOS's own source/drain as tap
+    # COMP. Taps, straps, rings and emitters have no poly over them at all.
+    mos_comp = comp.interacting(poly)
+    tap_comp = comp - mos_comp
+
+    require_covered(mos_comp - nwell, nplus, "MOS COMP outside every Nwell (NMOS)")
+    require_covered(mos_comp & nwell, pplus, "MOS COMP inside an Nwell (PMOS)")
+
+    require_covered(tap_comp & region(DRC_BJT), pplus, "PNP emitter COMP")
+    plain = tap_comp - region(DRC_BJT)
+    require_covered(
+        plain - nwell, pplus, "ungated COMP outside every Nwell (substrate ties)"
+    )
+    # Coverage only -- see the docstring's fourth bullet for why the *type*
+    # of an unmarked in-well diffusion is not build-time assertable.
+    require_covered(
+        plain & nwell,
+        nplus | pplus,
+        "ungated COMP inside an Nwell (well ties and in-well diffusions)",
+    )
+
+    for spec, layer_name in ((NPLUS, "nplus"), (PPLUS, "pplus")):
+        drawn = region(spec)
+        for check, limit in (
+            ("space", IMPLANT_MIN_SPACE_UM),
+            ("width", IMPLANT_MIN_WIDTH_UM),
+        ):
+            if sum(1 for _ in getattr(drawn, f"{check}_check")(limit).each()):
+                raise AssertionError(
+                    f"{cell}: drawn {layer_name} violates the {limit} um "
+                    f"{check} rule ({layer_name}.{check}.1)"
+                )
+
+
 CELLS = {
     "bias_core": bias_core,
     "por_comparator": por_comparator,
@@ -4048,6 +4590,7 @@ CELLS = {
 def build(name: str, out_dir: Path) -> Path:
     builder = CellBuilder(name)
     CELLS[name](builder)
+    _assert_implant_types(builder, name)
     out_dir.mkdir(parents=True, exist_ok=True)
     path = out_dir / f"{name}.gds"
     builder.write(path)

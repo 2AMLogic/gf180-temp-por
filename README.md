@@ -196,11 +196,14 @@ python3 signoff/check.py                        # re-grade; fails on evidence ro
 - [`signoff/README.md`](signoff/README.md) reads that verdict out item by item,
   with the coverage gaps and disclosed exceptions each `met` row carries.
 
-The verdict today is **`tier: null` — 8 of 11 T1 items met** (items 5, 6 and 7 unmet). That is deliberately
-a stricter question than "does the repo contain the artifact?", and the report,
-not any prose in this repo, is the answer of record. CI re-runs it on every
-push and pull request, so a claim citing an artifact that has since changed
-fails rather than quietly rotting.
+The verdict today is whatever
+[`signoff/tier-report.json`](signoff/tier-report.json) reports — read its
+`tier`, `t1_met_count` and per-item `status` fields rather than a count
+written into prose here, which drifts the moment any item moves. The report
+asks a deliberately stricter question than "does the repo contain the
+artifact?", and it, not any prose in this repo, is the answer of record. CI
+re-runs it on every push and pull request, so a claim citing an artifact that
+has since changed fails rather than quietly rotting.
 
 ## Independent verification (Chipalooza)
 
@@ -222,9 +225,9 @@ files](#mapping-the-proposals-spec-table-to-output-files)" below).
 | Tool | Version | Why | Install |
 |---|---|---|---|
 | `ngspice` | any recent release (`ngspice-46` is what this repo's own evidence and CI use) | circuit simulation | `apt-get install ngspice` / `brew install ngspice` |
-| gf180mcu PDK | `open_pdks` commit `c6d73a35f524070e85faff4a6a9eef49553ebc2b` — the revision this repo's committed `sim/` evidence and `.github/workflows/ci.yml` are taken against | device models | `pip install volare && volare enable --pdk gf180mcu c6d73a35f524070e85faff4a6a9eef49553ebc2b`, or an equivalent [`ciel`](https://github.com/efabless/ciel)/[IIC-OSIC-TOOLS](https://github.com/iic-jku/iic-osic-tools)-provisioned install |
+| gf180mcu PDK | `open_pdks` commit `f6eeac7dad085ffcc829ccfd721f7b4ce39edcf7` — the revision new `sim/` evidence and `.github/workflows/ci.yml` are taken against (older records were minted against the previous pinned build and name their own build; see [DR-032](spec/decision-records/DR-032-open-pdks-revision-for-sim-evidence.md)) | device models | `pip install ciel && ciel enable --pdk gf180mcu f6eeac7dad085ffcc829ccfd721f7b4ce39edcf7` (installs into `~/.ciel/`), or an equivalent [`volare`](https://github.com/efabless/volare)/[IIC-OSIC-TOOLS](https://github.com/iic-jku/iic-osic-tools)-provisioned install |
 | `xschem` | ≥ 3.4.7 | schematic capture / netlist export — **not** needed to run `make check`/`make smoke`/`make characterize` below, which simulate the netlists already committed under `design/netlist/`; only needed to regenerate them | build from source per [`design/README.md`](design/README.md)'s Requirements note (Ubuntu's apt package below 3.4.7 has a netlisting regression) |
-| python3 | ≥ 3.9 | the simulation harness itself | stdlib only — no pip packages needed for `make check`/`make smoke`/`make characterize` |
+| python3 | ≥ 3.9 | the simulation harness itself | stdlib only — no pip packages needed for `make check`/`make smoke`/`make characterize` (`make check` also needs `klt`, next row) |
 | `klayout-tools` (`klt`) 0.6.0, KLayout, Magic, Netgen | pinned in [`layout/toolchain.json`](layout/toolchain.json) | layout DRC/LVS/extraction | `uv tool install --force klayout-tools==0.6.0`; KLayout/Magic/Netgen themselves come bundled with a `ciel`/IIC-OSIC-TOOLS PDK install, or install separately per `klayout-tools`' own docs |
 
 The last row is listed for completeness of the open-source flow this project
@@ -248,7 +251,7 @@ Run these from the repository root.
 
 | Target | What it does | Measured wall-clock (8-core host, this repo's own dry run below) | Exit code |
 |---|---|---|---|
-| `make check` | `sim/build_tb.py --check` (testbench fragments match `design/netlist/` exports) + `make test` (`sim/tests`/`layout/tests`/`signoff/tests`/`scripts/tests` unit tests) (headless, no PDK needed) + an explicit environment/PDK report (`sim/run_corners.py --check-env`) | ~2 s | non-zero on any failure, including a missing PDK or ngspice |
+| `make check` | `sim/build_tb.py --check` (testbench fragments match `design/netlist/` exports) + `signoff/check.py` (CI's evidence-rot gate on the live tree; **needs `klt` on `PATH`**, a grader newer than the pin only warns) + `make test` (`sim/tests`/`layout/tests`/`signoff/tests`/`scripts/tests` unit tests) (headless, no PDK needed) + an explicit environment/PDK report (`sim/run_corners.py --check-env`) | ~25 s (the `signoff/check.py` step is ~1–3 s of it) | non-zero on any failure, including stale signoff evidence, a missing `klt`, PDK or ngspice |
 | `make smoke` | `sim/selftest.sh`: harness unit tests plus a full-PVT-grid (81-point) run of the harness's own acceptance testbench, `sim/smoke-bias/` (an ideal divider, a PDK poly-resistor/nfet bias, and the same vertical-PNP diode the sensing core's CTAT leg is built from) — proves ngspice, the PDK, and the corner-sweep mechanics all actually work, fast | ~3-4 s | non-zero on any failure |
 | `make characterize` | The full campaign behind the proposal's §4 spec table: every **schematic-level** experiment discovered under `sim/*/testbench/` — the full 81-point PVT grid for a deterministic experiment (`sim/run_corners.py`), or the full N≥500-per-binding-point Monte Carlo sweep for one that carries an `"mc"` block (`sim/run_mc.py`) — each minting a new append-only evidence record | see "Fresh-clone dry run" below | non-zero if any experiment fails |
 

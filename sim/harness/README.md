@@ -49,7 +49,7 @@ python3 sim/run_mc.py temp-accuracy-mc     # N samples per binding point, mint a
 | Tool | Why | Install |
 |---|---|---|
 | `ngspice` | simulation | `brew install ngspice` / `apt-get install ngspice` |
-| gf180mcu PDK | device models | `pip install volare && volare enable --pdk gf180mcu <hash>` |
+| gf180mcu PDK | device models | `pip install ciel && ciel enable --pdk gf180mcu <hash>` — `<hash>` is the pinned revision named in the [root README](../../README.md) prerequisites row (don't restate it here); a `volare`-provisioned install works too |
 | `xschem` | schematic capture (optional for simulation) | `brew install xschem` / distro package |
 | python3 ≥ 3.9 | the harness | stdlib only, no packages |
 

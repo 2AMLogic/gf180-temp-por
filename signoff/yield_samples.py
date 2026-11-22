@@ -67,14 +67,6 @@ def _tb(experiment: str) -> dict:
     return json.loads((SIM_DIR / experiment / "testbench" / "tb.json").read_text())
 
 
-def _split_sample(stem: str, labels: list[str]) -> tuple[str, int]:
-    """`<label>_<corner>_<T>c_<V>v_s<NNNN>` -> (label, sample index)."""
-    for label in sorted(labels, key=len, reverse=True):
-        if stem.startswith(label + "_"):
-            return label, int(stem.rsplit("_s", 1)[1])
-    raise ValueError(f"log {stem!r} matches no binding point in tb.json")
-
-
 def load_samples(experiment: str) -> dict[str, dict[str, list[float]]]:
     """binding label -> measurement -> values, ordered by sample index."""
     cfg = CAMPAIGNS[experiment]
@@ -82,7 +74,12 @@ def load_samples(experiment: str) -> dict[str, dict[str, list[float]]]:
     points = runner.load_points(SIM_DIR / experiment / "corners", cfg["record_id"])
     by_label: dict[str, dict[int, dict[str, float]]] = {label: {} for label in labels}
     for stem, measurements in points.items():
-        label, sample = _split_sample(stem, labels)
+        parsed = montecarlo.parse_sample_id(stem, labels)
+        if parsed is None:
+            # A stem no binding point accounts for is bad raw data, not a
+            # name to skip silently -- this is signoff evidence.
+            raise ValueError(f"log {stem!r} matches no binding point in tb.json")
+        label, _corner, _temp_c, _supply, sample = parsed
         values = dict(measurements)
         if _tb(experiment)["mc"].get("derive") == "temp_trim":
             values.update(montecarlo.derive_temp_trim(values))

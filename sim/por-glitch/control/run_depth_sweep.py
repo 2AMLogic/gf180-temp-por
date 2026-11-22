@@ -139,20 +139,16 @@ def compose_deck(
     lines += runner.deck_preamble(pdk, corner, temp_c, options)
     lines += [
         "",
-        f'.include "{os.path.relpath(FRAGMENT, deck_dir)}"',
+        *runner.deck_includes(deck_dir, FRAGMENT),
         f'.include "{dut_rel}"',
         "",
         ".tran 20u {stop_s}",
         "",
-        ".control",
-        "set numdgt=10",
-        "set noaskquit",
+    ]
+    lines += runner.deck_control_block([
         "run",
         f"wrdata {trace_name} " + " ".join(expr for expr, _ in PROBES),
-        ".endc",
-        ".end",
-        "",
-    ]
+    ])
     return "\n".join(lines)
 
 

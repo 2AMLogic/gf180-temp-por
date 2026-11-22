@@ -20,7 +20,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Callable
 
-from . import evidence_store
+from . import HARNESS_VERSION, evidence_store
 from .pdk import Pdk, PdkNotFound, find_pdk
 from .testbench import MANIFEST_NAME, TESTBENCH_DIRNAME, discover
 
@@ -108,6 +108,57 @@ def default_jobs(cpu_count: int | None = None) -> int:
     """
     cores = cpu_count if cpu_count is not None else (os.cpu_count() or 2)
     return max(1, cores // 2)
+
+
+def add_common_run_args(parser: argparse.ArgumentParser, *which: str) -> None:
+    """Add the run options shared byte-identically by the two CLIs.
+
+    ``-j/--jobs``, ``--no-write``, ``--quiet`` and ``--version`` are
+    declared with identical flags, defaults and help text by both
+    ``sim/harness/cli.py`` and ``sim/run_mc.py``; centralising them here
+    (beside ``add_author_arg``) means a change to one of them only has to
+    happen once. The other options the two parsers share are deliberately
+    *not* here: ``--timeout``'s help text differs ("per-point" vs
+    "per-sample"), as do ``testbench``, ``--list``, ``--claim`` and
+    ``--supersedes``.
+
+    ``which`` optionally names a subset to add, in the order given --
+    argparse lists options in declaration order and both CLIs interleave
+    other options (the backend flags) between these four at different
+    points, so the callers request the slices that keep their ``--help``
+    output unchanged. With no arguments, all four are added in canonical
+    order (jobs, no_write, quiet, version).
+    """
+    if not which:
+        which = ("jobs", "no_write", "quiet", "version")
+    for name in which:
+        if name == "jobs":
+            parser.add_argument(
+                "-j",
+                "--jobs",
+                type=int,
+                default=0,
+                help="parallel ngspice runs (default: half the host's logical cores, "
+                "min 1 -- a per-process default that does not account for other "
+                "concurrent invocations on the same host; see cliutil.default_jobs)",
+            )
+        elif name == "no_write":
+            parser.add_argument(
+                "--no-write",
+                action="store_true",
+                help="run but do not record evidence (debugging only)",
+            )
+        elif name == "quiet":
+            parser.add_argument("--quiet", action="store_true", help="only print the summary")
+        elif name == "version":
+            parser.add_argument(
+                "--version", action="version", version=f"gf180-temp-por harness {HARNESS_VERSION}"
+            )
+        else:
+            raise ValueError(
+                f"unknown common run arg {name!r} "
+                "(expected one of: jobs, no_write, quiet, version)"
+            )
 
 
 def fmt(value) -> str:

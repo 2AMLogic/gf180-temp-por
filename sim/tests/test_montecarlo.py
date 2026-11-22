@@ -147,6 +147,116 @@ class GridTests(unittest.TestCase):
         self.assertIn("b_ss_125c_3.63v_s0499", ids)
 
 
+class ParseSampleIdTests(unittest.TestCase):
+    """montecarlo.parse_sample_id mirrors corners.parse_corner_id: the
+    harness owns McPoint.corner_id's forward direction, so it owns the
+    inverse too -- analysis scripts must not hand-roll their own."""
+
+    def setUp(self):
+        from harness.corners import CORNERS
+
+        self.bp = [
+            BindingPoint(label="temp_lo_vdd_lo", corner=CORNERS["tt"], temp_c=-40.0, vdd=2.97),
+            BindingPoint(label="vth-rise-max", corner=CORNERS["bjt_ff"], temp_c=125.0, vdd=3.63),
+            BindingPoint(label="temp_frac", corner=CORNERS["ss"], temp_c=1e-5, vdd=3.30),
+        ]
+
+    def test_parse_sample_id_splits_the_ratified_naming(self):
+        self.assertEqual(
+            montecarlo.parse_sample_id("temp_lo_vdd_lo_tt_-40c_2.97v_s0000"),
+            ("temp_lo_vdd_lo", "tt", -40.0, "2.97", 0),
+        )
+        self.assertEqual(
+            montecarlo.parse_sample_id("vth-rise-max_bjt_ff_125c_3.63v_s0499"),
+            ("vth-rise-max", "bjt_ff", 125.0, "3.63", 499),
+        )
+
+    def test_parse_sample_id_returns_the_supply_verbatim(self):
+        """The supply stays a string, same contract as parse_corner_id."""
+        self.assertEqual(
+            montecarlo.parse_sample_id("a_tt_27c_3.3v_s1"),
+            ("a", "tt", 27.0, "3.3", 1),
+        )
+
+    def test_parse_sample_id_round_trips_every_point_of_an_mc_grid(self):
+        """The parser is the exact inverse of McPoint.corner_id."""
+        points = montecarlo.build_mc_grid(self.bp, n=500, seed_base=1)
+        self.assertEqual(len(points), 1500)
+        for point in points:
+            with self.subTest(corner_id=point.corner_id):
+                parsed = montecarlo.parse_sample_id(point.corner_id)
+                self.assertIsNotNone(parsed)
+                label, process, temp_c, supply, sample = parsed
+                self.assertEqual(label, point.label)
+                self.assertEqual(process, point.corner.name)
+                self.assertAlmostEqual(temp_c, point.temp_c)
+                self.assertAlmostEqual(float(supply), point.vdd)
+                self.assertEqual(sample, point.sample)
+
+    def test_parse_sample_id_round_trips_with_known_labels(self):
+        points = montecarlo.build_mc_grid(self.bp, n=500, seed_base=1)
+        labels = [b.label for b in self.bp]
+        for point in points:
+            with self.subTest(corner_id=point.corner_id):
+                parsed = montecarlo.parse_sample_id(point.corner_id, labels)
+                self.assertIsNotNone(parsed)
+                label, _process, _temp_c, _supply, sample = parsed
+                self.assertEqual(label, point.label)
+                self.assertEqual(sample, point.sample)
+
+    def test_known_labels_resolve_an_ambiguous_split_the_manifest_way(self):
+        """`a` + `b_tt` and `a_b` + `tt` both match the shape; the manifest's
+        label list, not a greedy guess, decides (signoff/yield_samples.py
+        passes exactly these labels)."""
+        parsed = montecarlo.parse_sample_id("a_b_tt_27c_3.30v_s7", ["a", "a_b"])
+        self.assertEqual(parsed, ("a_b", "tt", 27.0, "3.30", 7))
+        parsed = montecarlo.parse_sample_id("a_b_tt_27c_3.30v_s7", ["a"])
+        self.assertEqual(parsed, ("a", "b_tt", 27.0, "3.30", 7))
+
+    def test_known_labels_recover_a_compound_label_before_a_short_corner(self):
+        """``sensor_bjt`` + ``ff`` splits two ways (``sensor`` + ``bjt_ff``
+        also names a known corner); the manifest's label list picks the
+        intended pair, the way analyze_breakdown.load_samples passes the
+        record's own binding points."""
+        parsed = montecarlo.parse_sample_id("sensor_bjt_ff_25c_3.30v_s0000", ["sensor_bjt"])
+        self.assertEqual(parsed, ("sensor_bjt", "ff", 25.0, "3.30", 0))
+
+    def test_parse_sample_id_accepts_exponent_notation_temperatures(self):
+        """``:g`` writes a small temp as ``1e-05``; both parsing paths must
+        read back what the formatter wrote (breakdown and signoff both
+        parse ids off disk)."""
+        self.assertEqual(
+            montecarlo.parse_sample_id("test_tt_1e-05c_3.30v_s0000"),
+            ("test", "tt", 1e-05, "3.30", 0),
+        )
+        self.assertEqual(
+            montecarlo.parse_sample_id("test_tt_1e-05c_3.30v_s0000", ["test"]),
+            ("test", "tt", 1e-05, "3.30", 0),
+        )
+        self.assertEqual(
+            montecarlo.parse_sample_id("test_tt_1.23457e+06c_3.30v_s0000", ["test"]),
+            ("test", "tt", 1.23457e06, "3.30", 0),
+        )
+
+    def test_parse_sample_id_returns_none_for_foreign_ids(self):
+        """Callers skip names in other shapes instead of catching an exception."""
+        for foreign in (
+            "",
+            "tt_27c_3.30v",  # a plain PVT corner id, not an MC sample id
+            "tt_27c_3v_s7",  # supply needs a decimal point
+            "a_tt_27c_3.30v",  # no sample index
+            "a_tt_27c_3.30v_s",  # sample index is empty
+            "summary.json",
+            "20260802-082345-989ce7a",
+        ):
+            with self.subTest(stem=foreign):
+                self.assertIsNone(montecarlo.parse_sample_id(foreign))
+                self.assertIsNone(montecarlo.parse_sample_id(foreign, ["a"]))
+
+    def test_parse_sample_id_returns_none_when_no_known_label_matches(self):
+        self.assertIsNone(montecarlo.parse_sample_id("nope_tt_27c_3.30v_s7", ["a", "b"]))
+
+
 class DeckCompositionTests(unittest.TestCase):
     def setUp(self):
         import json
@@ -203,6 +313,25 @@ class DeckCompositionTests(unittest.TestCase):
         self.assertIn(".param vdd_val=3.63", self.deck)
         self.assertIn(".temp -40", self.deck)
 
+    def test_deck_tail_is_the_shared_control_block(self):
+        """The measurement tail is ``runner.deck_control_block()``'s exact
+        shape (#597): the shared settings lines, the indented body, then
+        ``.endc`` / ``.end``."""
+        self.assertTrue(
+            self.deck.endswith(
+                ".control\n"
+                "set numdgt=10\n"
+                "set noaskquit\n"
+                "  dc temp -40 -40 1\n"
+                "  let m_vout = v(out)\n"
+                "  print m_vout\n"
+                ".endc\n"
+                ".end\n"
+            ),
+            "MC deck tail drifted off deck_control_block()'s shape "
+            f"(#597); tail now:\n{self.deck[-300:]}",
+        )
+
 
 class DeriveTempTrimTests(unittest.TestCase):
     def test_zero_curvature_zero_die_gives_only_quantisation(self):
@@ -214,7 +343,7 @@ class DeriveTempTrimTests(unittest.TestCase):
         out = montecarlo.derive_temp_trim(
             {"vptat25_v": vptat25, "vptattgt_v": vptattgt, "vtktgt_k": t_k}
         )
-        self.assertAlmostEqual(out["terr_trim_c"], (montecarlo._TRIM_LSB_FRAC / 2.0) * t_k)
+        self.assertAlmostEqual(out["terr_trim_c"], (montecarlo.TRIM_LSB_FRAC / 2.0) * t_k)
 
     def test_missing_inputs_return_empty(self):
         self.assertEqual(montecarlo.derive_temp_trim({"vptat25_v": 1.0}), {})

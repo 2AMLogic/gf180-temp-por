@@ -29,7 +29,7 @@ which invalidated every prior hand-read in the fleet at a stroke.
 prose disagree — including #145's checkboxes — the report wins, and the prose
 is the thing that is wrong.
 
-## The current verdict: `tier: null`, 9 of 11 items met
+## The current verdict
 
 Rendered by `klt 0.9.1` against its bundled `docs/design-evidence-tiers.md`.
 Block `kind` is **`analog`**: a single analog partition with no synthesized
@@ -41,24 +41,26 @@ artifact, and there is no partition boundary to declare.
 | # | Item | Verdict | What actually backs it |
 |---|---|---|---|
 | 1 | Design sources | **`met`** | `evidence/t1-item-1-design-sources.json`, a generic envelope bound (`artifact_binding.input_verified: true`) to `evidence/inventory-design-sources.json`: the 5 xschem schematics under `design/` and the 5 derived `design/netlist/*.spice`, each with its sha256, plus the regeneration gate `design/netlist.py --check`. **Binding limits below.** |
-| 2 | Layout | **`met`** | `evidence/t1-item-2-layout.json`, a generic envelope bound directly to `layout/cells/temp_por_top.gds` (`sha256:c7e4c0f4…`, the hash items 3, 4 and 11 pin). Its summary names the other 5 GDS under `layout/cells/` and the gate `layout/build_cells.py --check`. **Binding limits below.** |
-| 3 | DRC clean | **`met`** | `layout/reports/temp_por_top/drc.json` — `status: clean`, deck `gf180mcu`, pinned to `sha256:c7e4c0f4…` which is the sha256 of the committed `layout/cells/temp_por_top.gds`. **Coverage gaps disclosed below.** |
-| 4 | LVS clean | **`met`** | `layout/reports/temp_por_top/lvs.json` — `status: match`, engine `klayout` 0.30.10, 143/143 nets, 239/239 devices, 5/5 pins. **Warnings-only mismatches and a freshness caveat disclosed below.** |
+| 2 | Layout | **`met`** | `evidence/t1-item-2-layout.json`, a generic envelope bound directly to `layout/cells/temp_por_top.gds` (`sha256:ae403395…`, the hash items 3, 4 and 11 pin). Its summary names the other 5 GDS under `layout/cells/` and the gate `layout/build_cells.py --check`. **Binding limits below.** |
+| 3 | DRC clean | **`met`** | `layout/reports/temp_por_top/drc.json` — `status: clean`, deck `gf180mcu`, pinned to `sha256:ae403395…` which is the sha256 of the committed `layout/cells/temp_por_top.gds`. **Coverage gaps disclosed below.** |
+| 4 | LVS clean | **`met`** | `layout/reports/temp_por_top/lvs.json` — `status: match`, engine `klayout` 0.30.10, 139/139 nets, 239/239 devices, 5/5 pins. **Warnings-only mismatches and a freshness caveat disclosed below.** |
 | 5 | Full corner verification vs a ratified spec | `unmet` / `partial_coverage` | The 81-point PVT matrix exists under `sim/*/records/`, but as this repo's own Markdown evidence records — there is no `klt sim` JSON envelope to cite. The manifest already declares `spec_rows."5"` (every `measured`/`derived` row in `evidence/inventory-testbenches.json`, each a gap naming the issue that will cover it: [#388](https://github.com/2AMLogic/gf180-temp-por/issues/388), [#389](https://github.com/2AMLogic/gf180-temp-por/issues/389)); The 0.9.1 grader surfaces the declared gaps as `partial_coverage` (0.8.0 held `no_evidence`); the pin move changed this label only, no evidence moved. |
 | 6 | Statistical claims carry Monte Carlo evidence | **`unmet` / `check_failed`** | Two committed `klt yield` reports, one per row set, declared under `spec_rows."6"` with one citation each: `evidence/yield/temp-accuracy-mc.yield.json` (`temp-accuracy-untrimmed`, `temp-accuracy-trimmed`) and `evidence/yield/por-threshold-mc.yield.json` (`por-vth-rise`, `por-vth-fall`, `por-hysteresis`). No row is `uncovered`. See "Item 6" below for why both row sets fail. |
 | 7 | Post-layout verification | **`unmet` / `check_failed`** | `layout/reports/temp_por_top/pex.json`, a `klt pex` report (`--measure-command` mode) on `layout/cells/temp_por_top.gds` against `design/netlist/temp_por_top.spice`: four `temp_por_top` experiments (`por-vth`, `por-brownout`, `por-ramp-rate`, `temp-accuracy-vt`) over 351 corner decks, 9153 `delta[]` rows, **48 errored** (all `por-brownout`: the schematic leg yields no value for `treassert`, `trel2`, `trel2_last`, `t_reassert_us`, `t_pulse_regen_ms` and `release_chatter_us` at 8 corners, which the extracted leg does measure). Covers 11 spec rows (`por-vth-rise`, `por-vth-fall`, `por-hysteresis`, `por-brownout`, `por-ramp-rate`, `iq-total`, `por-iq`, `temp-accuracy-untrimmed`, `temp-iq`, `temp-supply-sensitivity`, `temp-vt-transfer`); the three cell-level rows `por-reset-pulse`, `por-reset-valid-floor` and `temp-trim-strategy` are covered by two further `klt pex` reports, `layout/reports/por_output_chain/pex.json` (162 corner decks, 1944 `delta[]` rows, 0 errored, status `pass`) and `layout/reports/temp_core/pex.json` (216 corner decks, 4320 rows, 0 errored, status `pass`), each graded `met` when cited alone but **not cited by the manifest**, because `klt signoff` accepts exactly one `klt pex` citation for item 7 (a list grades `invalid_evidence`); the one remaining declared gap (`spec_rows."7"`) is `temp-accuracy-trimmed` (derived, not a `.meas`; [#391](https://github.com/2AMLogic/gf180-temp-por/issues/391)). **`body_bias.status` is `unbiased`** (64 PMOS bodies); see the item 7 section below. |
 | 8 | Characterization report | **`met`** | `evidence/characterization-report.json`, a generic envelope wrapping `spec/target-spec.md`, pinned to `sha256:d78561ee…`. **Disclosed exceptions below.** |
 | 9 | Testbenches shipped | **`met`** | `evidence/t1-item-9-testbenches.json`, bound to `evidence/inventory-testbenches.json`: all 29 spec rows classified, every measured row mapped to the committed `testbench/` and `testbench-postlayout/` files of 24 `sim/` experiments (each file hashed, with the testbench's own PVT settings from its `tb.json`), the cold-start invocations from `sim/harness/README.md`, and the PDK pin from `.github/workflows/ci.yml`. **Binding limits below.** |
 | 10 | Repo hygiene | **`met`** | `evidence/t1-item-10-repo-hygiene.json`, bound to `evidence/inventory-repo-hygiene.json`: `README.md`, `LICENSE`, `spec/target-spec.md` and `.github/workflows/ci.yml`, each hashed, with four stated assertions re-checked on every run. **Binding limits below.** |
-| 11 | Power delivery (structural) | **`met`** | `layout/reports/temp_por_top/erc_supply.json` (a `klt erc` supply-spec run) plus `layout/reports/temp_por_top/lvs.json`, whose `net_correspondence` carries both supplies ([#300](https://github.com/2AMLogic/gf180-temp-por/issues/300), `ties[]` added by [#310](https://github.com/2AMLogic/gf180-temp-por/issues/310)). The report has `erc_finding_count: 0` — zero `erc.supply_short`, zero `erc.unconnected_net`, and zero `erc.missing_tie`, with all four declared `ties[]` entries graded `checked` (none `skipped`/degenerate) — pinned to `sha256:c7e4c0f4…` (the committed GDS) and `sha256:773047b1…` (the committed spec). The grader reports all four ties as caller-asserted (`ties_checked_by_assertion`), three of them resting on an asserted well (`ties_checked_by_well_assertion`) — this is provenance, not a weaker bar; see `layout/README.md`'s "Item 11" section. **Produced with the released `klt 0.7.0`** (PR #351's operator ruling declined to grade item 11 on an earlier unreleased-build run; the report was regenerated on the released tool and the caveat retired — see below), with the spec's own declared coverage disclosed below. |
+| 11 | Power delivery (structural) | **`met`** | `layout/reports/temp_por_top/erc_supply.json` (a `klt erc` supply-spec run) plus `layout/reports/temp_por_top/lvs.json`, whose `net_correspondence` carries both supplies ([#300](https://github.com/2AMLogic/gf180-temp-por/issues/300), `ties[]` added by [#310](https://github.com/2AMLogic/gf180-temp-por/issues/310)). The report has `erc_finding_count: 0` — zero `erc.supply_short`, zero `erc.unconnected_net`, and zero `erc.missing_tie`, with all four declared `ties[]` entries graded `checked` (none `skipped`/degenerate) — pinned to `sha256:ae403395…` (the committed GDS) and `sha256:773047b1…` (the committed spec). The grader reports all four ties as caller-asserted (`ties_checked_by_assertion`), three of them resting on an asserted well (`ties_checked_by_well_assertion`) — this is provenance, not a weaker bar; see `layout/README.md`'s "Item 11" section. **Produced with the released `klt 0.7.0`** (PR #351's operator ruling declined to grade item 11 on an earlier unreleased-build run; the report was regenerated on the released tool and the caveat retired — see below), with the spec's own declared coverage disclosed below. |
 
-**9 of 11 is a lower number than #145's 10/10, and both are honest reads of
-different questions.** #145 asked "does this repo contain the artifact the
-item describes?" and largely, it does. This report asks "is there a passing,
-fresh, machine-readable envelope of the kind this item accepts?" and for 3
-items (5, 6) there is not. Nothing regressed between the two reads; the second
-question is simply stricter, and it is the one a downstream consumer of this
-block can actually verify without taking our word for it.
+**This report grades fewer items `met` than #145's 10/10, and both are
+honest reads of different questions.** #145 asked "does this repo contain the
+artifact the item describes?" and largely, it does. This report asks "is there
+a passing, fresh, machine-readable envelope of the kind this item accepts?"
+and for some items there is not — the table above names which, and
+`tier-report.json` is the answer of record for how many. Nothing regressed
+between the two reads; the second question is simply stricter, and it is the
+one a downstream consumer of this block can actually verify without taking our
+word for it.
 
 ## Disclosures that travel with the `met` verdicts
 
@@ -106,7 +108,7 @@ It does not mean the geometry on those unchecked layers, or under those skipped 
   the grader's staleness gate does not read
   ([klayout-tools#1969](https://github.com/2AMLogic/klayout-tools/issues/1969)).
   The committed `lvs.json` was produced by `klt 0.6.0`, whose
-  `provenance.input.content_hash` is `c7e4c0f4…` — byte-identical to the
+  `provenance.input.content_hash` is `ae403395…` — byte-identical to the
   committed `layout/cells/temp_por_top.gds` — and the grader now
   quotes it in item 4's citation. The grader still reports
   `input_verified: null` for it, so it does not itself re-hash the GDS;
@@ -207,9 +209,16 @@ The audits behind each `pass`:
   `--regen` and a look at the diff.
 
 Consequence for the fleet roll-up
-([2AMLogic/2am#956](https://github.com/2AMLogic/2am/issues/956)): the first
-unmet item is now 5, so `blocking_item` reports a real blocker rather than
-item 1. Items 5 and 6 are what stand between this block and T1.
+([2AMLogic/2am#956](https://github.com/2AMLogic/2am/issues/956)): `klt
+signoff --fleet` consumes `block-manifest.json` and names one unmet T1
+item per block as its own `blocks[].blocking_item` — a field of that
+roll-up's output, not of this block's `tier-report.json`. It prefers an
+item with a real check behind it over the structurally ungradeable
+items 1, 2, 9 and 10, so this block is reported against a substantive
+gap. Which items are unmet is the per-item table above; the verdict of
+record is `tier-report.json`.
+The items the table above still grades `unmet` are what stand
+between this block and T1.
 
 ## Item 7 — `klt pex` evidence, its `body_bias` status, and what was patched
 
@@ -427,6 +436,34 @@ python3 signoff/check.py
 # Refuses (writes nothing) if the inventory audit fails.
 python3 signoff/check.py --regen
 ```
+
+### On a host that must not install the pinned grader
+
+`check.py` runs whatever `klt` is first on `PATH`. A shared dispatch host must
+not install the pinned build, so use the throwaway form, which resolves
+`signoff/toolchain.json`'s pin through `uvx` and installs nothing host-wide:
+
+```bash
+python3 signoff/check.py --klt-pin           # grade with the pinned klt
+python3 signoff/check.py --klt-pin --regen   # re-anchor with the pinned klt
+python3 signoff/check.py --klt EXE           # or point at any grader executable
+```
+
+With it, `check.py` prints `ok   grader is the pinned klt 0.9.1`. Without it,
+an unpinned grader only produces the `warn grader is ...` line, which does not
+change the exit code and does not make the gate unusable. What the mismatch
+does and does not affect:
+
+- **A drift-only failure is real and re-anchorable on any host.** Citation-hash
+  drift is computed from file digests, not by the grader. Measured with an
+  unpinned dev build against a report rendered by the pinned one, the two
+  renders differed at 9 leaf paths, none a verdict (six `build.*` fields, two
+  tiers-doc prose fields, `source_doc_content_hash`), with 0 stale citation
+  hashes and an equal verdict projection.
+- **`--regen` is pin-sensitive.** On an unpinned grader it rewrites those same
+  `build.*` fields, the tiers-doc prose and `source_doc_content_hash`,
+  stamping the verdict of record with an unreleased build
+  (`is_release: false`). Regenerate with `--klt-pin --regen`.
 
 No PDK, no xschem, no ngspice — `klt signoff --manifest` only reads committed
 JSON envelopes, so this runs in the headless `checks` CI job on every push and

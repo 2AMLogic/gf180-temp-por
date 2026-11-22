@@ -3,105 +3,78 @@
 Current workflow state, maintained by Guide.
 
 <!-- guide:plan-body:start -->
+_Generated: 2026-11-20T07:55:00Z (snapshot; compare against live labels)_
 ## Operator Attention: Merge-Risk-Hold Pileup
 
 Judge-approved PRs under a hold (`loom:blocked` or `loom:operator`) — only a human merge decision is missing.
 
-- **#457**: feat(temp_core): chop the amplifier, widen the gain mirror, halve the trim ladder (DR-031)
+- **#560**: fix: correct drifted LVS prose counts and police them against committed reports
+- **#615**: layout: draw the missing substrate and well taps DF.13/DF.14 need
 
 ## Very Important
 
 `loom:very-important` (one counts per workspace); every stage takes these first.
 
-- **#336**: Live batch-fleet verification of a control grid via klt_batch (blocked: fleet runner klt 0.5.0 vs client 0.6.0)
+- **#336**: Live batch-fleet verification of a control grid via klt_batch (blocked: fleet runner klt 0.5.0 vs client 0.6.0) *(held)*
 
 ## Important
 
 `loom:important`; taken before unlabelled work.
 
-- **#388**: T1 item 5 phase 2: klt sim envelope with per-row limits over the 81-point grid, piloted on por-vth
-- **#400**: Bump klayout-tools pin 0.6.0, 0.7.0 → 0.8.0
-- **#452**: temp_core: implement amplifier chop/auto-zero, gain mirror fix and trim re-balance (#415 step 2/3)
-- **#453**: temp-accuracy-mc: re-run Monte Carlo and klt yield grade on revised temp_core (#415 step 3/3)
-- **#496**: sim harness: build a klt sim request with per-row spec limits for one experiment (dry-run half of #388)
-- **#497**: Classify the DRC violations the committed cells show under klt 0.8.0 and later (unblocks #400)
-- **#512**: Control scripts ignore unrecognized argv and run the full local sweep (overwriting committed evidence)
+- **#388**: T1 item 5 phase 2: klt sim envelope with per-row limits over the 81-point grid, piloted on por-vth *(held)*
+- **#400**: Bump klayout-tools pin 0.6.0, 0.7.0 → 0.8.0 *(held)*
+- **#452**: temp_core: implement amplifier chop/auto-zero, gain mirror fix and trim re-balance (#415 step 2/3) *(held)*
+- **#453**: temp-accuracy-mc: re-run Monte Carlo and klt yield grade on revised temp_core (#415 step 3/3) *(held)*
 
 ## Ready
 
-Human-approved issues ready for implementation (`loom:issue`).
+Human-approved issues (`loom:issue`) ready for implementation — excluding held (`loom:blocked`/`loom:operator`/`loom:frozen`), `loom:building`, and issues closed by an open `loom:pr` PR (listed under Approved).
 
-- **#499**: Assert temp_core's drawn track list equals its manifest ports — the one leaf cell missing the sibling guard
-- **#500**: Dedupe the golden-netlist read and the MiM-cap test block in layout/tests/test_lvs_reference.py
-- **#502**: Remove four dead arguments threaded into control-script deck composers and job tuples
-- **#505**: Three independent implementations of one Via1-with-landing-pads primitive in layout/build_cells.py
-- **#506**: _m2_h/_m2_v re-derive _cap_wire's straight-wire branches — the wire counterpart to #505's via drift
-- **#507**: run_deglitch_asym_probe.py's results.md carries no `- git:` provenance line, unlike its five peers
-- **#509**: Remove ramp_rate_probe.spice's two dead .params, and assert the por-vth control fragments' cards agree
-- **#517**: Poly resistors draw SAB coincident with Poly2: zero extension where SB.10 requires 0.22 um
-- **#521**: Move run_mc.py's four byte-identical argparse flags into cliutil, and stop hardcoding the timeout default
-- **#522**: Remove the dead name and log_dir/deck_dir arguments three control scripts thread into their workers
-- **#525**: Remove three dead report.py imports from sim/harness/mc_report.py, and the docstring claim they fossilise
+_None._
 
 ## In Progress
 
 Issues currently being built (`loom:building`).
 
-- **#452**: temp_core: implement amplifier chop/auto-zero, gain mirror fix and trim re-balance (#415 step 2/3)
-- **#491**: README's T1 verdict count drifts from signoff/tier-report.json, and the docs-PR path cannot carry the fix
-- **#493**: Three control-script helpers are duplicated within one experiment directory; consolidate per the _rung_record.py precedent
-- **#496**: sim harness: build a klt sim request with per-row spec limits for one experiment (dry-run half of #388)
-- **#497**: Classify the DRC violations the committed cells show under klt 0.8.0 and later (unblocks #400)
-- **#511**: Remove _TopRoutes.via1/via2's inline via-square arithmetic: the only via drawer that bypasses CellBuilder.via
-- **#514**: Collapse lvs_reference.py's three copies of the undeclared-net guard into one helper — and give the MiM cap builder the call site #269 never wrote
-- **#523**: Collapse four leftovers in layout/run_checks.sh from the cell-freeze removal and --regen-all
+- **#532**: temp_core and por_comparator_bias_okb_inv have no substrate or well tap within 20 um of their MOS rows (DF.13_LV / DF.14_LV)
 
 ## PRs Awaiting Review
 
 PRs waiting on Judge (`loom:review-requested`).
 
-- **#494**: docs: roadmap as of 2026-11-13
-- **#524**: refactor: derive the DRM via square once in _via_square
-- **#529**: refactor(lvs_reference): one declared-net guard, now covering cap plates too
+_None._
 
 ## Approved (Awaiting Merge)
 
 PRs that passed review and are queued for Champion auto-merge (`loom:pr`).
 
-- **#457**: feat(temp_core): chop the amplifier, widen the gain mirror, halve the trim ladder (DR-031)
-- **#498**: feat(signoff): forbid hand-written T1 verdict counts in prose
-- **#501**: refactor(sim): give three duplicated control helpers one definition per directory
-- **#520**: docs: classify every DRC rule the committed cells violate under klt 0.8.0
-- **#526**: refactor(layout): inline cell_failed() and drop three dead branches in run_checks.sh
+- **#560**: fix: correct drifted LVS prose counts and police them against committed reports — closes #510
+- **#615**: layout: draw the missing substrate and well taps DF.13/DF.14 need — closes #532
 
 ## Proposed
 
 Issues carrying `loom:curated`.
 
-- **#321**: run_net_attribution.py's 60-deck grid has no off-host execution path, so the post-#314 re-run cannot be taken from a dispatch worker *(curated)*
-- **#324**: Regenerate the deglitch dwell sweep against the star extraction: the post-layout slowest crossing moved from 20.77 to 22.34 µs *(curated)*
-- **#331**: sim/harness/runner.py: batch (klt sim) execution path so control grids can run off dispatch workers (mechanism question from #321) *(curated)*
-- **#336**: Live batch-fleet verification of a control grid via klt_batch (blocked: fleet runner klt 0.5.0 vs client 0.6.0) *(curated)*
+- **#321**: run_net_attribution.py's 60-deck grid has no off-host execution path, so the post-#314 re-run cannot be taken from a dispatch worker *(curated)* *(held)*
+- **#324**: Regenerate the deglitch dwell sweep against the star extraction: the post-layout slowest crossing moved from 20.77 to 22.34 µs *(curated)* *(held)*
+- **#331**: sim/harness/runner.py: batch (klt sim) execution path so control grids can run off dispatch workers (mechanism question from #321) *(curated)* *(held)*
+- **#336**: Live batch-fleet verification of a control grid via klt_batch (blocked: fleet runner klt 0.5.0 vs client 0.6.0) *(curated)* *(held)*
 - **#386**: Track the gap to T1 sim-validated / bronze (klayout-tools design-evidence tiers), items 5–7 *(curated)*
-- **#388**: T1 item 5 phase 2: klt sim envelope with per-row limits over the 81-point grid, piloted on por-vth *(curated)*
-- **#400**: Bump klayout-tools pin 0.6.0, 0.7.0 → 0.8.0 *(curated)*
-- **#416**: POR threshold rows: N=500 cannot demonstrate the 99.73 % [3σ] yield; need a larger campaign *(curated)*
-- **#417**: Item 6: sampled negative control for the Monte Carlo yield campaigns *(curated)*
-- **#452**: temp_core: implement amplifier chop/auto-zero, gain mirror fix and trim re-balance (#415 step 2/3) *(curated)*
-- **#491**: README's T1 verdict count drifts from signoff/tier-report.json, and the docs-PR path cannot carry the fix *(curated)*
-- **#496**: sim harness: build a klt sim request with per-row spec limits for one experiment (dry-run half of #388) *(curated)*
-- **#497**: Classify the DRC violations the committed cells show under klt 0.8.0 and later (unblocks #400) *(curated)*
-- **#499**: Assert temp_core's drawn track list equals its manifest ports — the one leaf cell missing the sibling guard *(curated)*
-- **#507**: run_deglitch_asym_probe.py's results.md carries no `- git:` provenance line, unlike its five peers *(curated)*
-- **#508**: run_dwell_sweep.py's dwell_results.md carries no `- git:` provenance line (the fleet-scale fourth of the deglitch control set) *(curated)*
+- **#388**: T1 item 5 phase 2: klt sim envelope with per-row limits over the 81-point grid, piloted on por-vth *(curated)* *(held)*
+- **#400**: Bump klayout-tools pin 0.6.0, 0.7.0 → 0.8.0 *(curated)* *(held)*
+- **#416**: POR threshold rows: N=500 cannot demonstrate the 99.73 % [3σ] yield; need a larger campaign *(curated)* *(held)*
+- **#417**: Item 6: sampled negative control for the Monte Carlo yield campaigns *(curated)* *(held)*
+- **#452**: temp_core: implement amplifier chop/auto-zero, gain mirror fix and trim re-balance (#415 step 2/3) *(curated)* *(held)*
+- **#508**: run_dwell_sweep.py's dwell_results.md carries no `- git:` provenance line (the fleet-scale fourth of the deglitch control set) *(curated)* *(held)*
 - **#510**: LVS net and pin counts quoted in prose drifted from the committed lvs.json reports *(curated)*
-- **#517**: Poly resistors draw SAB coincident with Poly2: zero extension where SB.10 requires 0.22 um *(curated)*
-- **#518**: temp_core resistor tile: neighbouring SAB markers 0.2 um apart where SB.2 requires 0.42 um *(curated)*
+- **#532**: temp_core and por_comparator_bias_okb_inv have no substrate or well tap within 20 um of their MOS rows (DF.13_LV / DF.14_LV) *(curated)*
+- **#551**: Re-run temp_por_top PEX grid: pex.json still cites the pre-#518 GDS revision *(curated)* *(held)*
 
 ## Proposed (Architect / Hermit)
 
-- **#470**: Give run_por_edge_check.py its own results file: remove the §7 splice into net_attribution_results.md *(hermit)*
-- **#474**: Remove tolerated pre-pin card shapes from layout/postlayout.py's extracted-netlist reader *(hermit)*
+- **#470**: Give run_por_edge_check.py its own results file: remove the §7 splice into net_attribution_results.md *(hermit)* *(held)*
+- **#474**: Remove tolerated pre-pin card shapes from layout/postlayout.py's extracted-netlist reader *(hermit)* *(held)*
+- **#633**: Drop the unused native yield dependency from headless CI *(hermit)* *(held)*
 
 ## Epics
 
@@ -111,14 +84,14 @@ _None._
 
 | Bucket | Count |
 |------|-------|
-| Operator merge-risk holds | 1 |
+| Operator merge-risk holds | 2 |
 | Very important | 1 |
-| Important | 7 |
-| Ready (`loom:issue`) | 11 |
-| In Progress (`loom:building`) | 8 |
-| PRs awaiting review | 3 |
-| Approved PRs awaiting merge | 5 |
-| Curated | 19 |
-| Architect / Hermit proposals | 2 |
+| Important | 4 |
+| Ready (`loom:issue`, net of holds/building/merge-pending) | 0 |
+| In Progress (`loom:building`) | 1 |
+| PRs awaiting review | 0 |
+| Approved PRs awaiting merge | 2 |
+| Curated | 14 |
+| Architect / Hermit proposals | 3 |
 | Active epics | 0 |
 <!-- guide:plan-body:end -->

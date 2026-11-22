@@ -83,7 +83,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import sys
 from pathlib import Path
 
@@ -234,12 +233,10 @@ def deck(pdk, options: list[str], vdd: float, slew_mvus: float,
         f".param t_margin={n(RECOVERY_MARGIN_S)}",
         f".param dip_v={DIP_V!r}",
         "",
-        f'.include "{os.path.relpath(FRAGMENT, deck_dir)}"',
-        f'.include "{os.path.relpath(netlist, deck_dir)}"',
+        *runner.deck_includes(deck_dir, FRAGMENT, netlist),
         "",
-        ".control",
-        "set numdgt=8",
-        "set noaskquit",
+    ]
+    body = [
         (
             f"tran {n(TSTEP_S)} {n(t_end)}"
             if tmax_s is None
@@ -290,10 +287,8 @@ def deck(pdk, options: list[str], vdd: float, slew_mvus: float,
         f"meas tran ndg_r_close find ndg_r at={n(t_dip_end)}",
         f"meas tran pgdg_r_min min pgdg_r from={n(T_DIP_S)} to={n(t_dip_end)}",
         f"meas tran rst_r_min_overall min rst_r from={n(T_DIP_S)} to={n(t_end)}",
-        ".endc",
-        ".end",
-        "",
     ]
+    lines += runner.deck_control_block(body, numdgt=8)
     return "\n".join(lines)
 
 

@@ -22,11 +22,14 @@
     "signoff/check.py warns (it does not fail) when the klt on PATH is not this",
     "version: a newer grader is exactly how a newly-added T1 checklist item",
     "reaches this repo, and the drift check against signoff/tier-report.json is",
-    "what turns that into a loud, actionable failure."
+    "what turns that into a loud, actionable failure.",
+    "",
+    "python3 signoff/check.py --klt-pin runs the gate (and --regen) at exactly",
+    "this pin from a throwaway uvx environment, installing nothing host-wide."
   ],
   "klt": {
     "version": "klt 0.9.1",
-    "install": "uv tool install --force klayout-tools[yield]==0.9.1",
+    "install": "uv tool install --force 'klayout-tools[yield]==0.9.1'",
     "release": {
       "package_version": "0.9.1",
       "git_tag": "v0.9.1"

@@ -41,6 +41,8 @@
       "36/0"
     ],
     "layers_in_stream_without_rules": [
+      "31/0",
+      "32/0",
       "34/10",
       "49/0",
       "62/0",
@@ -257,10 +259,10 @@
       "released": false
     },
     "input": {
-      "content_hash": "sha256:3e3e22745affc61415973d4368a28b1984e30a7dad0772f21a0e4baef02f8dbe",
+      "content_hash": "sha256:1ee4e15f2fd85df4f2d76d237a18c5c65c2ac41e4bea015e78bd91cee568b343",
       "role": "layout"
     },
     "klayout_version_mismatch": true,
-    "gds_sha256": "3e3e22745affc61415973d4368a28b1984e30a7dad0772f21a0e4baef02f8dbe"
+    "gds_sha256": "1ee4e15f2fd85df4f2d76d237a18c5c65c2ac41e4bea015e78bd91cee568b343"
   }
 }

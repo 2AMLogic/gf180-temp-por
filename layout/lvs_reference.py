@@ -31,8 +31,11 @@ cell**, not universal, since #312: the v0.2.0 deck drew no substrate/pwell tap
 layer at all, so they applied everywhere; the v0.6.0 deck resolves a *drawn*
 tap, and :data:`BODY_TIES_RESOLVED_CELLS` names the cells whose own drawn taps
 (or, for the one assembled block, its own seam-ring tie) resolve them for
-real. On every other cell the three rewrites below still apply exactly as
-before.
+real -- which, since #516 drew the taps' implants, is every always-on cell
+with a ring or strap. The fourth -- the PMOS body -- was unconditional until
+#516 gave some cells a drawn Nwell tie; it is now conditional per *well*
+(see its own bullet below). On every cell and well the rewrites still apply
+exactly as before.
 
 * **NMOS body** -- on a cell *not* in :data:`BODY_TIES_RESOLVED_CELLS`, the
   deck finds no substrate/pwell tap, so every extracted NMOS body lands on the
@@ -40,12 +43,20 @@ before.
   match. On a cell *in* :data:`BODY_TIES_RESOLVED_CELLS`, the layout's own
   drawn tap resolves the body to the real ``VSS`` net already, so no rewrite
   happens at all -- the schematic's own body node is declared verbatim.
-* **PMOS body** -- **unconditional, on every cell, :data:`BODY_TIES_RESOLVED_CELLS`
-  included.** gf180mcu's curated deck has no tap layer *or* well-label layer
-  for an Nwell, drawn tap or not, so an extracted Nwell is always an anonymous
-  net carrying only the body terminals inside it. The schematic's body node
-  (``VDD``) is always rewritten to a per-well net named by the manifest,
-  connected to nothing else.
+* **PMOS body** -- was **unconditional, on every cell** through #515: the
+  deck has no well-*label* layer, so an untied drawn Nwell still extracts as
+  an anonymous net carrying only the body terminals inside it, and the
+  schematic's body node (``VDD``) was rewritten to a per-well net named by
+  the manifest. What a drawn well *can* have since #516 is a tie the deck
+  recognises: an ``Nplus``-covered COMP strap inside the well (#516's own
+  subject) connects the well to its rail through the deck's n-type
+  connectivity, and the well then resolves to the real net. Each manifest
+  therefore names its own resolved wells in ``resolved_wells`` -- a
+  per-well fact, because one cell can draw ties into some of its wells and
+  not others (``por_comparator`` ties its PMOS row's well and not the
+  instanced inverter's). A pfet in a well named there gets its schematic
+  body node verbatim; every other pfet body is still rewritten to the
+  anonymous per-well net.
 * **Poly resistor bulk** -- parallel to the NMOS body rewrite above and
   conditional the same way: unresolved, the deck ties a drawn resistor's bulk
   to the substrate global and the schematic's ``VSS`` bulk node is rewritten
@@ -168,39 +179,45 @@ SUBSTRATE_NET = "vsubs"
 #: (if at all) by a *separate*, local Nwell-to-tap connection that has nothing
 #: to do with the substrate ring this flag names; see
 #: :data:`BJT_WELL_RESOLVED_CELLS` for that one, declared independently
-#: because the two do not move together. Measured proof, inside the one
-#: cell where both are drawn together: `bias_core` instanced inside
-#: `temp_por_top` has its BJT **collector** resolve to the real `VSS` (the
-#: assembly's seam ring reaches it, like every other substrate-tied terminal)
-#: while its BJT **base** stays the anonymous, deck-synthesized well net --
-#: `layout/reports/temp_por_top/extracted.spice`'s `Q$136 VSS \$52 ...` is
-#: collector-then-base-then-emitter, collector real, base still `$52`.
-#: Collapsing the two into one flag reproduced this exact finding as a false
-#: `device.unmatched` ×10 / `net.split` pair the first time this change was
-#: tested end to end against `klt lvs` -- caught by that live run, not by the
-#: stdlib unit suite, which has no way to know a geometric fact like this one.
+#: because the two are checked differently (per built sub-cell vs per
+#: top-level ``build`` call) and have moved independently before. The
+#: measured proof of that split, pre-#516: ``bias_core`` instanced inside
+#: ``temp_por_top`` had its BJT **collector** resolve to the real ``VSS``
+#: (the assembly's seam ring reaches it, like every other substrate-tied
+#: terminal) while its BJT **base** stayed the anonymous, deck-synthesized
+#: well net -- ``layout/reports/temp_por_top/extracted.spice``'s
+#: ``Q$136 VSS $52 ...`` was collector-then-base-then-emitter, collector
+#: real, base still ``$52``. Collapsing the two into one flag reproduced
+#: that finding as a false ``device.unmatched`` x10 / ``net.split`` pair
+#: the first time it was tested end to end against ``klt lvs`` -- caught by
+#: that live run, not by the stdlib unit suite, which has no way to know a
+#: geometric fact like this one. #516 redrew the implant layer the deck's
+#: tap recognition needs, so more cells resolve from their own drawn
+#: geometry now (see below); the two flags still name their cells
+#: independently, on separate evidence.
 #:
 #: This is a property of **this build's own compared layout**, not of a
-#: sub-cell's identity, and the distinction is load-bearing for the one cell
-#: that is itself an assembly: ``bias_core`` standalone has no local tap/ring
-#: geometry of its own and every one of its NMOS bodies/BJT collector
-#: ties/resistor bulks still lands on the synthetic net (confirmed
-#: empirically: zero ``VSS`` substitutions, nonzero ``device.body_unverified``
-#: in ``layout/reports/bias_core/lvs.json``) -- but the *same drawn bias_core
-#: geometry*, once instanced inside ``temp_por_top``, sits inside that block's
-#: own continuous seam-ring tie (``layout/README.md`` -> "Known deck limits"
-#: -> "Body terminals are synthetic") and every one of those same terminals
-#: resolves to the real ``VSS`` net instead: `grep -c vsubs
-#: layout/reports/temp_por_top/extracted.spice` is zero, against nonzero in
-#: every one of the four sub-cells' own standalone reports. ``temp_core``
-#: resolves both standalone (it draws its own taps, #93) and inside the
-#: assembly, which is why it is also named here; ``por_comparator`` and
-#: ``por_output_chain`` resolve only inside the assembly, never standalone, so
-#: neither is named here -- :func:`build` and :func:`build_assembly` pass one
-#: ``resolve_body`` value for *everything* a given top-level ``build(cell)``
-#: call emits (every sub-cell it composes, not each sub-cell's own standalone
-#: declaration), which is what makes that distinction possible without a
-#: second, disagreeing flag living on each sub-cell's own manifest entry.
+#: sub-cell's identity. #312's split -- cells resolving only inside the
+#: assembly vs cells resolving standalone -- was load-bearing while the
+#: deck could only see ``temp_core``'s collector ring (#93) and the
+#: assembly's seam-ring tie: ``bias_core``, ``por_comparator`` and
+#: ``por_output_chain`` drew guard rings and substrate straps all along,
+#: but with no implant on them the deck recognised no tap, so standalone
+#: their NMOS bodies/BJT collectors/resistor bulks still landed on the
+#: synthetic net (confirmed then, empirically: zero ``VSS`` substitutions,
+#: nonzero ``device.body_unverified``, in ``layout/reports/bias_core/
+#: lvs.json``) and only the assembly's compare resolved them. #516 put
+#: ``Pplus`` on those rings and straps, and each cell's own drawn tie is
+#: now a recognised one -- all five resolve standalone, which is why they
+#: are all named here. The one cell still rewritten is
+#: ``por_comparator_bias_okb_inv``: two MOS and no tap structure at all, so
+#: its NMOS body stays on ``vsubs`` standalone and resolves only inside
+#: ``por_comparator``'s own compare -- :func:`build` and
+#: :func:`build_assembly` pass one ``resolve_body`` value for *everything*
+#: a given top-level ``build(cell)`` call emits (every sub-cell it composes,
+#: not each sub-cell's own standalone declaration), which is what keeps
+#: that distinction possible without a second, disagreeing flag on each
+#: sub-cell's own manifest entry.
 #:
 #: PMOS wells are **not** affected and are not what this flag is about: the
 #: deck still has no well-label or tap layer for an Nwell body tie, drawn or
@@ -215,7 +232,9 @@ SUBSTRATE_NET = "vsubs"
 #: PMOS well tie (stays a design-review claim on every cell in this block)
 #: and, on its own, does not prove a BJT base tie either -- see
 #: :data:`BJT_WELL_RESOLVED_CELLS`.
-BODY_TIES_RESOLVED_CELLS = frozenset({"temp_core", "temp_por_top"})
+BODY_TIES_RESOLVED_CELLS = frozenset(
+    {"temp_core", "temp_por_top", "bias_core", "por_comparator", "por_output_chain"}
+)
 
 #: Cells whose own **bipolar array** draws a local Nwell-to-tap connection
 #: resolving its shared base to the real ``VSS`` net, independent of
@@ -226,12 +245,15 @@ BODY_TIES_RESOLVED_CELLS = frozenset({"temp_core", "temp_por_top"})
 #: :func:`build_assembly`), never against the top-level cell the way
 #: :data:`BODY_TIES_RESOLVED_CELLS` is. ``temp_core`` draws this tap (#93) and
 #: its base resolves everywhere it is built, standalone or as
-#: ``temp_por_top``'s ``xtemp`` instance; ``bias_core`` does not, and its own
-#: ten PNPs' shared base stays the manifest's anonymous ``bjt_well`` net
-#: (``NWQ``) even where its *collector* resolves (inside ``temp_por_top`` --
-#: see :data:`BODY_TIES_RESOLVED_CELLS`'s own docstring for the measured
-#: evidence). A cell with no ``bipolars`` at all is vacuously excluded.
-BJT_WELL_RESOLVED_CELLS = frozenset({"temp_core"})
+#: ``temp_por_top``'s ``xtemp`` instance. ``bias_core`` joined with #516:
+#: its PNP array's Nwell tap ring was COMP+metal all along, but only once
+#: #516 put ``Nplus`` on it did the deck recognise the Nwell-to-tap
+#: connection -- its ten PNPs' shared base now resolves to the real
+#: ``VSS`` standalone, and the manifest's anonymous ``bjt_well`` net
+#: (``NWQ``) dissolves into ``VSS`` in its own compare, the same net merge
+#: ``temp_core``'s compare has shown since #312. A cell with no
+#: ``bipolars`` at all is vacuously excluded.
+BJT_WELL_RESOLVED_CELLS = frozenset({"temp_core", "bias_core"})
 
 #: gf180mcu PDK device subcircuit -> the curated deck's device class. The deck
 #: draws one generic ``nfet``/``pfet`` class per polarity with no voltage-flavor
@@ -486,7 +508,11 @@ CELLS = {
             "VDD",
             "VREF",
             "VSS",
-            SUBSTRATE_NET,
+            # #516: NOT declared any more. This cell's own guard ring and
+            # substrate strap carry p+ now, so the deck resolves every body
+            # and bulk to the real VSS and `klt extract`'s pin list has no
+            # `vsubs` pin -- see temp_core's #312 note above for why a
+            # card-less formal port must not be declared.
         ],
         # SNS and SNSB are the sense divider's taps -- internal nets, unlabeled
         # in the layout, matched by topology alone: each now has two device
@@ -500,11 +526,17 @@ CELLS = {
             "NW1": ["XMLA", "XMLB", "XMENSRC", "XMI1P", "XMI2P"],
             "NW2": ["XMENP"],
         },
+        # NW1 is tied to VDD by the cell's own drawn n+ tie strap (#516), so
+        # its pfet bodies resolve to the real net; NW2 -- the instanced
+        # inverter's well -- draws no tie anywhere and stays anonymous.
+        "resolved_wells": ["NW1"],
         # design/netlist/por_comparator.spice's own node order for each card
         # (VDD end first, design/por_comparator.md "Sense divider"): XRTOP
         # SNS VDD VSS, XRBOT SNSB SNS VSS, XRHYS VSS SNSB VSS. The third
-        # (bulk) node is always rewritten to SUBSTRATE_NET by
-        # build_passive_cards regardless of what the schematic names there.
+        # (bulk) node resolves to the schematic's own VSS now that this
+        # cell's drawn substrate tie is a recognised p+ tap (#516; see
+        # build_passive_cards' bulk_net), and only rewrites to
+        # SUBSTRATE_NET where the compared cell has no resolving tap.
         "resistors": ["XRTOP", "XRBOT", "XRHYS"],
         # ...each drawn as one continuous serpentined body rather than a
         # string of separate ones, so each is a single extracted device (#91;
@@ -583,7 +615,11 @@ CELLS = {
         # golden cards name (#264), so they prove connectivity as well as
         # capacitance -- see `cap_plate_nets`.
         "caps": ["XCC", "XCOK"],
-        "ports": ["BIAS_OK", "IBIAS", "VDD", "VREF", "VSS", SUBSTRATE_NET],
+        # #516: NOT declared any more -- see por_comparator's own ports note.
+        # This cell's guard ring and substrate strap carry p+ now, so every
+        # body/bulk resolves to the real VSS and the extraction has no
+        # `vsubs` pin.
+        "ports": ["BIAS_OK", "IBIAS", "VDD", "VREF", "VSS"],
         "internal": [
             "PG",
             "PB",
@@ -634,6 +670,10 @@ CELLS = {
                 "XMO1P",
             ]
         },
+        # The one drawn Nwell holds every pfet and is tied to VDD by the
+        # cell's own drawn n+ tie strap (#516), so the pfet bodies resolve
+        # to the real net.
+        "resolved_wells": ["NW1"],
     },
     # temp_core: every device of design/netlist/temp_core.spice. The vertical
     # PNPs (XQ1/XQ8A..H) and the poly resistors (XR1/XR2*/XRISO/XRZ) used to be
@@ -833,6 +873,10 @@ CELLS = {
             ],
             "NW2": ["XMI1", "XMI2"],
         },
+        # NOT in resolved_wells, deliberately: temp_core draws no Nwell tie
+        # at all (#516's curation measured this -- no guard ring, no tap
+        # strap, no well tie; filed as #532), so its drawn wells stay
+        # anonymous and its pfet bodies stay the per-well rewrite.
     },
     "por_output_chain": {
         "source": "por_output_chain.spice",
@@ -883,7 +927,8 @@ CELLS = {
         # plate nodes (NDG, TIM) also carry MOS terminals, so no net depends on
         # them.
         "caps": ["XCDG", "XCTIM"],
-        "ports": ["IBIAS", "POR_RAW", "RESETn", "VDD", "VSS", SUBSTRATE_NET],
+        # #516: NOT declared any more -- see por_comparator's own ports note.
+        "ports": ["IBIAS", "POR_RAW", "RESETn", "VDD", "VSS"],
         "internal": [
             "PDN",
             "NDL",
@@ -918,6 +963,9 @@ CELLS = {
                 "XMOP",
             ]
         },
+        # Tied to VDD by the cell's own drawn n+ tie strap (#516), so its
+        # pfet bodies resolve to the real net.
+        "resolved_wells": ["NW1"],
     },
 }
 
@@ -1283,17 +1331,20 @@ def build_cards(cell: str, rename=None, resolve_body: bool = False) -> list[Card
     source = NETLIST_DIR / spec["source"]
     devices = parse_devices(subckt_body(source.read_text(), spec["subckt"]))
 
+    # Wells whose drawn n+ tie (#516) resolves their pfet bodies to the real
+    # schematic net. Unlike the substrate tie this is always the cell's own
+    # drawn geometry -- a well is local, an enclosing assembly cannot tie it
+    # -- so it needs no build()-call parameter, only this per-manifest
+    # declaration. See the PMOS-body bullet in this module's header.
+    resolved_wells = set(spec.get("resolved_wells", ()))
+
     well_of: dict[str, str] = {}
     for well, members in spec.get("wells", {}).items():
         for member in members:
             well_of[member] = well
 
     ports = list(spec["ports"])
-    known_nets = (
-        set(ports) | set(spec.get("wells", {})) | set(spec.get("internal", []))
-    )
-    if spec.get("bjt_well"):
-        known_nets.add(spec["bjt_well"])
+    known_nets = declared_nets(spec)
 
     fingers = spec.get("fingers", {})
 
@@ -1334,7 +1385,17 @@ def build_cards(cell: str, rename=None, resolve_body: bool = False) -> list[Card
         else:
             if name not in well_of:
                 raise ReferenceError(f"{cell}: {name} is not assigned to a well")
-            body = well_of[name]
+            # Same shape as the nfet branch, per well instead of per cell:
+            # a well named in the manifest's `resolved_wells` has a drawn
+            # n+ tie (#516) that carries it to the real schematic net, so
+            # the golden body node declares verbatim; every other well is
+            # still an anonymous, deck-synthesized net (see the PMOS-body
+            # bullet in this module's header).
+            body = (
+                device["nodes"][3]
+                if well_of[name] in resolved_wells
+                else well_of[name]
+            )
 
         nodes = [drain, gate, source_node, body]
         require_declared_nets(cell, name, nodes, known_nets)
@@ -1369,6 +1430,10 @@ def build_cards(cell: str, rename=None, resolve_body: bool = False) -> list[Card
             # other NMOS body here does: to the real "VSS" every schematic
             # instance in this block ties its own body to.
             body = "VSS" if resolve_body else SUBSTRATE_NET
+        elif dummy["well"] in resolved_wells:
+            # Same story in a resolved well: to the real "VDD" every
+            # schematic pfet in this block ties its own body to.
+            body = "VDD"
         else:
             body = dummy["well"]
         nodes = [drain, gate, source_node, body]
@@ -1508,8 +1573,8 @@ def build_passive_cards(
         # Collector (substrate tie) and base (local Nwell tie) resolve
         # independently of each other -- two different pieces of drawn
         # geometry, two different flags. See BODY_TIES_RESOLVED_CELLS's own
-        # docstring for the measured case (bias_core inside temp_por_top)
-        # where one resolves and the other does not.
+        # docstring for the measured case (bias_core inside temp_por_top,
+        # pre-#516) where one resolved and the other did not.
         if resolve_body:
             collector_net = collector
         else:
@@ -1560,6 +1625,23 @@ def require_unit_multiplier(cell: str, name: str, device: dict) -> None:
         )
 
 
+def declared_nets(spec: dict) -> set[str]:
+    """Every net a manifest entry declares: ports | wells | internal | bjt_well.
+
+    The one place this set is built (the ``CELLS`` comment explains what
+    belongs in each list), so every :func:`require_declared_nets` guard in a
+    build answers the same manifest. A future manifest key that declares a net
+    belongs here. :func:`build_renames`' block-net check is deliberately a
+    separate guard over a narrower set (ratified ports | ``internal``), not a
+    site this helper missed.
+    """
+    nets = set(spec["ports"]) | set(spec.get("wells", {}))
+    nets |= set(spec.get("internal", []))
+    if spec.get("bjt_well"):
+        nets.add(spec["bjt_well"])
+    return nets
+
+
 def require_declared_nets(
     cell: str, name: str, nets: Iterable[str], known_nets: set[str]
 ) -> None:
@@ -1576,7 +1658,7 @@ def require_declared_nets(
     if unknown:
         raise ReferenceError(
             f"{cell}: {name} touches undeclared net(s) {', '.join(unknown)} "
-            "-- add them to the manifest's ports/wells/internal"
+            "-- add them to the manifest's ports/wells/internal/bjt_well"
         )
 
 
@@ -1698,10 +1780,10 @@ def build_cap_cards(
     *after* the plate-net guard below, so assembling a cell cannot launder an
     undeclared plate net either. ``known_nets`` is the declared-net set the
     plate nets are checked against (:func:`require_declared_nets`):
-    :func:`build_cards` threads the set it derives for its own guards, so the
+    :func:`build_cards` threads the set :func:`declared_nets` gives it, so the
     cap guard can never see a different manifest than the rest of the build;
-    called without one (the per-cell tests are) it is derived from this
-    cell's own manifest exactly the same way.
+    called without one (the per-cell tests are) the same helper derives it from
+    this cell's own manifest -- one derivation on both paths, by construction.
 
     Every card also declares ``A``/``P`` -- the recognised plate overlap's
     area (um^2) and perimeter (um) -- because the pinned deck's
@@ -1719,16 +1801,7 @@ def build_cap_cards(
     if not names:
         return []
     if known_nets is None:
-        # The same set build_cards derives for its own guards (the CELLS
-        # comment explains what belongs in each list); a caller holding one
-        # passes it, so every guard in one build answers the same manifest.
-        known_nets = (
-            set(spec["ports"])
-            | set(spec.get("wells", {}))
-            | set(spec.get("internal", []))
-        )
-        if spec.get("bjt_well"):
-            known_nets.add(spec["bjt_well"])
+        known_nets = declared_nets(spec)
     source = NETLIST_DIR / spec["source"]
     caps = parse_capacitors(subckt_body(source.read_text(), spec["subckt"]))
 
@@ -1849,8 +1922,9 @@ def build_assembly(cell: str, resolve_body: bool = False) -> list[Card]:
     ``resolve_body`` is the *assembly's own* declaration (see
     :data:`BODY_TIES_RESOLVED_CELLS`), passed straight through to every
     sub-cell's own :func:`build_cards` -- never each sub-cell's own standalone
-    value, which may disagree (``bias_core`` built on its own never resolves;
-    built as ``temp_por_top``'s ``xbias`` instance it always does).
+    value, which may disagree (``por_comparator_bias_okb_inv`` built on its
+    own never resolves -- it draws no tap of its own (#516); built inside
+    ``por_comparator``'s compare it always does).
     """
     cards: list[Card] = []
     for _inst, sub_cell, rename in instance_renames(cell):
