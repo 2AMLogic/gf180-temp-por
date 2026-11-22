@@ -6,6 +6,13 @@ Merged PRs and closed issues from the initial 30-day snapshot (2026-09-07 onward
 
 - [2026-09](work_log/WORK_LOG_2026-09.md)
 
+### 2026-11-22
+
+- **PR #641**: gitignore: ignore .loom/account-ranking.* daemon runtime state
+- **Issue #639** (closed): gitignore gap: .loom/account-ranking.codex runtime artifact trips check-main-clean.sh
+- **PR #638**: docs: sync drifted LVS evidence prose with committed reports
+- **Issue #637** (closed): LVS evidence prose: engine version and warning counts drift unpoliced beside the counts #510 fixed
+
 ### 2026-11-19
 
 - **PR #632**: refactor: consolidate the MC log-stem inverse into montecarlo.parse_sample_id
