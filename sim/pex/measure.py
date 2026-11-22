@@ -25,8 +25,10 @@ accept as written:
 1. The `.SUBCKT <cell>` header lists the same pins in the schematic's
    order (the stimulus instantiates the DUT positionally).
 2. Each extracted `Q... bjt` card (the deck has one generic bipolar class and
-   cannot name the PDK device) becomes `XQ... c b e pnp_10p00x10p00`, the
-   model the schematic uses, after checking AE=100P (10 um x 10 um).
+   cannot name the PDK device) becomes `XQ... c b e <model>`, the model the
+   schematic uses (`pnp_10p00x10p00` today), after checking `AE` is the emitter
+   area that model's name states (`lvs_reference.emitter_area_um2`; `AE=100P`
+   for 10 um x 10 um).
 3. The Nwell / bipolar-base nets that `klt pex` reports under
    `body_bias.unbiased_nets` (and the bipolar base nets) have no DC path in
    the extraction. Each gets a 0 V source to the net the schematic puts that
@@ -37,6 +39,12 @@ accept as written:
 `klt pex` still reports `body_bias.status` for the *unpatched* extraction; the
 ties here are what make the comparison simulable, not a claim that the drawn
 layout biases those wells.
+
+The SPICE and LVS primitives this needs are `layout/`'s, not copies of them:
+the `.subckt` port list (`lvs_reference.subckt_ports`), the key every join
+against a `klt lvs` correspondence goes through on both sides
+(`postlayout.correspondence_key`), and the substrate net and emitter area
+(`lvs_reference`).
 """
 
 from __future__ import annotations
@@ -54,7 +62,8 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "layout"))
 
-PDK_BJT = "pnp_10p00x10p00"
+import lvs_reference  # noqa: E402  (layout/lvs_reference.py)
+import postlayout  # noqa: E402  (layout/postlayout.py)
 
 
 def die(msg: str) -> "NoReturn":  # noqa: F821
@@ -76,14 +85,15 @@ def logical_cards(text: str) -> list[list[str]]:
 def schematic_pins(cell: str) -> list[str]:
     """Pin order of `.subckt <cell>` in the schematic (the stimulus is positional)."""
     text = (REPO / "design" / "netlist" / f"{cell}.spice").read_text()
-    for card in logical_cards(text):
-        if re.match(rf"^\.subckt\s+{re.escape(cell)}\b", card[0], re.I):
-            return card[0].split()[2:]
-    die(f"no `.subckt {cell}` in design/netlist/{cell}.spice")
+    try:
+        return lvs_reference.subckt_ports(text, cell)
+    except lvs_reference.ReferenceError as exc:
+        die(f"no `.subckt {cell}` in design/netlist/{cell}.spice ({exc})")
 
 
 def lvs_correspondence(klt: str, cell: str) -> dict[str, str]:
-    """reference net (upper-case) -> layout net, from `klt lvs` on the cell."""
+    """reference net, as `postlayout.correspondence_key` spells it -> layout
+    net, from `klt lvs` on the cell."""
     req = REPO / "layout" / "cells" / f"{cell}.lvs.json"
     proc = subprocess.run([klt, "lvs", str(req), "--format", "json"],
                           capture_output=True, text=True)
@@ -93,22 +103,21 @@ def lvs_correspondence(klt: str, cell: str) -> dict[str, str]:
         die(f"klt lvs gave no JSON: {proc.stderr[-400:]}")
     if doc.get("status") != "match":
         die(f"klt lvs status {doc.get('status')!r}, expected match")
-    return {e["reference"].upper(): e["layout"] for e in doc["net_correspondence"]}
+    return {postlayout.correspondence_key(e["reference"]): e["layout"]
+            for e in doc["net_correspondence"]}
 
 
 def patch_extracted(text: str, klt: str, cell: str) -> tuple[str, list[str]]:
-    import postlayout  # layout/postlayout.py
-
     sch_pins = schematic_pins(cell)
-    ties = {k: v for k, v in postlayout.body_ties(cell).items() if k != "vsubs"}
+    ties = {k: v for k, v in postlayout.body_ties(cell).items()
+            if k != lvs_reference.SUBSTRATE_NET}
     expected_model = postlayout.bipolar_model(cell)
-    # a cell with no bipolars (por_output_chain) has nothing to rename
-    if expected_model not in (None, PDK_BJT):
-        die(f"schematic bipolar is {expected_model}, wrapper is written for {PDK_BJT}")
+    expected_ae = (None if expected_model is None
+                   else f"{lvs_reference.emitter_area_um2(expected_model):.10g}P")
     ref_to_layout = lvs_correspondence(klt, cell)
 
     def layout_net(ref_name: str) -> str:
-        key = ref_name.upper().replace(".", "_")
+        key = postlayout.correspondence_key(ref_name)
         if key in ("VDD", "VSS"):
             return key
         if key not in ref_to_layout:
@@ -124,23 +133,26 @@ def patch_extracted(text: str, klt: str, cell: str) -> tuple[str, list[str]]:
     for card in logical_cards(text):
         head = card[0]
         if re.match(rf"^\.subckt\s+{re.escape(cell)}\b", head, re.I):
-            pins = head.split()[2:]
+            pins = " ".join(c.lstrip("+").strip() for c in card).split()[2:]
             if sorted(p.upper() for p in pins) != sorted(p.upper() for p in sch_pins):
                 die(f"extracted pin set {pins} != schematic {sch_pins}")
             card = [f".SUBCKT {cell} " + " ".join(sch_pins)]
             seen_header = True
         elif re.match(r"^q", head, re.I):
             joined = " ".join(c.lstrip("+").strip() for c in card)
+            if expected_model is None:
+                die(f"bipolar card extracted but the schematic has none: {joined[:160]}")
             m = re.match(r"^(Q\S*)\s+(\S+)\s+(\S+)\s+(\S+)\s+bjt\s+(.*)$", joined, re.I)
-            if not m or not re.search(r"\bAE=100P\b", m.group(5), re.I):
-                die(f"unexpected bipolar card (need `bjt` with AE=100P): {joined[:160]}")
+            if not m or not re.search(rf"\bAE={expected_ae}\b", m.group(5), re.I):
+                die(f"unexpected bipolar card (need `bjt` with AE={expected_ae}): "
+                    f"{joined[:160]}")
             name, c, b, e, _rest = m.groups()
             bjt_bases.append(b)
-            card = [f"X{name} {c} {b} {e} {PDK_BJT} m=1"]
+            card = [f"X{name} {c} {b} {e} {expected_model} m=1"]
             bjt_count += 1
         elif re.match(r"^\.ends\b", head, re.I) and seen_header and not tie_lines:
             for key, target in sorted(ties.items()):
-                if key.upper().replace(".", "_") not in ref_to_layout:
+                if postlayout.correspondence_key(key) not in ref_to_layout:
                     # No layout net of its own: the LVS merged this well into
                     # its target net (xtemp's bipolar bases sit on VSS). The
                     # base-net check below proves it for every bipolar.
@@ -158,14 +170,12 @@ def patch_extracted(text: str, klt: str, cell: str) -> tuple[str, list[str]]:
         die(f"no `.SUBCKT {cell}` in the extracted netlist")
     if expected_model and bjt_count == 0:
         die("no bipolar cards found in the extracted netlist")
-    if not expected_model and bjt_count:
-        die(f"{bjt_count} bipolar cards extracted but the schematic has none")
     tied = {line.split()[1] for line in tie_lines}
     for b in bjt_bases:
         if b not in tied and not re.match(r"^VSS(__t\d+)?$", b):
             die(f"bipolar base {b} is neither a tied well nor on the VSS net")
     if bjt_count:
-        report.append(f"{bjt_count} bipolar cards -> {PDK_BJT}")
+        report.append(f"{bjt_count} bipolar cards -> {expected_model}")
     return "\n".join(out) + "\n", report
 
 
