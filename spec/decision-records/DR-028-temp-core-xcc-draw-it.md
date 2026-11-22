@@ -167,9 +167,12 @@ Measured on the result (`klt 0.2.0`, deck
 *(Annotated 2026-11-16: the two LVS rows above record the counts at this
 decision, and were correct when it was made. `e6768f06` — "layout:
 re-transcribe `lvs_reference.py` for klt 0.6.0's gf180mcu deck", 2026-10-01 —
-later moved both cells' counts; the committed reports now read `temp_core`
-115 devices / 71 nets / 29 pins and `temp_por_top` 239 devices / 143 nets /
-5 pins. The decision is unaffected; `layout/reports/` is the current answer
+later moved both cells' counts (`temp_por_top` to 143 nets / 5 pins,
+`temp_core` to 71 nets / 29 pins); `a8c500a0` — "fix: regenerate the layout
+evidence chain on the merged generator (main landed #516)", 2026-11-16 —
+then regenerated the chain and moved `temp_por_top` to 139 nets. The
+committed reports now read `temp_core` 115 devices / 71 nets / 29 pins and
+`temp_por_top` 239 devices / 139 nets / 5 pins. The decision is unaffected; `layout/reports/` is the current answer
 of record.)*
 
 What this record predicted and did **not** get is worth stating too: the
