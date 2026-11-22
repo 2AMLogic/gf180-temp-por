@@ -1419,7 +1419,7 @@ Recorded result (`layout/reports/por_comparator_bias_okb_inv/`):
 | ----- | ------ |
 | `klt drc --deck gf180mcu` | clean — 0 violations |
 | `klt extract --deck gf180mcu` | 2 devices (1 nfet, 1 pfet), 6 nets, 5 pins |
-| `klt lvs` | **match** — 2/2 devices, 6/6 nets, 5/5 pins, 0 mismatches |
+| `klt lvs` | **match** — 2/2 devices, 6/6 nets, 5/5 pins, 0 errors (3 warnings: the NFET body on the deck-synthesized `vsubs` substrate net and the PFET body on an anonymous well net, both `device.body_unverified`, plus one `topology` warning for a device class with no counterpart on either side) |
 | negative control `topology` | detected (exit 3, mismatch) |
 | negative control `device-param` | detected (exit 3, mismatch) |
 
