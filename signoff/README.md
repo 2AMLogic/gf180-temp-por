@@ -93,13 +93,13 @@ It does not mean the geometry on those unchecked layers, or under those skipped 
 
 ### Item 4 — warnings-only mismatches, and a freshness gap the grader cannot close
 
-- `mismatch_count: 2`, both severity `warning`, both category
-  `device.body_unverified`: 71 NMOS body terminals compared against the
-  deck-synthesized `vsubs` net rather than a real schematic net, and 64 PMOS
-  body terminals compared against an anonymous deck-synthesized well net.
-  The gf180mcu deck draws no distinct NMOS substrate/tap layer and no
-  distinct well-tap layer, so body connectivity is **not independently
-  verified** by this compare.
+- `mismatch_count: 1`, severity `warning`, category
+  `device.body_unverified`: 29 PMOS body terminals compared against an
+  anonymous, KLayout-synthesized well net rather than a real schematic
+  net — no drawn or derived well-tap geometry resolved those device
+  bodies to a real net. The gf180mcu deck draws no distinct well-tap
+  layer, so body connectivity is **not independently verified** by this
+  compare.
 - Single engine only. No second independent engine's concurring verdict
   (which the checklist marks as strengthening, not required).
 - **The citation now carries a `content_hash` pin.** Through `klt 0.5.0`,

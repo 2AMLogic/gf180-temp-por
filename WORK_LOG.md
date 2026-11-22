@@ -8,6 +8,8 @@ Merged PRs and closed issues from the initial 30-day snapshot (2026-09-07 onward
 
 ### 2026-11-22
 
+- **PR #642**: docs: sync LVS mismatch prose with the committed reports
+- **Issue #640** (closed): LVS evidence prose: mismatch_count claims drift unpoliced in signoff item 4 and the proof-cell row
 - **PR #641**: gitignore: ignore .loom/account-ranking.* daemon runtime state
 - **Issue #639** (closed): gitignore gap: .loom/account-ranking.codex runtime artifact trips check-main-clean.sh
 - **PR #638**: docs: sync drifted LVS evidence prose with committed reports
@@ -330,15 +332,4 @@ Merged PRs and closed issues from the initial 30-day snapshot (2026-09-07 onward
 - **PR #308**: docs: embed fleet burndown chart in README
 - **Issue #309** (closed): loom-wake live verification — throwaway, safe to close
 - **Issue #307** (closed): README: embed the fleet burndown chart (one line)
-
-### 2026-09-21
-
-- **PR #304**: layout(temp_por_top): clear the T1 item-11 ERC supply verdict with devices[]
-- **Issue #300** (closed): T1 item 11 (power delivery, structural): no klt erc supply spec or report in this repo
-
-### 2026-09-20
-
-- **PR #303**: layout(temp_por_top): add T1 item 11 klt erc supply spec + report
-- **PR #302**: signoff: commit a klt signoff block manifest as the T1 verdict of record
-- **Issue #301** (closed): Commit a klt signoff block manifest so this block's T1 state is graded, not hand-read
 
