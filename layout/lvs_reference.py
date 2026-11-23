@@ -1269,11 +1269,15 @@ def emitter_area_um2(model: str) -> float:
 
 
 def subckt_ports(text: str, name: str) -> list[str]:
-    """The formal port list of ``.subckt <name> ...`` in ``text``."""
+    """The formal port list of ``.subckt <name> ...`` in ``text``.
+
+    ``key=value`` default parameters on the header are not ports and are
+    dropped, the same way :func:`_parse_cards` drops them on an ``X`` card.
+    """
     for line in logical_lines(text):
         match = SUBCKT_RE.match(line)
         if match and match.group(1) == name:
-            return match.group(2).split()
+            return [t for t in match.group(2).split() if "=" not in t]
     raise ReferenceError(f"subcircuit {name!r} not found")
 
 
