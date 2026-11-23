@@ -3,7 +3,7 @@
 Current workflow state, maintained by Guide.
 
 <!-- guide:plan-body:start -->
-_Generated: 2026-11-23T00:30:00Z (snapshot; compare against live labels)_
+_Generated: 2026-11-23T03:00:00Z (snapshot; compare against live labels)_
 ## Operator Attention: Merge-Risk-Hold Pileup
 
 Judge-approved PRs under a hold (`loom:blocked` or `loom:operator`) — only a human merge decision is missing.
@@ -30,20 +30,20 @@ Judge-approved PRs under a hold (`loom:blocked` or `loom:operator`) — only a h
 
 Human-approved issues (`loom:issue`) ready for implementation — excluding held (`loom:blocked`/`loom:operator`/`loom:frozen`), `loom:building`, and issues closed by an open `loom:pr` PR (listed under Approved).
 
-- **#648**: Consolidate the duplicated 25 C gain-trim model onto harness.montecarlo
+_None._
 
 ## In Progress
 
 Issues currently being built (`loom:building`).
 
 - **#532**: temp_core and por_comparator_bias_okb_inv have no substrate or well tap within 20 um of their MOS rows (DF.13_LV / DF.14_LV)
-- **#645**: ci: the klayout-gated layout unit tests silently skip, so 20 of 235 never run anywhere
+- **#657**: assembly_renames() tokenizes assembly X cards verbatim, unlike instance_lines() and subckt_ports()
 
 ## PRs Awaiting Review
 
 PRs waiting on Judge (`loom:review-requested`).
 
-- **#649**: ci: re-run layout/tests after the klt grader install so klayout-gated tests execute
+_None._
 
 ## Approved (Awaiting Merge)
 
@@ -70,7 +70,7 @@ Issues carrying `loom:curated`.
 - **#510**: LVS net and pin counts quoted in prose drifted from the committed lvs.json reports *(curated)*
 - **#532**: temp_core and por_comparator_bias_okb_inv have no substrate or well tap within 20 um of their MOS rows (DF.13_LV / DF.14_LV) *(curated)*
 - **#551**: Re-run temp_por_top PEX grid: pex.json still cites the pre-#518 GDS revision *(curated)* *(held)*
-- **#645**: ci: the klayout-gated layout unit tests silently skip, so 20 of 235 never run anywhere *(curated)*
+- **#657**: assembly_renames() tokenizes assembly X cards verbatim, unlike instance_lines() and subckt_ports() *(curated)*
 
 ## Proposed (Architect / Hermit)
 
@@ -89,11 +89,11 @@ _None._
 | Operator merge-risk holds | 2 |
 | Very important | 1 |
 | Important | 4 |
-| Ready (`loom:issue`, net of holds/building/merge-pending) | 1 |
+| Ready (`loom:issue`, net of holds/building/merge-pending) | 0 |
 | In Progress (`loom:building`) | 2 |
-| PRs awaiting review | 1 |
+| PRs awaiting review | 0 |
 | Approved PRs awaiting merge | 2 |
-| Curated | 15 |
+| Curated | 14 |
 | Architect / Hermit proposals | 3 |
 | Active epics | 0 |
 <!-- guide:plan-body:end -->

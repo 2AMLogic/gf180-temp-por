@@ -6,6 +6,17 @@ Merged PRs and closed issues from the initial 30-day snapshot (2026-09-07 onward
 
 - [2026-09](work_log/WORK_LOG_2026-09.md)
 
+### 2026-11-23
+
+- **PR #656**: fix: strip key=value defaults from .subckt ports in lvs_reference
+- **Issue #655** (closed): subckt_ports() counts key=value tokens as ports while instance_lines() strips them
+- **PR #654**: refactor: route design/netlist.py's instance_lines() through lvs_reference subckt_body
+- **Issue #652** (closed): Reuse lvs_reference.subckt_body in design/netlist.py's instance_lines()
+- **PR #649**: ci: re-run layout/tests after the klt grader install so klayout-gated tests execute
+- **Issue #645** (closed): ci: the klayout-gated layout unit tests silently skip, so 20 of 235 never run anywhere
+- **PR #653**: sim: extract shared temp_trim_terms helper, dedupe 25 C trim model
+- **Issue #648** (closed): Consolidate the duplicated 25 C gain-trim model onto harness.montecarlo
+
 ### 2026-11-22
 
 - **PR #647**: fix(pex): read .subckt pins and LVS nets through layout's shared helpers
