@@ -75,7 +75,6 @@ Issues carrying `loom:curated`.
 ## Proposed (Architect / Hermit)
 
 - **#470**: Give run_por_edge_check.py its own results file: remove the §7 splice into net_attribution_results.md *(hermit)* *(held)*
-- **#474**: Remove tolerated pre-pin card shapes from layout/postlayout.py's extracted-netlist reader *(hermit)* *(held)*
 - **#633**: Drop the unused native yield dependency from headless CI *(hermit)* *(held)*
 
 ## Epics
@@ -93,7 +92,7 @@ _None._
 | In Progress (`loom:building`) | 2 |
 | PRs awaiting review | 0 |
 | Approved PRs awaiting merge | 2 |
-| Curated | 14 |
-| Architect / Hermit proposals | 3 |
+| Curated | 15 |
+| Architect / Hermit proposals | 2 |
 | Active epics | 0 |
 <!-- guide:plan-body:end -->
