@@ -8,6 +8,8 @@ Merged PRs and closed issues from the initial 30-day snapshot (2026-09-07 onward
 
 ### 2026-11-22
 
+- **PR #647**: fix(pex): read .subckt pins and LVS nets through layout's shared helpers
+- **Issue #643** (closed): Reuse layout's shared SPICE and LVS helpers in sim/pex/measure.py
 - **PR #642**: docs: sync LVS mismatch prose with the committed reports
 - **Issue #640** (closed): LVS evidence prose: mismatch_count claims drift unpoliced in signoff item 4 and the proof-cell row
 - **PR #641**: gitignore: ignore .loom/account-ranking.* daemon runtime state
@@ -326,10 +328,4 @@ Merged PRs and closed issues from the initial 30-day snapshot (2026-09-07 onward
 ### 2026-09-24
 
 - **PR #305**: chore: resync installed Loom surfaces
-
-### 2026-09-23
-
-- **PR #308**: docs: embed fleet burndown chart in README
-- **Issue #309** (closed): loom-wake live verification — throwaway, safe to close
-- **Issue #307** (closed): README: embed the fleet burndown chart (one line)
 
