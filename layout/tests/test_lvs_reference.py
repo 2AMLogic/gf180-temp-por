@@ -1311,6 +1311,39 @@ class TempPorTopAssemblyTest(ControlCoverageTests, GoldenNetlistTests, unittest.
         )
         self.assertEqual(dict(emitted), {k: v for k, v in expected.items() if v})
 
+    def test_a_parameterized_assembly_instance_resolves_like_a_plain_one(self):
+        # #657: an assembly X card may carry key=value instance parameters --
+        # the deck shape design/netlist.py's check_invariants() already pins
+        # as valid (layout/tests/test_netlist.py's parameterized-instance
+        # test) and that _parse_cards()/subckt_ports() drop from their token
+        # lists. Tokenized verbatim here, the trailing m=2 read as the
+        # sub-cell name and the build failed with a false ReferenceError on
+        # a valid deck. One card gets a trailing parameter, one a mid-card
+        # parameter, so both a wrong model and a wrong net count are pinned.
+        real = self.golden_text()
+        parameterized = real.replace(
+            "xbias VDD VSS IBIAS VREF BIAS_OK bias_core",
+            "xbias VDD VSS IBIAS VREF BIAS_OK bias_core m=2",
+        ).replace(
+            "xcmp VDD VSS IBIAS VREF BIAS_OK POR_RAW por_comparator",
+            "xcmp VDD VSS IBIAS m=2 VREF BIAS_OK POR_RAW por_comparator",
+        )
+        self.assertNotEqual(parameterized, real)
+        with tempfile.TemporaryDirectory() as tmp:
+            (Path(tmp) / "temp_por_top.spice").write_text(parameterized)
+            with unittest.mock.patch.object(lr, "NETLIST_DIR", Path(tmp)):
+                parameterized_renames = lr.instance_renames(self.CELL)
+        plain = lr.instance_renames(self.CELL)
+        self.assertEqual(
+            [(inst, sub) for inst, sub, _rename in parameterized_renames],
+            [(inst, sub) for inst, sub, _rename in plain],
+        )
+        # The net mapping itself is unchanged too: each formal port maps to
+        # the same block net on the parameterized deck as on the real one.
+        for (inst, sub, rename), _plain in zip(parameterized_renames, plain):
+            for port in lr.subckt_ports(real, sub):
+                self.assertEqual(rename(port), _plain[2](port), f"{inst}.{port}")
+
     def test_bjt_collector_and_base_resolve_independently(self):
         # #312: BODY_TIES_RESOLVED_CELLS (the substrate/collector tie) and
         # BJT_WELL_RESOLVED_CELLS (the local Nwell/base tie) are independent
