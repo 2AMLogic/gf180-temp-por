@@ -48,6 +48,10 @@ def top_deck(instance: str) -> str:
 
 BIAS_DECK = ".subckt bias_core VDD VSS IBIAS VREF BIAS_OK\nRM1 VDD IBIAS 1k\n.ends\n"
 
+PARAM_BIAS_DECK = (
+    ".subckt bias_core VDD VSS IBIAS VREF BIAS_OK m=1\nRM1 VDD IBIAS 1k\n.ends\n"
+)
+
 
 class NormalizeTest(unittest.TestCase):
     def test_rewrites_repo_root_and_strips_trailing_whitespace(self):
@@ -88,6 +92,23 @@ class SubcktPortsTest(unittest.TestCase):
     def test_missing_subckt_raises_export_error(self):
         with self.assertRaises(netlist.ExportError):
             netlist.subckt_ports(".subckt other a b\n.ends\n", "bias_core")
+
+    def test_key_value_defaults_are_not_ports(self):
+        self.assertEqual(
+            netlist.subckt_ports(PARAM_BIAS_DECK, "bias_core"),
+            ["VDD", "VSS", "IBIAS", "VREF", "BIAS_OK"],
+        )
+
+    def test_key_value_defaults_across_a_continuation_are_not_ports(self):
+        deck = (
+            ".subckt bias_core VDD VSS IBIAS\n"
+            "+ VREF BIAS_OK m=1\n"
+            ".ends\n"
+        )
+        self.assertEqual(
+            netlist.subckt_ports(deck, "bias_core"),
+            ["VDD", "VSS", "IBIAS", "VREF", "BIAS_OK"],
+        )
 
 
 class InstanceLinesTest(unittest.TestCase):
@@ -158,6 +179,44 @@ class CheckInvariantsTest(unittest.TestCase):
             "bias_core": BIAS_DECK,
         }
         self.assertEqual(netlist.check_invariants(netlists), [])
+
+    def test_parameterized_header_with_a_bare_instance_passes(self):
+        netlists = {
+            netlist.TOP_CELL: top_deck("xbias VDD VSS IBIAS VREF BIAS_OK bias_core"),
+            "bias_core": PARAM_BIAS_DECK,
+        }
+        self.assertEqual(netlist.check_invariants(netlists), [])
+
+    def test_parameterized_header_with_an_overriding_instance_passes(self):
+        netlists = {
+            netlist.TOP_CELL: top_deck(
+                "xbias VDD VSS IBIAS VREF BIAS_OK bias_core m=2"
+            ),
+            "bias_core": PARAM_BIAS_DECK,
+        }
+        self.assertEqual(netlist.check_invariants(netlists), [])
+
+    def test_parameterized_header_still_reports_net_count_drift(self):
+        netlists = {
+            netlist.TOP_CELL: top_deck("xbias VDD VSS IBIAS VREF bias_core m=1"),
+            "bias_core": PARAM_BIAS_DECK,
+        }
+        failures = "\n".join(netlist.check_invariants(netlists))
+        self.assertIn("connects 4 nets", failures)
+        self.assertIn("5 ports", failures)
+
+    def test_parameterized_header_still_reports_port_order_drift(self):
+        netlists = {
+            netlist.TOP_CELL: top_deck("xbias VDD VSS IBIAS VREF BIAS_OK bias_core"),
+            "bias_core": (
+                ".subckt bias_core VDD VSS IBIAS BIAS_OK VREF m=1\n"
+                "RM1 VDD IBIAS 1k\n"
+                ".ends\n"
+            ),
+        }
+        failures = "\n".join(netlist.check_invariants(netlists))
+        self.assertIn("symbol pin order does not match the exported .subckt", failures)
+        self.assertIn(".subckt:    ['VDD', 'VSS', 'IBIAS', 'BIAS_OK', 'VREF']", failures)
 
     def test_instance_inside_a_sub_circuit_subckt_does_not_count(self):
         netlists = {

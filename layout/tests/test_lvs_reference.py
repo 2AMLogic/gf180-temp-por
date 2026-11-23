@@ -65,6 +65,32 @@ class ParsingTest(unittest.TestCase):
         with self.assertRaises(lr.ReferenceError):
             lr.subckt_body(text, "absent")
 
+    def test_subckt_ports_strip_key_value_defaults(self):
+        # A default parameter on the header is not a formal port: an X card may
+        # omit or override it, so counting it would misreport the cell width.
+        text = (
+            ".subckt bias_core VDD VSS IBIAS VREF BIAS_OK m=1 l=0.5u\n"
+            "RM1 VDD IBIAS 1k\n"
+            ".ends\n"
+        )
+        self.assertEqual(
+            lr.subckt_ports(text, "bias_core"),
+            ["VDD", "VSS", "IBIAS", "VREF", "BIAS_OK"],
+        )
+        with self.assertRaises(lr.ReferenceError):
+            lr.subckt_ports(text, "absent")
+
+    def test_subckt_ports_strip_key_value_defaults_across_a_continuation(self):
+        text = (
+            ".subckt bias_core VDD VSS IBIAS\n"
+            "+ VREF BIAS_OK m=1\n"
+            ".ends\n"
+        )
+        self.assertEqual(
+            lr.subckt_ports(text, "bias_core"),
+            ["VDD", "VSS", "IBIAS", "VREF", "BIAS_OK"],
+        )
+
     def test_dimension_units(self):
         self.assertAlmostEqual(lr.to_um("0.5u"), 0.5)
         self.assertAlmostEqual(lr.to_um("2u"), 2.0)
