@@ -153,9 +153,9 @@ def us_after_dip(t: float | None) -> float | None:
     The single definition of this conversion for this directory (#493). Every
     control under ``control/`` reports its event timeline on that axis -- the
     "All times are µs after the dip starts" tables in this script's own
-    ``results.md``, in ``postlayout_margin_results.md``, and in the two
-    sections of ``net_attribution_results.md`` that ``run_net_attribution.py``
-    and ``run_por_edge_check.py`` each own -- and the origin they measure
+    ``results.md``, in ``postlayout_margin_results.md``, in ``net_attribution_results.md``
+    (``run_net_attribution.py``) and in ``por_edge_check_results.md``
+    (``run_por_edge_check.py``) -- and the origin they measure
     from, ``T_DIP_S``, is already shared from this module. Before #493 the
     conversion itself was four independently-maintained copies, so a change
     of origin convention could have moved one table's axis and not another's.
