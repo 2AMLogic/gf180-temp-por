@@ -10,6 +10,7 @@ same "no PDK required" bar sim/tests/test_harness.py holds itself to.
 
 from __future__ import annotations
 
+import re
 import sys
 import unittest
 from pathlib import Path
@@ -370,6 +371,69 @@ class DeriveTempTrimTests(unittest.TestCase):
 
         with self.assertRaises(ManifestError):
             montecarlo.apply_derive_hook(_FakeTb(), [])
+
+
+class TempTrimTermsTests(unittest.TestCase):
+    def test_terms_agree_with_derive_temp_trim(self):
+        t_k = 233.15  # -40 C
+        k25 = 4.3e-3
+        vptat25 = k25 * 298.15
+        vptattgt = k25 * t_k + 0.02  # nonzero curvature
+        terms = montecarlo.temp_trim_terms(vptat25, vptattgt, t_k)
+        out = montecarlo.derive_temp_trim(
+            {"vptat25_v": vptat25, "vptattgt_v": vptattgt, "vtktgt_k": t_k}
+        )
+        self.assertAlmostEqual(terms.k25, k25)
+        self.assertAlmostEqual(terms.total_c, out["terr_trim_c"])
+        self.assertAlmostEqual(terms.k25 * 1e3, out["k25_derived_mvk"])
+
+    def test_decomposition_adds_in_the_worse_direction(self):
+        t_k = 398.15  # 125 C
+        k25 = 4.3e-3
+        vptat25 = k25 * 298.15
+        for vptattgt in (k25 * t_k + 0.02, k25 * t_k - 0.02):
+            terms = montecarlo.temp_trim_terms(vptat25, vptattgt, t_k)
+            self.assertAlmostEqual(terms.quant_c, (montecarlo.TRIM_LSB_FRAC / 2.0) * t_k)
+            self.assertAlmostEqual(terms.curvature_c, vptattgt / k25 - t_k)
+            self.assertAlmostEqual(
+                terms.total_c,
+                terms.curvature_c
+                + (terms.quant_c if terms.curvature_c >= 0 else -terms.quant_c),
+            )
+
+    def test_zero_anchor_returns_none(self):
+        self.assertIsNone(montecarlo.temp_trim_terms(0.0, 1.0, 233.15))
+
+
+class SharedTrimModelTests(unittest.TestCase):
+    """The 25 C gain-trim model must exist in exactly one place (#648).
+
+    ``sim/harness/montecarlo.py`` owns the constants and the formula; the
+    derived-analysis scripts import them. A second copy -- like the one this
+    refactor removed -- is how a DR-031-style trim-ladder change silently
+    leaves a derived analysis evaluating the old ladder width.
+    """
+
+    SCRIPTS = [
+        SIM_DIR / "temp-accuracy-vt" / "analyze_derived.py",
+        SIM_DIR / "temp-accuracy-mc" / "analyze_breakdown.py",
+    ]
+
+    def test_no_local_redefinition_of_the_trim_constants(self):
+        for script in self.SCRIPTS:
+            src = script.read_text()
+            for name in ("TRIM_LSB_FRAC", "TRIM_REFERENCE_K"):
+                self.assertIsNone(
+                    re.search(rf"(?m)^\s*{name}\s*=", src),
+                    f"{script} re-defines {name} locally instead of importing "
+                    "the shared copy from harness.montecarlo",
+                )
+
+    def test_scripts_route_the_formula_through_the_shared_helper(self):
+        for script in self.SCRIPTS:
+            src = script.read_text()
+            self.assertIn("from harness.montecarlo import", src, str(script))
+            self.assertIn("temp_trim_terms(", src, str(script))
 
 
 class SummarizeTests(unittest.TestCase):
