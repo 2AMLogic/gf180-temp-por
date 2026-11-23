@@ -9,6 +9,7 @@ from __future__ import annotations
 import datetime
 import io
 import json
+import math
 import sys
 import tempfile
 import unittest
@@ -655,6 +656,53 @@ class FindCrossingsTests(unittest.TestCase):
             runner.find_crossings(self.ROWS, 1, 1.0, t0=2.5),
             [(4.0, "fall")],
         )
+
+    def test_interpolate_linearly_interpolates_crossing_times(self):
+        # run_starved_window.py's call shape: no t0, interpolated times.
+        crossings = runner.find_crossings(self.ROWS, 1, 1.0, interpolate=True)
+        self.assertEqual([kind for _, kind in crossings], ["rise", "fall"])
+        self.assertAlmostEqual(crossings[0][0], 1.5)  # y 0 -> 2 through 1: halfway
+        self.assertAlmostEqual(crossings[1][0], 3.0 + 1.0 / 3.0)  # y 2 -> -1 through 1: one third
+
+    def test_interpolate_composes_with_t0(self):
+        # run_deglitch_asym_probe.py's call shape: t0 plus interpolated times.
+        crossings = runner.find_crossings(self.ROWS, 1, 1.0, t0=2.5, interpolate=True)
+        self.assertEqual([kind for _, kind in crossings], ["fall"])
+        self.assertAlmostEqual(crossings[0][0], 3.0 + 1.0 / 3.0)
+
+
+class InterpolateTraceTests(unittest.TestCase):
+    ROWS = [
+        (0.0, 0.0),
+        (1.0, 2.0),
+        (1.0, 6.0),  # duplicate timestamp
+        (3.0, 8.0),
+    ]
+
+    def test_interpolates_between_bracketing_samples(self):
+        self.assertAlmostEqual(runner.interpolate_trace(self.ROWS, 1, 0.5), 1.0)
+        # Past the duplicate pair the bracket is (1, 6) -> (3, 8).
+        self.assertAlmostEqual(runner.interpolate_trace(self.ROWS, 1, 2.0), 7.0)
+
+    def test_clamps_at_both_endpoints(self):
+        self.assertEqual(runner.interpolate_trace(self.ROWS, 1, -1.0), 0.0)
+        self.assertEqual(runner.interpolate_trace(self.ROWS, 1, 0.0), 0.0)
+        self.assertEqual(runner.interpolate_trace(self.ROWS, 1, 3.0), 8.0)
+        self.assertEqual(runner.interpolate_trace(self.ROWS, 1, 9.0), 8.0)
+
+    def test_exact_sample_timestamp_returns_that_sample_value(self):
+        self.assertEqual(runner.interpolate_trace(self.ROWS, 1, 1.0), 2.0)
+
+    def test_duplicate_timestamps_never_divide_by_a_zero_span(self):
+        # rows[1] and rows[2] share t=1; a query at that timestamp resolves to
+        # the first row at or after it (rows[1]), including when the duplicate
+        # pair sits at the head of the trace.
+        self.assertEqual(runner.interpolate_trace(self.ROWS, 1, 1.0), 2.0)
+        head_dupes = [(1.0, 2.0), (1.0, 6.0), (3.0, 8.0)]
+        self.assertEqual(runner.interpolate_trace(head_dupes, 1, 1.0), 2.0)
+
+    def test_empty_rows_yield_nan(self):
+        self.assertTrue(math.isnan(runner.interpolate_trace([], 1, 0.0)))
 
 
 class ParseWrdataTraceTests(unittest.TestCase):
