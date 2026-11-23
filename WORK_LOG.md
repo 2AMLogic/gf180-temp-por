@@ -8,6 +8,8 @@ Merged PRs and closed issues from the initial 30-day snapshot (2026-09-07 onward
 
 ### 2026-11-23
 
+- **PR #660**: fix: reject two legacy card shapes in the post-layout netlist reader
+- **Issue #474** (closed): Remove tolerated pre-pin card shapes from layout/postlayout.py's extracted-netlist reader
 - **PR #656**: fix: strip key=value defaults from .subckt ports in lvs_reference
 - **Issue #655** (closed): subckt_ports() counts key=value tokens as ports while instance_lines() strips them
 - **PR #654**: refactor: route design/netlist.py's instance_lines() through lvs_reference subckt_body
