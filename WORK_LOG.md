@@ -8,6 +8,10 @@ Merged PRs and closed issues from the initial 30-day snapshot (2026-09-07 onward
 
 ### 2026-11-23
 
+- **PR #664**: refactor(sim): consolidate trace interpolation and crossing helpers into runner
+- **Issue #663** (closed): Consolidate duplicated trace-interpolation and crossing helpers into sim/harness/runner.py
+- **PR #659**: fix: drop key=value tokens from assembly X cards in instance_renames()
+- **Issue #657** (closed): assembly_renames() tokenizes assembly X cards verbatim, unlike instance_lines() and subckt_ports()
 - **PR #660**: fix: reject two legacy card shapes in the post-layout netlist reader
 - **Issue #474** (closed): Remove tolerated pre-pin card shapes from layout/postlayout.py's extracted-netlist reader
 - **PR #656**: fix: strip key=value defaults from .subckt ports in lvs_reference
