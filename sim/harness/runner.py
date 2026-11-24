@@ -649,6 +649,45 @@ def parse_wrdata_trace(text: str, n_probes: int) -> list[tuple[float, ...]]:
     return rows
 
 
+class TraceError(RuntimeError):
+    """A deck run did not produce a fresh, parseable waveform file."""
+
+
+def run_deck_trace(
+    name: str,
+    text: str,
+    control_dir: Path,
+    deck_dir: Path,
+    trace_name: str,
+    n_probes: int,
+    timeout_s: int | None = None,
+) -> tuple[str, str, list[tuple[float, ...]]]:
+    """Run a local deck that ``wrdata``-writes ``<deck_dir>/<trace_name>`` and
+    return ``(raw_output, trace_text, rows)``.
+
+    Shared home for the scratch-file handling that four controls used to
+    repeat around :func:`run_deck_raw`. The scratch path is cleared *before*
+    the launch, so a waveform left behind by an interrupted earlier run can
+    never satisfy the existence check of a run that failed to write its own;
+    it is removed again after use. Raises :class:`TraceError` (message
+    includes the tail of the ngspice output) when no waveform was written or
+    it holds no parseable rows. Timeouts propagate as for ``run_deck_raw``.
+    """
+    scratch = deck_dir / trace_name
+    scratch.unlink(missing_ok=True)
+    try:
+        output = run_deck_raw(name, text, control_dir, timeout_s=timeout_s)
+        if not scratch.exists():
+            raise TraceError(f"{name}: ngspice produced no {trace_name}\n{output[-4000:]}")
+        trace_text = scratch.read_text()
+    finally:
+        scratch.unlink(missing_ok=True)
+    rows = parse_wrdata_trace(trace_text, n_probes)
+    if not rows:
+        raise TraceError(f"{name}: could not parse any rows from {trace_name}")
+    return output, trace_text, rows
+
+
 def remove_netlist_device(text: str, head: str, source: Path | str) -> str:
     """``text`` with the one device instance line starting with ``head``
     (plus any ``+`` continuation lines beneath it) deleted.

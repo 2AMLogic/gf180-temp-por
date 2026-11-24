@@ -194,26 +194,22 @@ def main(argv: list[str] | None = None) -> int:
         for point_id, corner_name, temp_c, vdd, rate, stop_s in POINTS:
             run_id = f"{point_id}__{arm_id}"
             trace_path = trace_dir / f"{run_id}.csv"
-            output = runner.run_deck_raw(
-                run_id,
-                compose_deck(
-                    pdk, corner_name, temp_c, vdd, rate, stop_s, options, deck_dir, dut_path.name, arm_id
-                ),
-                CONTROL_DIR,
-                timeout_s=1800,
-            )
-            raw_trace = deck_dir / "trace.csv"
-            if not raw_trace.exists():
-                print(f"{run_id}: ngspice produced no trace.csv", file=sys.stderr)
-                print(output, file=sys.stderr)
+            try:
+                _, trace_text, rows = runner.run_deck_trace(
+                    run_id,
+                    compose_deck(
+                        pdk, corner_name, temp_c, vdd, rate, stop_s, options, deck_dir, dut_path.name, arm_id
+                    ),
+                    CONTROL_DIR,
+                    deck_dir,
+                    "trace.csv",
+                    len(PROBES),
+                    timeout_s=1800,
+                )
+            except runner.TraceError as e:
+                print(e, file=sys.stderr)
                 return 2
-            trace_text = raw_trace.read_text()
             trace_path.write_text(trace_text)
-            raw_trace.unlink()
-            rows = runner.parse_wrdata_trace(trace_text, len(PROBES))
-            if not rows:
-                print(f"{run_id}: could not parse any rows from trace.csv", file=sys.stderr)
-                return 2
 
             resetn_crossings = runner.find_crossings(rows, col["RESETn"], RELEASE_THRESH)
             window = None

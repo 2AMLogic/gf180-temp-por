@@ -162,24 +162,22 @@ def run_one(args) -> tuple[str, dict]:
     (pdk, options, deck_dir, trace_dir, run_id, corner_name, temp_c, vdd, glitch_v,
      hold_s, arm, dut_rel) = args
     trace_name = f"{run_id}.csv"
-    output = runner.run_deck_raw(
-        f"sweep_{run_id}",
-        compose_deck(
-            pdk, corner_name, temp_c, vdd, glitch_v, hold_s, options, deck_dir, trace_name,
-            dut_rel, arm,
-        ),
-        CONTROL_DIR,
-        timeout_s=3600,
-    )
-    raw = deck_dir / trace_name
-    if not raw.exists():
-        raise SystemExit(f"{run_id}: ngspice produced no {trace_name}\n{output}")
-    text = raw.read_text()
+    try:
+        _, text, rows = runner.run_deck_trace(
+            f"sweep_{run_id}",
+            compose_deck(
+                pdk, corner_name, temp_c, vdd, glitch_v, hold_s, options, deck_dir, trace_name,
+                dut_rel, arm,
+            ),
+            CONTROL_DIR,
+            deck_dir,
+            trace_name,
+            len(PROBES),
+            timeout_s=3600,
+        )
+    except runner.TraceError as e:
+        raise SystemExit(f"{run_id}: {e}")
     (trace_dir / f"sweep_{run_id}.csv").write_text(text)
-    raw.unlink()
-    rows = runner.parse_wrdata_trace(text, len(PROBES))
-    if not rows:
-        raise SystemExit(f"{run_id}: could not parse any rows from {trace_name}")
 
     col = {label: i + 1 for i, (_, label) in enumerate(PROBES)}
     t_rise = GLITCH_START_S + EDGE_S + hold_s + EDGE_S
