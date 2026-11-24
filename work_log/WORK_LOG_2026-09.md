@@ -2,6 +2,10 @@
 
 Sections moved byte-for-byte from [WORK_LOG.md](../WORK_LOG.md) by `loom-daemon work-docs archive`.
 
+### 2026-09-24
+
+- **PR #305**: chore: resync installed Loom surfaces
+
 ### 2026-09-23
 
 - **PR #308**: docs: embed fleet burndown chart in README

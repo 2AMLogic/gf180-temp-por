@@ -6,6 +6,11 @@ Merged PRs and closed issues from the initial 30-day snapshot (2026-09-07 onward
 
 - [2026-09](work_log/WORK_LOG_2026-09.md)
 
+### 2026-11-24
+
+- **PR #670**: refactor: collect POR control waveforms through one fresh-trace runner helper
+- **Issue #669** (closed): Consolidate waveform collection so failed POR controls cannot reuse stale traces
+
 ### 2026-11-23
 
 - **PR #666**: refactor: write POR edge-check results to its own file
@@ -343,8 +348,4 @@ Merged PRs and closed issues from the initial 30-day snapshot (2026-09-07 onward
 - **PR #315**: layout: re-transcribe lvs_reference.py for klt 0.6.0's gf180mcu deck
 - **Issue #313** (closed): Curator applied issue-lifecycle labels (loom:curating/loom:curated) to PR #306
 - **Issue #312** (closed): klt 0.6.0's gf180mcu deck obsoletes layout/lvs_reference.py's deck-imposed rewrites and MiM capacitance law (blocks the #311 pin bump)
-
-### 2026-09-24
-
-- **PR #305**: chore: resync installed Loom surfaces
 
