@@ -3,7 +3,7 @@
 Current workflow state, maintained by Guide.
 
 <!-- guide:plan-body:start -->
-_Generated: 2026-11-23T03:00:00Z (snapshot; compare against live labels)_
+_Generated: 2026-11-24T13:09:22Z (snapshot; compare against live labels)_
 ## Operator Attention: Merge-Risk-Hold Pileup
 
 Judge-approved PRs under a hold (`loom:blocked` or `loom:operator`) — only a human merge decision is missing.
@@ -37,7 +37,6 @@ _None._
 Issues currently being built (`loom:building`).
 
 - **#532**: temp_core and por_comparator_bias_okb_inv have no substrate or well tap within 20 um of their MOS rows (DF.13_LV / DF.14_LV)
-- **#657**: assembly_renames() tokenizes assembly X cards verbatim, unlike instance_lines() and subckt_ports()
 
 ## PRs Awaiting Review
 
@@ -70,11 +69,9 @@ Issues carrying `loom:curated`.
 - **#510**: LVS net and pin counts quoted in prose drifted from the committed lvs.json reports *(curated)*
 - **#532**: temp_core and por_comparator_bias_okb_inv have no substrate or well tap within 20 um of their MOS rows (DF.13_LV / DF.14_LV) *(curated)*
 - **#551**: Re-run temp_por_top PEX grid: pex.json still cites the pre-#518 GDS revision *(curated)* *(held)*
-- **#657**: assembly_renames() tokenizes assembly X cards verbatim, unlike instance_lines() and subckt_ports() *(curated)*
 
 ## Proposed (Architect / Hermit)
 
-- **#470**: Give run_por_edge_check.py its own results file: remove the §7 splice into net_attribution_results.md *(hermit)* *(held)*
 - **#633**: Drop the unused native yield dependency from headless CI *(hermit)* *(held)*
 
 ## Epics
@@ -89,10 +86,10 @@ _None._
 | Very important | 1 |
 | Important | 4 |
 | Ready (`loom:issue`, net of holds/building/merge-pending) | 0 |
-| In Progress (`loom:building`) | 2 |
+| In Progress (`loom:building`) | 1 |
 | PRs awaiting review | 0 |
 | Approved PRs awaiting merge | 2 |
-| Curated | 15 |
-| Architect / Hermit proposals | 2 |
+| Curated | 14 |
+| Architect / Hermit proposals | 1 |
 | Active epics | 0 |
 <!-- guide:plan-body:end -->
