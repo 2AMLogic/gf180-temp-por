@@ -8,6 +8,8 @@ Merged PRs and closed issues from the initial 30-day snapshot (2026-09-07 onward
 
 ### 2026-11-23
 
+- **PR #666**: refactor: write POR edge-check results to its own file
+- **Issue #470** (closed): Give run_por_edge_check.py its own results file: remove the §7 splice into net_attribution_results.md
 - **PR #664**: refactor(sim): consolidate trace interpolation and crossing helpers into runner
 - **Issue #663** (closed): Consolidate duplicated trace-interpolation and crossing helpers into sim/harness/runner.py
 - **PR #659**: fix: drop key=value tokens from assembly X cards in instance_renames()
