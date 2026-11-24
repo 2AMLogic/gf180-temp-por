@@ -518,6 +518,47 @@ class RunDeckRawTimeoutTests(unittest.TestCase):
         self.assertEqual(self._run(timeout_s=900)["timeout"], 900)
 
 
+class RunDeckTraceTests(unittest.TestCase):
+    """:func:`runner.run_deck_trace` -- a stale scratch waveform must never
+    stand in for the current run's output."""
+
+    GOOD = "0 1 0 2 0 3\n1e-3 1 1e-3 2 1e-3 3\n"
+
+    def _run(self, control, seed=None, write=None, rc=0):
+        deck_dir = control / "decks"
+        deck_dir.mkdir(parents=True, exist_ok=True)
+        if seed is not None:
+            (deck_dir / "t.csv").write_text(seed)
+
+        def fake(*a, **kw):
+            if write is not None:
+                (deck_dir / "t.csv").write_text(write)
+            return mock.Mock(stdout="out", stderr="err", returncode=rc)
+
+        with mock.patch.object(runner.subprocess, "run", side_effect=fake):
+            return runner.run_deck_trace("d", ".end\n", control, deck_dir, "t.csv", 3)
+
+    def test_fresh_waveform_is_returned_and_scratch_removed(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            control = Path(tmp)
+            out, text, rows = self._run(control, write=self.GOOD)
+            self.assertEqual(text, self.GOOD)
+            self.assertEqual(len(rows), 2)
+            self.assertFalse((control / "decks" / "t.csv").exists())
+
+    def test_stale_waveform_is_not_reused_after_failed_run(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            control = Path(tmp)
+            with self.assertRaises(runner.TraceError):
+                self._run(control, seed=self.GOOD, rc=1)
+            self.assertFalse((control / "decks" / "t.csv").exists())
+
+    def test_unparseable_waveform_fails(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            with self.assertRaises(runner.TraceError):
+                self._run(Path(tmp), write="garbage\n")
+
+
 class RunDecksTests(unittest.TestCase):
     """:func:`runner.run_decks` -- the shared thread-pool loop the seven
     control scripts in sim/*/control/ call instead of each redefining it."""

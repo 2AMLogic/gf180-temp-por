@@ -276,21 +276,18 @@ def main(argv: list[str] | None = None) -> int:
         for point_id, corner_name, temp_c, vdd in POINTS:
             run_id = f"{slug(variant)}__{point_id}"
             trace_path = trace_dir / f"{run_id}.csv"
-            output = runner.run_deck_raw(
-                run_id,
-                compose_deck(pdk, variant, corner_name, temp_c, vdd, options, deck_dir),
-                CONTROL_DIR,
-                timeout_s=1800,
-            )
-            raw_trace = deck_dir / "trace.csv"
-            if not raw_trace.exists():
-                print(f"{run_id}: ngspice produced no trace.csv", file=sys.stderr)
-                print(output[-4000:], file=sys.stderr)
-                return 2
-            rows = runner.parse_wrdata_trace(raw_trace.read_text(), len(PROBES))
-            raw_trace.unlink()
-            if not rows:
-                print(f"{run_id}: could not parse any rows from trace.csv", file=sys.stderr)
+            try:
+                _, _, rows = runner.run_deck_trace(
+                    run_id,
+                    compose_deck(pdk, variant, corner_name, temp_c, vdd, options, deck_dir),
+                    CONTROL_DIR,
+                    deck_dir,
+                    "trace.csv",
+                    len(PROBES),
+                    timeout_s=1800,
+                )
+            except runner.TraceError as e:
+                print(e, file=sys.stderr)
                 return 2
 
             kept = [r for r in rows if any(lo <= r[0] <= hi for lo, hi in TRACE_WINDOWS)]
