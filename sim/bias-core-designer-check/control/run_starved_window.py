@@ -176,30 +176,6 @@ def parse_trace(path: Path) -> list[tuple[float, float, float, float]]:
     return rows
 
 
-def crossings(rows, index: int, level: float) -> list[tuple[float, str]]:
-    """Linear-interpolated crossings of `level` on column `index`."""
-    out: list[tuple[float, str]] = []
-    for (t0, *a), (t1, *b) in zip(rows, rows[1:]):
-        y0, y1 = a[index - 1], b[index - 1]
-        if (y0 - level) * (y1 - level) < 0:
-            frac = (level - y0) / (y1 - y0)
-            out.append((t0 + frac * (t1 - t0), "rise" if y1 > y0 else "fall"))
-    return out
-
-
-def sample_at(rows, index: int, t: float) -> float:
-    prev = rows[0]
-    for row in rows:
-        if row[0] >= t:
-            t0, t1 = prev[0], row[0]
-            if t1 == t0:
-                return row[index]
-            frac = (t - t0) / (t1 - t0)
-            return prev[index] + frac * (row[index] - prev[index])
-        prev = row
-    return rows[-1][index]
-
-
 def us(seconds: float) -> str:
     return f"{seconds * 1e6:.1f} us"
 
@@ -310,11 +286,15 @@ def main(argv: list[str] | None = None) -> int:
         # Classify from the START of the collapse: BIAS_OK falls with the rail
         # at 960 us and is dragged back through 1.4 V on the rail's own return
         # ramp (1100 -> 1110 us), which is BEFORE RAIL_RETURN_S.
-        ok_rises = [t for t, kind in crossings(rows, 2, OK_VALID_V)
-                    if kind == "rise" and t > COLLAPSE_START_S]
-        ok_falls = [t for t, kind in crossings(rows, 2, OK_VALID_V)
-                    if kind == "fall" and t > COLLAPSE_START_S]
-        vref_settled = sample_at(rows, 3, rows[-1][0])
+        ok_rises = [
+            t for t, kind in runner.find_crossings(rows, 2, OK_VALID_V, interpolate=True)
+            if kind == "rise" and t > COLLAPSE_START_S
+        ]
+        ok_falls = [
+            t for t, kind in runner.find_crossings(rows, 2, OK_VALID_V, interpolate=True)
+            if kind == "fall" and t > COLLAPSE_START_S
+        ]
+        vref_settled = runner.interpolate_trace(rows, 3, rows[-1][0])
         err = [(t, abs(v - vref_settled)) for t, _, _, v in rows if t > COLLAPSE_END_S]
         recovered = [t for t, e in err if e > RECOVERED_ERR_V]
         t_recovered = max(recovered) if recovered else COLLAPSE_END_S
@@ -329,8 +309,8 @@ def main(argv: list[str] | None = None) -> int:
             "ok_reassert": t_reassert,
             "ok_deassert": deassert[-1] if deassert else None,
             "t_recovered": t_recovered,
-            "ok_at_parent_sample": sample_at(rows, 2, PARENT_SAMPLE_S),
-            "vref_at_parent_sample": sample_at(rows, 3, PARENT_SAMPLE_S),
+            "ok_at_parent_sample": runner.interpolate_trace(rows, 2, PARENT_SAMPLE_S),
+            "vref_at_parent_sample": runner.interpolate_trace(rows, 3, PARENT_SAMPLE_S),
             "vref_settled": vref_settled,
             "n_rises_after_collapse": len(ok_rises),
         }

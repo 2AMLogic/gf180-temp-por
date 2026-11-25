@@ -25,7 +25,12 @@ name: CI
 #                                               PDK) AND re-asserted with
 #                                               --require-pdk in pdk-checks
 #   - layout/tests/* (unittest, no PDK/klt)  -> checks, dedicated step (issue
-#                                               #64); package.json's "test"
+#                                               #64), PLUS a second pass on
+#                                               3.11 after the klt grader
+#                                               install so klayout-gated
+#                                               tests execute instead of
+#                                               skipping (#645);
+#                                               package.json's "test"
 #                                               script runs the same suite by
 #                                               hand but CI does not invoke
 #                                               npm, so it is also run here
@@ -167,6 +172,21 @@ jobs:
         # for why the two cannot be the same version.
         run: pip install "klayout-tools[yield]==0.9.1"
 
+      - name: layout/tests, again, with klayout (gated tests execute, not skip)
+        if: matrix.python-version == '3.11'
+        # #645. The layout/tests step above runs on both matrix legs BEFORE
+        # klayout is installed, so every skipUnless(klayout) test in it
+        # silently skips there -- a green run of that step is not evidence the
+        # klayout-gated negative controls executed. This second pass runs
+        # after the grader install above, which guarantees the klayout module
+        # (an install failure fails the job first), so a klayout skip cannot
+        # happen silently. This step is what makes a skipUnless(klayout) test
+        # safe to add anywhere under layout/tests: it re-runs the whole
+        # directory rather than a file list, so a new gated test is covered
+        # here with no list to keep up. -v makes any skip visible per-test in
+        # the log.
+        run: python3 -m unittest discover -s layout/tests -t layout/tests -v
+
       - name: layout/check_gds_grid.py (every committed GDS vertex on the manufacturing grid)
         if: matrix.python-version == '3.11'
         # #553. Layer- and deck-version-agnostic end-product guard: reads the
@@ -174,10 +194,13 @@ jobs:
         # be a whole multiple of build_cells.MFG_GRID_UM. Needs only the
         # `klayout` python module, which the grader install above already
         # pulls in (klayout-tools depends on klayout>=0.30) -- no new pip
-        # install. It cannot live in the layout/tests unittest step above:
-        # that step runs on both matrix entries before klayout is installed,
-        # so a skipUnless(klayout) test would silently skip in CI instead of
-        # guarding anything.
+        # install. It cannot live in the pre-install layout/tests unittest
+        # step above: that step runs on both matrix entries before klayout
+        # is installed, so a skipUnless(klayout) test would silently skip
+        # there instead of guarding anything. That hazard is closed by the
+        # "layout/tests, again, with klayout" step above: it re-runs the
+        # suite after the grader install, which is what makes a
+        # skipUnless(klayout) test safe to add anywhere under layout/tests.
         run: python3 layout/check_gds_grid.py
 
       - name: layout/build_cells.py --check (committed GDS reproduces from the generator)

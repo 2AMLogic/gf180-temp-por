@@ -1307,11 +1307,15 @@ def emitter_area_um2(model: str) -> float:
 
 
 def subckt_ports(text: str, name: str) -> list[str]:
-    """The formal port list of ``.subckt <name> ...`` in ``text``."""
+    """The formal port list of ``.subckt <name> ...`` in ``text``.
+
+    ``key=value`` default parameters on the header are not ports and are
+    dropped, the same way :func:`_parse_cards` drops them on an ``X`` card.
+    """
     for line in logical_lines(text):
         match = SUBCKT_RE.match(line)
         if match and match.group(1) == name:
-            return match.group(2).split()
+            return [t for t in match.group(2).split() if "=" not in t]
     raise ReferenceError(f"subcircuit {name!r} not found")
 
 
@@ -1900,6 +1904,10 @@ def instance_renames(cell: str) -> list[tuple[str, str, Callable[[str], str]]]:
     ``design/netlist.py --check`` makes at the schematic level, restated here
     because this is the artifact the layout is compared against.
 
+    ``key=value`` instance parameters on an instance line are not nets and
+    are dropped, the same way :func:`subckt_ports` drops default parameters
+    on a header.
+
     Split out of :func:`build_assembly` because the same renaming answers a
     second question: which *schematic* net an assembled cell's synthetic
     body/well/plate net stands for (``layout/postlayout.py``). Deriving it
@@ -1921,7 +1929,11 @@ def instance_renames(cell: str) -> list[tuple[str, str, Callable[[str], str]]]:
     for line in subckt_body(text, spec["subckt"]):
         fields = line.split()
         if fields[0].lower().startswith("x"):
-            instances[fields[0].lower()] = fields[1:]
+            # A key=value token is an instance parameter, not a net (#657) --
+            # dropped the same way subckt_ports() drops a header's default
+            # parameters, so the trailing token is the sub-cell name and the
+            # net count matches the formal port list.
+            instances[fields[0].lower()] = [f for f in fields[1:] if "=" not in f]
 
     renames: list[tuple[str, str, Callable[[str], str]]] = []
     for inst, sub_cell in spec["assembly"]:

@@ -2,6 +2,16 @@
 
 Sections moved byte-for-byte from [WORK_LOG.md](../WORK_LOG.md) by `loom-daemon work-docs archive`.
 
+### 2026-09-24
+
+- **PR #305**: chore: resync installed Loom surfaces
+
+### 2026-09-23
+
+- **PR #308**: docs: embed fleet burndown chart in README
+- **Issue #309** (closed): loom-wake live verification — throwaway, safe to close
+- **Issue #307** (closed): README: embed the fleet burndown chart (one line)
+
 ### 2026-09-21
 
 - **PR #304**: layout(temp_por_top): clear the T1 item-11 ERC supply verdict with devices[]

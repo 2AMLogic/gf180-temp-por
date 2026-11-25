@@ -6,8 +6,34 @@ Merged PRs and closed issues from the initial 30-day snapshot (2026-09-07 onward
 
 - [2026-09](work_log/WORK_LOG_2026-09.md)
 
+### 2026-11-24
+
+- **PR #670**: refactor: collect POR control waveforms through one fresh-trace runner helper
+- **Issue #669** (closed): Consolidate waveform collection so failed POR controls cannot reuse stale traces
+
+### 2026-11-23
+
+- **PR #666**: refactor: write POR edge-check results to its own file
+- **Issue #470** (closed): Give run_por_edge_check.py its own results file: remove the §7 splice into net_attribution_results.md
+- **PR #664**: refactor(sim): consolidate trace interpolation and crossing helpers into runner
+- **Issue #663** (closed): Consolidate duplicated trace-interpolation and crossing helpers into sim/harness/runner.py
+- **PR #659**: fix: drop key=value tokens from assembly X cards in instance_renames()
+- **Issue #657** (closed): assembly_renames() tokenizes assembly X cards verbatim, unlike instance_lines() and subckt_ports()
+- **PR #660**: fix: reject two legacy card shapes in the post-layout netlist reader
+- **Issue #474** (closed): Remove tolerated pre-pin card shapes from layout/postlayout.py's extracted-netlist reader
+- **PR #656**: fix: strip key=value defaults from .subckt ports in lvs_reference
+- **Issue #655** (closed): subckt_ports() counts key=value tokens as ports while instance_lines() strips them
+- **PR #654**: refactor: route design/netlist.py's instance_lines() through lvs_reference subckt_body
+- **Issue #652** (closed): Reuse lvs_reference.subckt_body in design/netlist.py's instance_lines()
+- **PR #649**: ci: re-run layout/tests after the klt grader install so klayout-gated tests execute
+- **Issue #645** (closed): ci: the klayout-gated layout unit tests silently skip, so 20 of 235 never run anywhere
+- **PR #653**: sim: extract shared temp_trim_terms helper, dedupe 25 C trim model
+- **Issue #648** (closed): Consolidate the duplicated 25 C gain-trim model onto harness.montecarlo
+
 ### 2026-11-22
 
+- **PR #647**: fix(pex): read .subckt pins and LVS nets through layout's shared helpers
+- **Issue #643** (closed): Reuse layout's shared SPICE and LVS helpers in sim/pex/measure.py
 - **PR #642**: docs: sync LVS mismatch prose with the committed reports
 - **Issue #640** (closed): LVS evidence prose: mismatch_count claims drift unpoliced in signoff item 4 and the proof-cell row
 - **PR #641**: gitignore: ignore .loom/account-ranking.* daemon runtime state
@@ -322,14 +348,4 @@ Merged PRs and closed issues from the initial 30-day snapshot (2026-09-07 onward
 - **PR #315**: layout: re-transcribe lvs_reference.py for klt 0.6.0's gf180mcu deck
 - **Issue #313** (closed): Curator applied issue-lifecycle labels (loom:curating/loom:curated) to PR #306
 - **Issue #312** (closed): klt 0.6.0's gf180mcu deck obsoletes layout/lvs_reference.py's deck-imposed rewrites and MiM capacitance law (blocks the #311 pin bump)
-
-### 2026-09-24
-
-- **PR #305**: chore: resync installed Loom surfaces
-
-### 2026-09-23
-
-- **PR #308**: docs: embed fleet burndown chart in README
-- **Issue #309** (closed): loom-wake live verification — throwaway, safe to close
-- **Issue #307** (closed): README: embed the fleet burndown chart (one line)
 

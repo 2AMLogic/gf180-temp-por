@@ -65,6 +65,32 @@ class ParsingTest(unittest.TestCase):
         with self.assertRaises(lr.ReferenceError):
             lr.subckt_body(text, "absent")
 
+    def test_subckt_ports_strip_key_value_defaults(self):
+        # A default parameter on the header is not a formal port: an X card may
+        # omit or override it, so counting it would misreport the cell width.
+        text = (
+            ".subckt bias_core VDD VSS IBIAS VREF BIAS_OK m=1 l=0.5u\n"
+            "RM1 VDD IBIAS 1k\n"
+            ".ends\n"
+        )
+        self.assertEqual(
+            lr.subckt_ports(text, "bias_core"),
+            ["VDD", "VSS", "IBIAS", "VREF", "BIAS_OK"],
+        )
+        with self.assertRaises(lr.ReferenceError):
+            lr.subckt_ports(text, "absent")
+
+    def test_subckt_ports_strip_key_value_defaults_across_a_continuation(self):
+        text = (
+            ".subckt bias_core VDD VSS IBIAS\n"
+            "+ VREF BIAS_OK m=1\n"
+            ".ends\n"
+        )
+        self.assertEqual(
+            lr.subckt_ports(text, "bias_core"),
+            ["VDD", "VSS", "IBIAS", "VREF", "BIAS_OK"],
+        )
+
     def test_dimension_units(self):
         self.assertAlmostEqual(lr.to_um("0.5u"), 0.5)
         self.assertAlmostEqual(lr.to_um("2u"), 2.0)
@@ -1290,6 +1316,39 @@ class TempPorTopAssemblyTest(ControlCoverageTests, GoldenNetlistTests, unittest.
             line[:1] for line in lr.build(self.CELL).splitlines() if line[:1] in "CRQ"
         )
         self.assertEqual(dict(emitted), {k: v for k, v in expected.items() if v})
+
+    def test_a_parameterized_assembly_instance_resolves_like_a_plain_one(self):
+        # #657: an assembly X card may carry key=value instance parameters --
+        # the deck shape design/netlist.py's check_invariants() already pins
+        # as valid (layout/tests/test_netlist.py's parameterized-instance
+        # test) and that _parse_cards()/subckt_ports() drop from their token
+        # lists. Tokenized verbatim here, the trailing m=2 read as the
+        # sub-cell name and the build failed with a false ReferenceError on
+        # a valid deck. One card gets a trailing parameter, one a mid-card
+        # parameter, so both a wrong model and a wrong net count are pinned.
+        real = self.golden_text()
+        parameterized = real.replace(
+            "xbias VDD VSS IBIAS VREF BIAS_OK bias_core",
+            "xbias VDD VSS IBIAS VREF BIAS_OK bias_core m=2",
+        ).replace(
+            "xcmp VDD VSS IBIAS VREF BIAS_OK POR_RAW por_comparator",
+            "xcmp VDD VSS IBIAS m=2 VREF BIAS_OK POR_RAW por_comparator",
+        )
+        self.assertNotEqual(parameterized, real)
+        with tempfile.TemporaryDirectory() as tmp:
+            (Path(tmp) / "temp_por_top.spice").write_text(parameterized)
+            with unittest.mock.patch.object(lr, "NETLIST_DIR", Path(tmp)):
+                parameterized_renames = lr.instance_renames(self.CELL)
+        plain = lr.instance_renames(self.CELL)
+        self.assertEqual(
+            [(inst, sub) for inst, sub, _rename in parameterized_renames],
+            [(inst, sub) for inst, sub, _rename in plain],
+        )
+        # The net mapping itself is unchanged too: each formal port maps to
+        # the same block net on the parameterized deck as on the real one.
+        for (inst, sub, rename), _plain in zip(parameterized_renames, plain):
+            for port in lr.subckt_ports(real, sub):
+                self.assertEqual(rename(port), _plain[2](port), f"{inst}.{port}")
 
     def test_bjt_collector_and_base_resolve_independently(self):
         # #312: BODY_TIES_RESOLVED_CELLS (the substrate/collector tie) and

@@ -296,10 +296,11 @@ def parse_extracted(
             )
             card = Card("Q", name, nodes[:3], None, fields[4], params)
         elif prefix == "R" and len(fields) >= 6 and "=" not in fields[5]:
-            # R<n> a b bulk <ohms> <class> [L=.. W=..]  -- a drawn poly
+            # R<n> a b bulk <ohms> <class> L=.. W=..  -- a drawn poly
             # resistor. The trailing L/W are the extractor's own measured
-            # drawn geometry, added by klayout-tools#1927; emit_cards checks
-            # them against the schematic rather than discarding them.
+            # drawn geometry, added by klayout-tools#1927; emit_cards
+            # requires both and checks them against the schematic rather than
+            # discarding them.
             params = tuple(
                 tuple(field.split("=", 1)) for field in fields[6:]
             )
@@ -309,12 +310,6 @@ def parse_extracted(
             # parasitic star, or the substrate DC tie (which runs to
             # :data:`SPICE_GROUND` instead of to a hub).
             card = Card("R", name, nodes[:2], fields[3], None)
-        elif prefix == "C" and len(fields) == 5:
-            # C<n> a b <farads> <class>  -- a drawn capacitor that *does* name
-            # its class. Not written by the pinned klt (the class token makes
-            # the card unsimulatable, klayout-tools#1558) but accepted, so a
-            # deck that names it is read rather than rejected.
-            card = Card("C", name, nodes[:2], fields[3], fields[4])
         elif prefix == "C" and len(fields) == 4:
             # Either a drawn capacitor written bare, or a parasitic (a net's
             # lumped C to the substrate, or net-to-net coupling). Identical
@@ -740,32 +735,38 @@ def emit_cards(cell: str, cards: list[Card], names: dict[str, str]) -> tuple[
                 )
             length_um = _num(card.value) / SHEET_RHO[card.klass] * width_um
             # klayout-tools#1927 added the extractor's own measured drawn L/W
-            # to the card. Where they are present they are *checked*, not
-            # trusted and not ignored: the length emitted below is still
-            # reconstructed from the resistance through the schematic's width
-            # and the deck's sheet rho, so a deck whose rho moved under this
-            # module would otherwise re-emit every resistor at the wrong
-            # length and still look perfectly self-consistent.
+            # to the card. Both are *required* and *checked*, not trusted and
+            # not ignored: the length emitted below is still reconstructed
+            # from the resistance through the schematic's width and the
+            # deck's sheet rho, so a deck whose rho moved under this module
+            # would otherwise re-emit every resistor at the wrong length and
+            # still look perfectly self-consistent. A card without them gets
+            # exactly that unchecked reconstruction, so it is refused.
             measured = {key.upper(): value for key, value in card.params}
-            if "W" in measured:
-                drawn_um = ref.to_um(measured["W"].lower())
-                if abs(drawn_um - width_um) > 1e-4:
-                    raise PostlayoutError(
-                        f"{cell}: {card.prefix}{card.name} is drawn "
-                        f"{drawn_um} um wide but the schematic's {model} is "
-                        f"{width_um} um"
-                    )
-            if "L" in measured:
-                drawn_um = ref.to_um(measured["L"].lower())
-                if abs(drawn_um - length_um) > 1e-3 * max(1.0, drawn_um):
-                    raise PostlayoutError(
-                        f"{cell}: {card.prefix}{card.name} is drawn "
-                        f"{drawn_um} um long, but {card.value} ohm at the "
-                        f"deck's {SHEET_RHO[card.klass]} ohm/sq and "
-                        f"{width_um} um wide reconstructs to {length_um} um "
-                        "-- the deck's sheet rho and the drawn geometry "
-                        "disagree"
-                    )
+            missing = [key for key in ("L", "W") if key not in measured]
+            if missing:
+                raise PostlayoutError(
+                    f"{cell}: drawn resistor {card.prefix}{card.name} carries "
+                    f"no measured {' or '.join(missing)} -- its drawn "
+                    "geometry cannot be checked against the schematic"
+                )
+            drawn_um = ref.to_um(measured["W"].lower())
+            if abs(drawn_um - width_um) > 1e-4:
+                raise PostlayoutError(
+                    f"{cell}: {card.prefix}{card.name} is drawn "
+                    f"{drawn_um} um wide but the schematic's {model} is "
+                    f"{width_um} um"
+                )
+            drawn_um = ref.to_um(measured["L"].lower())
+            if abs(drawn_um - length_um) > 1e-3 * max(1.0, drawn_um):
+                raise PostlayoutError(
+                    f"{cell}: {card.prefix}{card.name} is drawn "
+                    f"{drawn_um} um long, but {card.value} ohm at the "
+                    f"deck's {SHEET_RHO[card.klass]} ohm/sq and "
+                    f"{width_um} um wide reconstructs to {length_um} um "
+                    "-- the deck's sheet rho and the drawn geometry "
+                    "disagree"
+                )
             head, tail, bulk = (node(n) for n in card.nodes)
             devices.append(
                 f"{instance(card.name)} {head} {tail} {bulk} {model} "

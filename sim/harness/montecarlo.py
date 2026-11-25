@@ -58,6 +58,7 @@ import re
 import statistics
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import NamedTuple
 
 from . import klt_batch
 from .corners import CORNERS, Corner
@@ -438,6 +439,47 @@ TRIM_LSB_FRAC = 0.002423
 TRIM_REFERENCE_K = 298.15  # 25 C
 
 
+class TempTrimTerms(NamedTuple):
+    """The 1-point 25 C gain-trim model's terms for one reading.
+
+    One decomposition of the trimmed-temperature error, shared by
+    ``derive_temp_trim`` (which keeps only the totals) and by the
+    derived-analysis scripts that need the terms separately.
+    """
+
+    #: the trim-referenced gain: the 25 C PTAT reading over 298.15 K (V/K)
+    k25: float
+    #: residual curvature: the trimmed read minus the true temperature (C)
+    curvature_c: float
+    #: the trim ladder's own half-LSB quantisation allowance at ``t_k`` (C)
+    quant_c: float
+    #: curvature and quantisation summed in the worse direction (C)
+    total_c: float
+
+
+def temp_trim_terms(
+    vptat25_v: float, vptat_v: float, t_k: float
+) -> TempTrimTerms | None:
+    """The shared 25 C gain-trim model, term by term.
+
+    ``vptat25_v`` is the die's (or corner group's) own pre-trim 25 C PTAT
+    reading -- the anchor a one-point 25 C production trim would calibrate
+    against -- ``vptat_v`` the reading being trimmed, and ``t_k`` that
+    reading's true temperature in Kelvin. Returns ``None`` when
+    ``vptat25_v`` is zero (no anchor: nothing can be derived, and callers
+    must not divide by zero).
+    """
+    k25 = vptat25_v / TRIM_REFERENCE_K
+    if k25 == 0:
+        return None
+    curvature_c = vptat_v / k25 - t_k
+    quant_c = (TRIM_LSB_FRAC / 2.0) * t_k
+    total_c = curvature_c + (quant_c if curvature_c >= 0 else -quant_c)
+    return TempTrimTerms(
+        k25=k25, curvature_c=curvature_c, quant_c=quant_c, total_c=total_c
+    )
+
+
 def derive_temp_trim(measurements: dict[str, float]) -> dict[str, float]:
     """Per-sample trimmed temperature error from a die's own 25 C anchor.
 
@@ -457,14 +499,12 @@ def derive_temp_trim(measurements: dict[str, float]) -> dict[str, float]:
     """
     if not {"vptat25_v", "vptattgt_v", "vtktgt_k"} <= measurements.keys():
         return {}
-    k25 = measurements["vptat25_v"] / TRIM_REFERENCE_K
-    if k25 == 0:
+    terms = temp_trim_terms(
+        measurements["vptat25_v"], measurements["vptattgt_v"], measurements["vtktgt_k"]
+    )
+    if terms is None:
         return {}
-    t_k = measurements["vtktgt_k"]
-    curvature_c = measurements["vptattgt_v"] / k25 - t_k
-    quant_c = (TRIM_LSB_FRAC / 2.0) * t_k
-    total_c = curvature_c + (quant_c if curvature_c >= 0 else -quant_c)
-    return {"terr_trim_c": total_c, "k25_derived_mvk": k25 * 1e3}
+    return {"terr_trim_c": terms.total_c, "k25_derived_mvk": terms.k25 * 1e3}
 
 
 DERIVE_HOOKS = {

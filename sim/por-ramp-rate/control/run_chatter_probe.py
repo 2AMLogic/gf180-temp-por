@@ -164,19 +164,6 @@ def compose_deck(
     return "\n".join(lines)
 
 
-def value_at(rows: list[tuple[float, ...]], col: int, t: float) -> float:
-    """Linear interpolation of column ``col`` at time ``t``."""
-    prev = rows[0]
-    for row in rows:
-        if row[0] >= t:
-            if row[0] == prev[0]:
-                return row[col]
-            f = (t - prev[0]) / (row[0] - prev[0])
-            return prev[col] + f * (row[col] - prev[col])
-        prev = row
-    return rows[-1][col]
-
-
 GENERATED = tuple(
     str((CONTROL_DIR / name).relative_to(REPO_ROOT)) for name in ("results.md", "decks", "logs", "traces")
 )
@@ -207,26 +194,22 @@ def main(argv: list[str] | None = None) -> int:
         for point_id, corner_name, temp_c, vdd, rate, stop_s in POINTS:
             run_id = f"{point_id}__{arm_id}"
             trace_path = trace_dir / f"{run_id}.csv"
-            output = runner.run_deck_raw(
-                run_id,
-                compose_deck(
-                    pdk, corner_name, temp_c, vdd, rate, stop_s, options, deck_dir, dut_path.name, arm_id
-                ),
-                CONTROL_DIR,
-                timeout_s=1800,
-            )
-            raw_trace = deck_dir / "trace.csv"
-            if not raw_trace.exists():
-                print(f"{run_id}: ngspice produced no trace.csv", file=sys.stderr)
-                print(output, file=sys.stderr)
+            try:
+                _, trace_text, rows = runner.run_deck_trace(
+                    run_id,
+                    compose_deck(
+                        pdk, corner_name, temp_c, vdd, rate, stop_s, options, deck_dir, dut_path.name, arm_id
+                    ),
+                    CONTROL_DIR,
+                    deck_dir,
+                    "trace.csv",
+                    len(PROBES),
+                    timeout_s=1800,
+                )
+            except runner.TraceError as e:
+                print(e, file=sys.stderr)
                 return 2
-            trace_text = raw_trace.read_text()
             trace_path.write_text(trace_text)
-            raw_trace.unlink()
-            rows = runner.parse_wrdata_trace(trace_text, len(PROBES))
-            if not rows:
-                print(f"{run_id}: could not parse any rows from trace.csv", file=sys.stderr)
-                return 2
 
             resetn_crossings = runner.find_crossings(rows, col["RESETn"], RELEASE_THRESH)
             window = None
@@ -248,7 +231,10 @@ def main(argv: list[str] | None = None) -> int:
             t_rel = resetn_crossings[0][0] if resetn_crossings else rows[-1][0]
             t_pre, t_post = t_rel - 20e-6, min(t_rel + 300e-6, rows[-1][0])
             bias_step = {
-                label: (value_at(rows, col[label], t_pre), value_at(rows, col[label], t_post))
+                label: (
+                    runner.interpolate_trace(rows, col[label], t_pre),
+                    runner.interpolate_trace(rows, col[label], t_post),
+                )
                 for label in ("VDD", "IBIAS", "PDN", "NDL")
             }
             # ND1 is the node the PDN/NDL shift walks. Report where it lands
@@ -256,7 +242,7 @@ def main(argv: list[str] | None = None) -> int:
             # 300 us -- that drift IS the chatter mechanism.
             nd1_window = [r for r in rows if t_rel + 2e-6 <= r[0] <= t_post]
             bias_step["ND1"] = (
-                value_at(rows, col["ND1"], t_rel + 2e-6),
+                runner.interpolate_trace(rows, col["ND1"], t_rel + 2e-6),
                 max((r[col["ND1"]] for r in nd1_window), default=float("nan")),
             )
 

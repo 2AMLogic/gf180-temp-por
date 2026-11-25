@@ -3,12 +3,13 @@
 Current workflow state, maintained by Guide.
 
 <!-- guide:plan-body:start -->
-_Generated: 2026-11-22T20:11:30Z (snapshot; compare against live labels)_
+_Generated: 2026-11-24T13:09:22Z (snapshot; compare against live labels)_
 ## Operator Attention: Merge-Risk-Hold Pileup
 
 Judge-approved PRs under a hold (`loom:blocked` or `loom:operator`) — only a human merge decision is missing.
 
-_None._
+- **#560**: fix: correct drifted LVS prose counts and police them against committed reports
+- **#615**: layout: draw the missing substrate and well taps DF.13/DF.14 need
 
 ## Very Important
 
@@ -29,7 +30,7 @@ _None._
 
 Human-approved issues (`loom:issue`) ready for implementation — excluding held (`loom:blocked`/`loom:operator`/`loom:frozen`), `loom:building`, and issues closed by an open `loom:pr` PR (listed under Approved).
 
-- **#510**: LVS net and pin counts quoted in prose drifted from the committed lvs.json reports
+_None._
 
 ## In Progress
 
@@ -47,7 +48,8 @@ _None._
 
 PRs that passed review and are queued for Champion auto-merge (`loom:pr`).
 
-_None._
+- **#560**: fix: correct drifted LVS prose counts and police them against committed reports
+- **#615**: layout: draw the missing substrate and well taps DF.13/DF.14 need
 
 ## Proposed
 
@@ -70,8 +72,6 @@ Issues carrying `loom:curated`.
 
 ## Proposed (Architect / Hermit)
 
-- **#470**: Give run_por_edge_check.py its own results file: remove the §7 splice into net_attribution_results.md *(hermit)* *(held)*
-- **#474**: Remove tolerated pre-pin card shapes from layout/postlayout.py's extracted-netlist reader *(hermit)* *(held)*
 - **#633**: Drop the unused native yield dependency from headless CI *(hermit)* *(held)*
 
 ## Epics
@@ -82,14 +82,14 @@ _None._
 
 | Bucket | Count |
 |------|-------|
-| Operator merge-risk holds | 0 |
+| Operator merge-risk holds | 2 |
 | Very important | 1 |
 | Important | 4 |
-| Ready (`loom:issue`, net of holds/building/merge-pending) | 1 |
+| Ready (`loom:issue`, net of holds/building/merge-pending) | 0 |
 | In Progress (`loom:building`) | 1 |
 | PRs awaiting review | 0 |
-| Approved PRs awaiting merge | 0 |
+| Approved PRs awaiting merge | 2 |
 | Curated | 14 |
-| Architect / Hermit proposals | 3 |
+| Architect / Hermit proposals | 1 |
 | Active epics | 0 |
 <!-- guide:plan-body:end -->

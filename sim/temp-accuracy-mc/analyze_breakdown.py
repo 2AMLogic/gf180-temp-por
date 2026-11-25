@@ -87,10 +87,10 @@ sys.path.insert(0, str(REPO_ROOT / "sim"))
 from harness.cliutil import add_author_arg, now_iso, write_derived_record  # noqa: E402
 from harness.report import RecordExists, source_provenance  # noqa: E402
 from harness.montecarlo import (  # noqa: E402
-    TRIM_LSB_FRAC,
     TRIM_REFERENCE_K,
     derive_temp_trim,
     parse_sample_id,
+    temp_trim_terms,
 )
 from harness.runner import load_points  # noqa: E402
 
@@ -192,13 +192,16 @@ def derive_point(samples: list[dict[str, float]]) -> dict:
     # curvature + sign(curvature)*quantisation. Those two have completely
     # different natures -- one is device mismatch, the other is the trim
     # ladder's own discreteness -- so they are separated before anything is
-    # attributed to a device.
-    curvature = [
-        s["vptattgt_v"] / (s["vptat25_v"] / TRIM_REFERENCE_K) - s["vtktgt_k"]
+    # attributed to a device. Same shared model as the hook itself
+    # (temp_trim_terms); vtktgt_k is the stimulus-encoded true temperature,
+    # so every sample at a binding point carries the same half-LSB.
+    terms = [
+        temp_trim_terms(s["vptat25_v"], s["vptattgt_v"], s["vtktgt_k"])
         for s in usable
     ]
-    quant_mag = (TRIM_LSB_FRAC / 2.0) * t_k
-    quant = [quant_mag if c >= 0 else -quant_mag for c in curvature]
+    curvature = [t.curvature_c for t in terms]
+    quant = [t.total_c - t.curvature_c for t in terms]
+    quant_mag = statistics.fmean(t.quant_c for t in terms)
 
     # Of the curvature (device) part: how much does the amplifier offset at
     # THIS temperature explain, and how much does its 25 C-to-here DRIFT add
