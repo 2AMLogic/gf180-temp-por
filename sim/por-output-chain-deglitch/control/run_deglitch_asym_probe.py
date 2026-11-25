@@ -205,32 +205,6 @@ def compose_deck(
     return "\n".join(lines)
 
 
-def _refine_crossing(rows, col: int, thresh: float, t_row: float) -> float:
-    """Linearly interpolated crossing time for the crossing ``runner.find_crossings``
-    reported at sample time ``t_row`` (which is the sample *after* the crossing)."""
-    prev = None
-    for row in rows:
-        if row[0] == t_row and prev is not None:
-            a, b = prev[col], row[col]
-            if b == a:
-                return row[0]
-            return prev[0] + (thresh - a) * (row[0] - prev[0]) / (b - a)
-        prev = row
-    return t_row
-
-
-def _interp(rows, col: int, t: float) -> float:
-    prev = None
-    for row in rows:
-        if row[0] >= t and prev is not None:
-            span = row[0] - prev[0]
-            if span <= 0:
-                return row[col]
-            return prev[col] + (row[col] - prev[col]) * (t - prev[0]) / span
-        prev = row
-    return rows[-1][col] if rows else float("nan")
-
-
 def _fit(rows, col: int, t_lo: float, t_hi: float) -> tuple[float, float]:
     """Ordinary least squares of ``rows[:, col]`` vs time over ``[t_lo, t_hi]``.
     Returns ``(slope_V_per_s, value_at_t_lo_intercept_form)`` as ``(m, b)`` of
@@ -252,18 +226,18 @@ def _fit(rows, col: int, t_lo: float, t_hi: float) -> tuple[float, float]:
 def analyze_edge(rows, t_edge: float, pgdg_direction: str) -> dict:
     """Decompose one edge's dwell into start level, ramp slope and trip point."""
     col = {label: i + 1 for i, (_, label, _) in enumerate(PROBES)}
-    crossings = runner.find_crossings(rows, col["PGDG"], PGDG_THRESH, t_edge)
+    crossings = runner.find_crossings(rows, col["PGDG"], PGDG_THRESH, t_edge, interpolate=True)
     hit = next((t for t, direction in crossings if direction == pgdg_direction), None)
     if hit is None:
         raise SystemExit(f"no PGDG {pgdg_direction} through {PGDG_THRESH} V after t={t_edge:g}")
-    t_x = _refine_crossing(rows, col["PGDG"], PGDG_THRESH, hit)
+    t_x = hit
     dwell_s = t_x - t_edge
-    v_trip = _interp(rows, col["NDG"], t_x)
+    v_trip = runner.interpolate_trace(rows, col["NDG"], t_x)
     # Fit the slow I/C ramp over its middle half, away from both the switching
     # transient at the edge and XMG1's own feedback near the trip.
     m, b = _fit(rows, col["NDG"], t_edge + 0.25 * dwell_s, t_edge + 0.75 * dwell_s)
     v0 = m * t_edge + b
-    v_pre = _interp(rows, col["NDG"], t_edge - 0.5e-6)
+    v_pre = runner.interpolate_trace(rows, col["NDG"], t_edge - 0.5e-6)
     return {
         "dwell_us": dwell_s * 1e6,
         "v_pre": v_pre,
@@ -272,10 +246,10 @@ def analyze_edge(rows, t_edge: float, pgdg_direction: str) -> dict:
         "slope_v_per_us": m * 1e-6,
         "v_trip": v_trip,
         "dwell_pred_us": (v_trip - v0) / m * 1e6,
-        "ndgp_pre": _interp(rows, col["NDGP"], t_edge - 0.5e-6),
-        "ndgn_pre": _interp(rows, col["NDGN"], t_edge - 0.5e-6),
-        "ndgp_mid": _interp(rows, col["NDGP"], t_edge + 0.5 * dwell_s),
-        "ndgn_mid": _interp(rows, col["NDGN"], t_edge + 0.5 * dwell_s),
+        "ndgp_pre": runner.interpolate_trace(rows, col["NDGP"], t_edge - 0.5e-6),
+        "ndgn_pre": runner.interpolate_trace(rows, col["NDGN"], t_edge - 0.5e-6),
+        "ndgp_mid": runner.interpolate_trace(rows, col["NDGP"], t_edge + 0.5 * dwell_s),
+        "ndgn_mid": runner.interpolate_trace(rows, col["NDGN"], t_edge + 0.5 * dwell_s),
     }
 
 
@@ -302,21 +276,18 @@ def main(argv: list[str] | None = None) -> int:
         for point_id, corner_name, temp_c, vdd in POINTS:
             run_id = f"{slug(variant)}__{point_id}"
             trace_path = trace_dir / f"{run_id}.csv"
-            output = runner.run_deck_raw(
-                run_id,
-                compose_deck(pdk, variant, corner_name, temp_c, vdd, options, deck_dir),
-                CONTROL_DIR,
-                timeout_s=1800,
-            )
-            raw_trace = deck_dir / "trace.csv"
-            if not raw_trace.exists():
-                print(f"{run_id}: ngspice produced no trace.csv", file=sys.stderr)
-                print(output[-4000:], file=sys.stderr)
-                return 2
-            rows = runner.parse_wrdata_trace(raw_trace.read_text(), len(PROBES))
-            raw_trace.unlink()
-            if not rows:
-                print(f"{run_id}: could not parse any rows from trace.csv", file=sys.stderr)
+            try:
+                _, _, rows = runner.run_deck_trace(
+                    run_id,
+                    compose_deck(pdk, variant, corner_name, temp_c, vdd, options, deck_dir),
+                    CONTROL_DIR,
+                    deck_dir,
+                    "trace.csv",
+                    len(PROBES),
+                    timeout_s=1800,
+                )
+            except runner.TraceError as e:
+                print(e, file=sys.stderr)
                 return 2
 
             kept = [r for r in rows if any(lo <= r[0] <= hi for lo, hi in TRACE_WINDOWS)]

@@ -74,13 +74,6 @@ class ParsingTest(unittest.TestCase):
         self.assertEqual(cards[0].params, (("L", "256.5U"), ("W", "2U")))
         self.assertEqual(cards[1].nodes, ("A__t0", "A"))
 
-    def test_a_drawn_resistor_without_l_and_w_is_still_read(self):
-        # The pre-#1927 shape. Accepted, with no params to cross-check.
-        text = ".SUBCKT c A B\nR$19 A B vsubs 3948720 ppolyf_u_1k\n.ENDS c\n"
-        _top, _pins, cards = pl.parse_extracted(text, {"$19": "ppolyf_u_1k"})
-        self.assertEqual(cards[0].klass, "ppolyf_u_1k")
-        self.assertEqual(cards[0].params, ())
-
     def test_a_bare_capacitor_card_is_told_from_a_parasitic_by_the_census(self):
         # klt writes a recognised capacitor with no class token at all
         # (klayout-tools#1558/#2386), which is the identical shape to a
@@ -103,17 +96,22 @@ class ParsingTest(unittest.TestCase):
         _top, _pins, bare = pl.parse_extracted(text, {})
         self.assertEqual([card.klass for card in bare], [None, None])
 
-    def test_a_capacitor_that_does_name_its_class_is_still_read(self):
-        # The pre-#1558 shape, which the pinned klt no longer writes.
+    def test_a_capacitor_that_names_its_class_is_rejected(self):
+        # The pre-#1558 shape, which the pinned klt no longer writes: the
+        # trailing class token is a required .model reference to ngspice, so
+        # the card is unsimulatable as written. Rejected on its shape alone,
+        # so a drawn capacitor has one spelling -- the four-field card the
+        # census resolves -- and not two.
         text = (
             ".SUBCKT c A B\n"
             "C$45 A B 7.2e-14 cap_mim_2f0_m4m5_noshield\n"
             ".ENDS c\n"
         )
-        _top, _pins, cards = pl.parse_extracted(
-            text, {"$45": "cap_mim_2f0_m4m5_noshield"}
-        )
-        self.assertEqual(cards[0].klass, "cap_mim_2f0_m4m5_noshield")
+        for census in ({"$45": "cap_mim_2f0_m4m5_noshield"}, {}):
+            with self.subTest(census=census), self.assertRaisesRegex(
+                pl.PostlayoutError, "unrecognised card"
+            ):
+                pl.parse_extracted(text, census)
 
     def test_a_census_the_netlist_contradicts_is_an_error(self):
         # Two directions, both of which mean the committed .spice and .json
@@ -600,6 +598,42 @@ class GuardTest(unittest.TestCase):
         lines, census = pl.emit_cards("por_comparator", cards, {"vsubs": "VSS"})
         self.assertEqual(census, {})
         self.assertIn(f"Rvsubs_dctie VSS {pl.SPICE_GROUND} 1e+12", lines)
+
+    def test_a_drawn_resistor_without_measured_geometry_is_rejected(self):
+        # klayout-tools#1927 put the extractor's own measured L/W on every
+        # drawn resistor card, and the two checks below are what stop a deck
+        # whose sheet rho moved from re-emitting every resistor at the wrong
+        # length. A card without them is refused rather than passed
+        # unchecked, through the parser too, so the refusal is on the shape
+        # the extractor actually writes.
+        names = {"$3": "SNS", "$4": "SNSB", "vsubs": "VSS"}
+        # 6000 ohm at the deck's 1000 ohm/sq, 2 um wide, is 12 um long.
+        card = r"R$19 \$3 \$4 vsubs 6000 ppolyf_u_1k"
+        for params, missing in (
+            (("W=2U",), "L"),
+            (("L=12U",), "W"),
+            ((), "L or W"),
+        ):
+            line = " ".join([card, *params])
+            text = f".SUBCKT c $3 $4\n{line}\n.ENDS c\n"
+            with self.subTest(line=line):
+                _top, _pins, cards = pl.parse_extracted(
+                    text, {"$19": "ppolyf_u_1k"}
+                )
+                with self.assertRaisesRegex(
+                    pl.PostlayoutError,
+                    rf"drawn resistor R\$19 carries no measured {missing} --",
+                ):
+                    pl.emit_cards("por_comparator", cards, names)
+        # Control: the same card with both dimensions emits, so the refusals
+        # above are the missing geometry and nothing else.
+        line = f"{card} L=12U W=2U"
+        text = f".SUBCKT c $3 $4\n{line}\n.ENDS c\n"
+        _top, _pins, cards = pl.parse_extracted(text, {"$19": "ppolyf_u_1k"})
+        lines, census = pl.emit_cards("por_comparator", cards, names)
+        self.assertIn("X19 SNS SNSB VSS ppolyf_u_3k r_width=2u r_length=12u",
+                      lines)
+        self.assertEqual(census, {"ppolyf_u_1k": 1})
 
     def test_a_resistor_drawn_at_the_wrong_width_is_rejected(self):
         # The card's own measured W against the schematic's. A layout drawn at

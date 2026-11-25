@@ -92,6 +92,11 @@ sys.path.insert(0, str(EXPERIMENT_DIR.parent))
 
 from harness.cliutil import add_author_arg, now_iso, write_derived_record  # noqa: E402
 from harness.corners import parse_corner_id  # noqa: E402
+from harness.montecarlo import (  # noqa: E402
+    TRIM_LSB_FRAC,
+    TRIM_REFERENCE_K,
+    temp_trim_terms,
+)
 from harness.report import RecordExists, source_provenance  # noqa: E402
 from harness.runner import load_points  # noqa: E402
 
@@ -100,12 +105,11 @@ from harness.runner import load_points  # noqa: E402
 # cross-check; the trim derivation deliberately uses each corner's OWN K25.
 K0 = 4.308842e-3
 
-# design/temp_core.md "Trim: single 25 C gain trim": 1 LSB = 0.2287-0.2423 %
-# of R2 as measured over the 216-point grid. Quoted at the wider end so the
-# quantisation allowance is conservative rather than flattering.
-TRIM_LSB_FRAC = 0.002423
-
-TRIM_REFERENCE_K = 298.15  # 25 C, the trim point DR-005 ratified
+# The 25 C gain-trim model itself -- TRIM_LSB_FRAC (1 LSB = 0.2287-0.2423 %
+# of R2 as measured over the 216-point grid, quoted at the wider end so the
+# quantisation allowance is conservative), TRIM_REFERENCE_K, and the
+# curvature + half-LSB decomposition -- lives in sim/harness/montecarlo.py,
+# the single copy both this script and analyze_breakdown.py share.
 
 TARGET_TRIMMED_C = 1.5  # spec/target-spec.md#temp-accuracy-trimmed (stretch)
 TARGET_SUPPLY_C = 0.33  # spec/target-spec.md#temp-supply-sensitivity
@@ -149,7 +153,7 @@ def derive_trimmed(points, parsed) -> list[dict]:
                 }
             )
             continue
-        k25 = points[anchor]["vptat_v"] / TRIM_REFERENCE_K
+        vptat25_v = points[anchor]["vptat_v"]
 
         for corner_id in sorted(corner_ids, key=lambda cid: parsed[cid][1]):
             temp_c = parsed[corner_id][1]
@@ -166,24 +170,33 @@ def derive_trimmed(points, parsed) -> list[dict]:
                 )
                 continue
             t_k = temp_c + 273.15
-            curvature_c = points[corner_id]["vptat_v"] / k25 - t_k
-            quant_c = (TRIM_LSB_FRAC / 2.0) * t_k
-            # Sum in the worse direction: the two terms are independent, and
-            # design/temp_core.md's budget adds their magnitudes.
-            total_c = curvature_c + (quant_c if curvature_c >= 0 else -quant_c)
+            terms = temp_trim_terms(vptat25_v, points[corner_id]["vptat_v"], t_k)
+            if terms is None:
+                rows.append(
+                    {
+                        "process": process,
+                        "supply": supply,
+                        "temp_c": temp_c,
+                        "status": f"{corner_id}: 25 C anchor reads 0 V -- cannot derive",
+                    }
+                )
+                continue
             rows.append(
                 {
                     "process": process,
                     "supply": supply,
                     "temp_c": temp_c,
                     "corner_id": corner_id,
-                    "k25_mvk": k25 * 1e3,
-                    "curvature_c": curvature_c,
-                    "quant_c": quant_c,
-                    "trimmed_error_c": total_c,
+                    "k25_mvk": terms.k25 * 1e3,
+                    "curvature_c": terms.curvature_c,
+                    "quant_c": terms.quant_c,
+                    # Summed in the worse direction by temp_trim_terms: the two
+                    # terms are independent, and design/temp_core.md's budget
+                    # adds their magnitudes.
+                    "trimmed_error_c": terms.total_c,
                     "status": "PASS"
-                    if abs(total_c) <= TARGET_TRIMMED_C
-                    else f"FAIL (|{total_c:.4f}| > {TARGET_TRIMMED_C})",
+                    if abs(terms.total_c) <= TARGET_TRIMMED_C
+                    else f"FAIL (|{terms.total_c:.4f}| > {TARGET_TRIMMED_C})",
                 }
             )
     return rows
@@ -340,7 +353,7 @@ def render(record_id: str, trimmed, vt, supply, when: str, author: str) -> str:
         "Residual left by a *perfect* one-point 25 °C gain trim on each "
         "(corner, supply) group's own data — `T̂(T) = V(PTAT,T) / K₂₅` with "
         "`K₂₅ = V(PTAT,25 °C)/298.15 K` — plus the trim ladder's own half-LSB "
-        "quantisation (`½ × 0.2423 % × T`, i.e. the ±0.35 °C "
+        f"quantisation (`½ × {TRIM_LSB_FRAC * 100:.4g} % × T`, i.e. the ±0.35 °C "
         "`design/temp_core.md` quotes at the trim point, scaled per point). "
         "The two are summed in the worse direction. The 25 °C points "
         "themselves are omitted: their residual is 0 by construction.",

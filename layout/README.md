@@ -1207,7 +1207,7 @@ Recorded result (`layout/reports/temp_core/`):
 | ----- | ------ |
 | `klt drc --deck gf180mcu` | clean — 0 violations |
 | `klt extract --deck gf180mcu` | 115 devices (27 nfet, 28 pfet, 50 `ppolyf_u`, 9 `bjt`, 1 `cap_mim_2f0_m4m5_noshield`), 71 nets, 29 pins |
-| `klt lvs` | **match** — 115/115 devices, 71/71 nets, 29/29 pins, 0 errors (2 `device.body_unverified` warnings). 114 devices and the same 71 nets before #259 drew `XCC`: the cap landed on `PG`/`NZ`, two nets the compare already had, so it added a device and no net. |
+| `klt lvs` | **match** — 115/115 devices, 71/71 nets, 29/29 pins, 0 errors (1 `device.body_unverified` warning). Before #259 drew `XCC`, the comparison had 114 devices and the same net count (73) as after the draw. The capacitor connected the existing `PG` and `NZ` nets. |
 | negative control `topology` | detected (exit 3; `device.unmatched` 1, `topology` 1) |
 | negative control `device-param` | detected (exit 3; `device.property` 5, `topology` 1) |
 | negative control `passive-param` | detected (exit 3; `device.property` 11, `topology` 3) |
@@ -1422,7 +1422,7 @@ Recorded result (`layout/reports/por_comparator_bias_okb_inv/`):
 | ----- | ------ |
 | `klt drc --deck gf180mcu` | clean — 0 violations |
 | `klt extract --deck gf180mcu` | 2 devices (1 nfet, 1 pfet), 6 nets, 5 pins |
-| `klt lvs` | **match** — 2/2 devices, 6/6 nets, 5/5 pins, 0 mismatches |
+| `klt lvs` | **match** — 2/2 devices, 6/6 nets, 5/5 pins, 0 errors (3 warnings: the NFET body on the deck-synthesized `vsubs` substrate net and the PFET body on an anonymous well net, both `device.body_unverified`, plus one `topology` warning for a device class with no counterpart on either side) |
 | negative control `topology` | detected (exit 3, mismatch) |
 | negative control `device-param` | detected (exit 3, mismatch) |
 

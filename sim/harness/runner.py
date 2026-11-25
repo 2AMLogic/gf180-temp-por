@@ -552,6 +552,7 @@ def find_crossings(
     col: int,
     thresh: float,
     t0: float | None = None,
+    interpolate: bool = False,
 ) -> list[tuple[float, str]]:
     """Every threshold crossing of ``rows[:, col]``, optionally restricted to
     rows at or after ``t0``.
@@ -561,6 +562,16 @@ def find_crossings(
     passed a ``t0`` skip-until-timestamp) and
     sim/por-ramp-rate/control/run_chatter_probe.py (which scanned every row).
     ``t0=None`` (the default) reproduces the latter's no-skip behavior.
+
+    ``interpolate=False`` (the default) reports the post-crossing sample
+    timestamp ``row[0]``. ``interpolate=True`` linearly interpolates the
+    crossing time between the bracketing samples instead -- the shared home
+    for the interpolated-crossing workarounds that used to be redefined as
+    ``crossings()`` in sim/bias-core-designer-check/control/run_starved_window.py
+    and ``_refine_crossing()`` in
+    sim/por-output-chain-deglitch/control/run_deglitch_asym_probe.py, both of
+    which existed only to recover the interpolation around this function's
+    uninterpolated timestamps.
     """
     crossings: list[tuple[float, str]] = []
     prev = None
@@ -573,9 +584,43 @@ def find_crossings(
             continue
         a, b = prev[col], row[col]
         if (a - thresh) * (b - thresh) < 0:
-            crossings.append((row[0], "rise" if b > a else "fall"))
+            if interpolate:
+                t = prev[0] + (thresh - a) / (b - a) * (row[0] - prev[0])
+            else:
+                t = row[0]
+            crossings.append((t, "rise" if b > a else "fall"))
         prev = row
     return crossings
+
+
+def interpolate_trace(rows: list[tuple[float, ...]], col: int, t: float) -> float:
+    """Linear interpolation of ``rows[:, col]`` at time ``t``.
+
+    Returns ``float("nan")`` for empty ``rows``, clamps to ``rows[0][col]``
+    for ``t <= rows[0][0]`` and to ``rows[-1][col]`` for ``t >= rows[-1][0]``,
+    and linearly interpolates between the bracketing samples in between
+    (returning ``row[col]`` if ``row[0] <= prev[0]``, i.e. on duplicate
+    timestamps).
+
+    Shared home for the per-experiment trace-sampling copies that used to be
+    redefined as ``value_at()`` in sim/por-ramp-rate/control/run_chatter_probe.py,
+    ``sample_at()`` in sim/bias-core-designer-check/control/run_starved_window.py
+    and ``_interp()`` in
+    sim/por-output-chain-deglitch/control/run_deglitch_asym_probe.py (whose
+    only divergence, backward extrapolation for ``t < rows[0][0]``, was never
+    exercised: its callers queried in-range timestamps only).
+    """
+    if not rows:
+        return float("nan")
+    prev = rows[0]
+    for row in rows:
+        if row[0] >= t:
+            if row[0] <= prev[0]:
+                return row[col]
+            f = (t - prev[0]) / (row[0] - prev[0])
+            return prev[col] + f * (row[col] - prev[col])
+        prev = row
+    return rows[-1][col]
 
 
 def parse_wrdata_trace(text: str, n_probes: int) -> list[tuple[float, ...]]:
@@ -602,6 +647,45 @@ def parse_wrdata_trace(text: str, n_probes: int) -> list[tuple[float, ...]]:
         row = (t,) + tuple(vals[1 + 2 * i] for i in range(n_probes))
         rows.append(row)
     return rows
+
+
+class TraceError(RuntimeError):
+    """A deck run did not produce a fresh, parseable waveform file."""
+
+
+def run_deck_trace(
+    name: str,
+    text: str,
+    control_dir: Path,
+    deck_dir: Path,
+    trace_name: str,
+    n_probes: int,
+    timeout_s: int | None = None,
+) -> tuple[str, str, list[tuple[float, ...]]]:
+    """Run a local deck that ``wrdata``-writes ``<deck_dir>/<trace_name>`` and
+    return ``(raw_output, trace_text, rows)``.
+
+    Shared home for the scratch-file handling that four controls used to
+    repeat around :func:`run_deck_raw`. The scratch path is cleared *before*
+    the launch, so a waveform left behind by an interrupted earlier run can
+    never satisfy the existence check of a run that failed to write its own;
+    it is removed again after use. Raises :class:`TraceError` (message
+    includes the tail of the ngspice output) when no waveform was written or
+    it holds no parseable rows. Timeouts propagate as for ``run_deck_raw``.
+    """
+    scratch = deck_dir / trace_name
+    scratch.unlink(missing_ok=True)
+    try:
+        output = run_deck_raw(name, text, control_dir, timeout_s=timeout_s)
+        if not scratch.exists():
+            raise TraceError(f"{name}: ngspice produced no {trace_name}\n{output[-4000:]}")
+        trace_text = scratch.read_text()
+    finally:
+        scratch.unlink(missing_ok=True)
+    rows = parse_wrdata_trace(trace_text, n_probes)
+    if not rows:
+        raise TraceError(f"{name}: could not parse any rows from {trace_name}")
+    return output, trace_text, rows
 
 
 def remove_netlist_device(text: str, head: str, source: Path | str) -> str:

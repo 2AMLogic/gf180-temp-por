@@ -118,24 +118,20 @@ def main(argv: list[str] | None = None) -> int:
     for point_id, corner_name, temp_c, vdd in POINTS:
         log_path = log_dir / f"{point_id}.log"
         trace_path = trace_dir / f"{point_id}.csv"
-        output = runner.run_deck_raw(
-            point_id,
-            compose_deck(pdk, corner_name, temp_c, vdd, options, deck_dir),
-            CONTROL_DIR,
-            timeout_s=900,
-        )
-        raw_trace = deck_dir / "trace.csv"
-        if not raw_trace.exists():
-            print(f"{point_id}: ngspice produced no trace.csv", file=sys.stderr)
-            print(output, file=sys.stderr)
+        try:
+            _, trace_text, rows = runner.run_deck_trace(
+                point_id,
+                compose_deck(pdk, corner_name, temp_c, vdd, options, deck_dir),
+                CONTROL_DIR,
+                deck_dir,
+                "trace.csv",
+                len(PROBES),
+                timeout_s=900,
+            )
+        except runner.TraceError as e:
+            print(e, file=sys.stderr)
             return 2
-        trace_text = raw_trace.read_text()
         trace_path.write_text(trace_text)
-        raw_trace.unlink()
-        rows = runner.parse_wrdata_trace(trace_text, len(PROBES))
-        if not rows:
-            print(f"{point_id}: could not parse any rows from trace.csv", file=sys.stderr)
-            return 2
 
         pgdg_min_during_glitch = min(
             r[col["PGDG"]] for r in rows if 20.0000e-3 <= r[0] <= GLITCH_END_S + 5e-6

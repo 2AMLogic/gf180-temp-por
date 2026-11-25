@@ -46,6 +46,7 @@ from harness.pdk import PdkNotFound, find_pdk  # noqa: E402
 sys.path.insert(0, str(REPO_ROOT / "layout"))
 # needs REPO_ROOT/layout on sys.path
 from lvs_reference import ReferenceError as _LvsReferenceError  # noqa: E402
+from lvs_reference import subckt_body as _subckt_body  # noqa: E402
 from lvs_reference import subckt_ports as _subckt_ports  # noqa: E402
 
 TOP_CELL = "temp_por_top"
@@ -174,12 +175,27 @@ def subckt_ports(netlist: str, cell: str) -> list[str]:
 
 
 def instance_lines(netlist: str, cell: str) -> list[list[str]]:
-    """Instance lines of `cell` inside the top-level .subckt block."""
-    found = []
-    for line in netlist.splitlines():
+    """Instance lines of `cell` inside the top-level .subckt block.
+
+    Sits on the same shared parser as :func:`subckt_ports` above --
+    ``layout/lvs_reference.py``'s ``subckt_body`` -- so the scan is scoped to
+    ``.subckt temp_por_top`` (an ``X`` card inside some other ``.subckt``
+    definition in the same file cannot satisfy the instantiation invariant),
+    ``+`` continuations are already joined, and ``key=value`` instance
+    parameters are stripped: every returned row is ``[instance, *nets, cell]``.
+    """
+    try:
+        body = _subckt_body(netlist, TOP_CELL)
+    except _LvsReferenceError as exc:
+        raise ExportError(f".subckt {TOP_CELL} not found in its own netlist") from exc
+    found: list[list[str]] = []
+    for line in body:
         tokens = line.split()
-        if len(tokens) >= 2 and tokens[0].lower().startswith("x") and tokens[-1] == cell:
-            found.append(tokens)
+        if len(tokens) < 2 or not tokens[0].lower().startswith("x"):
+            continue
+        positional = [t for t in tokens[1:] if "=" not in t]
+        if positional and positional[-1] == cell:
+            found.append([tokens[0], *positional])
     return found
 
 
