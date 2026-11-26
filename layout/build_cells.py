@@ -4899,21 +4899,54 @@ def _assert_tap_coverage(b: CellBuilder, cell: str) -> None:
             f"(first offender near {uncontacted.bbox().to_dtype(b.layout.dbu)})"
         )
 
-    texts: dict[str, kdb.Texts] = {}
-    for spec in (METAL1_LABEL, METAL2_LABEL):
+    # Per-layer seeds: a label names the net on *its own* layer only. Reading
+    # a Metal1 label as naming whatever Metal2 happens to overlay it would
+    # connect layers that no via joins.
+    seeds: dict[str, dict[str, kdb.Texts]] = {}
+    for layer_name, spec in (("m1", METAL1_LABEL), ("m2", METAL2_LABEL)):
         for item in b.cell.begin_shapes_rec(b._layer(spec)).each():
             text = item.shape().text.transformed(item.trans())
-            texts.setdefault(text.string, kdb.Texts()).insert(text)
+            seeds.setdefault(text.string, {}).setdefault(
+                layer_name, kdb.Texts()
+            ).insert(text)
     # The full stack a tap's Metal1 can ride to a label: sub-cells tie on
     # Metal1 (temp_core's risers land on their track), but temp_por_top's
     # seam moat reaches the VSS rail through Via1 -> Metal2 -> Via2 -> a
     # Metal3 column -> Via2 -> the Metal2 rail, so leaving Metal3/Via2 out
     # would strand exactly the tie the moat exists to make.
-    conductor = (
-        region(METAL1) + region(METAL2) + region(METAL3)
-        + region(VIA1) + region(VIA2)
-    ).merged()
-    net_metal = {net: conductor.interacting(net_texts) for net, net_texts in texts.items()}
+    #
+    # Connectivity is tracked per metal layer; adjacent metals join only
+    # through the via between them (a via joins a net's metal to the other
+    # layer's polygon it lands on). Overlapping metals with no via are two
+    # nets, as in the fab -- a merged 2-D conductor would count a strap that
+    # merely crosses its riser as connected (a dropped Via1 would pass).
+    layers = {
+        "m1": region(METAL1), "m2": region(METAL2), "m3": region(METAL3),
+    }
+    vias = {("m1", "m2"): region(VIA1), ("m2", "m3"): region(VIA2)}
+
+    def flood(net_seeds: dict[str, kdb.Texts]) -> dict[str, kdb.Region]:
+        net = {
+            name: layers[name].interacting(net_seeds[name])
+            if name in net_seeds else kdb.Region()
+            for name in layers
+        }
+        while True:
+            before = sum(r.count() for r in net.values())
+            for (lo, hi), via in vias.items():
+                for src, dst in ((lo, hi), (hi, lo)):
+                    cut = via.interacting(net[src])
+                    net[dst] = net[dst] + layers[dst].interacting(cut)
+                    net[dst].merge()
+            if sum(r.count() for r in net.values()) == before:
+                return net
+
+    # A contact lands on Metal1, so a tap contact is on a net only through
+    # that net's *Metal1*: a Metal2 polygon passing over it is not the metal
+    # the contact touches.
+    net_metal = {
+        net_name: flood(net_seeds)["m1"] for net_name, net_seeds in seeds.items()
+    }
     labelled_metal = sum(net_metal.values(), kdb.Region())
     tap_contacts = contact.interacting(all_taps)
     stranded = tap_contacts - labelled_metal

@@ -170,6 +170,49 @@ class TapCoverageAssertionTest(unittest.TestCase):
             bc._assert_tap_coverage(b, "tap_coverage_synthetic")
         self.assertIn("other than VSS", str(raised.exception))
 
+    def _riser_tied_sub_tap(self, b, *, via1, riser_net="VSS"):
+        """A substrate tap whose Metal1 reaches its label only via a Metal2 riser.
+
+        The tap's own Metal1 is unlabelled; a Metal2 riser labelled
+        ``riser_net`` overlies the Metal1 strap's end, and ``via1`` says
+        whether the Via1 that joins them is drawn.
+        """
+        self._sub_tap(b, 0.0, -2.0, 2.0, -1.0, label=False)
+        b.box(bc.METAL2, 1.5, -1.8, 3.0, 0.5)
+        b.label(riser_net, 2.0, -0.5, spec=bc.METAL2_LABEL)
+        if via1:
+            b.via(bc.VIA1, 1.75, -1.2)
+
+    def test_a_tap_tied_through_a_via_passes(self):
+        # The restored connection the two tests below break.
+        b = self._body()
+        self._riser_tied_sub_tap(b, via1=True)
+        self._well_tap(b, 22.0, 2.0, 24.0, 3.0)
+        bc._assert_tap_coverage(b, "tap_coverage_synthetic")  # no raise
+
+    def test_overlapping_metals_without_a_via_are_not_connected(self):
+        # Metal1 under a VSS-labelled Metal2 riser with the Via1 dropped:
+        # a merged 2-D conductor reads the overlap as a connection, but
+        # the tap is floating.
+        b = self._body()
+        self._riser_tied_sub_tap(b, via1=False)
+        self._well_tap(b, 22.0, 2.0, 24.0, 3.0)
+        with self.assertRaises(AssertionError) as raised:
+            bc._assert_tap_coverage(b, "tap_coverage_synthetic")
+        self.assertIn("no labelled net", str(raised.exception))
+
+    def test_a_label_on_one_metal_does_not_name_an_unvia_d_crossing(self):
+        # A VDD-labelled Metal1 substrate tap crossed by an unrelated
+        # VSS-labelled Metal2 line with no Via1: the tap is on VDD, not VSS.
+        b = self._body()
+        self._sub_tap(b, 0.0, -2.0, 2.0, -1.0, net="VDD")
+        b.box(bc.METAL2, -1.0, -1.8, 3.0, -1.2)
+        b.label("VSS", -0.5, -1.5, spec=bc.METAL2_LABEL)
+        self._well_tap(b, 22.0, 2.0, 24.0, 3.0)
+        with self.assertRaises(AssertionError) as raised:
+            bc._assert_tap_coverage(b, "tap_coverage_synthetic")
+        self.assertIn("other than VSS", str(raised.exception))
+
     def test_an_uncontacted_tap_bites(self):
         # COMP + implant alone is an uncontacted junction, not a tap.
         b = self._body()
