@@ -362,6 +362,26 @@ class TranslationTests(BatchTestCase):
             "m_comp_offs_fall_mv": "(sample.sns_fall-1.2)*1e3",
         })
 
+    def test_named_step_qualifies_mixed_case_measurement_tokens(self):
+        deck = textwrap.dedent("""\
+            * mixed-case measurement references
+            V1 out 0 1
+            .temp 27
+            .control
+            tran 1u 10u
+            meas tran Peak max v(out)
+            meas tran Peak_last find v(out) at=10u
+            meas tran Abs min v(out)
+            let m_delta = abs(PEAK_LAST-pEaK) + ABS
+            print m_delta
+            .endc
+            .end
+        """)
+        unit = self.unit(template=deck, measurement_step="sample")
+        self.assertEqual(unit.measurements, (
+            ("m_delta", "expr", "abs(sample.Peak_last-sample.Peak) + sample.Abs"),
+        ))
+
     def test_control_deck_is_taken_apart(self):
         u = self.unit()
         self.assertEqual(u.process, ("ss", "res_ss"))

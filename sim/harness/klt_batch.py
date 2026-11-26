@@ -443,13 +443,16 @@ def _logical_lines(text: str) -> list[str]:
     return out
 
 
-def _inline(expr: str, lets: dict[str, str], wrap: Callable[[str], str]) -> str:
-    """Replace every ``let`` vector name in ``expr`` with its expansion."""
+def _inline(
+    expr: str, lets: dict[str, str], wrap: Callable[[str], str], *, flags: int = 0,
+) -> str:
+    """Replace bare vector names in ``expr`` with their expansions."""
     for name, expansion in lets.items():
         expr = re.sub(
             rf"(?<![\w.]){re.escape(name)}(?![\w.(])",
             lambda _m, e=expansion: wrap(e),
             expr,
+            flags=flags,
         )
     return expr
 
@@ -705,7 +708,7 @@ def translate_deck(
         qualified = {name: f"{measurement_step}.{name}" for name, _, _ in meas}
         meas = []
         for name, _ in printed:
-            add_meas(name, "expr", _inline(lets[name], qualified, str))
+            add_meas(name, "expr", _inline(lets[name], qualified, str, flags=re.IGNORECASE))
     elif extra_analyses:
         if meas:
             raise BatchIncompatible(
