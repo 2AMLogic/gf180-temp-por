@@ -180,50 +180,37 @@ def preserved_provenance() -> str | None:
 
 def summary_lines(results: dict[tuple[str, str, float], dict[str, float]]) -> list[str]:
     """The ``## What this settles`` block, as observations computed from the
-    same samples the tables above print (#679). Monotonicity and the level
-    crossing decide the wording, the endpoints and ratios come from the
-    samples, and nothing here asserts a claim the logs do not contain.
+    same samples the tables above print (#679).
     """
     ss = ("ss", -40.0)
     ext_curve = [results[("extracted", *ss)][f"ok{_tag(ms)}"] for ms in SAMPLE_MS]
-    monotonic = all(b <= a + 1e-9 for a, b in zip(ext_curve, ext_curve[1:]))
+    tolerance_v = 1e-9
+    nonincreasing = all(b <= a + tolerance_v for a, b in zip(ext_curve, ext_curve[1:]))
     t_first = SAMPLE_MS[0] - DEAD_RAIL_START_MS
     t_parent = PARENT_SAMPLE_MS - DEAD_RAIL_START_MS
     t_last = SAMPLE_MS[-1] - DEAD_RAIL_START_MS
     sch_at_parent = results[("schematic", *ss)][f"ok{_tag(PARENT_SAMPLE_MS)}"]
     ext_at_parent = results[("extracted", *ss)][f"ok{_tag(PARENT_SAMPLE_MS)}"]
-    # The first extracted sample at or below the schematic reading at the
-    # check's own instant, if the sampled window contains one at all.
-    cross = next((i for i, v in enumerate(ext_curve) if v <= sch_at_parent), None)
+    endpoints = (
+        f"from {fmt_mv(ext_curve[0])} at +{t_first:g} ms to "
+        f"{fmt_mv(ext_curve[-1])} at +{t_last:g} ms"
+    )
 
-    # How far apart the two netlists' VREF discharge curves run, over every
-    # sample of every corner -- derived, so the claim below cannot drift.
-    vref_gap = max(
-        abs(
-            results[("extracted", corner_name, temp_c)][f"vr{_tag(ms)}"]
-            - results[("schematic", corner_name, temp_c)][f"vr{_tag(ms)}"]
+    if max(ext_curve) - min(ext_curve) <= tolerance_v:
+        point_1 = (
+            f"1. **The extracted voltage at {ss[0]}/{ss[1]:g} C is flat across all "
+            f"{len(SAMPLE_MS)} samples** within {tolerance_v * 1e9:g} nV, {endpoints}."
         )
-        for corner_name, temp_c, _ in POINTS
-        for ms in SAMPLE_MS
-    )
-    vref_gap_ss = max(
-        abs(results[("extracted", *ss)][f"vr{_tag(ms)}"] - results[("schematic", *ss)][f"vr{_tag(ms)}"])
-        for ms in SAMPLE_MS
-    )
-
-    if monotonic:
+    elif nonincreasing and ext_curve[0] - ext_curve[-1] > tolerance_v:
         point_1 = (
             f"1. **The extracted node is not stuck.** Its discharge at {ss[0]}/{ss[1]:g} C is "
-            f"monotonically falling across all {len(SAMPLE_MS)} samples, from "
-            f"{fmt_mv(ext_curve[0])} at +{t_first:g} ms to {fmt_mv(ext_curve[-1])} "
-            f"at +{t_last:g} ms."
+            f"monotonically falling across all {len(SAMPLE_MS)} samples, {endpoints}."
         )
     else:
         point_1 = (
-            f"1. **The extracted node's discharge is not monotonic across the "
-            f"{len(SAMPLE_MS)} samples** (see the table above): "
-            f"{fmt_mv(ext_curve[0])} at +{t_first:g} ms to {fmt_mv(ext_curve[-1])} "
-            f"at +{t_last:g} ms, with at least one rising step. The samples do "
+            f"1. **The {len(SAMPLE_MS)} extracted samples do not show a monotonic discharge "
+            f"at {ss[0]}/{ss[1]:g} C.** The voltage goes {endpoints}, "
+            "with at least one rising step. The samples do "
             "not settle the stuck-vs-discharge question."
         )
 
@@ -238,27 +225,40 @@ def summary_lines(results: dict[tuple[str, str, float], dict[str, float]]) -> li
         f"(schematic) and {fmt_mv(ext_at_parent)} (extracted) -- a voltage ratio "
         f"of {ratio} at that instant."
     )
-    if cross is None:
+    first_at_or_below = next((i for i, v in enumerate(ext_curve) if v <= sch_at_parent), None)
+    if first_at_or_below is None:
         point_2 = (
-            f"2. **The extracted curve does not reach the schematic +{t_parent:g} ms "
-            f"level inside the window.** {at_parent} Every extracted sample "
-            f"through +{t_last:g} ms stays above {fmt_mv(sch_at_parent)}; the "
-            f"last reads {fmt_mv(ext_curve[-1])}."
+            f"2. **Every extracted sample through +{t_last:g} ms is above the schematic "
+            f"+{t_parent:g} ms reference of {fmt_mv(sch_at_parent)}.** {at_parent}"
         )
     else:
-        t_cross = SAMPLE_MS[cross] - DEAD_RAIL_START_MS
+        sample_time = SAMPLE_MS[first_at_or_below] - DEAD_RAIL_START_MS
         point_2 = (
-            f"2. **The extracted curve first reaches the schematic +{t_parent:g} ms "
-            f"level at +{t_cross:g} ms.** {at_parent}"
+            f"2. **The first extracted sample at or below the schematic +{t_parent:g} ms "
+            f"reference is {fmt_mv(ext_curve[first_at_or_below])} at +{sample_time:g} ms.** "
+            f"{at_parent}"
         )
 
+    def vref_gap(corner: str, temp_c: float, ms: float) -> float:
+        key = f"vr{_tag(ms)}"
+        return abs(
+            results[("extracted", corner, temp_c)][key]
+            - results[("schematic", corner, temp_c)][key]
+        )
+
+    peaks = []
+    for corner, temp_c, _ in POINTS:
+        gaps = {ms: vref_gap(corner, temp_c, ms) for ms in SAMPLE_MS}
+        peak_ms = max(gaps, key=gaps.__getitem__)
+        peaks.append(
+            f"{fmt_mv(gaps[peak_ms])} at +{peak_ms - DEAD_RAIL_START_MS:g} ms "
+            f"({corner}/{temp_c:+g} C)"
+        )
     point_3 = (
-        f"3. **The core's own discharge is not what moved.** Over the same window "
-        f"V(VREF) on the same DUT differs between the two netlists by at most "
-        f"{vref_gap * 1e3:.0f} mV anywhere on the grid sampled here "
-        f"({vref_gap_ss * 1e3:.1f} mV at {ss[0]}/{ss[1]:g} C, the failing family), "
-        f"against a `BIAS_OK` difference of {(ext_at_parent - sch_at_parent) * 1e3:.0f} mV "
-        "at the same instant and the same corner."
+        f"3. The largest sampled V(VREF) differences between netlists are {' and '.join(peaks)}. "
+        f"At {ss[0]}/{ss[1]:g} C and +{t_parent:g} ms, the differences are "
+        f"{fmt_mv(vref_gap(*ss, PARENT_SAMPLE_MS))} for V(VREF) "
+        f"and {fmt_mv(abs(ext_at_parent - sch_at_parent))} for `BIAS_OK`."
     )
 
     return ["## What this settles", "", point_1, point_2, point_3, ""]

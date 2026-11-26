@@ -16,8 +16,7 @@ now derived from the same samples the tables print, so these tests pin:
   * every number the summary quotes traces to a committed log line;
   * a non-monotonic extracted curve produces a summary that reports that
     result instead of the monotonic wording;
-  * a curve that does cross the schematic level is reported at the measured
-    sample, not at an asserted one.
+  * the summary identifies the first sample at or below the schematic level.
 
     python3 -m unittest discover -s sim/tests -t sim/tests -v
 """
@@ -212,18 +211,12 @@ class SummaryFromCommittedSamplesTests(unittest.TestCase):
         self.assertIn("monotonically falling across all 8 samples", self.summary)
         self.assertIn("from 327.8 mV at +0.5 ms to 176.4 mV at +17 ms", self.summary)
 
-    def test_no_crossing_is_reported_as_not_measured(self):
-        # 33.63 mV: m_ok350 of dip-schematic-ss_-40c.log. The eight extracted
-        # samples never reach it, and the summary must say so as a
-        # measurement, not assert a crossing time the window lacks.
+    def test_all_extracted_samples_are_above_the_schematic_reference(self):
         self.assertIn(
-            "does not reach the schematic +2 ms level inside the window", self.summary
+            "Every extracted sample through +17 ms is above the schematic "
+            "+2 ms reference of 33.63 mV", self.summary
         )
-        self.assertIn(
-            "Every extracted sample through +17 ms stays above 33.63 mV", self.summary
-        )
-        self.assertNotIn("needs roughly the whole", self.summary)
-        self.assertNotIn("to reach the level the schematic export reaches", self.summary)
+        self.assertNotIn("does not reach", self.summary)
 
     def test_the_902_figure_is_labeled_a_voltage_ratio_at_the_instant(self):
         # 33.63 mV / 303.4 mV: m_ok350 of both ss_-40c logs; 9.02 = 303.4/33.63.
@@ -234,11 +227,12 @@ class SummaryFromCommittedSamplesTests(unittest.TestCase):
         self.assertNotIn("longer time", self.summary)
 
     def test_vref_gap_and_bias_ok_difference_are_the_committed_ones(self):
-        # 26 mV: max V(VREF) delta, at tt 33.5 ms. 3.9 mV: ss 50 ms.
-        # 270 mV: 303.4 - 33.63 at the parent instant.
-        self.assertIn("at most 26 mV", self.summary)
-        self.assertIn("3.9 mV at ss/-40 C", self.summary)
-        self.assertIn("270 mV", self.summary)
+        self.assertIn("3.886 mV at +17 ms (ss/-40 C)", self.summary)
+        self.assertIn("25.93 mV at +0.5 ms (tt/+27 C)", self.summary)
+        self.assertIn(
+            "At ss/-40 C and +2 ms, the differences are 0.5024 mV for V(VREF) "
+            "and 269.8 mV for `BIAS_OK`", self.summary
+        )
 
     def test_removed_claims_stay_removed(self):
         self.assertNotIn("sub-millivolt", self.summary)
@@ -247,7 +241,7 @@ class SummaryFromCommittedSamplesTests(unittest.TestCase):
         self.assertNotIn("not a held stale valid", self.summary)
 
 
-class NonMonotonicInputTests(unittest.TestCase):
+class ModifiedSamplesTests(unittest.TestCase):
     """A summary computed from samples must report what the samples say."""
 
     def setUp(self):
@@ -265,7 +259,7 @@ class NonMonotonicInputTests(unittest.TestCase):
         # ok400 (the +7 ms sample) lifted above ok380 (+5 ms): non-monotonic.
         self.results[("extracted", "ss", -40.0)]["ok400"] = 0.29
         summary = self._summary()
-        self.assertIn("not monotonic across the 8 samples", summary)
+        self.assertIn("8 extracted samples do not show a monotonic discharge", summary)
         self.assertIn("do not settle the stuck-vs-discharge question", summary)
         self.assertNotIn("monotonically falling across all 8 samples", summary)
         self.assertNotIn("**The extracted node is not stuck.**", summary)
@@ -273,28 +267,42 @@ class NonMonotonicInputTests(unittest.TestCase):
     def test_non_monotonic_input_keeps_the_other_observations(self):
         self.results[("extracted", "ss", -40.0)]["ok400"] = 0.29
         summary = self._summary()
-        # The crossing check and the V(VREF) contrast read the samples they
-        # always read; a rising step does not make them lie.
-        self.assertIn("does not reach the schematic +2 ms level", summary)
-        self.assertIn("at most 26 mV", summary)
+        self.assertIn("Every extracted sample through +17 ms is above", summary)
+        self.assertIn("25.93 mV at +0.5 ms (tt/+27 C)", summary)
 
-    def test_a_crossing_is_reported_at_the_first_measured_sample(self):
-        # Drop the +12 ms and +17 ms samples below the schematic 2 ms level
-        # (33.63 mV): the first crossing is the +12 ms sample.
+    def test_first_sample_at_or_below_the_reference(self):
         values = self.results[("extracted", "ss", -40.0)]
-        values["ok450"] = 0.02
-        values["ok500"] = 0.01
-        summary = self._summary()
-        self.assertIn(
-            "first reaches the schematic +2 ms level at +12 ms", summary
-        )
-        self.assertNotIn("does not reach the schematic +2 ms level", summary)
-        # The monotonic reading is unaffected by the level crossing itself.
-        self.assertIn("monotonically falling across all 8 samples", summary)
+        reference = self.results[("schematic", "ss", -40.0)]["ok350"]
+        values["ok500"] = 0.01  # A later sample also qualifies.
+        for value, label in [(0.02, "20 mV"), (reference, "33.63 mV")]:
+            with self.subTest(value=value):
+                values["ok450"] = value
+                summary = self._summary()
+                self.assertIn(
+                    "The first extracted sample at or below the schematic +2 ms "
+                    f"reference is {label} at +12 ms", summary
+                )
+                self.assertNotIn("first reaches", summary)
 
-    def test_monotonic_wording_tolerates_a_float_rounding_step(self):
-        # The check's 1e-9 V tolerance: an exactly-equal consecutive pair is
-        # still falling, not a rising step.
+    def test_flat_samples_report_no_measurable_fall(self):
+        values = self.results[("extracted", "ss", -40.0)]
+        for ms in dip.SAMPLE_MS:
+            values[f"ok{dip._tag(ms)}"] = 0.300
+        summary = self._summary()
+        self.assertIn("flat across all 8 samples", summary)
+        self.assertIn("300 mV at +0.5 ms to 300 mV at +17 ms", summary)
+        self.assertNotIn("not stuck", summary)
+        self.assertNotIn("monotonically falling", summary)
+
+    def test_vref_peak_time_follows_the_samples(self):
+        schematic = self.results[("schematic", "ss", -40.0)]
+        self.results[("extracted", "ss", -40.0)]["vr350"] = schematic["vr350"] + 1.0
+        summary = self._summary()
+        self.assertIn("1000 mV at +2 ms (ss/-40 C)", summary)
+        self.assertIn("At ss/-40 C and +2 ms, the differences are 1000 mV", summary)
+        self.assertNotIn("core's own discharge is not what moved", summary.lower())
+
+    def test_falling_trace_can_include_equal_neighbors(self):
         values = self.results[("extracted", "ss", -40.0)]
         values["ok500"] = values["ok450"]
         summary = self._summary()

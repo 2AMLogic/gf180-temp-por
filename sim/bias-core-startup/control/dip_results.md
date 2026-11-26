@@ -77,5 +77,5 @@ V(VREF) on the same DUT over the same window, as the control that the *core* is 
 ## What this settles
 
 1. **The extracted node is not stuck.** Its discharge at ss/-40 C is monotonically falling across all 8 samples, from 327.8 mV at +0.5 ms to 176.4 mV at +17 ms.
-2. **The extracted curve does not reach the schematic +2 ms level inside the window.** At the check's own instant the two netlists read 33.63 mV (schematic) and 303.4 mV (extracted) -- a voltage ratio of 9.02 at that instant. Every extracted sample through +17 ms stays above 33.63 mV; the last reads 176.4 mV.
-3. **The core's own discharge is not what moved.** Over the same window V(VREF) on the same DUT differs between the two netlists by at most 26 mV anywhere on the grid sampled here (3.9 mV at ss/-40 C, the failing family), against a `BIAS_OK` difference of 270 mV at the same instant and the same corner.
+2. **Every extracted sample through +17 ms is above the schematic +2 ms reference of 33.63 mV.** At the check's own instant the two netlists read 33.63 mV (schematic) and 303.4 mV (extracted) -- a voltage ratio of 9.02 at that instant.
+3. The largest sampled V(VREF) differences between netlists are 3.886 mV at +17 ms (ss/-40 C) and 25.93 mV at +0.5 ms (tt/+27 C). At ss/-40 C and +2 ms, the differences are 0.5024 mV for V(VREF) and 269.8 mV for `BIAS_OK`.
