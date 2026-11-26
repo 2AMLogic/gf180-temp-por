@@ -1407,8 +1407,9 @@ reasoning is in
   (`ss_-40c_2.97v` / `_3.30v` / `_3.63v`, 303.432 mV vs. the 300 mV bound —
   was 33.6 mV pre-extraction): a real, if marginal (~1.1 %), shift.
   **#185 outcome: genuinely the cell, and it is an RC rather than a latch.**
-  The extracted `BIAS_OK`/`NOKX` net's dead-rail discharge is ~9× slower and
-  monotonic; the physically load-bearing requirement (below `nfet_03v3` Vt,
+  The extracted `BIAS_OK`/`NOKX` net's dead-rail discharge is monotonic and
+  much slower to decay — at the check's own 2 ms sample it still holds 9.02×
+  the schematic voltage; the physically load-bearing requirement (below `nfet_03v3` Vt,
   ≈0.822 V at these corners) still holds by 2.7×. The bound is **not moved**
   and the check still reads FAIL — whether it should be harmonized with this
   cell's other deck, which bounds the same quantity at 500 mV, is left to #1.
@@ -1614,10 +1615,13 @@ as a curve rather than at one point:
 Three things follow, and the first is the one that matters:
 
 - **The node is not stuck.** The extracted discharge is monotonic across all
-  eight samples; it needs roughly the whole 17 ms window to reach the level
-  the schematic export reaches in 2 ms. This is not the held stale valid
-  `XMOKC` exists to prevent — it is the same discharge on a ~9× longer time
-  constant.
+  eight samples, from 327.8 mV at +0.5 ms to 176.4 mV at +17 ms. This is not
+  the held stale valid `XMOKC` exists to prevent — it is the same node
+  discharging more slowly. At the check's own 2 ms sample the two netlists
+  read 33.63 mV and 303.4 mV — a 9.02× voltage ratio at that instant, not a
+  time-constant ratio — and at +17 ms the extracted node still reads
+  176.4 mV, above the schematic export's 2 ms level: the measured window
+  contains no crossing of it.
 - **The core is not implicated.** `V(VREF)` on the same DUT tracks between the
   two netlists to within 4 mV at `ss`/−40 °C over the entire window, against a
   `BIAS_OK` difference of 270 mV at the same instant. What moved is the
