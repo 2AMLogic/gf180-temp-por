@@ -136,7 +136,7 @@ VPOR_FALL_MIN_V = 2.22
 
 # The ratified valid-low ratio (spec/target-spec.md#por-reset-valid-floor),
 # and the bound ../testbench/tb.json checks `resetn_ratio_min_in_dip`
-# against. Read here rather than restated: see load_bounds().
+# against. Read here rather than restated: see bound_for().
 RESETN_RATIO_KEY = "resetn_ratio_min_in_dip"
 
 
@@ -166,6 +166,57 @@ def us_after_dip(t: float | None) -> float | None:
     happened) is ``None`` out -- callers render that as "**never**".
     """
     return None if t is None else (t - T_DIP_S) * 1e6
+
+
+def _window_close_s(start_s: float, edge_duration_s: float) -> float:
+    """End of the deck's measurement window on the given time axis."""
+    return start_s + edge_duration_s + T_DWELL_S
+
+
+def window_close_us(vdd: float, slew_mvus: float) -> float:
+    """When the dip window closes, in µs after the dip starts (#682)."""
+    return _window_close_s(0.0, edge_s(vdd, slew_mvus)) * 1e6
+
+
+def margin_to_close_us(vdd: float, slew_mvus: float,
+                       t_rst_s: float | None) -> float | None:
+    """How much dip window was still left when `RESETn` reached valid-low.
+
+    Subtract the event time from the deck's absolute close before converting
+    to µs. An event exactly at close then has zero margin, and events on
+    either side retain their sign. A missing event has no margin.
+    """
+    if t_rst_s is None:
+        return None
+    close_s = _window_close_s(T_DIP_S, edge_s(vdd, slew_mvus))
+    return (close_s - t_rst_s) * 1e6
+
+
+def resetn_verdict(rst_r_min: float | None, bound: float) -> str:
+    """The grid's own PASS/FAIL word for one measured min `RESETn`/VDD.
+
+    ``PASS`` while ``rst_r_min`` is at or under ``bound``, ``**FAIL**``
+    over it, ``—`` when the measurement is absent -- the three words every
+    verdict column in this directory prints, with the same ``<=`` the grid
+    itself applies, so a ratio sitting exactly on the bound gets the milder
+    word. ``bound`` is the manifest check's own number, read by each caller
+    via ``bound_for(manifest, RESETN_RATIO_KEY)`` and never restated:
+    ``run_postlayout_margin.py``'s copy of this logic had drifted to a
+    hardcoded 0.1, which is the drift #682 exists to make impossible.
+    """
+    if rst_r_min is None:
+        return "—"
+    return "PASS" if rst_r_min <= bound else "**FAIL**"
+
+
+def fmt_us(value: float | None, digits: int = 1) -> str:
+    """One event time as the table cell every report here prints for it.
+
+    ``**never**`` for an absent measurement -- a different statement from
+    "0.0" -- and ``{:.1f}`` otherwise, unless the caller asks for more
+    digits (part B's Δ column asks for 2).
+    """
+    return "**never**" if value is None else f"{value:.{digits}f}"
 
 
 def internal(node: str, flat: bool) -> str:
@@ -205,7 +256,7 @@ def deck(pdk, options: list[str], vdd: float, slew_mvus: float,
     flat = netlist != ASSEMBLY_NETLIST
     corner = corners_mod.CORNERS[CORNER]
     edge = edge_s(vdd, slew_mvus)
-    t_dip_end = T_DIP_S + edge + T_DWELL_S
+    t_dip_end = _window_close_s(T_DIP_S, edge)
     t_end = T_DIP_S + 2 * edge + T_DWELL_S + RECOVERY_MARGIN_S
     t_pre = T_DIP_S - 100e-6
     deck_dir = CONTROL_DIR / "decks"
@@ -367,14 +418,8 @@ def write_results(pdk, manifest, res: dict[str, dict[str, float]]) -> None:
     def g(name, key):
         return res.get(name, {}).get(key)
 
-    def fmt_us(value, digits=1):
-        return "**never**" if value is None else f"{value:.{digits}f}"
-
     def verdict(name):
-        v = g(name, "rst_r_min")
-        if v is None:
-            return "—"
-        return "PASS" if v <= rst_bound else "**FAIL**"
+        return resetn_verdict(g(name, "rst_r_min"), rst_bound)
 
     lines: list[str] = []
     lines.append(
@@ -448,7 +493,7 @@ def write_results(pdk, manifest, res: dict[str, dict[str, float]]) -> None:
         for slew in SLEWS_MVUS:
             name = variant_name(vdd, slew, "a")
             edge_us = edge_s(vdd, slew) * 1e6
-            close_us = edge_us + T_DWELL_S * 1e6
+            close_us = window_close_us(vdd, slew)
             t_praw = us_after_dip(g(name, "t_praw"))
             t_pgdg = us_after_dip(g(name, "t_pgdg"))
             t_rst = us_after_dip(g(name, "t_rst"))
@@ -457,7 +502,8 @@ def write_results(pdk, manifest, res: dict[str, dict[str, float]]) -> None:
                 if (t_praw is not None and t_pgdg is not None)
                 else "—"
             )
-            margin = f"{close_us - t_rst:+.1f}" if t_rst is not None else "—"
+            m = margin_to_close_us(vdd, slew, g(name, "t_rst"))
+            margin = "—" if m is None else f"{m:+.1f}"
             praw_min = g(name, "praw_r_min")
             rst_min = g(name, "rst_r_min")
             vdd_praw = g(name, "vdd_at_praw")
@@ -653,7 +699,7 @@ def write_results(pdk, manifest, res: dict[str, dict[str, float]]) -> None:
                     "slew_mvus": slew,
                     "vdd_v": vdd,
                     "edge_us": edge * 1e6,
-                    "window_close_us": (edge + T_DWELL_S) * 1e6,
+                    "window_close_us": window_close_us(vdd, slew),
                     "measurements": res[name],
                 }
     (CONTROL_DIR / "results.json").write_text(

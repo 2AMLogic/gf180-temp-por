@@ -24,7 +24,23 @@ worth asserting:
   * ``static_and_slope`` decides the zero-rate static limit that
     ``sim/por-vth/control/``'s two controls both publish;
   * ``us_after_dip`` decides the time origin of every "µs after the dip
-    starts" column under ``sim/por-brownout-slew/control/``.
+    starts" column under ``sim/por-brownout-slew/control/``;
+  * ``window_close_us`` / ``margin_to_close_us`` / ``resetn_verdict`` /
+    ``fmt_us`` (#682) decide that directory's remaining shared vocabulary:
+    the clock the dip window closes on, the margin every report races
+    against it, the PASS/FAIL word for the manifest's
+    ``resetn_ratio_min_in_dip`` bound, and the "**never**" spelling of an
+    absent event time. All four existed as one hand-copied set per control
+    before #682, and one copy (``run_postlayout_margin.py``'s verdict) had
+    already drifted to a hardcoded bound.
+
+``ReportRegenerationTests`` is #682's other half: those four helpers feed
+all four ``write_results()`` implementations in that directory, so the
+regression a consolidation could introduce is "same committed logs, same
+manifest, a different report". Those tests re-run each ``write_results()``
+headlessly (stub PDK, fixed date, no ngspice) and byte-compare against the
+committed results files -- see that class's docstring for the two files
+whose comparison is scoped to their log-derived content, and why.
 
     python3 -m unittest discover -s sim/tests -v
 """
@@ -35,12 +51,15 @@ import ast
 import contextlib
 import importlib.util
 import io
+import math
+import re
 import subprocess
 import sys
 import tempfile
 import unittest
 import unittest.mock
 from pathlib import Path
+from types import SimpleNamespace
 
 SIM_DIR = Path(__file__).resolve().parents[1]
 REPO_ROOT = SIM_DIR.parent
@@ -51,6 +70,10 @@ SHARED_HELPERS = [
     ("por-output-chain-deglitch/control", "verdict", "_deglitch_criterion.py"),
     ("por-vth/control", "static_and_slope", "run_ramp_rate_probe.py"),
     ("por-brownout-slew/control", "us_after_dip", "run_band_mechanism.py"),
+    ("por-brownout-slew/control", "window_close_us", "run_band_mechanism.py"),
+    ("por-brownout-slew/control", "margin_to_close_us", "run_band_mechanism.py"),
+    ("por-brownout-slew/control", "resetn_verdict", "run_band_mechanism.py"),
+    ("por-brownout-slew/control", "fmt_us", "run_band_mechanism.py"),
 ]
 
 
@@ -229,6 +252,342 @@ class UsAfterDipTests(unittest.TestCase):
         """None in, None out -- the callers render that as "**never**", which
         is a different statement from "at 0 µs"."""
         self.assertIsNone(self.mod.us_after_dip(None))
+
+
+class WindowCloseAndMarginTests(unittest.TestCase):
+    """The dip window's close, and the margin left when `RESETn` makes it.
+
+    Every report under ``sim/por-brownout-slew/control/`` races `RESETn`
+    valid-low against ``window_close_us`` and prints the gap as *margin to
+    close*; #682 gave both one definition in ``run_band_mechanism.py``.
+    """
+
+    def setUp(self):
+        d = SIM_DIR / "por-brownout-slew" / "control"
+        self.mod = _load(d / "run_band_mechanism.py", "run_band_mechanism")
+
+    def test_close_is_the_edge_plus_the_dwell(self):
+        vdd, slew = 3.3, 3.0
+        self.assertAlmostEqual(
+            self.mod.window_close_us(vdd, slew)
+            - self.mod.edge_s(vdd, slew) * 1e6,
+            self.mod.T_DWELL_S * 1e6,
+        )
+        # A slower slew needs a longer edge to fall the same delta_V, so its
+        # window closes later -- the direction every margin column depends on.
+        self.assertGreater(
+            self.mod.window_close_us(vdd, slew / 2),
+            self.mod.window_close_us(vdd, slew),
+        )
+
+    def test_margin_is_the_close_minus_the_valid_low_time(self):
+        vdd, slew = 3.3, 3.0
+        margin = self.mod.margin_to_close_us(vdd, slew, self.mod.T_DIP_S + 40e-6)
+        self.assertAlmostEqual(
+            margin, self.mod.window_close_us(vdd, slew) - 40.0
+        )
+
+    def test_margin_changes_sign_at_the_decks_exact_close(self):
+        for vdd, slew in ((3.30, 2.45), (3.63, 3.40)):
+            with self.subTest(vdd=vdd, slew=slew):
+                close = self.mod.T_DIP_S + self.mod.edge_s(vdd, slew) + self.mod.T_DWELL_S
+                before = math.nextafter(close, -math.inf)
+                after = math.nextafter(close, math.inf)
+                self.assertGreater(self.mod.margin_to_close_us(vdd, slew, before), 0.0)
+                self.assertEqual(self.mod.margin_to_close_us(vdd, slew, close), 0.0)
+                self.assertLess(self.mod.margin_to_close_us(vdd, slew, after), 0.0)
+
+    def test_margin_is_negative_once_the_window_has_closed(self):
+        vdd, slew = 3.3, 3.0
+        t_after = (
+            self.mod.T_DIP_S + self.mod.edge_s(vdd, slew)
+            + self.mod.T_DWELL_S + 10e-6
+        )
+        self.assertLess(self.mod.margin_to_close_us(vdd, slew, t_after), 0.0)
+
+    def test_an_absent_valid_low_measurement_gives_no_margin(self):
+        """None in, None out: "`RESETn` never reached valid-low" is a
+        different statement from "it reached it exactly at the close", and
+        the reports spell the two differently ("—" vs "0.0")."""
+        self.assertIsNone(self.mod.margin_to_close_us(3.3, 3.0, None))
+
+
+class PostlayoutMarginReportTests(unittest.TestCase):
+    def setUp(self):
+        control = SIM_DIR / "por-brownout-slew" / "control"
+        self.plm = _load(control / "run_postlayout_margin.py", "run_postlayout_margin")
+
+    def report(self, row, bound):
+        band = self.plm.band
+        manifest = {"checks": {band.RESETN_RATIO_KEY: {"max": bound}}}
+        pdk = SimpleNamespace(variant="test", version="test")
+        results = {self.plm.variant_name("sch", 3.30, 2.45): row}
+        with tempfile.TemporaryDirectory() as tmp:
+            with unittest.mock.patch.object(self.plm, "CONTROL_DIR", Path(tmp)):
+                self.plm.write_results(pdk, manifest, results)
+            return (Path(tmp) / "postlayout_margin_results.md").read_text()
+
+    def test_schematic_margin_cell_flags_an_event_at_close(self):
+        band = self.plm.band
+        close = band.T_DIP_S + band.edge_s(3.30, 2.45) + band.T_DWELL_S
+        report = self.report({"t_rst": close}, bound=0.1)
+        self.assertIn("| +0.0 **FAIL** |", report)
+
+    def test_report_prints_the_manifest_bound_used_for_the_verdict(self):
+        report = self.report({"rst_r_min": 0.15}, bound=0.2)
+        self.assertIn("bounded at 0.2.", report)
+        self.assertIn("| 0.1500 | PASS |", report)
+
+
+class ResetnVerdictTests(unittest.TestCase):
+    """The one PASS/FAIL word for `resetn_ratio_min_in_dip` (#682)."""
+
+    def setUp(self):
+        d = SIM_DIR / "por-brownout-slew" / "control"
+        self.mod = _load(d / "run_band_mechanism.py", "run_band_mechanism")
+
+    def test_a_ratio_exactly_on_the_bound_is_the_pass_word(self):
+        """``<=``, the grid's own comparison: a rung landing exactly on the
+        manifest bound gets the milder word, not a coin-flip between four
+        hand-copied spellings of the comparison."""
+        self.assertEqual(self.mod.resetn_verdict(0.1, 0.1), "PASS")
+
+    def test_a_ratio_under_the_bound_passes(self):
+        self.assertEqual(self.mod.resetn_verdict(0.0, 0.1), "PASS")
+        self.assertEqual(self.mod.resetn_verdict(0.0999, 0.1), "PASS")
+
+    def test_a_ratio_over_the_bound_fails(self):
+        self.assertEqual(self.mod.resetn_verdict(0.1000001, 0.1), "**FAIL**")
+        self.assertEqual(self.mod.resetn_verdict(1.0, 0.1), "**FAIL**")
+
+    def test_an_absent_measurement_is_an_em_dash_not_a_verdict(self):
+        self.assertEqual(self.mod.resetn_verdict(None, 0.1), "—")
+
+
+class FmtUsTests(unittest.TestCase):
+    """The one spelling of an event-time cell (#682)."""
+
+    def setUp(self):
+        d = SIM_DIR / "por-brownout-slew" / "control"
+        self.mod = _load(d / "run_band_mechanism.py", "run_band_mechanism")
+
+    def test_an_absent_event_is_never_not_zero(self):
+        """The two statements answer different questions: the event did not
+        happen vs it happened at 0.0 µs."""
+        self.assertEqual(self.mod.fmt_us(None), "**never**")
+
+    def test_one_digit_by_default(self):
+        self.assertEqual(self.mod.fmt_us(303.36), "303.4")
+        self.assertEqual(self.mod.fmt_us(-45.04), "-45.0")
+
+    def test_digits_selects_the_precision(self):
+        """``run_band_mechanism.py``'s part B renders its Δ column with 2 --
+        the parameter exists for that caller and must keep working."""
+        self.assertEqual(self.mod.fmt_us(2.346, 2), "2.35")
+
+
+# --------------------------------------------------------------------------
+# #682's regression half: same committed logs in, same report out.
+# --------------------------------------------------------------------------
+
+_NETLIST_SHA_RE = re.compile(r"sha256 `[0-9a-f]+…`")
+
+
+def _mask_netlist_shas(text: str) -> str:
+    """``text`` with every ``sha256 `…``` provenance fragment blanked.
+
+    ``results.md``'s DUT-netlist sha line records the netlist its committed
+    decks were generated against; ``design/netlist/temp_por_top.spice`` has
+    changed since, so that one line cannot regenerate from the committed
+    logs (the tables do -- only the hash of the file the decks named has
+    moved). Masked on both sides, the comparison covers exactly the cells
+    the consolidated helpers feed.
+    """
+    return _NETLIST_SHA_RE.sub("sha256 `<masked>`", text)
+
+
+def _from_section_2(text: str) -> str:
+    """``text`` from its "## 2 —" heading on, trailing blank line stripped.
+
+    ``net_attribution_results.md``'s hand-added #316 note and its section 1
+    (anchor-netlist shas, parasitic-model prose, the ΣC/ΣR table) describe
+    the CURRENT ``layout/postlayout/`` extraction, while the committed rows
+    were measured against the pre-#314 one -- the note block in the file
+    says exactly that, and section 1's per-arm numbers are recomputed from
+    the current netlist by design. Everything from section 2 on is read out
+    of the committed logs, the manifest and arithmetic, and must regenerate
+    byte-for-byte. The trailing blank line is stripped because the committed
+    file has carried one since its first commit that
+    ``write_text(... + "\n")`` never writes.
+    """
+    return text[text.index("## 2 —"):].rstrip("\n")
+
+
+def _fixed_datetime(committed: str) -> SimpleNamespace:
+    """A ``datetime`` stand-in whose ``today()`` is the report's own date.
+
+    ``run_por_edge_check.write_results()`` stamps the day it ran; the
+    committed report's own stamp is the date to regenerate with, so the
+    test does not fail merely because days pass. Patched over the module's
+    ``datetime`` name, never the real stdlib.
+    """
+    import datetime
+
+    m = re.search(r"on (\d{4}-\d{2}-\d{2})", committed)
+    fixed = datetime.date.fromisoformat(m.group(1))
+
+    class _Date(datetime.date):
+        @classmethod
+        def today(cls):
+            return fixed
+
+    return SimpleNamespace(date=_Date)
+
+
+class ReportRegenerationTests(unittest.TestCase):
+    """The four consolidated helpers must not move a byte of the reports.
+
+    #682 replaced the four hand-copied window-close / margin / verdict /
+    fmt helpers inside this directory's four ``write_results()``
+    implementations with one shared set in ``run_band_mechanism.py``. The
+    failure mode consolidation can introduce is precise: the committed
+    ``logs/`` parse the same, the manifest reads the same, but a report now
+    prints a different digit or word. So each test below re-runs one
+    ``write_results()`` headlessly -- stub PDK, no ngspice, no PDK install
+    -- against the committed logs and byte-compares with the committed
+    results file, which is the "generated, never transcribed twice" rule
+    (sim/README.md) turned into a check that survives the code motion.
+
+    The stub inputs are read back out of the committed file itself (its
+    PDK line, and for ``run_por_edge_check.py`` its generation date), so
+    the comparison pins the tables, not which PDK install or day produced
+    them: a control legitimately re-run updates both sides together, and
+    the test fails only when logs and report actually disagree.
+
+    Two comparisons are scoped rather than whole-file, for input drift the
+    committed files themselves document -- ``_mask_netlist_shas`` (the
+    design netlist has changed since ``results.md`` was generated) and
+    ``_from_section_2`` (``net_attribution_results.md``'s note and
+    section 1 belong to a different extraction than its rows were measured
+    against).
+    """
+
+    CONTROL = SIM_DIR / "por-brownout-slew" / "control"
+
+    def setUp(self):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        self.out = Path(tmp.name)
+
+    def _stub_pdk(self, committed: str):
+        """A Pdk whose variant/version are the ones the report records."""
+        from harness.pdk import Pdk
+
+        m = re.search(r"`(gf180mcu\w+)` @ `([^`]+)`", committed)
+        self.assertIsNotNone(m, "committed report has no PDK line to stub")
+        root = self.out / "pdk" / m.group(1)
+        root.mkdir(parents=True)
+        if m.group(2) != "unknown":
+            (root / "SOURCES").write_text(f"open_pdks {m.group(2)}\n")
+        return Pdk(path=root, variant=m.group(1), source="unit test")
+
+    def test_band_mechanism_report_reproduces_from_the_committed_logs(self):
+        band = _load(self.CONTROL / "run_band_mechanism.py", "run_band_mechanism")
+        from harness import cliutil, runner
+
+        manifest = cliutil.load_manifest(band.MANIFEST)
+        results = runner.read_bare_logs(self.CONTROL)
+        committed_md = (self.CONTROL / "results.md").read_text()
+        committed_json = (self.CONTROL / "results.json").read_text()
+        with unittest.mock.patch.object(band, "CONTROL_DIR", self.out):
+            band.write_results(self._stub_pdk(committed_md), manifest, results)
+
+        self.assertEqual(
+            (self.out / "results.json").read_text(), committed_json,
+            "results.json no longer regenerates byte-identically from the "
+            "committed logs -- the #682 consolidation changed a recorded "
+            "number, not just where a helper lives",
+        )
+        self.assertEqual(
+            _mask_netlist_shas((self.out / "results.md").read_text()),
+            _mask_netlist_shas(committed_md),
+            "results.md no longer regenerates identically from the committed "
+            "logs (the netlist sha line is masked -- see "
+            "_mask_netlist_shas); the tables the consolidated helpers feed "
+            "must not have moved",
+        )
+
+    def test_net_attribution_report_tables_reproduce_from_the_logs(self):
+        rna = _load(self.CONTROL / "run_net_attribution.py", "run_net_attribution")
+        from harness import cliutil, runner
+
+        manifest = cliutil.load_manifest(rna.band.MANIFEST)
+        parasitics = rna.parasitics_by_net(rna.EXTRACTED)
+        variants = rna.build_variants(parasitics)
+        results = runner.read_bare_logs(self.CONTROL, "na-*.log")
+        committed = (self.CONTROL / "net_attribution_results.md").read_text()
+        with unittest.mock.patch.object(rna, "CONTROL_DIR", self.out):
+            rna.write_results(
+                self._stub_pdk(committed), manifest, variants, parasitics,
+                results,
+            )
+
+        self.assertEqual(
+            _from_section_2(
+                (self.out / "net_attribution_results.md").read_text()
+            ),
+            _from_section_2(committed),
+            "net_attribution_results.md's log-derived sections (2 onward) no "
+            "longer regenerate from the committed logs -- the consolidated "
+            "helpers changed a margin, verdict or event-time cell",
+        )
+
+    def test_por_edge_check_report_reproduces_from_the_committed_logs(self):
+        edge = _load(self.CONTROL / "run_por_edge_check.py", "run_por_edge_check")
+        from harness import cliutil, runner
+
+        results = runner.read_bare_logs(self.CONTROL, "edge-*.log")
+        committed = (self.CONTROL / "por_edge_check_results.md").read_text()
+        out_md = self.out / "por_edge_check_results.md"
+        with unittest.mock.patch.object(edge, "RESULTS_MD", out_md), \
+                unittest.mock.patch.object(
+                    edge, "datetime", _fixed_datetime(committed)
+                ):
+            edge.write_results(
+                self._stub_pdk(committed),
+                cliutil.load_manifest(edge.band.MANIFEST)["options"],
+                results,
+            )
+
+        self.assertEqual(
+            out_md.read_text(), committed,
+            "por_edge_check_results.md no longer regenerates byte-identically "
+            "from the committed logs (stub PDK, the file's own date) -- the "
+            "consolidated helpers changed a margin, verdict or event-time "
+            "cell",
+        )
+
+    def test_postlayout_margin_report_reproduces_from_the_committed_logs(self):
+        plm = _load(
+            self.CONTROL / "run_postlayout_margin.py", "run_postlayout_margin"
+        )
+        from harness import cliutil, runner
+
+        manifest = cliutil.load_manifest(plm.band.MANIFEST)
+        results = runner.read_bare_logs(self.CONTROL, "pl-*.log")
+        committed = (self.CONTROL / "postlayout_margin_results.md").read_text()
+        with unittest.mock.patch.object(plm, "CONTROL_DIR", self.out):
+            plm.write_results(self._stub_pdk(committed), manifest, results)
+
+        self.assertEqual(
+            (self.out / "postlayout_margin_results.md").read_text(), committed,
+            "postlayout_margin_results.md no longer regenerates "
+            "byte-identically from the committed logs. Its grid-verdict "
+            "column now reads the manifest bound via band.bound_for rather "
+            "than a hardcoded 0.1 (#682), so a mismatch here means either a "
+            "helper changed a cell or the manifest bound itself moved -- "
+            "both are worth failing on",
+        )
 
 
 # --------------------------------------------------------------------------

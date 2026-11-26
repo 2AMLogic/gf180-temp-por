@@ -1564,6 +1564,31 @@ def _tap_riser(b: CellBuilder, channel: _Channel, net: str, x: float, y_from: fl
     _m1_to_m2(b, x, y_to)
 
 
+def _draw_pmos_row_nwell_tie(
+    b: CellBuilder, p_x0: float, p_x1: float, max_pw: float, vdd_y1: float
+) -> None:
+    """The Nwell over one PMOS row, and its VDD tie strap.
+
+    The same geometry in every cell with a PMOS row (``bias_core``,
+    ``por_output_chain``, ``por_comparator``): the well spans the row's
+    tiles, its top set by the widest PMOS (``max_pw``), and below it a tie
+    strap of n+ COMP (#516) runs on Metal1, contacts the well at
+    ``TAP_PITCH_UM``, and is carried up to the VDD rail at ``vdd_y1`` on
+    the row's left edge. The caller owns the placement around it: the
+    rail's height and the devices' own risers that vertical piece must
+    stay clear of are facts of each cell.
+    """
+    tie_y0, tie_y1 = -2.2, -1.2
+    b.box(NWELL, p_x0 - 1.0, -2.6, p_x1 + 1.0, max_pw + 1.5)
+    b.box(COMP, p_x0 - 0.5, tie_y0, p_x1 + 0.5, tie_y1)
+    # A tie into the Nwell is n+ COMP (#516).
+    b.blanket(NPLUS, [(p_x0 - 0.5, tie_y0, p_x1 + 0.5, tie_y1)], IMPLANT_OVERHANG_UM)
+    b.box(METAL1, p_x0 - 0.6, tie_y0 - 0.05, p_x1 + 0.6, tie_y1 + 0.05)
+    for x in _span(p_x0 - 0.1, p_x1 + 0.1, TAP_PITCH_UM):
+        b.contact(x, (tie_y0 + tie_y1) / 2.0)
+    b.box(METAL1, p_x0 - 0.6, tie_y1, p_x0 - 0.2, vdd_y1)
+
+
 def _bias_core_passives(
     b: CellBuilder, px0: float, track_y: dict[str, float], vss_y1: float
 ) -> tuple[list[tuple[str, float, float, float, float]], float, float]:
@@ -1821,7 +1846,6 @@ def bias_core(b: CellBuilder) -> None:
     vdd_y0 = channel_y0 + len(BIAS_CORE_TRACKS) * TRACK_PITCH_UM + 1.5
     vdd_y1 = vdd_y0 + 1.2
     vss_y0, vss_y1 = -5.2, -4.2
-    tie_y0, tie_y1 = -2.2, -1.2
 
     # The passive/bipolar block, and the two things that reach it: one Poly2
     # track per net a drawn passive touches, and one Metal1 jog column per net
@@ -1852,15 +1876,8 @@ def bias_core(b: CellBuilder) -> None:
         b.box(POLY2, p_x0 - 1.0, y - half_w, x1, y + half_w)
 
     # --- Nwell, and its tie strap -----------------------------------------
-    b.box(NWELL, p_x0 - 1.0, -2.6, p_x1 + 1.0, max_pw + 1.5)
-    b.box(COMP, p_x0 - 0.5, tie_y0, p_x1 + 0.5, tie_y1)
-    # A tie into the Nwell is n+ COMP (#516).
-    b.blanket(NPLUS, [(p_x0 - 0.5, tie_y0, p_x1 + 0.5, tie_y1)], IMPLANT_OVERHANG_UM)
-    b.box(METAL1, p_x0 - 0.6, tie_y0 - 0.05, p_x1 + 0.6, tie_y1 + 0.05)
-    for x in _span(p_x0 - 0.1, p_x1 + 0.1, TAP_PITCH_UM):
-        b.contact(x, (tie_y0 + tie_y1) / 2.0)
-    # ... carried up to the VDD rail clear of the first device's own risers.
-    b.box(METAL1, p_x0 - 0.6, tie_y1, p_x0 - 0.2, vdd_y1)
+    # Carried up to the VDD rail clear of the first device's own risers.
+    _draw_pmos_row_nwell_tie(b, p_x0, p_x1, max_pw, vdd_y1)
 
     # --- the passive/bipolar block, and its own track band ------------------
     mim_plates, block_x1, block_y1 = _bias_core_passives(
@@ -2193,7 +2210,6 @@ def por_output_chain(b: CellBuilder) -> None:
     vdd_y0 = channel_y0 + len(POR_OUTPUT_CHAIN_TRACKS) * TRACK_PITCH_UM + 1.5
     vdd_y1 = vdd_y0 + 1.2
     vss_y0, vss_y1 = -5.2, -4.2
-    tie_y0, tie_y1 = -2.2, -1.2
 
     mim_plates, mim_x1, mim_y1 = _mim_block(
         _golden_caps("por_output_chain.spice", "por_output_chain"),
@@ -2223,17 +2239,10 @@ def por_output_chain(b: CellBuilder) -> None:
 
     # --- Nwell over the PMOS row, and its VDD tie strap --------------------
     # XMON's active starts REGION_GAP_UM + TILE_GAP_UM right of XMOP's, so the
-    # well edge clears the pad-facing nfet by 4 um.
-    b.box(NWELL, p_x0 - 1.0, -2.6, p_x1 + 1.0, max_pw + 1.5)
-    b.box(COMP, p_x0 - 0.5, tie_y0, p_x1 + 0.5, tie_y1)
-    # A tie into the Nwell is n+ COMP (#516).
-    b.blanket(NPLUS, [(p_x0 - 0.5, tie_y0, p_x1 + 0.5, tie_y1)], IMPLANT_OVERHANG_UM)
-    b.box(METAL1, p_x0 - 0.6, tie_y0 - 0.05, p_x1 + 0.6, tie_y1 + 0.05)
-    for x in _span(p_x0 - 0.1, p_x1 + 0.1, TAP_PITCH_UM):
-        b.contact(x, (tie_y0 + tie_y1) / 2.0)
-    # ... carried up to the VDD rail in the gap between the two device rows,
-    # clear of any device's own risers.
-    b.box(METAL1, p_x0 - 0.6, tie_y1, p_x0 - 0.2, vdd_y1)
+    # well edge clears the pad-facing nfet by 4 um. The strap is carried up
+    # to the VDD rail in the gap between the two device rows, clear of any
+    # device's own risers.
+    _draw_pmos_row_nwell_tie(b, p_x0, p_x1, max_pw, vdd_y1)
 
     # --- supply rails ------------------------------------------------------
     b.box(METAL1, gx0 + 2.5, vdd_y0, row_x1 + 2.0, vdd_y1)
@@ -2778,7 +2787,6 @@ def por_comparator(b: CellBuilder) -> None:
     vdd_y0 = channel_y0 + len(POR_COMPARATOR_TRACKS) * TRACK_PITCH_UM + 1.5
     vdd_y1 = vdd_y0 + 1.2
     vss_y0, vss_y1 = -5.2, -4.2
-    tie_y0, tie_y1 = -2.2, -1.2
 
     # The instanced BIAS_OKB inverter sits on the row's own baseline, clear of
     # the routing channel: its own Poly2 gate strip tops out at y = 5.3, well
@@ -2889,15 +2897,8 @@ def por_comparator(b: CellBuilder) -> None:
         _cap_wire(b, METAL2, div_trunk_x0, y, div_x1, y, width=TRACK_W_UM)
 
     # --- Nwell, and its tie strap ------------------------------------------
-    b.box(NWELL, p_x0 - 1.0, -2.6, p_x1 + 1.0, max_pw + 1.5)
-    b.box(COMP, p_x0 - 0.5, tie_y0, p_x1 + 0.5, tie_y1)
-    # A tie into the Nwell is n+ COMP (#516).
-    b.blanket(NPLUS, [(p_x0 - 0.5, tie_y0, p_x1 + 0.5, tie_y1)], IMPLANT_OVERHANG_UM)
-    b.box(METAL1, p_x0 - 0.6, tie_y0 - 0.05, p_x1 + 0.6, tie_y1 + 0.05)
-    for x in _span(p_x0 - 0.1, p_x1 + 0.1, TAP_PITCH_UM):
-        b.contact(x, (tie_y0 + tie_y1) / 2.0)
-    # ... carried up to the VDD rail clear of the first device's own risers.
-    b.box(METAL1, p_x0 - 0.6, tie_y1, p_x0 - 0.2, vdd_y1)
+    # Carried up to the VDD rail clear of the first device's own risers.
+    _draw_pmos_row_nwell_tie(b, p_x0, p_x1, max_pw, vdd_y1)
 
     # --- the instanced BIAS_OKB inverter, and its four connections ----------
     b.instance("por_comparator_bias_okb_inv", por_comparator_bias_okb_inv, inv_x, inv_y)
