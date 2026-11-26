@@ -8,6 +8,8 @@ Merged PRs and closed issues from the initial 30-day snapshot (2026-09-07 onward
 
 ### 2026-11-26
 
+- **PR #681**: refactor(layout): share the PMOS-row Nwell and VDD tie drawing across cells
+- **Issue #678** (closed): Share the PMOS row Nwell and VDD tie drawing code across three layout cells
 - **PR #684**: sim: share the por-brownout-slew controls' dip-window helpers
 - **Issue #682** (closed): Consolidate duplicated dip-window, margin, and verdict helpers across por-brownout-slew controls
 - **PR #683**: fix(sim): derive the ok_bo_dip decay summary from its own samples
