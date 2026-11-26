@@ -900,7 +900,7 @@ Recorded result (`layout/reports/por_comparator/`):
 | ----- | ------ |
 | `klt drc --deck gf180mcu` | clean — 0 violations (the #102 fix; reconfirmed under the current deck by #106's regeneration) |
 | `klt extract --deck gf180mcu` | 21 devices (12 nfet, 6 pfet, 3 ppolyf_u_1k), 16 nets, 7 pins |
-| `klt lvs` | **match** — 21/21 devices, 16/16 nets, 7/7 pins, 0 errors (2 warnings: the instanced inverter's untied well (`device.body_unverified`), one ambiguous-pairing `topology`). #516 dissolved the synthetic `vsubs` pin and the parent well's anonymous net. |
+| `klt lvs` | **match** — 21/21 devices, 16/16 nets, 7/7 pins, 0 errors (2 warnings: the instanced inverter's untied well (`device.body_unverified`) and a device class with no counterpart on the other side and zero extracted devices (`topology`)). #516 dissolved the synthetic `vsubs` pin and the parent well's anonymous net. |
 | negative control `topology` | detected (exit 3; `device.unmatched` 1, `topology` 2) |
 | negative control `device-param` | detected (exit 3; `device.property` 5, `topology` 2) |
 
@@ -1057,15 +1057,13 @@ Recorded result (`layout/reports/por_output_chain/`):
 | ----- | ------ |
 | `klt drc --deck gf180mcu` | clean — 0 violations (`mim.space.1` / `mim.enclosing.fusetop.1` now exercised) |
 | `klt extract --deck gf180mcu` | 33 devices (14 nfet, 14 pfet, 5 `cap_mim_2f0_m4m5_noshield`), 18 nets, 5 pins |
-| `klt lvs` | **match** — 33/33 devices, 18/18 nets, 5/5 pins, 0 errors (1 ambiguous-pairing `topology` warning). #516 dissolved the synthetic `vsubs` pin and the anonymous well net: every body resolves through the drawn, implanted ring and strap. |
-| negative control `topology` | detected (exit 3; `device.unmatched` 1, `topology` 12) |
-| negative control `device-param` | detected (exit 3; `device.property` 5, `topology` 12) |
+| `klt lvs` | **match** — 33/33 devices, 18/18 nets, 5/5 pins, 0 errors (1 `topology` warning for a device class with no counterpart on the other side and zero extracted devices). #516 dissolved the synthetic `vsubs` pin and the anonymous well net: every body resolves through the drawn, implanted ring and strap. |
+| negative control `topology` | detected (exit 3; `device.unmatched` 1, `topology` 1) |
+| negative control `device-param` | detected (exit 3; `device.property` 5, `topology` 1) |
 
-The 11 `topology` entries are `warning` severity, not errors: 10 of them are the
-comparer reporting that it paired the 10 isolated MiM plate nets structurally
-rather than by name (they are indistinguishable by construction — that *is* the
-connectivity gap above), plus the one this cell already had. `klt lvs` still
-exits 0 and reports `match`.
+The baseline's single `topology` entry is `warning` severity, not an error: the
+comparer found a device class with no counterpart on the other side and no
+extracted devices of that class. `klt lvs` exits 0 and reports `match`.
 
 What moved in `drc.json`'s own `coverage` block, which is the check that the new
 geometry is *checked* rather than merely tolerated:
