@@ -247,7 +247,7 @@ def write_results(pdk, manifest, res: dict[str, dict[str, float]]) -> None:
         "`ndg_r_max` is how far `por_output_chain`'s deglitch ramp actually "
         "got inside the window (≈0.5–0.7 is the level the PASS rows cross; "
         "0 means it never moved); `rst_r_min` is the grid's own checked "
-        "discriminator over the same window, bounded at 0.1."
+        f"discriminator over the same window, bounded at {rst_bound:g}."
     )
     lines.append("")
     lines.append(

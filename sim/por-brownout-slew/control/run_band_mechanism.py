@@ -168,41 +168,28 @@ def us_after_dip(t: float | None) -> float | None:
     return None if t is None else (t - T_DIP_S) * 1e6
 
 
-def window_close_us(vdd: float, slew_mvus: float) -> float:
-    """When the dip window closes, in µs after the dip starts (#682).
+def _window_close_s(start_s: float, edge_duration_s: float) -> float:
+    """End of the deck's measurement window on the given time axis."""
+    return start_s + edge_duration_s + T_DWELL_S
 
-    The end of the window ``../testbench/tb.json`` measures
-    ``resetn_ratio_min_in_dip`` over: the edge plus the ``T_DWELL_S`` dwell,
-    on the same µs-after-the-dip-starts axis ``us_after_dip`` established
-    (#493). The one definition for this directory: before #682 each of the
-    four controls spelled the sum its own way -- ``edge_us + T_DWELL_S * 1e6``
-    here, a ``window_close_s`` that added ``T_DIP_S`` only to subtract it
-    back out in ``run_postlayout_margin.py`` -- so a change of dwell could
-    have moved one report's clock and not another's.
-    """
-    return (edge_s(vdd, slew_mvus) + T_DWELL_S) * 1e6
+
+def window_close_us(vdd: float, slew_mvus: float) -> float:
+    """When the dip window closes, in µs after the dip starts (#682)."""
+    return _window_close_s(0.0, edge_s(vdd, slew_mvus)) * 1e6
 
 
 def margin_to_close_us(vdd: float, slew_mvus: float,
                        t_rst_s: float | None) -> float | None:
     """How much dip window was still left when `RESETn` reached valid-low.
 
-    ``window_close_us`` minus ``us_after_dip(t_rst_s)``, in µs: positive
-    while the valid-low lands inside the window, negative once it lands
-    after the window has closed -- the race every report in this directory
-    calls *margin to close*. ``t_rst_s`` is the measured absolute time;
-    ``None`` (the event never happened) is ``None`` out, which callers
-    render as "—", a different statement from a zero margin.
-
-    The one definition (#682). Two of the four copies it replaced had
-    already stopped calling #493's ``us_after_dip`` and re-inlined
-    ``(t - T_DIP_S) * 1e6``; keeping the conversion inside this helper is
-    what makes that re-inlining impossible to reintroduce.
+    Subtract the event time from the deck's absolute close before converting
+    to µs. An event exactly at close then has zero margin, and events on
+    either side retain their sign. A missing event has no margin.
     """
-    t_rst_us = us_after_dip(t_rst_s)
-    if t_rst_us is None:
+    if t_rst_s is None:
         return None
-    return window_close_us(vdd, slew_mvus) - t_rst_us
+    close_s = _window_close_s(T_DIP_S, edge_s(vdd, slew_mvus))
+    return (close_s - t_rst_s) * 1e6
 
 
 def resetn_verdict(rst_r_min: float | None, bound: float) -> str:
@@ -269,7 +256,7 @@ def deck(pdk, options: list[str], vdd: float, slew_mvus: float,
     flat = netlist != ASSEMBLY_NETLIST
     corner = corners_mod.CORNERS[CORNER]
     edge = edge_s(vdd, slew_mvus)
-    t_dip_end = T_DIP_S + edge + T_DWELL_S
+    t_dip_end = _window_close_s(T_DIP_S, edge)
     t_end = T_DIP_S + 2 * edge + T_DWELL_S + RECOVERY_MARGIN_S
     t_pre = T_DIP_S - 100e-6
     deck_dir = CONTROL_DIR / "decks"

@@ -599,19 +599,13 @@ def write_results(
             vdd, slew, g(variant_name(key, vdd, slew), "t_rst")
         )
 
-    def passes(key: str, slew: float) -> int:
-        return sum(
-            1
-            for vdd in band.SUPPLIES_V
-            if (lambda v: v is not None and v <= rst_bound)(
-                g(variant_name(key, vdd, slew), "rst_r_min")
-            )
-        )
-
     def verdict(key: str, vdd: float, slew: float) -> str:
         return band.resetn_verdict(
             g(variant_name(key, vdd, slew), "rst_r_min"), rst_bound
         )
+
+    def passes(key: str, slew: float) -> int:
+        return sum(verdict(key, vdd, slew) == "PASS" for vdd in band.SUPPLIES_V)
 
     def recovered(key: str, vdd: float) -> float | None:
         """Fraction of the sch-vs-ext gap in min `V_sg` this arm gives back.
@@ -999,13 +993,11 @@ def write_results(
         + f" | passing | changes the {edge_slew:g} mV/µs edge? |"
     )
     lines.append("|---|" + "---:|" * (len(band.SUPPLIES_V) + 1) + "---|")
-    ext_pass_at_edge = {
-        vdd: (lambda v: v is not None and v <= rst_bound)(
-            g(variant_name("ext", vdd, edge_slew), "rst_r_min")
-        )
+    failing = [
+        vdd
         for vdd in band.SUPPLIES_V
-    }
-    failing = [v for v, ok in ext_pass_at_edge.items() if not ok]
+        if verdict("ext", vdd, edge_slew) != "PASS"
+    ]
     for variant in variants:
         cells = []
         for vdd in band.SUPPLIES_V:

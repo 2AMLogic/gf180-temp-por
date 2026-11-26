@@ -51,6 +51,7 @@ import ast
 import contextlib
 import importlib.util
 import io
+import math
 import re
 import subprocess
 import sys
@@ -286,18 +287,15 @@ class WindowCloseAndMarginTests(unittest.TestCase):
             margin, self.mod.window_close_us(vdd, slew) - 40.0
         )
 
-    def test_margin_is_zero_when_valid_low_lands_exactly_on_the_close(self):
-        vdd, slew = 3.3, 3.0
-        t_close = (
-            self.mod.T_DIP_S + self.mod.edge_s(vdd, slew) + self.mod.T_DWELL_S
-        )
-        # assertAlmostEqual, not assertEqual: the close is accumulated as
-        # (edge + dwell) * 1e6 and the event time as (t_dip + edge + dwell -
-        # t_dip) * 1e6, so the two agree to a few ulps, not bitwise -- and
-        # print as 0.0 either way.
-        self.assertAlmostEqual(
-            self.mod.margin_to_close_us(vdd, slew, t_close), 0.0, places=9
-        )
+    def test_margin_changes_sign_at_the_decks_exact_close(self):
+        for vdd, slew in ((3.30, 2.45), (3.63, 3.40)):
+            with self.subTest(vdd=vdd, slew=slew):
+                close = self.mod.T_DIP_S + self.mod.edge_s(vdd, slew) + self.mod.T_DWELL_S
+                before = math.nextafter(close, -math.inf)
+                after = math.nextafter(close, math.inf)
+                self.assertGreater(self.mod.margin_to_close_us(vdd, slew, before), 0.0)
+                self.assertEqual(self.mod.margin_to_close_us(vdd, slew, close), 0.0)
+                self.assertLess(self.mod.margin_to_close_us(vdd, slew, after), 0.0)
 
     def test_margin_is_negative_once_the_window_has_closed(self):
         vdd, slew = 3.3, 3.0
@@ -312,6 +310,33 @@ class WindowCloseAndMarginTests(unittest.TestCase):
         different statement from "it reached it exactly at the close", and
         the reports spell the two differently ("—" vs "0.0")."""
         self.assertIsNone(self.mod.margin_to_close_us(3.3, 3.0, None))
+
+
+class PostlayoutMarginReportTests(unittest.TestCase):
+    def setUp(self):
+        control = SIM_DIR / "por-brownout-slew" / "control"
+        self.plm = _load(control / "run_postlayout_margin.py", "run_postlayout_margin")
+
+    def report(self, row, bound):
+        band = self.plm.band
+        manifest = {"checks": {band.RESETN_RATIO_KEY: {"max": bound}}}
+        pdk = SimpleNamespace(variant="test", version="test")
+        results = {self.plm.variant_name("sch", 3.30, 2.45): row}
+        with tempfile.TemporaryDirectory() as tmp:
+            with unittest.mock.patch.object(self.plm, "CONTROL_DIR", Path(tmp)):
+                self.plm.write_results(pdk, manifest, results)
+            return (Path(tmp) / "postlayout_margin_results.md").read_text()
+
+    def test_schematic_margin_cell_flags_an_event_at_close(self):
+        band = self.plm.band
+        close = band.T_DIP_S + band.edge_s(3.30, 2.45) + band.T_DWELL_S
+        report = self.report({"t_rst": close}, bound=0.1)
+        self.assertIn("| +0.0 **FAIL** |", report)
+
+    def test_report_prints_the_manifest_bound_used_for_the_verdict(self):
+        report = self.report({"rst_r_min": 0.15}, bound=0.2)
+        self.assertIn("bounded at 0.2.", report)
+        self.assertIn("| 0.1500 | PASS |", report)
 
 
 class ResetnVerdictTests(unittest.TestCase):
