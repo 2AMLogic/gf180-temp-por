@@ -58,7 +58,7 @@ geometry; it does not establish implant correctness or latch-up sign-off.
 [`layout/README.md`](layout/README.md#ercmissing_tie-now-computed-310)
 documents that scope and the separate `klt` build used for this report.
 
-**The assembled footprint measures 1.059 mm² (1334 × 794 µm), not "tiny."**
+**The assembled footprint measures 1.06026 mm² (1334.5 × 794.5 µm).**
 This block's stated reason to exist includes that a small, self-contained
 design "rides along on any shuttle seat" — that claim had no number behind
 it until now. The measured footprint is ~21× the ≤0.05 mm² wave-1 planning

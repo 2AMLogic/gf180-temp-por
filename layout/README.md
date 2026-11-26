@@ -320,7 +320,7 @@ klt stats layout/cells/<cell>.gds --format json
 ```
 
 Needs no `--deck` — `klt stats` reads geometry only (bounding box, total
-drawn/union-of-layers polygon area, density, polygon/vertex counts), not
+drawn-polygon area, density, polygon/vertex counts), not
 device recognition, so it carries no `provenance.deck` block and sits outside
 the deck-hash consistency gate above; only the GDS-hash gate applies to its
 report (`stats.json`'s spliced-in `provenance.gds_sha256`, same convention as
@@ -569,7 +569,7 @@ rest of its net, which is both a larger delay and a more faithful one.
 ### `bias_core` — the shared bias/reference core, whole (#68, completed by #90)
 
 `design/bias_core.sch`'s **50 devices** — all of them — drawn from
-`design/netlist/bias_core.spice`. 434.9 × 285.7 µm, 3578 polygons.
+`design/netlist/bias_core.spice`. 435.4 × 286.2 µm, 3685 polygons.
 
 **What a clean run here covers.** #68 drew the 34 MOS devices and left the
 other 16 out, deliberately: the curated deck recognised `nfet`/`pfet` only, so
@@ -738,7 +738,7 @@ Recorded result (`layout/reports/bias_core/`):
 ### `por_comparator` — the POR threshold comparator (#69, sense divider #91)
 
 `design/por_comparator.sch`'s 21 devices, drawn from
-`design/netlist/por_comparator.spice`. 445.0 × 164.7 µm, two cells (it
+`design/netlist/por_comparator.spice`. 445.5 × 165.7 µm, two cells (it
 instances the proof cell below).
 
 **All 21 devices are now drawn, extracted and compared.** 18 are MOS. The
@@ -928,7 +928,7 @@ Recorded result (`layout/reports/por_comparator/`):
 ### `por_output_chain` — the reset output chain (#70, MiM caps added by #92)
 
 `design/por_output_chain.sch`'s 28 MOS devices **and both of its MiM caps**,
-drawn from `design/netlist/por_output_chain.spice`. 225.3 × 105.9 µm, 1493
+drawn from `design/netlist/por_output_chain.spice`. 225.8 × 106.4 µm, 1592
 polygons. The 28th MOS, `XMRLK`, is the release latch issue #56 added
 ([DR-016](../spec/decision-records/DR-016-por-ramp-rate-chatter-release-latch.md));
 it is placed beside `XMDBNI`, whose gate net (`ND1`) and drawn geometry it
@@ -1414,9 +1414,9 @@ recorded at `layout/reports/temp_por_top/stats.json`):
 
 ```
 top_cell: temp_por_top
-bbox_um: (-140.0, -540.0) - (1194.0, 254.0)  1334.0 x 794.0
-area_um2: 369261.93960000004
-density: 0.3486247489605323
+bbox_um: (-140.25, -540.25) - (1194.25, 254.25)  1334.5 x 794.5
+area_um2: 423728.7525
+density: 0.3996459855021444
 ```
 
 Three defensible numbers, all measured off the same committed GDS, differ by
@@ -1425,9 +1425,9 @@ not left implicit:
 
 | Measure | Value | Source |
 | --- | ---: | --- |
-| **This cell's bounding-box footprint (the row's measurement convention)** | **1334.0 × 794.0 µm = 1 059 196 µm² ≈ 1.059 mm²** | `stats.json`'s `bbox_um` |
-| Sum of the four sub-cells' own bounding boxes (`bias_core` 434.9 × 285.7, `por_comparator` 445.0 × 164.7, `por_output_chain` 225.3 × 105.9, `temp_core` 569.25 × 213.005 µm) | 343 709 µm² ≈ 0.344 mm² | each cell's own `stats.json`; `temp_core`'s box grew 1.65 µm when #532's deepest substrate strap (below the 32 µm trim-switch run) extended it downward |
-| Drawn (union-of-layers) polygon area — not a footprint, most of the bbox is unfilled space between instances, rails and the guard rings | 369 262 µm² | `stats.json`'s `total.area_um2` |
+| **This cell's bounding-box footprint (the row's measurement convention)** | **1334.5 × 794.5 µm = 1 060 260.25 µm² (1.06026025 mm²)** | `stats.json`'s `bbox_um` |
+| Sum of the four sub-cells' own bounding boxes (`bias_core` 435.4 × 286.2, `por_comparator` 445.5 × 165.7, `por_output_chain` 225.8 × 106.4, `temp_core` 569.25 × 213.005 µm) | 343 709 µm² ≈ 0.344 mm² | each cell's own `stats.json`; `temp_core`'s box grew 1.65 µm when #532's deepest substrate strap (below the 32 µm trim-switch run) extended it downward |
+| Drawn-polygon area summed across layers | 423 728.8 µm² ≈ 0.423729 mm² | `stats.json`'s `total.area_um2` |
 
 The footprint is ~3.1× the sum of the sub-cells' own boxes; the gap is
 floorplan spacing (`TOP_PLACEMENT`'s instance layout, the full-width rails,
@@ -1435,7 +1435,7 @@ the perimeter guard ring and the domain-seam moat — see "The floorplan
 re-derivation itself" above), not a stray shape inflating the box. Both the
 footprint and the sub-cell sum are over the `≤0.05 mm²` wave-1 planning
 budget `spec/target-spec.md#area` carried before this measurement (21.2× and
-6.8× respectively) — see DR-022 for the full reasoning and the ratified
+6.9× respectively) — see DR-022 for the full reasoning and the ratified
 disposition.
 
 ### `por_comparator_bias_okb_inv` — the flow's original proof cell (#16)

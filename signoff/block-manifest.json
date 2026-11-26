@@ -18,7 +18,7 @@
     ],
     "8": {
       "file": "signoff/evidence/characterization-report.json",
-      "content_hash": "sha256:edccb03a0363e6596feda61ffda8ad22c19d52733bc7a7ea99410e0e2f6ebd98"
+      "content_hash": "sha256:f6854589d54274507b89a6b2866cd4c88673bc409fe0cc6433fba43f8f75acbb"
     },
     "1": {
       "file": "signoff/evidence/t1-item-1-design-sources.json",
@@ -34,7 +34,7 @@
     },
     "10": {
       "file": "signoff/evidence/t1-item-10-repo-hygiene.json",
-      "content_hash": "sha256:af558fa961b3c966d4b77ef91e3fbd9f409628d11217e69c9836bd66e79dc031"
+      "content_hash": "sha256:bb9a4f3954a11037ed3d6b6dfbcdaeb40b42bc0acadb9e7b0e63bfc3891c9e81"
     },
     "7": {
       "file": "layout/reports/temp_por_top/pex.json",
