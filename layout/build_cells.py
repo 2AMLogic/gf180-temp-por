@@ -1418,6 +1418,23 @@ def _draw_guard_ring(
     return ring
 
 
+def _draw_vss_substrate_tap(
+    b: CellBuilder, gx0: float, comp_x1: float, vss_y0: float, vss_y1: float
+) -> None:
+    """Draw the contacted p+ COMP strip under the cell's VSS rail."""
+    comp_x0 = gx0 + 2.3
+    b.box(COMP, comp_x0, vss_y0, comp_x1, vss_y1)
+    # Extend Pplus to the guard ring's inner edge. Separate blankets across
+    # the 0.8 um COMP gap would sit 0.3 um apart, below pplus.space.1 (0.40 um).
+    b.blanket(
+        PPLUS,
+        [(gx0 + GUARD_RING_W_UM, vss_y0, comp_x1, vss_y1)],
+        IMPLANT_OVERHANG_UM,
+    )
+    for x in _span(comp_x0 + 0.5, comp_x1 - 0.5, TAP_PITCH_UM):
+        b.contact(x, (vss_y0 + vss_y1) / 2.0)
+
+
 def _draw_pmos_row_nwell_tie(
     b: CellBuilder, p_x0: float, p_x1: float, max_pw: float, vdd_y1: float
 ) -> None:
@@ -1765,18 +1782,7 @@ def bias_core(b: CellBuilder) -> None:
     # before #90/#264 drew anything out there.
     b.box(METAL1, gx0 + 2.5, vdd_y0, block_x1 + 1.0, vdd_y1)
     b.box(METAL1, gx0 + 1.0, vss_y0, block_x1 + 1.0, vss_y1)
-    b.box(COMP, gx0 + 2.3, vss_y0, block_x1 + 0.7, vss_y1)
-    # A p-substrate tap is p+ COMP (#516). The blanket's junction rect runs
-    # from the guard ring's edge so ring and strap are ONE implant shape: the
-    # 0.8 um COMP gap between them would leave two grown blankets 0.3 um
-    # apart, inside ``pplus.space.1``'s 0.40 um.
-    b.blanket(
-        PPLUS,
-        [(gx0 + GUARD_RING_W_UM, vss_y0, block_x1 + 0.7, vss_y1)],
-        IMPLANT_OVERHANG_UM,
-    )
-    for x in _span(gx0 + 2.8, block_x1 + 0.2, TAP_PITCH_UM):
-        b.contact(x, (vss_y0 + vss_y1) / 2.0)
+    _draw_vss_substrate_tap(b, gx0, block_x1 + 0.7, vss_y0, vss_y1)
 
     # --- guard ring: continuous, VSS-tied, contacted at 1 um ---------------
     # Tied to VSS by abutting the VSS rail's left end; no floating segment.
@@ -2101,16 +2107,7 @@ def por_output_chain(b: CellBuilder) -> None:
     # --- supply rails ------------------------------------------------------
     b.box(METAL1, gx0 + 2.5, vdd_y0, row_x1 + 2.0, vdd_y1)
     b.box(METAL1, gx0 + 1.0, vss_y0, row_x1 + 2.0, vss_y1)
-    b.box(COMP, gx0 + 2.3, vss_y0, row_x1 + 1.7, vss_y1)
-    # A p-substrate tap is p+ COMP (#516); the junction rect reaches the guard
-    # ring's own blanket so the two are one shape (see bias_core's strap).
-    b.blanket(
-        PPLUS,
-        [(gx0 + GUARD_RING_W_UM, vss_y0, row_x1 + 1.7, vss_y1)],
-        IMPLANT_OVERHANG_UM,
-    )
-    for x in _span(gx0 + 2.8, row_x1 + 1.2, TAP_PITCH_UM):
-        b.contact(x, (vss_y0 + vss_y1) / 2.0)
+    _draw_vss_substrate_tap(b, gx0, row_x1 + 1.7, vss_y0, vss_y1)
 
     # --- guard ring: continuous, VSS-tied, contacted at 1 um ---------------
     # This is the cell's edge of the always-on POR domain's ring; it is tied to
@@ -2783,17 +2780,7 @@ def por_comparator(b: CellBuilder) -> None:
     # and XRHYS's SNS/SNSB risers), removes the crossing entirely.
     b.box(METAL1, gx0 + 2.5, vdd_y0, div_terms["XRTOP"]["x1"] + 1.0, vdd_y1)
     b.box(METAL1, gx0 + 1.0, vss_y0, div_terms["XRHYS"]["a"][0] + 2.0, vss_y1)
-    b.box(COMP, gx0 + 2.3, vss_y0, inv_x1 + 1.7, vss_y1)
-    # A p-substrate tap is p+ COMP (#516); the junction rect reaches the
-    # guard ring's own blanket so the two are one shape (see bias_core's
-    # strap).
-    b.blanket(
-        PPLUS,
-        [(gx0 + GUARD_RING_W_UM, vss_y0, inv_x1 + 1.7, vss_y1)],
-        IMPLANT_OVERHANG_UM,
-    )
-    for x in _span(gx0 + 2.8, inv_x1 + 1.2, TAP_PITCH_UM):
-        b.contact(x, (vss_y0 + vss_y1) / 2.0)
+    _draw_vss_substrate_tap(b, gx0, inv_x1 + 1.7, vss_y0, vss_y1)
 
     # --- guard ring: continuous, VSS-tied, contacted at 1 um ----------------
     # Tied to VSS by abutting the VSS rail's left end; no floating segment.
