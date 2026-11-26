@@ -3,7 +3,7 @@
 Current workflow state, maintained by Guide.
 
 <!-- guide:plan-body:start -->
-_Generated: 2026-11-26T15:52:49Z (snapshot; compare against live labels)_
+_Generated: 2026-11-26T23:22:21Z (snapshot; compare against live labels)_
 ## Operator Attention: Merge-Risk-Hold Pileup
 
 Judge-approved PRs under a hold (`loom:blocked` or `loom:operator`) awaiting ratification.
@@ -75,7 +75,6 @@ Issues carrying `loom:curated`.
 
 - **#633**: Drop the unused native yield dependency from headless CI *(hermit)* *(held)*
 - **#673**: Cite the archived brownout interpretation instead of reprinting its measurements *(hermit)* *(held)*
-- **#691**: Share the MiM top-plate escape island between both routing functions *(hermit)*
 
 ## Epics
 
@@ -93,6 +92,6 @@ _None._
 | PRs awaiting review | 0 |
 | Approved PRs awaiting merge | 2 |
 | Curated | 14 |
-| Architect / Hermit proposals | 3 |
+| Architect / Hermit proposals | 2 |
 | Active epics | 0 |
 <!-- guide:plan-body:end -->
