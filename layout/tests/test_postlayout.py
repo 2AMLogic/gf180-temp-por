@@ -150,15 +150,17 @@ class NamingTest(unittest.TestCase):
         self.assertEqual(pl.correspondence_key("xbias.NW1"), "XBIAS_NW1")
         self.assertEqual(pl.correspondence_key("RESETn"), "RESETN")
 
-    def test_an_assembly_well_is_tied_through_the_renamed_compare(self):
+    def test_no_assembly_well_is_left_anonymous(self):
         # The regression that left every PMOS well floating while the netlist
         # still elaborated: joining on the raw reference name missed every tie
         # keyed on an assembly's dotted well net. Driven from the committed
         # correspondence, so it is the real spelling being joined.
-        # #516: only the wells with no drawn n+ tie are left here -- xbias.NW1,
-        # xcmp.NW1 and xpor.NW1 dissolved into VDD once their cells' tie
-        # straps carried Nplus, leaving temp_core's two untied wells and the
-        # instanced inverter's.
+        # #516: xbias.NW1, xcmp.NW1 and xpor.NW1 dissolved into VDD once
+        # their cells' tie straps carried Nplus. #532 drew the last three
+        # -- temp_core's two wells (NW1 into VDD, NW2 into its own tail
+        # node) and the instanced inverter's -- so a correspondence entry
+        # still keyed on a _NW1/_NW2 name now means a tie REGRESSED, not
+        # one that was merely never drawn.
         _spice, record = committed("temp_por_top")
         names = pl.net_map("temp_por_top", record["net_correspondence"])
         wells = {
@@ -166,10 +168,10 @@ class NamingTest(unittest.TestCase):
             for layout, reference in record["net_correspondence"].items()
             if reference.upper().endswith(("_NW1", "_NW2"))
         }
-        self.assertEqual(len(wells), 3)
-        for layout, reference in wells.items():
-            with self.subTest(reference=reference):
-                self.assertIn(names[layout], ("VDD", "xtemp__NT"))
+        self.assertEqual(wells, {})
+        # The tail-following well is the one worth naming: xtemp.NT proves
+        # NW2 rides the pair's own source net, distinct from VDD.
+        self.assertIn("xtemp__NT", set(names.values()))
 
     def test_a_reference_net_the_schematic_does_not_have_is_rejected(self):
         _spice, record = committed("por_comparator")

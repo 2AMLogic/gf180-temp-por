@@ -151,21 +151,21 @@ Why each field is shaped this way:
      additionally drops `temp_core`'s NW2 (the differential input
      pair's shared well -- see `nw2_tail_well` below), since neither a
      drawn marker nor a DRC_BJT patch distinguishes NW2 from NW1 on the
-     same layer. Nplus (32/0) and Pplus (31/0) are drawn on NO device-row
-     comp in this stream (`_mos_finger` draws no implant at all -- only
-     the R2/bias resistor bodies and the PNP array's own emitter/base/
-     collector rings carry an implant marker), so `tap_requires` cannot
-     name a real tap boolean here (klayout-tools#2199/#2234): every
-     `tap_boxes` entry is instead a caller assertion of exactly where
-     each well's own dedicated VDD tie-strap comp sits --
-     `layout/build_cells.py`'s `tie_y0`/`tie_y1` strap for `bias_core`/
-     `por_comparator`/`por_output_chain` (a comp rectangle physically
-     separate from the PMOS row's own source/drain comp, clear of every
-     device terminal), the instanced inverter's own small PMOS source
-     half, and -- `temp_core`'s NW1 draws no separate strap at all -- the
-     source-side half of `XMT`'s own comp (`design/netlist/temp_core.
-     spice`: source net `VDD`, the first device in NW1's row). Each box
-     is narrow enough to exclude the neighbouring drain/other-net comp on
+     same layer. `tap_requires` still cannot name a real tap boolean
+     here (klayout-tools#2199/#2234 -- a gate never divides a comp
+     region in klt erc's connectivity model, so a well-wide boolean
+     manufactures false ties): every `tap_boxes` entry is instead a
+     caller assertion of exactly where each well's own dedicated VDD
+     tie-strap comp sits -- `layout/build_cells.py`'s `tie_y0`/
+     `tie_y1` strap for `bias_core`/`por_comparator`/
+     `por_output_chain` (a comp rectangle physically separate from the
+     PMOS row's own source/drain comp, clear of every device terminal),
+     the instanced inverter's own n+ tie strap, and, since #532,
+     `temp_core`'s nine NW1 per-run tie straps (before #532 drew them,
+     this entry named the source-side half of `XMT`'s own comp as a
+     stand-in -- `_mos_finger` then drew no implant at all). Each box
+     is a whole dedicated strap, or narrow enough to exclude the
+     neighbouring drain/other-net comp on
      the same drawn shape (never the whole device), which is what keeps
      the tap non-degenerate under klayout-tools#2199's geometric test
      (an assertion that removes nothing from the drawn comp inside the
@@ -210,32 +210,44 @@ Why each field is shaped this way:
      `temp_core` (`klt layers --flattened --include-text` on 34/10),
      so the tie is independently checkable, not merely asserted.
      `well_excludes: ["127/5"]` plus `well_requires_boxes` (naming NW2's
-     own drawn extent) isolate exactly this one shape; `tap_boxes` names
-     the source-side half of each of the six fingers' own comp (the
-     drain half of the same shape, on `N1`/`N2`/`NT`'s *other* appearance
-     as a drain, is excluded, same non-degeneracy reasoning as class 1).
+     own drawn extent, which #532 raised to y = 52.2 to enclose the tie
+     strap) isolate exactly this one shape; since #532, `tap_boxes` names
+     the well's own dedicated n+ tie strap (one strap spans NW2's single
+     equal-depth run, riding a Via1/Metal2 riser down to the `NT` track).
+     Before #532 drew it, this entry named the source-side half of each
+     of the six fingers' own comp as a stand-in -- a device terminal, not
+     a tap, kept narrow per class 1's non-degeneracy reasoning.
   4. `substrate_tie` -> VSS, `well_layer: null` + `well_boxes`
      (klayout-tools#2255): the deck draws no p-well/p-substrate layer at
      all, so every native-substrate tie in this design -- the outer
      perimeter guard ring, the domain-seam moat, each of `bias_core`'s/
-     `por_comparator`'s/`por_output_chain`'s own guard rings, and
-     `temp_core`'s PNP arrays' outer (Pplus) collector rings -- has
+     `por_comparator`'s/`por_output_chain`'s own guard rings,
+     `temp_core`'s PNP arrays' outer (Pplus) collector rings, and, since
+     #532, `temp_core`'s thirteen per-run p+ row straps below the NMOS
+     row -- has
      nothing to name as a drawn well. `well_boxes` asserts each ring's
      own four edge segments (never the ring's enclosing rectangle, which
      for the outer perimeter ring is within 1% of the whole top cell's
      own extent and would grade `degenerate_well_assertion` per
      klayout-tools#2255's own falsifiability test -- and, for every
      ring, would also sweep in the guard-ringed interior's real devices);
-     `well_boxes`' 21 segments, across 6 separate rings/strips, merge
-     into 6 independent polygons (none of the rings touch each other),
-     so `erc.missing_tie` grades each ring on its own evidence, not on
-     whichever ring happens to pass. `tap_boxes` narrows each segment to
+     `well_boxes`' 34 regions -- 21 ring/strips segments across the 6
+     guard-ring/moat/collector-ring structures plus, since #532, the 13
+     single-region `temp_core` row straps -- merge
+     into 19 independent polygons (none of the regions touch each other:
+     the 6 ring structures stay mutually separate, and each row strap is
+     its own comp island),
+     so `erc.missing_tie` grades each region on its own evidence, not on
+     whichever ring happens to pass. `tap_boxes` narrows each ring
+     segment to
      its own centre third, clear of the segment's own outer/inner edge,
      which is enough to keep the narrowing non-degenerate without
      excluding the ring's own contact row (every guard ring/moat segment
      here is contacted along its centreline at 1 um pitch --
      `layout/build_cells.py`'s `_draw_guard_ring`/
-     `_top_guard_ring`). `layout/floorplan.md`'s own guard-ring/moat
+     `_top_guard_ring`); each row strap's tap box is the strap's own
+     centre band, inside its well box on every side. `layout/
+     floorplan.md`'s own guard-ring/moat
      account (`layout/README.md`'s former Item 11 stand-in evidence,
      superseded by this declaration) is the design source these
      coordinates were taken from, cross-checked against the committed
@@ -278,8 +290,10 @@ Why each field is shaped this way:
   Deleting a SINGLE segment of a multi-segment tie leaves the report
   fully clean (`erc_status: clean`, `skipped: []`), by construction and
   not as a gap: each `substrate_tie` ring is asserted by four edge
-  segments and the remaining three still tie it, and NW2 carries six
-  finger taps for the one well. The sensitivity this declaration has is
+  segments and the remaining three still tie it. The #532-era regions
+  are per-region from the start -- each `temp_core` row strap and each
+  well tie strap is one region, so deleting any one of them is a
+  finding on its own box. The sensitivity this declaration has is
   per-region (case 1), not per-segment; a per-segment claim would
   overstate it.
 

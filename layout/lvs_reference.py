@@ -53,10 +53,13 @@ exactly as before.
   connectivity, and the well then resolves to the real net. Each manifest
   therefore names its own resolved wells in ``resolved_wells`` -- a
   per-well fact, because one cell can draw ties into some of its wells and
-  not others (``por_comparator`` ties its PMOS row's well and not the
-  instanced inverter's). A pfet in a well named there gets its schematic
-  body node verbatim; every other pfet body is still rewritten to the
-  anonymous per-well net.
+  not others. Through #515 that was every cell's state somewhere; as of #532
+  every drawn well in this block carries its own tie -- the two rail wells
+  since #516, and since #532 the instanced inverter's well (inside
+  ``por_comparator``) plus both of ``temp_core``'s wells, whose NW2 rides
+  the input pair's tail node ``NT`` rather than VDD (see ``well_ties``).
+  A pfet in a well named there gets its schematic body node verbatim; any
+  other pfet body is still rewritten to the anonymous per-well net.
 * **Poly resistor bulk** -- parallel to the NMOS body rewrite above and
   conditional the same way: unresolved, the deck ties a drawn resistor's bulk
   to the substrate global and the schematic's ``VSS`` bulk node is rewritten
@@ -233,7 +236,18 @@ SUBSTRATE_NET = "vsubs"
 #: and, on its own, does not prove a BJT base tie either -- see
 #: :data:`BJT_WELL_RESOLVED_CELLS`.
 BODY_TIES_RESOLVED_CELLS = frozenset(
-    {"temp_core", "temp_por_top", "bias_core", "por_comparator", "por_output_chain"}
+    {
+        "temp_core",
+        "temp_por_top",
+        "bias_core",
+        "por_comparator",
+        "por_output_chain",
+        # #532: the smallest cell in the block joined last -- its own drawn
+        # p+ substrate tap (below the NMOS comp) resolves MENN's body to the
+        # real VSS standalone, where before #532 it was the one cell left
+        # on the anonymous VSUBS rewrite.
+        "por_comparator_bias_okb_inv",
+    }
 )
 
 #: Cells whose own **bipolar array** draws a local Nwell-to-tap connection
@@ -451,8 +465,17 @@ CELLS = {
         # design/por_comparator.md, device table: "MENP / MENN -- local
         # inverter producing BIAS_OKB".
         "devices": ["XMENN", "XMENP"],
-        "ports": ["BIAS_OK", "BIAS_OKB", "VDD", "VSS", SUBSTRATE_NET],
+        # #532: SUBSTRATE_NET is NOT declared any more. The cell's own p+
+        # substrate tap strap resolves every body to the real VSS, so
+        # `klt extract`'s pin list has no `vsubs` pin -- see temp_core's
+        # #312 note above for why a card-less formal port must not be
+        # declared.
+        "ports": ["BIAS_OK", "BIAS_OKB", "VDD", "VSS"],
         "wells": {"NW1": ["XMENP"]},
+        # #532 drew the cell's own n+ well tie strap (to the VDD strap)
+        # inside the Nwell it extended to hold it, so the well resolves
+        # and the pfet body declares verbatim.
+        "resolved_wells": ["NW1"],
     },
     "por_comparator": {
         "source": "por_comparator.spice",
@@ -527,9 +550,11 @@ CELLS = {
             "NW2": ["XMENP"],
         },
         # NW1 is tied to VDD by the cell's own drawn n+ tie strap (#516), so
-        # its pfet bodies resolve to the real net; NW2 -- the instanced
-        # inverter's well -- draws no tie anywhere and stays anonymous.
-        "resolved_wells": ["NW1"],
+        # its pfet bodies resolve to the real net; NW2 -- the well inside the
+        # instanced por_comparator_bias_okb_inv -- carries its own drawn tie
+        # since #532 (the inverter draws an n+ strap to its VDD rail inside
+        # the well it extends to hold it), so its one pfet resolves too.
+        "resolved_wells": ["NW1", "NW2"],
         # design/netlist/por_comparator.spice's own node order for each card
         # (VDD end first, design/por_comparator.md "Sense divider"): XRTOP
         # SNS VDD VSS, XRBOT SNSB SNS VSS, XRHYS VSS SNSB VSS. The third
@@ -873,10 +898,23 @@ CELLS = {
             ],
             "NW2": ["XMI1", "XMI2"],
         },
-        # NOT in resolved_wells, deliberately: temp_core draws no Nwell tie
-        # at all (#516's curation measured this -- no guard ring, no tap
-        # strap, no well tie; filed as #532), so its drawn wells stay
-        # anonymous and its pfet bodies stay the per-well rewrite.
+        # NOT in resolved_wells before #532: temp_core drew no Nwell tie at
+        # all (#516's curation measured this -- no guard ring, no tap strap,
+        # no well tie; filed as #532), so its drawn wells stayed anonymous
+        # and its pfet bodies stayed the per-well rewrite. #532 drew one n+
+        # tie strap per equal-depth run above the PMOS row, inside each
+        # well, each carried to that well's own bias net -- so both wells
+        # now resolve, and the compare proves the tie for real: NW2's strap
+        # lands on the NT track, so a strap that reached VDD instead would
+        # surface as an NT/VDD topology mismatch, not a silent pass.
+        "resolved_wells": ["NW1", "NW2"],
+        # Which net each resolved well's tie reaches -- the body a *drawn
+        # dummy* finger declares, whose well-biased body has no schematic
+        # card to read it from. NW1 rides the VDD rail like every pfet
+        # bulk in this block; NW2 rides NT, the input pair's tail node,
+        # because the pair's sources sit there -- tying that well to VDD
+        # would forward-bias its drain-well junction.
+        "well_ties": {"NW1": "VDD", "NW2": "NT"},
     },
     "por_output_chain": {
         "source": "por_output_chain.spice",
@@ -1341,6 +1379,11 @@ def build_cards(cell: str, rename=None, resolve_body: bool = False) -> list[Card
     # -- so it needs no build()-call parameter, only this per-manifest
     # declaration. See the PMOS-body bullet in this module's header.
     resolved_wells = set(spec.get("resolved_wells", ()))
+    # The net each resolved well's tie reaches, for dummy fingers (below) --
+    # a source-following well like temp_core's NW2 rides its devices' own
+    # source net, not VDD (#532). Wells absent here tie to VDD, which every
+    # other resolved well in this block does.
+    well_ties = spec.get("well_ties", {})
 
     well_of: dict[str, str] = {}
     for well, members in spec.get("wells", {}).items():
@@ -1435,9 +1478,10 @@ def build_cards(cell: str, rename=None, resolve_body: bool = False) -> list[Card
             # instance in this block ties its own body to.
             body = "VSS" if resolve_body else SUBSTRATE_NET
         elif dummy["well"] in resolved_wells:
-            # Same story in a resolved well: to the real "VDD" every
-            # schematic pfet in this block ties its own body to.
-            body = "VDD"
+            # Same story in a resolved well: to the net the well's own tie
+            # strap reaches -- VDD for every rail well, and the pair's tail
+            # node for temp_core's source-following NW2 (#532's well_ties).
+            body = well_ties.get(dummy["well"], "VDD")
         else:
             body = dummy["well"]
         nodes = [drain, gate, source_node, body]

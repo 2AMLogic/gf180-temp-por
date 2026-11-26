@@ -38,32 +38,24 @@
     "finding_count": 0
   },
   "body_verification": {
-    "status": "unverified",
+    "status": "verified",
     "reason": null,
-    "device_classes": [
-      "pfet"
-    ],
-    "device_count": 1,
-    "findings": [
-      {
-        "class": "pfet",
-        "device_count": 1
-      }
-    ],
-    "finding_count": 1
+    "device_classes": [],
+    "device_count": 0,
+    "findings": [],
+    "finding_count": 0
   },
-  "mismatch_count": 2,
+  "mismatch_count": 1,
   "error_count": 0,
   "category_counts": {
-    "device.body_unverified": 1,
     "topology": 1
   },
   "category_error_counts": {},
   "counts": {
     "nets": {
-      "layout": 16,
-      "reference": 16,
-      "matched": 16
+      "layout": 15,
+      "reference": 15,
+      "matched": 15
     },
     "devices": {
       "layout": 21,
@@ -88,8 +80,8 @@
   "environment": {
     "engine": "klayout",
     "engine_version": "0.30.13",
-    "layout_sha256": "1ee4e15f2fd85df4f2d76d237a18c5c65c2ac41e4bea015e78bd91cee568b343",
-    "reference_sha256": "b2f63ce7bc7958c9f36e3dd27bd20c304e3cc610fbe6e7ba04a3410fb5050751",
+    "layout_sha256": "e6e5601250e6c78e25511fe5eb3c669dcd3c5fbe08f577766490571e142533e3",
+    "reference_sha256": "33e10c306231a1efd6dbc5a95af1b6f15e34460887fc56a8a80eda7040d7f2bc",
     "extracted_netlist": null
   },
   "provenance": {
@@ -102,29 +94,12 @@
       "released": false
     },
     "input": {
-      "content_hash": "sha256:1ee4e15f2fd85df4f2d76d237a18c5c65c2ac41e4bea015e78bd91cee568b343",
+      "content_hash": "sha256:e6e5601250e6c78e25511fe5eb3c669dcd3c5fbe08f577766490571e142533e3",
       "role": "layout"
     },
     "klayout_version_mismatch": true
   },
   "mismatches": [
-    {
-      "category": "device.body_unverified",
-      "severity": "warning",
-      "description": "1 PMOS device body terminal(s) were compared against an anonymous, KLayout-synthesized well net, not a real schematic net -- no drawn or derived well-tap geometry resolved these device(s)' body terminal to a real net (see docs/cli/extract.md, \"Coverage\")",
-      "side": "layout",
-      "net": null,
-      "device": {
-        "layout": null,
-        "reference": null,
-        "class": "pfet"
-      },
-      "property": null,
-      "details": null,
-      "circuit": null,
-      "instance": null,
-      "subcircuit": null
-    },
     {
       "category": "topology",
       "severity": "warning",
@@ -173,11 +148,6 @@
     {
       "layout": "\\$12",
       "reference": "NBG",
-      "pin": false
-    },
-    {
-      "layout": "\\$16",
-      "reference": "NW2",
       "pin": false
     },
     {

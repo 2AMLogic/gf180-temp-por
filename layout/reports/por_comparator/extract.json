@@ -5,10 +5,10 @@
   "top": "por_comparator",
   "dbu_um": 0.001,
   "netlist_path": "layout/reports/por_comparator/extracted.spice",
-  "netlist_sha256": "63798a712b94956d0626f6b6f5dd047398fbca7198140f4b5c6da30c57cca5ff",
+  "netlist_sha256": "ab682c73254b3b8594d95986c9c3ee38061f2ef4df651f3f2bceb00d85ed3b71",
   "status": "extracted",
   "device_count": 21,
-  "net_count": 16,
+  "net_count": 15,
   "pin_count": 7,
   "device_counts": {
     "nfet": 12,
@@ -222,7 +222,7 @@
         "s": "VDD",
         "g": "BIAS_OK",
         "d": "BIAS_OKB",
-        "b": "\\$16"
+        "b": "VDD"
       },
       "params": {
         "l_um": 0.5,
@@ -508,7 +508,7 @@
     {
       "name": "VDD",
       "pin": true,
-      "device_count": 10,
+      "device_count": 11,
       "net_id": 2,
       "pin_index": 4,
       "label_positions_um": [
@@ -542,7 +542,7 @@
       "name": "VSS",
       "pin": true,
       "device_count": 25,
-      "net_id": 17,
+      "net_id": 16,
       "pin_index": 6,
       "label_positions_um": [
         {
@@ -578,14 +578,6 @@
       "pin": false,
       "device_count": 3,
       "net_id": 14,
-      "pin_index": null,
-      "label_positions_um": []
-    },
-    {
-      "name": "\\$16",
-      "pin": false,
-      "device_count": 1,
-      "net_id": 16,
       "pin_index": null,
       "label_positions_um": []
     },
@@ -632,9 +624,7 @@
   ],
   "warnings": [
     "12 poly-layer shapes not part of any recognised nfet/pfet gate touch contact at 2+ separate points (the resistor-body signature) and carry no resistor-marker layer at all; this deck may not model the device class drawn here, and its terminals have been absorbed into ordinary interconnect as an unintended short -- see docs/cli/extract.md's 'Known limitation: unmodelled device geometry'.",
-    "promoted 2 net(s) to top-level pins from label(s) found only below the top cell (inside instanced sub-cells): BIAS_OK, BIAS_OKB -- these are internal nodes once instanced; pass top_cell_pins_only (--top-cell-pins) to keep them internal (issue #291)",
-    "1 PMOS device tie their body to an anonymous net with no DC bias path -- no drawn (or derivable) well tie connects this PMOS body to a real supply rail on this layout, so it is left floating rather than tied to a real supply rail; resimulating this netlist directly will not reproduce the schematic-level PMOS body bias -- see unbiased_pmos_body_nets[] for the full list. See docs/cli/extract.md's 'Parasitic (RC) extraction' section.",
-    "1 net connect to exactly one device terminal -- source/drain/body/resistor-equivalent, not a gate -- and are not a declared pin; this can be a legitimate single-terminal tie (e.g. an intentionally unterminated dummy's diffusion tie), but confirm these nets have no other intended connectivity -- see single_terminal_nets[] for the full list."
+    "promoted 2 net(s) to top-level pins from label(s) found only below the top cell (inside instanced sub-cells): BIAS_OK, BIAS_OKB -- these are internal nodes once instanced; pass top_cell_pins_only (--top-cell-pins) to keep them internal (issue #291)"
   ],
   "black_box_regions": [],
   "abstracted_cells": [],
@@ -750,20 +740,8 @@
   ],
   "merged_net_labels": [],
   "voltage_domain_warnings": [],
-  "unbiased_pmos_body_nets": [
-    {
-      "device": "$18",
-      "net": "\\$16"
-    }
-  ],
-  "single_terminal_nets": [
-    {
-      "net": "\\$16",
-      "device": "$18",
-      "terminal": "b",
-      "terminal_kind": "body"
-    }
-  ],
+  "unbiased_pmos_body_nets": [],
+  "single_terminal_nets": [],
   "dead_metal": [],
   "matched_device_groups": [],
   "pdk": null,
@@ -777,17 +755,17 @@
       "released": false
     },
     "input": {
-      "content_hash": "sha256:1ee4e15f2fd85df4f2d76d237a18c5c65c2ac41e4bea015e78bd91cee568b343",
+      "content_hash": "sha256:e6e5601250e6c78e25511fe5eb3c669dcd3c5fbe08f577766490571e142533e3",
       "role": "layout"
     },
-    "gds_sha256": "1ee4e15f2fd85df4f2d76d237a18c5c65c2ac41e4bea015e78bd91cee568b343"
+    "gds_sha256": "e6e5601250e6c78e25511fe5eb3c669dcd3c5fbe08f577766490571e142533e3"
   },
   "parasitics": null,
   "spef_path": null,
   "subcircuit": null,
   "metrics": {
     "extract__device__count": 21,
-    "extract__net__count": 16,
+    "extract__net__count": 15,
     "extract__pin__count": 7
   }
 }

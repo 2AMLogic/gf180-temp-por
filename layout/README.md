@@ -62,7 +62,13 @@ interactive KLayout session, no netgen/magic.
 > **What no check in this flow covers** is guard-ring and well-tie
 > *correctness*: the deck has no tap or well-label layer, so a broken or
 > floating ring is DRC-clean and LVS-match. `temp_por_top` therefore carries
-> its own build-time geometric checks for that; see its section below.
+> its own build-time geometric checks for that; see its section below. Since
+> #532 every cell also runs `_assert_tap_coverage` at build time (see
+> [Known deck limits](#known-deck-limits--what-a-clean-lvs-here-does-not-prove)):
+> every tap is contacted, reaches a labelled net through the drawn metal, and
+> sits within the DRM's 20 µm body-tie distance of the devices it serves --
+> and every well that carries a drawn tie participates in the LVS compare, so
+> a tie to the *wrong* net is a topology mismatch, not a clean pass.
 > #17's floorplan sketch and matching plan — the ranked, #15-data-driven
 > common-centroid/interdigitation/guard-ring plan this flow's cells implement —
 > is [`layout/floorplan.md`](floorplan.md).
@@ -314,7 +320,7 @@ klt stats layout/cells/<cell>.gds --format json
 ```
 
 Needs no `--deck` — `klt stats` reads geometry only (bounding box, total
-drawn/union-of-layers polygon area, density, polygon/vertex counts), not
+drawn-polygon area, density, polygon/vertex counts), not
 device recognition, so it carries no `provenance.deck` block and sits outside
 the deck-hash consistency gate above; only the GDS-hash gate applies to its
 report (`stats.json`'s spliced-in `provenance.gds_sha256`, same convention as
@@ -464,11 +470,15 @@ manifest, and all of them are enumerated per cell in
    landed in `klt` 0.2.0), and this flow reads it rather than re-deriving it.
    Every cell is required to be `status: match` with every net paired before a
    netlist is written.
-3. **Body and well nets come out isolated.** The extraction deck's
-   connectivity stack does not join an Nwell, a substrate ring or a bipolar
-   base well to the routing that reaches it — which is why every `lvs.json`
-   here carries `device.body_unverified`. Honest for a compare; unsimulatable.
-   Each is tied to the net the *schematic* puts it on, taken from
+3. **Body and well nets come out isolated -- except where a drawn tap now
+   resolves them.** The extraction deck's connectivity stack does not join
+   an Nwell, a substrate ring or a bipolar base well to the routing that
+   reaches it *unless a drawn, implanted tap carries it there* (#516 put the
+   implants on; #532 drew the last missing taps), so through #515 every
+   `lvs.json` here carried `device.body_unverified` -- honest for a compare;
+   unsimulatable. Since #532 no `lvs.json` does: every body terminal lands on
+   a real net in the extraction itself. The one residual case is still tied
+   to the net the *schematic* puts it on, taken from
    `lvs_reference.py`'s manifest (so a schematic change moves the tie with it)
    and listed per cell in `AUDIT.md` — 3 ties in `por_comparator`, 9 in
    `temp_por_top`. MiM plates used to need the same treatment
@@ -559,7 +569,7 @@ rest of its net, which is both a larger delay and a more faithful one.
 ### `bias_core` — the shared bias/reference core, whole (#68, completed by #90)
 
 `design/bias_core.sch`'s **50 devices** — all of them — drawn from
-`design/netlist/bias_core.spice`. 434.9 × 285.7 µm, 3578 polygons.
+`design/netlist/bias_core.spice`. 435.4 × 286.2 µm, 3685 polygons.
 
 **What a clean run here covers.** #68 drew the 34 MOS devices and left the
 other 16 out, deliberately: the curated deck recognised `nfet`/`pfet` only, so
@@ -690,7 +700,7 @@ placement, same orientation, identical drawn geometry, common well:
 core mirror legs `XMP1`/`XMP2`/`XMP3`.
 
 **Guard ring and well ties are drawn; the taps are extractor-visible since
-#516, and which net to tie them to is still a design-review claim.** A
+#516, and since #532 the ties are machine-checked, not review claims.** A
 continuous VSS-tied p-substrate guard ring (COMP + Metal1, contacted at 1 µm
 pitch, no floating segment) surrounds the cell; the PMOS Nwell has its own
 VDD-tied COMP strap and the PNP array's Nwell a VSS-tied tap ring on three
@@ -703,10 +713,16 @@ bodies to `VDD`, and the ten PNPs' collector *and* base to `VSS` (the base via
 the now-recognised Nwell-to-tap connection). Per
 [klayout-tools#303](https://github.com/2AMLogic/klayout-tools/issues/303) the
 deck still has no tap/well-label layer and no ring-continuity rule, so **a
-mis-tied, untied, or physically broken ring would compare clean** — what a
-clean LVS proves here is that the drawn ties carry the terminals to the nets
-the reference names, not that `VSS`/`VDD` are the *right* nets to tie them to,
-and not that a ring is unbroken.
+mis-tied, untied, or physically broken ring would compare clean** in LVS —
+which is why, since #532, `_assert_tap_coverage` runs on every cell at build
+time and proves mechanically that every tap is contacted, reaches a labelled
+net through the drawn metal, carries every source/drain within the DRM's
+20 µm `DF.13_LV`/`DF.14_LV` distance, and — for substrate taps — sits on the
+`VSS` net; and why the resolved-well compare itself proves each well tie
+reaches the net the reference names. What stays a design-review claim is the
+one thing no geometry can name: that `VSS` is the *right* net for the
+substrate, and that a sub-cell's ring is unbroken (the top cell's annulus is
+asserted by `_top_guard_ring`).
 
 Recorded result (`layout/reports/bias_core/`):
 
@@ -722,7 +738,7 @@ Recorded result (`layout/reports/bias_core/`):
 ### `por_comparator` — the POR threshold comparator (#69, sense divider #91)
 
 `design/por_comparator.sch`'s 21 devices, drawn from
-`design/netlist/por_comparator.spice`. 445.0 × 164.7 µm, two cells (it
+`design/netlist/por_comparator.spice`. 445.5 × 165.7 µm, two cells (it
 instances the proof cell below).
 
 **All 21 devices are now drawn, extracted and compared.** 18 are MOS. The
@@ -843,15 +859,20 @@ although the floorplan names no plan for it. `layout/tests/test_lvs_reference.py
 edit that quietly breaks the plan fails a test rather than only a review.
 
 **Guard ring and well ties are drawn; the taps are extractor-visible since
-#516, the tie nets stay a design-review claim** — same as `bias_core`: a
+#516, and since #532 every tie in this cell resolves** — same structures as
+`bias_core`: a
 continuous VSS-tied p-substrate ring (COMP + Metal1, contacted at 1 µm pitch,
 no floating segment) surrounds the cell and the parent Nwell has its own
 VDD-tied COMP strap, now carrying `Pplus`/`Nplus` (#516), so the extraction
 resolves NMOS bodies and resistor bulks to `VSS` and the parent well's pfet
-bodies to `VDD` for real; the instanced inverter's own well draws no tie
-anywhere and stays anonymous. Per
+bodies to `VDD` for real. The instanced inverter's own well drew no tie
+anywhere through #515 and stayed anonymous; #532 drew one inside
+`por_comparator_bias_okb_inv` itself (see its section), so it resolves too —
+no anonymous well is left anywhere in the block. Per
 [klayout-tools#303](https://github.com/2AMLogic/klayout-tools/issues/303) a
-mis-tied, untied, or physically broken ring would still compare clean. This cell sits on the always-on
+mis-tied, untied, or physically broken ring would still compare clean in LVS;
+`_assert_tap_coverage` (#532) is the build-time check that catches exactly
+those three. This cell sits on the always-on
 POR domain's side of the block-level domain seam (`floorplan.md`, "Guard-ring /
 isolation plan"), so that seam's correctness is exactly what review has to
 carry. `klt 0.1.0` still does not emit the `device.body_unverified` warning
@@ -899,15 +920,15 @@ Recorded result (`layout/reports/por_comparator/`):
 | Check | Result |
 | ----- | ------ |
 | `klt drc --deck gf180mcu` | clean — 0 violations (the #102 fix; reconfirmed under the current deck by #106's regeneration) |
-| `klt extract --deck gf180mcu` | 21 devices (12 nfet, 6 pfet, 3 ppolyf_u_1k), 16 nets, 7 pins |
-| `klt lvs` | **match** — 21/21 devices, 16/16 nets, 7/7 pins, 0 errors (2 warnings: the instanced inverter's untied well (`device.body_unverified`) and a device class with no counterpart on the other side and zero extracted devices (`topology`)). #516 dissolved the synthetic `vsubs` pin and the parent well's anonymous net. |
-| negative control `topology` | detected (exit 3; `device.unmatched` 1, `topology` 2) |
-| negative control `device-param` | detected (exit 3; `device.property` 5, `topology` 2) |
+| `klt extract --deck gf180mcu` | 21 devices (12 nfet, 6 pfet, 3 ppolyf_u_1k), 15 nets, 7 pins |
+| `klt lvs` | **match** — 21/21 devices, 15/15 nets, 7/7 pins, 0 errors (1 `topology` warning for a device class with no counterpart on the other side and zero extracted devices). #516 dissolved the synthetic `vsubs` pin and the parent well's anonymous net; #532 dissolved the instanced inverter's well net too (16 → 15 nets) once the inverter drew its own tie — the `device.body_unverified` warning it used to carry is gone with it. |
+| negative control `topology` | detected (exit 3; `device.unmatched` 1, `topology` 1) |
+| negative control `device-param` | detected (exit 3; `device.property` 5, `topology` 1) |
 
 ### `por_output_chain` — the reset output chain (#70, MiM caps added by #92)
 
 `design/por_output_chain.sch`'s 28 MOS devices **and both of its MiM caps**,
-drawn from `design/netlist/por_output_chain.spice`. 225.3 × 105.9 µm, 1493
+drawn from `design/netlist/por_output_chain.spice`. 225.8 × 106.4 µm, 1592
 polygons. The 28th MOS, `XMRLK`, is the release latch issue #56 added
 ([DR-016](../spec/decision-records/DR-016-por-ramp-rate-chatter-release-latch.md));
 it is placed beside `XMDBNI`, whose gate net (`ND1`) and drawn geometry it
@@ -1126,6 +1147,27 @@ split for: the two former siblings carried no independent pin contract of
 their own, and DRC on `temp_core` alone still covers the same geometry now
 that it is drawn in one stream.
 
+**Body taps and well ties (#532).** The MOS rows sit 288 µm wide with device
+widths from 0.5 to 32 µm, so no single strap at one edge can hold the DRM's
+20 µm body-tie distance (`DF.13_LV`/`DF.14_LV`, the deck's
+`comp.tap_distance.*` from klt 0.8.0). Each **equal-depth run** of fingers
+therefore gets its own contacted tap strap at its own row edge — p+ below the
+NMOS runs (13 straps), n+ above the PMOS runs inside the well (one per run:
+nine in `NW1`, one spanning `NW2`), each following the #516 implant
+convention. The substrate straps ride up to the `VSS` track and the well ties
+to their well's own bias net on **Metal2 risers** (a Via1 pair per strap),
+because the channel's horizontal Metal1 tracks cannot be crossed on Metal1;
+`_WELL_TIE_NETS` declares the two wells' different biases — `NW1` to `VDD`,
+`NW2` to `NT`, the input pair's own tail node (a build-time guard re-derives
+the `NW2` entry from the row table, so a source-net edit cannot leave the
+well bias stale) — and each well's `Nwell` box is extended to enclose its own
+tie straps. `_assert_tap_coverage` holds the whole contract at build time on
+every cell: distance (true polygon distance, per well), contacted, tied to a
+labelled net, substrate taps on `VSS`. With real taps in every well, the LVS
+compare proves the tie *nets* too: `temp_core`'s wells both resolve
+(`resolved_wells`), so a strap that reached the wrong net is a topology
+mismatch, not a silent pass.
+
 **What is drawn and how.** `XR1`/`XRISO`/`XRZ`/`XR2F`/`XR2T5..T0` (the `R2`
 gain ladder plus the isolation and zero resistors) are drawn as
 `ppolyf_u`-recognised bodies: `SAB` (49/0) + `RES_MK` (110/5) over Pplus'd
@@ -1204,11 +1246,11 @@ Recorded result (`layout/reports/temp_core/`):
 | Check | Result |
 | ----- | ------ |
 | `klt drc --deck gf180mcu` | clean — 0 violations |
-| `klt extract --deck gf180mcu` | 115 devices (27 nfet, 28 pfet, 50 `ppolyf_u`, 9 `bjt`, 1 `cap_mim_2f0_m4m5_noshield`), 73 nets, 30 pins |
-| `klt lvs` | **match** — 115/115 devices, 73/73 nets, 30/30 pins, 0 errors (1 `device.body_unverified` warning). 114 devices and the same 73 nets before #259 drew `XCC`: the cap landed on `PG`/`NZ`, two nets the compare already had, so it added a device and no net. |
-| negative control `topology` | detected (exit 3; `device.unmatched` 1, `topology` 1) |
-| negative control `device-param` | detected (exit 3; `device.property` 5, `topology` 1) |
-| negative control `passive-param` | detected (exit 3; `device.property` 11, `topology` 3) |
+| `klt extract --deck gf180mcu` | 115 devices (27 nfet, 28 pfet, 50 `ppolyf_u`, 9 `bjt`, 1 `cap_mim_2f0_m4m5_noshield`), 69 nets, 29 pins |
+| `klt lvs` | **match** — 115/115 devices, 69/69 nets, 29/29 pins, 0 errors, **0 warnings**. 114 devices and the same net count before #259 drew `XCC`: the cap landed on `PG`/`NZ`, two nets the compare already had, so it added a device and no net. #532 dropped the count from 73 nets / 30 pins to 69/29 with no device change at all: the two `device.body_unverified` warnings and the 4 anonymous well/substrate pins were the *absence* of body ties, and drawing the taps (13 substrate straps below the NMOS row, one n+ tie strap per equal-depth PMOS run inside each well) dissolved them — every pfet body now declares its well's real tie net (`NW1`→`VDD`, `NW2`→`NT`) and every NMOS body the real `VSS`. |
+| negative control `topology` | detected (exit 3; `device.unmatched` 1) |
+| negative control `device-param` | detected (exit 3; `device.property` 5) |
+| negative control `passive-param` | detected (exit 3; `device.property` 11, `topology` 1) |
 
 `passive-param` is new here (#93): it doubles the first resistor's value and
 halves the first bipolar's emitter area, so a clean run is evidence the
@@ -1347,11 +1389,11 @@ Recorded result (`layout/reports/temp_por_top/`):
 | Check | Result |
 | ----- | ------ |
 | `klt drc --deck gf180mcu` | **clean** — 0 violations (was 92 before the floorplan re-derivation, then 2 inherited from #102/#103 until #105 fixed `por_comparator` at the source) |
-| `klt extract --deck gf180mcu --top-cell-pins` | 239 devices (71 nfet, 64 pfet, 50 `ppolyf_u`, 27 `ppolyf_u_1k`, 19 `bjt`, 8 `cap_mim_2f0_m4m5_noshield`), 139 nets, 6 pins |
-| `klt lvs` | **match** — 239/239 devices, 139/139 nets, 6/6 pins, 0 errors (1 warning: `device.body_unverified` — `temp_core`'s two untied wells and the instanced inverter's). Net count dropped from 159 to 145 when #264 routed the 7 already-drawn MiM caps' 14 plates onto their schematic nets instead of 14 synthesized isolated ones; #259's 8th cap (`temp_core`'s `XCC`) added a device but no net, landing on `PG`/`NZ`, which the compare already had; #516 dissolved four more — the tied sub-cells' well nets and `bias_core`'s `NWQ` base net — onto their real `VDD`/`VSS`. |
-| negative control `topology` | detected (exit 3; `device.body_unverified` 2, `device.unmatched` 1, `topology` 2) |
-| negative control `device-param` | detected (exit 3; `device.body_unverified` 2, `device.property` 5, `topology` 2) |
-| negative control `passive-param` | detected (exit 3; `device.body_unverified` 2, `device.property` 11, `topology` 5) |
+| `klt extract --deck gf180mcu --top-cell-pins` | 239 devices (71 nfet, 64 pfet, 50 `ppolyf_u`, 27 `ppolyf_u_1k`, 19 `bjt`, 8 `cap_mim_2f0_m4m5_noshield`), 136 nets, 5 pins |
+| `klt lvs` | **match** — 239/239 devices, 136/136 nets, 5/5 pins, 0 errors, **0 warnings**. Net count dropped from 159 to 145 when #264 routed the 7 already-drawn MiM caps' 14 plates onto their schematic nets instead of 14 synthesized isolated ones; #259's 8th cap (`temp_core`'s `XCC`) added a device but no net, landing on `PG`/`NZ`, which the compare already had; #516 dissolved four more — the tied sub-cells' well nets and `bias_core`'s `NWQ` base net — onto their real `VDD`/`VSS`; #532 dissolved the last three (`xtemp.NW1`, `xtemp.NW2`, `xcmp.NW2`) onto `VDD`, `xtemp.NT` and `VDD` respectively, taking the count to 136 and the last `device.body_unverified` warning with it — no anonymous well is left anywhere in the assembly. |
+| negative control `topology` | detected (exit 3; `device.unmatched` 1, `topology` 1) |
+| negative control `device-param` | detected (exit 3; `device.property` 5, `topology` 1) |
+| negative control `passive-param` | detected (exit 3; `device.property` 11, `topology` 3) |
 
 `bash layout/run_checks.sh temp_por_top` runs end to end unattended and
 exits 0 — DRC clean, extraction recorded, LVS match, every applicable
@@ -1372,9 +1414,9 @@ recorded at `layout/reports/temp_por_top/stats.json`):
 
 ```
 top_cell: temp_por_top
-bbox_um: (-140.0, -540.0) - (1194.0, 254.0)  1334.0 x 794.0
-area_um2: 369261.93960000004
-density: 0.3486247489605323
+bbox_um: (-140.25, -540.25) - (1194.25, 254.25)  1334.5 x 794.5
+area_um2: 423728.7525
+density: 0.3996459855021444
 ```
 
 Three defensible numbers, all measured off the same committed GDS, differ by
@@ -1383,9 +1425,9 @@ not left implicit:
 
 | Measure | Value | Source |
 | --- | ---: | --- |
-| **This cell's bounding-box footprint (the row's measurement convention)** | **1334.0 × 794.0 µm = 1 059 196 µm² ≈ 1.059 mm²** | `stats.json`'s `bbox_um` |
-| Sum of the four sub-cells' own bounding boxes (`bias_core` 434.9 × 285.7, `por_comparator` 445.0 × 164.7, `por_output_chain` 225.3 × 105.9, `temp_core` 569.25 × 211.355 µm) | 341 716 µm² ≈ 0.342 mm² | each cell's own `stats.json` |
-| Drawn (union-of-layers) polygon area — not a footprint, most of the bbox is unfilled space between instances, rails and the guard rings | 369 262 µm² | `stats.json`'s `total.area_um2` |
+| **This cell's bounding-box footprint (the row's measurement convention)** | **1334.5 × 794.5 µm = 1 060 260.25 µm² (1.06026025 mm²)** | `stats.json`'s `bbox_um` |
+| Sum of the four sub-cells' own bounding boxes (`bias_core` 435.4 × 286.2, `por_comparator` 445.5 × 165.7, `por_output_chain` 225.8 × 106.4, `temp_core` 569.25 × 213.005 µm) | 343 709 µm² ≈ 0.344 mm² | each cell's own `stats.json`; `temp_core`'s box grew 1.65 µm when #532's deepest substrate strap (below the 32 µm trim-switch run) extended it downward |
+| Drawn-polygon area summed across layers | 423 728.8 µm² ≈ 0.423729 mm² | `stats.json`'s `total.area_um2` |
 
 The footprint is ~3.1× the sum of the sub-cells' own boxes; the gap is
 floorplan spacing (`TOP_PLACEMENT`'s instance layout, the full-width rails,
@@ -1393,7 +1435,7 @@ the perimeter guard ring and the domain-seam moat — see "The floorplan
 re-derivation itself" above), not a stray shape inflating the box. Both the
 footprint and the sub-cell sum are over the `≤0.05 mm²` wave-1 planning
 budget `spec/target-spec.md#area` carried before this measurement (21.2× and
-6.8× respectively) — see DR-022 for the full reasoning and the ratified
+6.9× respectively) — see DR-022 for the full reasoning and the ratified
 disposition.
 
 ### `por_comparator_bias_okb_inv` — the flow's original proof cell (#16)
@@ -1411,13 +1453,26 @@ retyped here: `lvs_reference.py` reads `L`/`W` out of
 the schematic. Change the schematic and the reference netlist goes stale, and
 `run_checks.sh` fails until it is regenerated.
 
+**#532 drew this cell's own body ties, and it joined
+`BODY_TIES_RESOLVED_CELLS` with them.** Through #515 it was the block's one
+remaining anonymous-body cell — no substrate tap, no well tie, so `MENN`'s
+body rode the deck's synthetic `vsubs` global and `MENP`'s the anonymous well
+net. It now draws a p+ substrate tap strap below the NMOS comp and an n+ tie
+strap above the PMOS comp, inside the Nwell extended to hold it, each
+contacted and strapped on Metal1 to the supply its row already carries — and
+`_assert_tap_coverage` checks both at build time. Both bodies now resolve to
+the real `VSS`/`VDD`, the card-less `vsubs` port is gone from the reference
+(4 → 4 nets and pins, both counted honestly now), and the same tie serves the
+cell when `por_comparator` instances it — which is what fixed this instance's
+`device.body_unverified` warning in the parent's compare.
+
 Recorded result (`layout/reports/por_comparator_bias_okb_inv/`):
 
 | Check | Result |
 | ----- | ------ |
 | `klt drc --deck gf180mcu` | clean — 0 violations |
-| `klt extract --deck gf180mcu` | 2 devices (1 nfet, 1 pfet), 6 nets, 5 pins |
-| `klt lvs` | **match** — 2/2 devices, 6/6 nets, 5/5 pins, 0 errors (3 warnings: the NFET body on the deck-synthesized `vsubs` substrate net and the PFET body on an anonymous well net, both `device.body_unverified`, plus one `topology` warning for a device class with no counterpart on either side) |
+| `klt extract --deck gf180mcu` | 2 devices (1 nfet, 1 pfet), 4 nets, 4 pins |
+| `klt lvs` | **match** — 2/2 devices, 4/4 nets, 4/4 pins, 0 mismatches. Through #515 this compared 6/6 nets, 5/5 pins against rewritten bodies (`vsubs`, the anonymous well); both dissolve into their real nets once the taps resolve (#532). |
 | negative control `topology` | detected (exit 3, mismatch) |
 | negative control `device-param` | detected (exit 3, mismatch) |
 
@@ -1622,11 +1677,11 @@ filed upstream per this repo's friction protocol.
   | cell | substrate tie (NMOS body / BJT collector / resistor bulk) | pfet bodies (local Nwell tie) | BJT base (local Nwell tie) |
   | --- | --- | --- | --- |
   | `bias_core` (standalone) | **resolved** — its own ring and substrate strap carry `Pplus` (#516) | **resolved** (`VDD`) — the tie strap carries `Nplus` (#516) | **resolved** — the PNP array's tap ring carries `Nplus` (#516) |
-  | `por_comparator` (standalone) | **resolved** — same, #516 | **resolved for the parent well** (`VDD`); the instanced inverter's well draws no tie and stays anonymous | n/a — no bipolars |
+  | `por_comparator` (standalone) | **resolved** — same, #516 | **resolved** (`VDD`) — both wells: the parent row's strap (#516) and, since #532, the instanced inverter's own tie | n/a — no bipolars |
   | `por_output_chain` (standalone) | **resolved** — same, #516 | **resolved** (`VDD`) — the tie strap carries `Nplus` (#516) | n/a — no bipolars |
-  | `por_comparator_bias_okb_inv` (standalone) | not resolved — two MOS and no tap structure at all | not resolved | n/a |
-  | `temp_core` (standalone or instanced) | **resolved** — draws its own taps (#93) | not resolved — draws no well tie (#532) | **resolved** — draws its own Nwell tap (#93) |
-  | `temp_por_top` (the assembly) | **resolved for every instanced sub-cell** — each sub-cell now brings its own resolving tap (#516), and the seam ring covers the rest | **resolved exactly where the sub-cell's own tie resolves** (`xbias`/`xcmp`'s parent well/`xpor`), anonymous for `xtemp`'s two wells and the inverter's | **resolved for `xbias` and `xtemp` both** |
+  | `por_comparator_bias_okb_inv` (standalone) | **resolved** since #532 — its own p+ substrate tap strap | **resolved** (`VDD`) — its own n+ tie strap (#532) | n/a |
+  | `temp_core` (standalone or instanced) | **resolved** — draws its own taps (#93), joined below the whole NMOS row by 13 strap taps (#532) | **resolved** since #532 — one n+ tie strap per equal-depth run, `NW1`→`VDD`, `NW2`→`NT` | **resolved** — draws its own Nwell tap (#93) |
+  | `temp_por_top` (the assembly) | **resolved for every instanced sub-cell** — each sub-cell now brings its own resolving tap (#516), and the seam ring covers the rest | **resolved everywhere** since #532 — every well in the assembly carries its own tie (`xbias`/`xpor`/`xcmp`'s two/`xtemp`'s two) | **resolved for `xbias` and `xtemp` both** |
 
   The historical surprise that split `BODY_TIES_RESOLVED_CELLS` from
   `BJT_WELL_RESOLVED_CELLS` in the first place is worth keeping on the
@@ -1650,16 +1705,16 @@ filed upstream per this repo's friction protocol.
     base, resistor-bulk, and (where the cell draws a well tie) pfet-body
     ties, for real. **Not** a ring's continuity, and not that `VSS`/`VDD`
     are the *right* nets to tie to.
-  - `por_comparator_bias_okb_inv` (standalone): exactly what a clean LVS
-    proved before #312 — no body tie of any kind is proven (it draws no tap
-    to resolve one through).
+  - `por_comparator_bias_okb_inv` (standalone): the same full proof as the
+    cells above, since #532 — body ties included, through its own drawn taps.
   - `temp_core` (standalone): everything, plus NMOS body, BJT collector *and*
-    base, and resistor-bulk ties, for real. Its pfet bodies stay anonymous —
-    this cell draws no Nwell tie at all (#532).
+    base, resistor-bulk **and** pfet-body ties, for real — `NW2`'s bodies
+    prove out as `NT` specifically, the pair's own tail node, so a tie that
+    reached `VDD` instead would fail this compare rather than pass clean.
   - `temp_por_top` (the assembly): everything each sub-cell proves on its
-    own, flat — every tied terminal resolves, the three still-untied wells
-    (`xtemp.NW1`/`xtemp.NW2`/`xcmp.NW2`) stay anonymous and named by
-    `device.body_unverified`.
+    own, flat — every tied terminal resolves, and since #532 there is no
+    anonymous well left to name: `device.body_unverified` is gone from this
+    compare entirely.
 
   **PMOS wells resolve only where a cell draws an n+ tie into them, since
   #516.** The deck has no well-*label* layer, so an untied drawn Nwell still
@@ -1681,10 +1736,13 @@ filed upstream per this repo's friction protocol.
   (synthetic body nets) is **closed**, resolved by #285, and its curated scope
   was narrowed to that one warning — so it does **not** track ring continuity or
   the tie, and should not be cited for them. #285 **is** live in this build:
-  every `lvs.json` still carries a `device.body_unverified` warning naming
-  every body that went to an anonymous well net — post-#516 that is exactly
-  the still-untied wells (three in the whole block), which is what makes the
-  warning a precise inventory rather than noise. Ring correctness stays
+  through #515 every `lvs.json` carried a `device.body_unverified` warning
+  naming every body that went to an anonymous well net — post-#516 that was
+  exactly the still-untied wells (three in the whole block), which is what
+  made the warning a precise inventory rather than noise. #532 drew the last
+  three ties, and no `lvs.json` in this block carries the warning any more —
+  the inventory reads zero, which the build-time `_assert_tap_coverage` and
+  the resolved-well compare now hold there. Ring correctness stays
   outside the deck regardless of resolution state; `temp_por_top` answers it
   with build-time geometric checks (see its section above), every other
   cell's ring remains a design-review claim.
@@ -1924,14 +1982,16 @@ This repo had neither the spec nor the report until #300; both now exist —
   toolchain note below).
 - [`layout/reports/temp_por_top/erc_supply.json`](reports/temp_por_top/erc_supply.json)
   — the committed run, `provenance.input.content_hash ==
-  sha256:ae403395da1b0703a93a5c93e5c68abec7dcfe63a5f3a902f8196ceb7cb38ae4`,
+  sha256:77b86ce2189ae17d6922c4940b981d8a9c6294c92a420cf55f013690272f188d`,
   matching the committed `layout/cells/temp_por_top.gds` (`shasum -a 256`),
   and `provenance.spec.content_hash ==
-  sha256:773047b13bc8e858ee6a284d0f6e00843a727bd0bb177267ca8bca24d616b170`,
+  sha256:efb62a55466a3fa83845071d4a2ea74f32a0e7e40ad9506690db947298500170`,
   matching the committed spec (first recorded for #300, moved by #310's
-  `ties[]` additions, and moved again by the `_comment` removal above — see
+  `ties[]` additions, by the `_comment` removal, and again by #532 — see
   "`erc.missing_tie`: now computed" below for what #310 changed and why the
-  hash moved then).
+  hash moved then; #532 moved it by tracking `temp_core`'s two grown wells
+  and declaring the real tie straps #532 drew where the spec had named
+  device-comp workarounds).
 
 **The run is clean: `erc_finding_count: 0`.** Both declared supplies —
 `VDD` and `VSS`, each `"kind": "supply"` — resolve to exactly one
@@ -2088,8 +2148,11 @@ first experiment runs into both:
 - **Deleting a single segment of a multi-segment tie leaves the report fully
   clean** (`erc_status: clean`, `skipped: []`) — by construction, not as a
   gap: each `substrate_tie` ring is asserted by four edge segments and the
-  remaining three still tie it, and NW2 carries six finger taps for the one
-  well. The sensitivity this declaration has is per-region, not per-segment.
+  remaining three still tie it. Since #532 declared `temp_core`'s row straps
+  as one region each, that half of the class is per-segment sensitive too:
+  deleting any one of the 13 substrate straps or any one well tie strap is a
+  finding on its own box. The sensitivity this declaration has is
+  per-region, not per-segment.
 
 The complementary probe — declaring a tie's `net` *wrong* rather than removing
 its tap — does report `erc.missing_tie`, under a different description

@@ -18,11 +18,11 @@
     },
     {
       "path": "README.md",
-      "sha256": "sha256:d9732004475e6a9c7f1afff2c3e6fb4b3994a11c721a0d7d711e1b24851c513f"
+      "sha256": "sha256:51e5a5f109b732a5c0cc8235f8434c72c74f34f4865551591f0ea8f9250fa968"
     },
     {
       "path": "spec/target-spec.md",
-      "sha256": "sha256:d78561eeb7c7710fa87699e5499434884afe47821c71d2249be4760d6a2e84ed"
+      "sha256": "sha256:f6854589d54274507b89a6b2866cd4c88673bc409fe0cc6433fba43f8f75acbb"
     }
   ]
 }

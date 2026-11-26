@@ -13,10 +13,10 @@ for where this sits in the flow.
 | cell | drawn devices | ideal (not drawn) | parasitic R/C cards | nets with parasitics | ΣR | ΣC | of which coupling |
 |---|---|---|---|---|---|---|---|
 | `bias_core` | 70 | 0 | 301 | 47/47 (100.0 %) | 130878 Ω | 1961.6 fF | 0.585 fF |
-| `por_comparator` | 21 | 0 | 101 | 15/16 (93.8 %) | 18283 Ω | 526.5 fF | 0.057 fF |
+| `por_comparator` | 21 | 0 | 102 | 15/15 (100.0 %) | 18283 Ω | 526.8 fF | 0.057 fF |
 | `por_output_chain` | 33 | 0 | 159 | 18/18 (100.0 %) | 66418 Ω | 901.4 fF | 81.195 fF |
-| `temp_core` | 115 | 0 | 512 | 69/71 (97.2 %) | 66012 Ω | 1670.4 fF | 1.284 fF |
-| `temp_por_top` | 239 | 0 | 1078 | 136/139 (97.8 %) | 283450 Ω | 7183.4 fF | 85.297 fF |
+| `temp_core` | 115 | 0 | 587 | 69/69 (100.0 %) | 66109 Ω | 1740.7 fF | 3.071 fF |
+| `temp_por_top` | 239 | 0 | 1150 | 136/136 (100.0 %) | 283499 Ω | 7253.9 fF | 87.084 fF |
 
 `nets with parasitics` is the klayout-tools#283 sanity check: a run
 that silently loaded nothing reads 0 here, and `--extract` refuses to
@@ -66,9 +66,13 @@ fact rather than an assumption:
 
 The extraction deck's connectivity stack does not join an Nwell, a
 substrate ring or a bipolar base well to the routing that reaches
-it — every `lvs.json` records that as `device.body_unverified`.
-Those nets are extracted **isolated**, which is honest for a
-compare and unsimulatable. Each is tied to the net the schematic puts
+it — unless a drawn, implanted tap carries it there. Through #515
+that left isolated nets every `lvs.json` recorded as
+`device.body_unverified` (honest for a compare, unsimulatable);
+since #532 drew the last missing taps, no `lvs.json` carries the
+warning and every body terminal lands on a real net in the
+extraction itself. The one residual isolated-net case is still tied
+to the net the schematic puts
 it on, derived from `lvs_reference`'s manifest. MiM plates used to
 need the same treatment (klayout-tools#314, **closed and fixed**
 upstream); every drawn plate in this block is now routed onto its
