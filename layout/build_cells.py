@@ -878,6 +878,34 @@ def _cap_descend(
     _cap_via(b, VIA1, METAL1, METAL2, ax, ay)
 
 
+def _cap_island_descend(
+    b: CellBuilder, island_xy: tuple[float, float], anchor_xy: tuple[float, float],
+) -> None:
+    """The escape island a top plate's route lands on, and the shared descent
+    from it to ``anchor_xy`` -- the leg both top-plate routes below end with,
+    single-unit or strapped alike. Draws a fresh ``CAP_ROUTE_PAD_UM`` square
+    Metal4 island at ``island_xy``, its Via4 up to the Metal5 the caller has
+    already drawn onto it and its Via3 down to Metal3 (each via on its own
+    landing pad, :data:`CAP_ROUTE_VIA_OFFSET_UM` apart so the two never
+    coincide), then one vertical Metal3 leg to the anchor's own y and
+    :func:`_cap_descend`. The Metal5 that reaches the island is what tells
+    the two routes apart, so each caller draws that itself, first.
+    """
+    ix, iy = island_xy
+    half_off = CAP_ROUTE_VIA_OFFSET_UM / 2.0
+    via4_xy = (ix, iy + half_off)
+    via3_xy = (ix, iy - half_off)
+    pad = CAP_ROUTE_PAD_UM / 2.0
+    b.box(METAL4, ix - pad, iy - pad, ix + pad, iy + pad)
+    _cap_pad(b, METAL5, *via4_xy)
+    b.via(VIA4, *via4_xy)
+    _cap_pad(b, METAL3, *via3_xy)
+    b.via(VIA3, *via3_xy)
+    _ax, ay = anchor_xy
+    _cap_wire(b, METAL3, ix, iy - half_off, ix, ay)
+    _cap_descend(b, (ix, ay), anchor_xy)
+
+
 def _cap_bottom_route(
     b: CellBuilder, plate_xy: tuple[float, float], anchor_xy: tuple[float, float],
 ) -> None:
@@ -905,27 +933,18 @@ def _cap_top_route(
     """Route one drawn MiM top plate (``FuseTop``) up to ``anchor_xy`` the
     same way :func:`_cap_bottom_route` finishes, but starting with the extra
     hop only a top plate needs: Via4 (landing directly on the plate) ->
-    Metal5 -> a second Via4, onto a fresh ``CAP_ROUTE_PAD_UM`` square Metal4
-    "escape island" at ``island_xy`` (the caller's job to keep
-    :data:`MIM_SPACE_UM` clear of every bottom plate), then Via3 -> Metal3 ->
-    Via2 -> Metal2 -> Via1 exactly as the bottom plate does.
+    Metal5 -> a second Via4, onto the Metal4 "escape island" at ``island_xy``
+    (the caller's job to keep :data:`MIM_SPACE_UM` clear of every bottom
+    plate), which :func:`_cap_island_descend` draws and then takes down:
+    Via3 -> Metal3 -> Via2 -> Metal2 -> Via1 exactly as the bottom plate does.
     """
     px, py = plate_xy
     ix, iy = island_xy
     half_off = CAP_ROUTE_VIA_OFFSET_UM / 2.0
     via4_xy = (ix, iy + half_off)
-    via3_xy = (ix, iy - half_off)
     _cap_via(b, VIA4, FUSETOP, METAL5, px, py)
     _cap_wire(b, METAL5, px, py, *via4_xy)
-    pad = CAP_ROUTE_PAD_UM / 2.0
-    b.box(METAL4, ix - pad, iy - pad, ix + pad, iy + pad)
-    _cap_pad(b, METAL5, *via4_xy)
-    b.via(VIA4, *via4_xy)
-    _cap_pad(b, METAL3, *via3_xy)
-    b.via(VIA3, *via3_xy)
-    _ax, ay = anchor_xy
-    _cap_wire(b, METAL3, ix, iy - half_off, ix, ay)
-    _cap_descend(b, (ix, ay), anchor_xy)
+    _cap_island_descend(b, island_xy, anchor_xy)
 
 
 def _cap_strap_bottom_route(
@@ -991,22 +1010,13 @@ def _cap_strap_top_route(
     half_off = CAP_ROUTE_VIA_OFFSET_UM / 2.0
     ix, iy = island_xy
     via4_xy = (ix, iy + half_off)
-    via3_xy = (ix, iy - half_off)
     points = list(plate_xys) + [via4_xy]
     xs = [x for x, _y in points]
     ys = [y for _x, y in points]
     b.box(METAL5, min(xs) - half, min(ys) - half, max(xs) + half, max(ys) + half)
     for px, py in plate_xys:
         _cap_via(b, VIA4, FUSETOP, METAL5, px, py)
-    pad = CAP_ROUTE_PAD_UM / 2.0
-    b.box(METAL4, ix - pad, iy - pad, ix + pad, iy + pad)
-    _cap_pad(b, METAL5, *via4_xy)
-    b.via(VIA4, *via4_xy)
-    _cap_pad(b, METAL3, *via3_xy)
-    b.via(VIA3, *via3_xy)
-    _ax, ay = anchor_xy
-    _cap_wire(b, METAL3, ix, iy - half_off, ix, ay)
-    _cap_descend(b, (ix, ay), anchor_xy)
+    _cap_island_descend(b, island_xy, anchor_xy)
 
 
 #: Poly space between two adjacent legs of a drawn serpentine resistor, in um
