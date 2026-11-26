@@ -136,8 +136,6 @@ SLEWS_BY_ARM: dict[str, list[float]] = {
 #: -- nothing here re-derives or changes it.
 EXT_EDGE_LO_MVUS, EXT_EDGE_HI_MVUS = 2.45, 2.50
 
-RESETN_RATIO_KEY = "resetn_ratio_min_in_dip"
-
 #: The issue's own order-of-magnitude "not worth it" threshold ("if the
 #: ideal-interconnect edge only reaches ~2.6 mV/µs, the re-route is not
 #: worth drawing"), read literally here rather than re-derived: the go/no-go
@@ -207,27 +205,19 @@ def main(argv: list[str] | None = None) -> int:
     return 0
 
 
-def close_us(slew: float) -> float:
-    return (band.edge_s(VDD_V, slew) + band.T_DWELL_S) * 1e6
-
-
 def margin_us(res: dict[str, dict[str, float]], arm: str, slew: float) -> float | None:
-    t = res.get(variant_name(arm, slew), {}).get("t_rst")
-    if t is None:
-        return None
-    return close_us(slew) - (t - band.T_DIP_S) * 1e6
-
-
-def passes(res: dict[str, dict[str, float]], arm: str, slew: float, bound: float) -> bool | None:
-    v = res.get(variant_name(arm, slew), {}).get("rst_r_min")
-    if v is None:
-        return None
-    return v <= bound
+    return band.margin_to_close_us(
+        VDD_V, slew, res.get(variant_name(arm, slew), {}).get("t_rst")
+    )
 
 
 def write_results(pdk, options: list[str], res: dict[str, dict[str, float]]) -> None:
     manifest = cliutil.load_manifest(band.MANIFEST)
-    rst_bound = float(manifest["checks"][RESETN_RATIO_KEY]["max"])
+    rst_bound = band.bound_for(manifest, band.RESETN_RATIO_KEY)
+
+    def rst_min(arm: str, slew: float) -> float | None:
+        return res.get(variant_name(arm, slew), {}).get("rst_r_min")
+
     today = datetime.date.today().isoformat()
 
     base_slews = [BASELINE_SLEW_MVUS, *NEW_SLEWS_MVUS]
@@ -273,7 +263,7 @@ def write_results(pdk, options: list[str], res: dict[str, dict[str, float]]) -> 
         f"`{'`, `'.join(options)}`"
     )
     lines.append(
-        f"- `PASS`/`FAIL` is `{RESETN_RATIO_KEY} ≤ {rst_bound:g}`, the "
+        f"- `PASS`/`FAIL` is `{band.RESETN_RATIO_KEY} ≤ {rst_bound:g}`, the "
         "grid's own checked discriminator, recomputed from this control's "
         "own trace over the same window `../testbench/tb.json` uses."
     )
@@ -303,8 +293,7 @@ def write_results(pdk, options: list[str], res: dict[str, dict[str, float]]) -> 
     reproduced_ok = True
     for arm in ("ext", "por"):
         m = margin_us(res, arm, BASELINE_SLEW_MVUS)
-        ok = passes(res, arm, BASELINE_SLEW_MVUS, rst_bound)
-        verdict = "—" if ok is None else ("PASS" if ok else "**FAIL**")
+        verdict = band.resetn_verdict(rst_min(arm, BASELINE_SLEW_MVUS), rst_bound)
         pub_m, pub_v = published[arm]
         # "reproduces" = same verdict and margin within 1.0 µs -- ngspice on
         # the same host/PDK/options is deterministic, so this is a tight
@@ -350,26 +339,23 @@ def write_results(pdk, options: list[str], res: dict[str, dict[str, float]]) -> 
     lines.append("|---:|---|---:|---:|---:|---:|---:|---:|---|")
     ext_base_margin = margin_us(res, "ext", BASELINE_SLEW_MVUS)
 
-    def fmt_us(value: float | None) -> str:
-        return "**never**" if value is None else f"{value:.1f}"
-
     for slew in base_slews:
         arms_here = ["ext", "por"] if slew == BASELINE_SLEW_MVUS else ["por"]
         for arm in arms_here:
             name = variant_name(arm, slew)
             m = margin_us(res, arm, slew)
-            ok = passes(res, arm, slew, rst_bound)
-            verdict = "—" if ok is None else ("PASS" if ok else "**FAIL**")
+            verdict = band.resetn_verdict(rst_min(arm, slew), rst_bound)
             delta = (
                 "—"
                 if (m is None or ext_base_margin is None)
                 else f"{m - ext_base_margin:+.1f}"
             )
             lines.append(
-                f"| {slew:g} | `{arm}` | {close_us(slew):.1f} | "
-                f"{fmt_us(band.us_after_dip(res.get(name, {}).get('t_praw')))} | "
-                f"{fmt_us(band.us_after_dip(res.get(name, {}).get('t_pgdg')))} | "
-                f"{fmt_us(band.us_after_dip(res.get(name, {}).get('t_rst')))} | "
+                f"| {slew:g} | `{arm}` | "
+                f"{band.window_close_us(VDD_V, slew):.1f} | "
+                f"{band.fmt_us(band.us_after_dip(res.get(name, {}).get('t_praw')))} | "
+                f"{band.fmt_us(band.us_after_dip(res.get(name, {}).get('t_pgdg')))} | "
+                f"{band.fmt_us(band.us_after_dip(res.get(name, {}).get('t_rst')))} | "
                 + ("—" if m is None else f"{m:+.1f}")
                 + f" | {delta} | {verdict} |"
             )
@@ -378,7 +364,9 @@ def write_results(pdk, options: list[str], res: dict[str, dict[str, float]]) -> 
     lines.append("## Go / no-go")
     lines.append("")
     por_margins = {s: margin_us(res, "por", s) for s in base_slews}
-    por_passes = {s: passes(res, "por", s, rst_bound) for s in base_slews}
+    por_verdicts = {
+        s: band.resetn_verdict(rst_min("por", s), rst_bound) for s in base_slews
+    }
     fastest = max(base_slews)
 
     if not reproduced_ok:
@@ -388,7 +376,7 @@ def write_results(pdk, options: list[str], res: dict[str, dict[str, float]]) -> 
             "is resolved (see the note above); re-run this control after "
             "fixing it before acting on the go/no-go question."
         )
-    elif any(v is None for v in por_passes.values()):
+    elif any(v == "—" for v in por_verdicts.values()):
         verdict_text = (
             "**INCONCLUSIVE.** Not every rung tested returned a usable "
             "measurement (see the table above for `—`/`never` entries) — "
@@ -396,8 +384,8 @@ def write_results(pdk, options: list[str], res: dict[str, dict[str, float]]) -> 
             "drawing a go/no-go conclusion."
         )
     else:
-        passing = sorted(s for s, ok in por_passes.items() if ok)
-        failing = sorted(s for s, ok in por_passes.items() if not ok)
+        passing = sorted(s for s, v in por_verdicts.items() if v == "PASS")
+        failing = sorted(s for s, v in por_verdicts.items() if v == "**FAIL**")
         if not failing:
             # `por` passes every rung tried -- the edge is not located, only
             # bounded from below at the fastest rung tested.

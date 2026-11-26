@@ -213,10 +213,6 @@ BOUNDARY_SLEW_MVUS = 3.40
 #: re-derives or changes it.
 DR019_BOUND_MVUS = 2.30
 
-#: `../testbench/tb.json`'s `resetn_ratio_min_in_dip` bound, the grid's own
-#: checked discriminator. Read from the manifest at run time, not restated.
-RESETN_RATIO_KEY = "resetn_ratio_min_in_dip"
-
 #: Classification thresholds for the per-variant reading in section 5, in
 #: fractions of the sch-vs-ext gap in min `V_sg` at BOUNDARY_SLEW_MVUS (the
 #: one state variable that is defined for every run, including the ones where
@@ -592,20 +588,16 @@ def write_results(
     parasitics: dict[str, dict[str, float]],
     res: dict[str, dict[str, float]],
 ) -> None:
-    rst_bound = float(manifest["checks"][RESETN_RATIO_KEY]["max"])
+    rst_bound = band.bound_for(manifest, band.RESETN_RATIO_KEY)
     total_c = sum(v["c_f"] for v in parasitics.values()) or 1.0
 
     def g(name, key):
         return res.get(name, {}).get(key)
 
-    def close_us(vdd: float, slew: float) -> float:
-        return (band.edge_s(vdd, slew) + band.T_DWELL_S) * 1e6
-
     def margin_us(key: str, vdd: float, slew: float) -> float | None:
-        t = g(variant_name(key, vdd, slew), "t_rst")
-        if t is None:
-            return None
-        return close_us(vdd, slew) - (t - band.T_DIP_S) * 1e6
+        return band.margin_to_close_us(
+            vdd, slew, g(variant_name(key, vdd, slew), "t_rst")
+        )
 
     def passes(key: str, slew: float) -> int:
         return sum(
@@ -617,10 +609,9 @@ def write_results(
         )
 
     def verdict(key: str, vdd: float, slew: float) -> str:
-        v = g(variant_name(key, vdd, slew), "rst_r_min")
-        if v is None:
-            return "—"
-        return "PASS" if v <= rst_bound else "**FAIL**"
+        return band.resetn_verdict(
+            g(variant_name(key, vdd, slew), "rst_r_min"), rst_bound
+        )
 
     def recovered(key: str, vdd: float) -> float | None:
         """Fraction of the sch-vs-ext gap in min `V_sg` this arm gives back.
@@ -701,7 +692,7 @@ def write_results(
         "in this path), 136/159 nets carrying parasitics."
     )
     lines.append(
-        f"- `PASS`/`FAIL` is `{RESETN_RATIO_KEY} ≤ {rst_bound:g}`, the grid's "
+        f"- `PASS`/`FAIL` is `{band.RESETN_RATIO_KEY} ≤ {rst_bound:g}`, the grid's "
         "own checked discriminator, recomputed from this control's own trace "
         "over the same window `../testbench/tb.json` uses."
     )
@@ -805,7 +796,7 @@ def write_results(
     lines.append(
         "All times are µs after the dip starts. *window closes* is "
         "`edge + 50 µs dwell`, the end of the window "
-        f"`../testbench/tb.json` measures `{RESETN_RATIO_KEY}` over, so a "
+        f"`../testbench/tb.json` measures `{band.RESETN_RATIO_KEY}` over, so a "
         "positive margin is a PASS at that point and a negative one — or a "
         "`RESETn` that never reaches valid-low — is the FAIL the grid records."
     )
@@ -815,9 +806,6 @@ def write_results(
         "`PGDG` falls | `RESETn` valid-low | margin | Δ vs `ext` | verdict |"
     )
     lines.append("|---:|---:|---|---:|---:|---:|---:|---:|---:|---|")
-
-    def fmt_us(value):
-        return "**never**" if value is None else f"{value:.1f}"
 
     for slew in SLEWS_MVUS:
         for vdd in band.SUPPLIES_V:
@@ -832,10 +820,10 @@ def write_results(
                 )
                 lines.append(
                     f"| {slew:g} | {vdd:.2f} V | `{variant.key}` | "
-                    f"{close_us(vdd, slew):.1f} | "
-                    f"{fmt_us(band.us_after_dip(g(name, 't_praw')))} | "
-                    f"{fmt_us(band.us_after_dip(g(name, 't_pgdg')))} | "
-                    f"{fmt_us(band.us_after_dip(g(name, 't_rst')))} | "
+                    f"{band.window_close_us(vdd, slew):.1f} | "
+                    f"{band.fmt_us(band.us_after_dip(g(name, 't_praw')))} | "
+                    f"{band.fmt_us(band.us_after_dip(g(name, 't_pgdg')))} | "
+                    f"{band.fmt_us(band.us_after_dip(g(name, 't_rst')))} | "
                     + ("—" if m is None else f"{m:+.1f}")
                     + f" | {delta} | {verdict(variant.key, vdd, slew)} |"
                 )

@@ -131,7 +131,8 @@ def main(argv: list[str] | None = None) -> int:
         return cliutil.EXIT_ENVIRONMENT
     pdk, _ = toolchain
 
-    options = cliutil.load_manifest(band.MANIFEST)["options"]
+    manifest = cliutil.load_manifest(band.MANIFEST)
+    options = manifest["options"]
 
     if report_only:
         results = runner.read_bare_logs(CONTROL_DIR, "pl-*.log")
@@ -158,20 +159,16 @@ def main(argv: list[str] | None = None) -> int:
         )
         results = runner.run_decks(jobs, CONTROL_DIR, 8)
 
-    write_results(pdk, results)
+    write_results(pdk, manifest, results)
     print(f"wrote {CONTROL_DIR / 'postlayout_margin_results.md'}")
     return 0
 
 
-def write_results(pdk, res: dict[str, dict[str, float]]) -> None:
+def write_results(pdk, manifest, res: dict[str, dict[str, float]]) -> None:
+    rst_bound = band.bound_for(manifest, band.RESETN_RATIO_KEY)
+
     def g(name, key):
         return res.get(name, {}).get(key)
-
-    def window_close_s(vdd: float, slew: float) -> float:
-        return band.T_DIP_S + band.edge_s(vdd, slew) + band.T_DWELL_S
-
-    def fmt_us(value, never="**never**"):
-        return never if value is None else f"{value:.1f}"
 
     lines: list[str] = []
     lines.append("# Post-layout deglitch-race margin at the ratified bound — results")
@@ -217,12 +214,12 @@ def write_results(pdk, res: dict[str, dict[str, float]]) -> None:
     lines.append("|---:|---:|---|---:|---:|---:|---:|---:|---:|")
     for slew in SLEWS_MVUS:
         for vdd in band.SUPPLIES_V:
-            close_us = (window_close_s(vdd, slew) - band.T_DIP_S) * 1e6
+            close_us = band.window_close_us(vdd, slew)
             margins: dict[str, float | None] = {}
             for arm in ARMS:
-                name = variant_name(arm, vdd, slew)
-                t_rst = band.us_after_dip(g(name, "t_rst"))
-                margins[arm] = None if t_rst is None else close_us - t_rst
+                margins[arm] = band.margin_to_close_us(
+                    vdd, slew, g(variant_name(arm, vdd, slew), "t_rst")
+                )
             for arm in ARMS:
                 name = variant_name(arm, vdd, slew)
                 m = margins[arm]
@@ -233,9 +230,9 @@ def write_results(pdk, res: dict[str, dict[str, float]]) -> None:
                 flag = "" if (m is not None and m > 0) else " **FAIL**"
                 lines.append(
                     f"| {slew:g} | {vdd:.2f} V | {arm} | {close_us:.1f} | "
-                    f"{fmt_us(band.us_after_dip(g(name, 't_praw')))} | "
-                    f"{fmt_us(band.us_after_dip(g(name, 't_pgdg')))} | "
-                    f"{fmt_us(band.us_after_dip(g(name, 't_rst')))} | "
+                    f"{band.fmt_us(band.us_after_dip(g(name, 't_praw')))} | "
+                    f"{band.fmt_us(band.us_after_dip(g(name, 't_pgdg')))} | "
+                    f"{band.fmt_us(band.us_after_dip(g(name, 't_rst')))} | "
                     f"{('—' if m is None else f'{m:+.1f}')}{flag} | {delta} |"
                 )
     lines.append("")
@@ -264,7 +261,7 @@ def write_results(pdk, res: dict[str, dict[str, float]]) -> None:
             for arm in ARMS:
                 name = variant_name(arm, vdd, slew)
                 rst = g(name, "rst_r_min")
-                verdict = "—" if rst is None else ("PASS" if rst <= 0.1 else "**FAIL**")
+                verdict = band.resetn_verdict(rst, rst_bound)
 
                 def q(key, digits=3):
                     v = g(name, key)
