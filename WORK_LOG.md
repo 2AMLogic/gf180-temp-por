@@ -8,6 +8,8 @@ Merged PRs and closed issues from the initial 30-day snapshot (2026-09-07 onward
 
 ### 2026-11-26
 
+- **PR #689**: refactor: share VSS substrate tap geometry across three cells
+- **Issue #688** (closed): Draw the VSS substrate tap once for the three guard-ring cells
 - **PR #681**: refactor(layout): share the PMOS-row Nwell and VDD tie drawing across cells
 - **Issue #678** (closed): Share the PMOS row Nwell and VDD tie drawing code across three layout cells
 - **PR #684**: sim: share the por-brownout-slew controls' dip-window helpers
