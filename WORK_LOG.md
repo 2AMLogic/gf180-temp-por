@@ -6,6 +6,17 @@ Merged PRs and closed issues from the initial 30-day snapshot (2026-09-07 onward
 
 - [2026-09](work_log/WORK_LOG_2026-09.md)
 
+### 2026-11-26
+
+- **PR #684**: sim: share the por-brownout-slew controls' dip-window helpers
+- **Issue #682** (closed): Consolidate duplicated dip-window, margin, and verdict helpers across por-brownout-slew controls
+- **PR #683**: fix(sim): derive the ok_bo_dip decay summary from its own samples
+- **Issue #679** (closed): Remove hardcoded conclusions from the BIAS_OK decay report
+- **PR #680**: docs: correct output-chain negative-control counts and LVS warning paragraph
+- **Issue #677** (closed): Correct the output-chain negative-control counts and MiM warning explanation in layout/README.md
+- **PR #674**: docs: describe empty device classes in two POR LVS results
+- **Issue #672** (closed): Correct the LVS topology warning descriptions for por_comparator and por_output_chain
+
 ### 2026-11-24
 
 - **PR #670**: refactor: collect POR control waveforms through one fresh-trace runner helper
