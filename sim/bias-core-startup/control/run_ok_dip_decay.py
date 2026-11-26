@@ -2,6 +2,7 @@
 """One-variable netlist control for sim/bias-core-startup/'s ``ok_bo_dip_mv`` (#185).
 
     python3 sim/bias-core-startup/control/run_ok_dip_decay.py
+    python3 sim/bias-core-startup/control/run_ok_dip_decay.py --report-only
 
 Composes one ngspice deck per (DUT netlist x corner) from
 ``ok_dip_decay.spice`` plus a verbatim copy of either the schematic export
@@ -13,6 +14,14 @@ across a dead-rail window stretched from the parent testbench's 3 ms to
     decks/dip-<netlist>-<corner>.spice   the exact deck as run
     logs/dip-<netlist>-<corner>.log      raw ngspice output, verbatim
     dip_results.md                       the comparison table, from those logs
+
+``--report-only`` regenerates ``dip_results.md`` from the ngspice logs
+already under ``logs/`` without re-running the sweep or touching the decks.
+The logs are the evidence, so a host whose ngspice or PDK differs from the
+run that minted them must refresh the report this way rather than re-run
+over them; in that mode the ``ngspice:``/PDK provenance line is preserved
+from the existing report, because it describes the run that produced the
+logs, not this host.
 
 THE QUESTION. ``ok_bo_dip_mv`` samples V(BIAS_OK) once, at 35 ms -- 2 ms into
 the parent deck's 3 ms dead-rail window -- against a +/-300 mV bound. On the
@@ -39,7 +48,9 @@ Stdlib only, no virtualenv required.
 
 from __future__ import annotations
 
+import argparse
 import json
+import re
 import sys
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -118,7 +129,7 @@ def compose_deck(pdk, netlist: Path, corner_name: str, temp_c: float, options: l
 
 def run_one(job):
     pdk, options, net_name, netlist, corner_name, temp_c = job
-    name = f"dip-{net_name}-{corner_name}_{int(temp_c)}c"
+    name = log_name(net_name, corner_name, temp_c)
     output = runner.run_deck_raw(
         name, compose_deck(pdk, netlist, corner_name, temp_c, options), CONTROL_DIR
     )
@@ -129,35 +140,137 @@ def fmt_mv(value: float) -> str:
     return f"{value * 1e3:.4g} mV"
 
 
-def main(argv: list[str] | None = None) -> int:
-    cliutil.parse_no_options(argv, __doc__)
-    toolchain = cliutil.locate_toolchain()
-    if toolchain is None:
-        return cliutil.EXIT_ENVIRONMENT
-    pdk, ngspice_version = toolchain
+def log_name(net_name: str, corner_name: str, temp_c: float) -> str:
+    """The ``dip-<netlist>-<corner>`` stem ``run_one`` names its deck and log."""
+    return f"dip-{net_name}-{corner_name}_{int(temp_c)}c"
 
-    options = list(json.loads(MANIFEST.read_text()).get("options", []))
-    deck_dir = CONTROL_DIR / "decks"
-    log_dir = CONTROL_DIR / "logs"
-    deck_dir.mkdir(exist_ok=True)
-    log_dir.mkdir(exist_ok=True)
 
-    jobs = [
-        (pdk, options, net_name, netlist, corner_name, temp_c)
-        for net_name, netlist, _ in NETLISTS
-        for corner_name, temp_c, _ in POINTS
-    ]
+def load_results_from_logs() -> dict[tuple[str, str, float], dict[str, float]] | None:
+    """Re-derive the measurements dict from the logs already under ``logs/``.
+
+    ``--report-only``'s data source: keys match what the sweep builds, values
+    come from the same ``m_*`` print lines ``parse_measurements`` reads from
+    live output. Returns ``None`` if any of the four logs is missing.
+    """
     results: dict[tuple[str, str, float], dict[str, float]] = {}
-    with ThreadPoolExecutor(max_workers=min(4, len(jobs))) as pool:
-        for key, name, values in pool.map(run_one, jobs):
-            wanted = [f"ok{_tag(ms)}" for ms in SAMPLE_MS] + [f"vr{_tag(ms)}" for ms in SAMPLE_MS]
-            missing = [w for w in wanted if w not in values]
-            if missing:
-                print(f"{name}: ngspice produced no value for {', '.join(missing)}", file=sys.stderr)
-                return 2
-            results[key] = values
-            print(f"{name}: ok -> {(log_dir / (name + '.log')).relative_to(REPO_ROOT)}")
+    for net_name, _netlist, _label in NETLISTS:
+        for corner_name, temp_c, _label in POINTS:
+            path = CONTROL_DIR / "logs" / f"{log_name(net_name, corner_name, temp_c)}.log"
+            if not path.exists():
+                return None
+            results[(net_name, corner_name, temp_c)] = runner.parse_measurements(
+                path.read_text()
+            )
+    return results
 
+
+def preserved_provenance() -> str | None:
+    """The ``ngspice: ... · PDK: ... · harness ...`` line of the report on disk.
+
+    ``--report-only`` rebuilds the report from logs a previous run wrote, so
+    the provenance it must keep claiming is THAT run's ngspice build and PDK
+    version -- not whatever this host happens to have installed.
+    """
+    report = CONTROL_DIR / "dip_results.md"
+    if not report.exists():
+        return None
+    match = re.search(r"^ngspice: .*$", report.read_text(), re.MULTILINE)
+    return match.group(0) if match else None
+
+
+def summary_lines(results: dict[tuple[str, str, float], dict[str, float]]) -> list[str]:
+    """The ``## What this settles`` block, as observations computed from the
+    same samples the tables above print (#679).
+    """
+    ss = ("ss", -40.0)
+    ext_curve = [results[("extracted", *ss)][f"ok{_tag(ms)}"] for ms in SAMPLE_MS]
+    tolerance_v = 1e-9
+    nonincreasing = all(b <= a + tolerance_v for a, b in zip(ext_curve, ext_curve[1:]))
+    t_first = SAMPLE_MS[0] - DEAD_RAIL_START_MS
+    t_parent = PARENT_SAMPLE_MS - DEAD_RAIL_START_MS
+    t_last = SAMPLE_MS[-1] - DEAD_RAIL_START_MS
+    sch_at_parent = results[("schematic", *ss)][f"ok{_tag(PARENT_SAMPLE_MS)}"]
+    ext_at_parent = results[("extracted", *ss)][f"ok{_tag(PARENT_SAMPLE_MS)}"]
+    endpoints = (
+        f"from {fmt_mv(ext_curve[0])} at +{t_first:g} ms to "
+        f"{fmt_mv(ext_curve[-1])} at +{t_last:g} ms"
+    )
+
+    if max(ext_curve) - min(ext_curve) <= tolerance_v:
+        point_1 = (
+            f"1. **The extracted voltage at {ss[0]}/{ss[1]:g} C is flat across all "
+            f"{len(SAMPLE_MS)} samples** within {tolerance_v * 1e9:g} nV, {endpoints}."
+        )
+    elif nonincreasing and ext_curve[0] - ext_curve[-1] > tolerance_v:
+        point_1 = (
+            f"1. **The extracted node is not stuck.** Its discharge at {ss[0]}/{ss[1]:g} C is "
+            f"monotonically falling across all {len(SAMPLE_MS)} samples, {endpoints}."
+        )
+    else:
+        point_1 = (
+            f"1. **The {len(SAMPLE_MS)} extracted samples do not show a monotonic discharge "
+            f"at {ss[0]}/{ss[1]:g} C.** The voltage goes {endpoints}, "
+            "with at least one rising step. The samples do "
+            "not settle the stuck-vs-discharge question."
+        )
+
+    # A ratio of two sub-millivolt numbers is noise, not a result.
+    ratio = (
+        f"{ext_at_parent / sch_at_parent:.3g}"
+        if abs(sch_at_parent) > 1e-3
+        else "n/a (schematic sample below 1 mV)"
+    )
+    at_parent = (
+        f"At the check's own instant the two netlists read {fmt_mv(sch_at_parent)} "
+        f"(schematic) and {fmt_mv(ext_at_parent)} (extracted) -- a voltage ratio "
+        f"of {ratio} at that instant."
+    )
+    first_at_or_below = next((i for i, v in enumerate(ext_curve) if v <= sch_at_parent), None)
+    if first_at_or_below is None:
+        point_2 = (
+            f"2. **Every extracted sample through +{t_last:g} ms is above the schematic "
+            f"+{t_parent:g} ms reference of {fmt_mv(sch_at_parent)}.** {at_parent}"
+        )
+    else:
+        sample_time = SAMPLE_MS[first_at_or_below] - DEAD_RAIL_START_MS
+        point_2 = (
+            f"2. **The first extracted sample at or below the schematic +{t_parent:g} ms "
+            f"reference is {fmt_mv(ext_curve[first_at_or_below])} at +{sample_time:g} ms.** "
+            f"{at_parent}"
+        )
+
+    def vref_gap(corner: str, temp_c: float, ms: float) -> float:
+        key = f"vr{_tag(ms)}"
+        return abs(
+            results[("extracted", corner, temp_c)][key]
+            - results[("schematic", corner, temp_c)][key]
+        )
+
+    peaks = []
+    for corner, temp_c, _ in POINTS:
+        gaps = {ms: vref_gap(corner, temp_c, ms) for ms in SAMPLE_MS}
+        peak_ms = max(gaps, key=gaps.__getitem__)
+        peaks.append(
+            f"{fmt_mv(gaps[peak_ms])} at +{peak_ms - DEAD_RAIL_START_MS:g} ms "
+            f"({corner}/{temp_c:+g} C)"
+        )
+    point_3 = (
+        f"3. The largest sampled V(VREF) differences between netlists are {' and '.join(peaks)}. "
+        f"At {ss[0]}/{ss[1]:g} C and +{t_parent:g} ms, the differences are "
+        f"{fmt_mv(vref_gap(*ss, PARENT_SAMPLE_MS))} for V(VREF) "
+        f"and {fmt_mv(abs(ext_at_parent - sch_at_parent))} for `BIAS_OK`."
+    )
+
+    return ["## What this settles", "", point_1, point_2, point_3, ""]
+
+
+def report_text(
+    results: dict[tuple[str, str, float], dict[str, float]], provenance: str
+) -> str:
+    """All of ``dip_results.md``: header, per-corner measurement tables, and
+    the derived summary. ``provenance`` is the ``ngspice:``/PDK/harness line
+    of the run that produced the logs ``results`` were parsed from.
+    """
     out: list[str] = [
         "# `ok_bo_dip_mv` dead-rail decay control -- generated, do not edit",
         "",
@@ -173,7 +286,7 @@ def main(argv: list[str] | None = None) -> int:
         f"{DEAD_RAIL_START_MS + 17:g} ms) so the discharge is sampled as a CURVE rather than",
         f"at the single {PARENT_SAMPLE_MS:g} ms point `ok_bo_dip_mv` uses.",
         "",
-        f"ngspice: {ngspice_version} · PDK: {pdk.variant}@{pdk.version} · harness {HARNESS_VERSION}",
+        provenance,
         f"· VDD before the collapse: {VDD_V} V (the parent testbench's supply axis is",
         "degenerate here -- see `ok_dip_decay.spice`).",
         "",
@@ -216,59 +329,81 @@ def main(argv: list[str] | None = None) -> int:
             out.append(f"| {ms:g} ms | {sch:.5g} V | {ext:.5g} V |")
         out.append("")
 
-    # The two statements the parent issue needs, derived rather than asserted.
-    ss = ("ss", -40.0)
-    ext_curve = [results[("extracted", *ss)][f"ok{_tag(ms)}"] for ms in SAMPLE_MS]
-    monotonic = all(b <= a + 1e-9 for a, b in zip(ext_curve, ext_curve[1:]))
-    ext_at_end = ext_curve[-1]
-    sch_at_parent = results[("schematic", *ss)][f"ok{_tag(PARENT_SAMPLE_MS)}"]
-    ext_at_parent = results[("extracted", *ss)][f"ok{_tag(PARENT_SAMPLE_MS)}"]
+    out += summary_lines(results)
+    return "\n".join(out)
 
-    # How far apart the two netlists' VREF discharge curves run, over every
-    # sample of every corner -- derived, so the claim below cannot drift.
-    vref_gap = max(
-        abs(
-            results[("extracted", corner_name, temp_c)][f"vr{_tag(ms)}"]
-            - results[("schematic", corner_name, temp_c)][f"vr{_tag(ms)}"]
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--report-only",
+        action="store_true",
+        help="regenerate dip_results.md from the existing logs instead of "
+        "running the sweep",
+    )
+    report_only = parser.parse_args(argv).report_only
+
+    wanted = [f"ok{_tag(ms)}" for ms in SAMPLE_MS] + [f"vr{_tag(ms)}" for ms in SAMPLE_MS]
+
+    if report_only:
+        results = load_results_from_logs()
+        if results is None:
+            print(
+                "no dip-* logs under logs/ to report from -- run without "
+                "--report-only first",
+                file=sys.stderr,
+            )
+            return 1
+        for key in sorted(results):
+            missing = [w for w in wanted if w not in results[key]]
+            if missing:
+                print(
+                    f"{log_name(*key)}: no value for {', '.join(missing)} in its log",
+                    file=sys.stderr,
+                )
+                return 2
+        provenance = preserved_provenance()
+        if provenance is None:
+            print(
+                "dip_results.md carries no ngspice provenance line to preserve -- "
+                "run without --report-only first",
+                file=sys.stderr,
+            )
+            return 1
+    else:
+        toolchain = cliutil.locate_toolchain()
+        if toolchain is None:
+            return cliutil.EXIT_ENVIRONMENT
+        pdk, ngspice_version = toolchain
+
+        options = list(json.loads(MANIFEST.read_text()).get("options", []))
+        deck_dir = CONTROL_DIR / "decks"
+        log_dir = CONTROL_DIR / "logs"
+        deck_dir.mkdir(exist_ok=True)
+        log_dir.mkdir(exist_ok=True)
+
+        jobs = [
+            (pdk, options, net_name, netlist, corner_name, temp_c)
+            for net_name, netlist, _ in NETLISTS
+            for corner_name, temp_c, _ in POINTS
+        ]
+        results = {}
+        with ThreadPoolExecutor(max_workers=min(4, len(jobs))) as pool:
+            for key, name, values in pool.map(run_one, jobs):
+                missing = [w for w in wanted if w not in values]
+                if missing:
+                    print(f"{name}: ngspice produced no value for {', '.join(missing)}", file=sys.stderr)
+                    return 2
+                results[key] = values
+                print(f"{name}: ok -> {(log_dir / (name + '.log')).relative_to(REPO_ROOT)}")
+        provenance = (
+            f"ngspice: {ngspice_version} · PDK: {pdk.variant}@{pdk.version}"
+            f" · harness {HARNESS_VERSION}"
         )
-        for corner_name, temp_c, _ in POINTS
-        for ms in SAMPLE_MS
-    )
-    vref_gap_ss = max(
-        abs(results[("extracted", *ss)][f"vr{_tag(ms)}"] - results[("schematic", *ss)][f"vr{_tag(ms)}"])
-        for ms in SAMPLE_MS
-    )
 
-    out += [
-        "## What this settles",
-        "",
-        f"1. **The extracted node is not stuck.** Its discharge at {ss[0]}/{ss[1]:g} C is "
-        f"monotonically falling across all {len(SAMPLE_MS)} samples: "
-        f"{'confirmed' if monotonic else 'NOT confirmed -- see the table above'}, "
-        f"{fmt_mv(ext_curve[0])} at +0.5 ms down to {fmt_mv(ext_at_end)} at +17 ms. "
-        "It is the same monotonic discharge as the schematic export, on a longer time "
-        "constant -- not a held stale valid.",
-        f"2. **The time constant, not the endpoint, is what moved.** At the parent "
-        f"testbench's own sample instant the two netlists read {fmt_mv(sch_at_parent)} "
-        f"(schematic) and {fmt_mv(ext_at_parent)} (extracted), a factor of "
-        f"{ext_at_parent / sch_at_parent:.3g}; the extracted node needs roughly the whole "
-        "17 ms window to reach the level the schematic export reaches in 2 ms.",
-        f"3. **The core's own discharge is not what moved.** Over the same window V(VREF) "
-        f"on the same DUT differs between the two netlists by at most {vref_gap * 1e3:.0f} mV "
-        f"anywhere on the grid sampled here ({vref_gap_ss * 1e3:.1f} mV at "
-        f"{ss[0]}/{ss[1]:g} C, the failing family), against a `BIAS_OK` difference that "
-        f"reaches {(ext_at_parent - sch_at_parent) * 1e3:.0f} mV at the same instant and "
-        "the same corner. The reference core gives up its charge at essentially the same "
-        "rate on both netlists; what changed by an order of magnitude is the "
-        "`BIAS_OK`/`NOKX` output net's own parasitic RC. (At tt/+27 C both `BIAS_OK` "
-        "readings are sub-millivolt on both netlists -- that corner is a reference point "
-        "showing the check has nothing to measure where it passes, not a second data "
-        "point about the mechanism.)",
-        "",
-    ]
-
-    (CONTROL_DIR / "dip_results.md").write_text("\n".join(out))
-    print(f"wrote {(CONTROL_DIR / 'dip_results.md').relative_to(REPO_ROOT)}")
+    report = CONTROL_DIR / "dip_results.md"
+    report.write_text(report_text(results, provenance))
+    print(f"wrote {report.relative_to(REPO_ROOT)}")
     return 0
 
 

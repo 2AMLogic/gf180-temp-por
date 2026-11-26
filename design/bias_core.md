@@ -1406,9 +1406,10 @@ reasoning is in
   ±300 mV bound) goes from 0 failing corners (schematic) to 3
   (`ss_-40c_2.97v` / `_3.30v` / `_3.63v`, 303.432 mV vs. the 300 mV bound —
   was 33.6 mV pre-extraction): a real, if marginal (~1.1 %), shift.
-  **#185 outcome: genuinely the cell, and it is an RC rather than a latch.**
-  The extracted `BIAS_OK`/`NOKX` net's dead-rail discharge is ~9× slower and
-  monotonic; the physically load-bearing requirement (below `nfet_03v3` Vt,
+  **#185 outcome: extraction raises the sampled voltage.**
+  The extracted `BIAS_OK` voltage falls across the dead-rail samples. At the
+  check's own 2 ms sample it holds 9.02× the schematic voltage.
+  The physically load-bearing requirement (below `nfet_03v3` Vt,
   ≈0.822 V at these corners) still holds by 2.7×. The bound is **not moved**
   and the check still reads FAIL — whether it should be harmonized with this
   cell's other deck, which bounds the same quantity at 500 mV, is left to #1.
@@ -1592,7 +1593,7 @@ This also settles a smaller point the old deck could not: `sf`/−40 °C/3.63 V'
 false-valid window on the 1.0 V/µs ramp is **13.4 ms**, not the ~4.4 ms this
 document has been quoting from a deck that stopped at 2 ms.
 
-### `ok_bo_dip_mv` is the one that is genuinely the cell — and it is an RC, not a latch
+### `ok_bo_dip_mv` measures a higher dead-rail voltage after extraction
 
 `sim/bias-core-startup/`'s `ok_bo_dip_mv` samples `BIAS_OK` once, 2 ms into a
 3 ms dead-rail window, against a ±300 mV bound; extraction takes it from
@@ -1613,15 +1614,13 @@ as a curve rather than at one point:
 
 Three things follow, and the first is the one that matters:
 
-- **The node is not stuck.** The extracted discharge is monotonic across all
-  eight samples; it needs roughly the whole 17 ms window to reach the level
-  the schematic export reaches in 2 ms. This is not the held stale valid
-  `XMOKC` exists to prevent — it is the same discharge on a ~9× longer time
-  constant.
-- **The core is not implicated.** `V(VREF)` on the same DUT tracks between the
-  two netlists to within 4 mV at `ss`/−40 °C over the entire window, against a
-  `BIAS_OK` difference of 270 mV at the same instant. What moved is the
-  `BIAS_OK`/`NOKX` output net's own parasitic RC.
+- **The extracted voltage falls across all eight samples**, from 327.8 mV at
+  +0.5 ms to 176.4 mV at +17 ms. At +2 ms the schematic reads 33.63 mV and
+  the extracted netlist reads 303.4 mV, a voltage ratio of 9.02×. Every
+  extracted sample is above the 33.63 mV schematic reference.
+- **At `ss`/−40 °C the largest sampled `V(VREF)` difference is 3.886 mV
+  at +17 ms.** At the check's own +2 ms sample, the difference between netlists
+  is 0.5024 mV for `V(VREF)` and 269.8 mV for `BIAS_OK`.
 - **The physically load-bearing requirement still holds with margin.** The
   check exists because `BIAS_OK` must not be a level a downstream `nfet_03v3`
   gate could read as high. `sim/devchar/SUMMARY.md` measures
@@ -1637,5 +1636,4 @@ derived. Which number is right, and whether the two should be harmonized, is
 a ratification judgement for #1 in exactly the sense
 [DR-017](../spec/decision-records/DR-017-por-glitch-representative-depth.md)
 left "whether to re-cut this check" to #1 rather than taking it. Until then
-the check reads FAIL at three corners, on the record, with the mechanism
-measured.
+the check reads FAIL at three corners on the record.
