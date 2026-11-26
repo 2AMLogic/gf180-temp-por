@@ -75,6 +75,7 @@ Issues carrying `loom:curated`.
 
 - **#633**: Drop the unused native yield dependency from headless CI *(hermit)* *(held)*
 - **#673**: Cite the archived brownout interpretation instead of reprinting its measurements *(hermit)* *(held)*
+- **#691**: Share the MiM top-plate escape island between both routing functions *(hermit)*
 
 ## Epics
 
@@ -92,6 +93,6 @@ _None._
 | PRs awaiting review | 0 |
 | Approved PRs awaiting merge | 2 |
 | Curated | 14 |
-| Architect / Hermit proposals | 2 |
+| Architect / Hermit proposals | 3 |
 | Active epics | 0 |
 <!-- guide:plan-body:end -->
