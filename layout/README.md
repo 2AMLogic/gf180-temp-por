@@ -921,7 +921,7 @@ Recorded result (`layout/reports/por_comparator/`):
 | ----- | ------ |
 | `klt drc --deck gf180mcu` | clean — 0 violations (the #102 fix; reconfirmed under the current deck by #106's regeneration) |
 | `klt extract --deck gf180mcu` | 21 devices (12 nfet, 6 pfet, 3 ppolyf_u_1k), 15 nets, 7 pins |
-| `klt lvs` | **match** — 21/21 devices, 15/15 nets, 7/7 pins, 0 errors (1 ambiguous-pairing `topology` warning). #516 dissolved the synthetic `vsubs` pin and the parent well's anonymous net; #532 dissolved the instanced inverter's well net too (16 → 15 nets) once the inverter drew its own tie — the `device.body_unverified` warning it used to carry is gone with it. |
+| `klt lvs` | **match** — 21/21 devices, 15/15 nets, 7/7 pins, 0 errors (1 `topology` warning for a device class with no counterpart on the other side and zero extracted devices). #516 dissolved the synthetic `vsubs` pin and the parent well's anonymous net; #532 dissolved the instanced inverter's well net too (16 → 15 nets) once the inverter drew its own tie — the `device.body_unverified` warning it used to carry is gone with it. |
 | negative control `topology` | detected (exit 3; `device.unmatched` 1, `topology` 1) |
 | negative control `device-param` | detected (exit 3; `device.property` 5, `topology` 1) |
 
@@ -1078,7 +1078,7 @@ Recorded result (`layout/reports/por_output_chain/`):
 | ----- | ------ |
 | `klt drc --deck gf180mcu` | clean — 0 violations (`mim.space.1` / `mim.enclosing.fusetop.1` now exercised) |
 | `klt extract --deck gf180mcu` | 33 devices (14 nfet, 14 pfet, 5 `cap_mim_2f0_m4m5_noshield`), 18 nets, 5 pins |
-| `klt lvs` | **match** — 33/33 devices, 18/18 nets, 5/5 pins, 0 errors (1 ambiguous-pairing `topology` warning). #516 dissolved the synthetic `vsubs` pin and the anonymous well net: every body resolves through the drawn, implanted ring and strap. |
+| `klt lvs` | **match** — 33/33 devices, 18/18 nets, 5/5 pins, 0 errors (1 `topology` warning for a device class with no counterpart on the other side and zero extracted devices). #516 dissolved the synthetic `vsubs` pin and the anonymous well net: every body resolves through the drawn, implanted ring and strap. |
 | negative control `topology` | detected (exit 3; `device.unmatched` 1, `topology` 12) |
 | negative control `device-param` | detected (exit 3; `device.property` 5, `topology` 12) |
 
