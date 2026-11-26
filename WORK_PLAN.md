@@ -3,12 +3,13 @@
 Current workflow state, maintained by Guide.
 
 <!-- guide:plan-body:start -->
-_Generated: 2026-11-26T00:28:20Z (snapshot; compare against live labels)_
+_Generated: 2026-11-26T15:52:49Z (snapshot; compare against live labels)_
 ## Operator Attention: Merge-Risk-Hold Pileup
 
-Judge-approved PRs under a hold (`loom:blocked` or `loom:operator`) — only a human merge decision is missing.
+Judge-approved PRs under a hold (`loom:blocked` or `loom:operator`) awaiting ratification.
 
-_None._
+- **#560**: fix: correct drifted LVS prose counts and police them against committed reports *(DR-028 ratification pending)*
+- **#615**: layout: draw the missing substrate and well taps DF.13/DF.14 need *(target specification ratification pending)*
 
 ## Very Important
 
@@ -37,14 +38,12 @@ Issues currently being built (`loom:building`).
 
 - **#416**: POR threshold rows: N=500 cannot demonstrate the 99.73 % [3σ] yield; need a larger campaign
 - **#532**: temp_core and por_comparator_bias_okb_inv have no substrate or well tap within 20 um of their MOS rows (DF.13_LV / DF.14_LV)
-- **#672**: Correct the LVS topology warning descriptions for por_comparator and por_output_chain
 
 ## PRs Awaiting Review
 
 PRs waiting on Judge (`loom:review-requested`).
 
-- **#674**: docs: describe empty device classes in two POR LVS results
-- **#675**: fix: derive POR batch thresholds from one transient step
+_None._
 
 ## Approved (Awaiting Merge)
 
@@ -71,12 +70,11 @@ Issues carrying `loom:curated`.
 - **#510**: LVS net and pin counts quoted in prose drifted from the committed lvs.json reports *(curated)*
 - **#532**: temp_core and por_comparator_bias_okb_inv have no substrate or well tap within 20 um of their MOS rows (DF.13_LV / DF.14_LV) *(curated)*
 - **#551**: Re-run temp_por_top PEX grid: pex.json still cites the pre-#518 GDS revision *(curated)* *(held)*
-- **#672**: Correct the LVS topology warning descriptions for por_comparator and por_output_chain *(curated)*
 
 ## Proposed (Architect / Hermit)
 
 - **#633**: Drop the unused native yield dependency from headless CI *(hermit)* *(held)*
-- **#673**: Cite the archived brownout interpretation instead of reprinting its measurements *(hermit)*
+- **#673**: Cite the archived brownout interpretation instead of reprinting its measurements *(hermit)* *(held)*
 
 ## Epics
 
@@ -86,14 +84,14 @@ _None._
 
 | Bucket | Count |
 |------|-------|
-| Operator merge-risk holds | 0 |
+| Operator merge-risk holds | 2 |
 | Very important | 1 |
 | Important | 4 |
 | Ready (`loom:issue`, net of holds/building/merge-pending) | 0 |
-| In Progress (`loom:building`) | 3 |
-| PRs awaiting review | 2 |
+| In Progress (`loom:building`) | 2 |
+| PRs awaiting review | 0 |
 | Approved PRs awaiting merge | 2 |
-| Curated | 15 |
+| Curated | 14 |
 | Architect / Hermit proposals | 2 |
 | Active epics | 0 |
 <!-- guide:plan-body:end -->
