@@ -25,7 +25,7 @@ from unittest import mock
 SIM_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(SIM_DIR))
 
-from harness import cli, corners, klt_batch, runner, testbench  # noqa: E402
+from harness import cli, corners, klt_batch, montecarlo, runner, testbench  # noqa: E402
 from harness.klt_batch import BatchConfig, BatchError  # noqa: E402
 from testutil import fake_pdk  # noqa: E402
 
@@ -336,6 +336,32 @@ class BackendSelectionTests(BatchTestCase):
 
 
 class TranslationTests(BatchTestCase):
+    def test_por_mc_derives_outputs_from_one_transient_step(self):
+        tb = testbench.load(SIM_DIR / "por-threshold-mc")
+        points = montecarlo.build_mc_grid(
+            montecarlo.load_binding_points(tb)[:1], 1, 41000000, enforce_min=False,
+        )
+        (staged,) = runner.stage_batch_grid(
+            tb, self.pdk, points, self.root / "work", self.cfg(),
+            compose=montecarlo.compose_mc_deck, lift_params=(),
+        )
+        req = staged.request
+        self.assertNotIn("analysis", req)
+        (step,) = req["analysis_steps"]
+        self.assertEqual(step["name"], "sample")
+        self.assertEqual(step["analysis"], {"kind": "tran", "args": "5u 15m"})
+        self.assertEqual([m["spice"] for m in step["measurements"]],
+                         ["." + card for card in tb.analyses[1:]])
+        self.assertEqual({m["name"]: m["expr"] for m in req["measurements"]}, {
+            "m_vpor_rise_v": "sample.vpor_rise",
+            "m_vpor_fall_v": "sample.vpor_fall",
+            "m_v_hys_mv": "(sample.vpor_rise-sample.vpor_fall)*1e3",
+            "m_rise_chatter_mv": "(sample.vpor_rise_last-sample.vpor_rise)*1e3",
+            "m_fall_chatter_mv": "(sample.vpor_fall-sample.vpor_fall_last)*1e3",
+            "m_comp_offs_rise_mv": "(sample.sns_rise-1.2)*1e3",
+            "m_comp_offs_fall_mv": "(sample.sns_fall-1.2)*1e3",
+        })
+
     def test_control_deck_is_taken_apart(self):
         u = self.unit()
         self.assertEqual(u.process, ("ss", "res_ss"))

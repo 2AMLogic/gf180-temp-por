@@ -8,6 +8,7 @@
   "temperatures_c": [-40, 27, 125],
   "corners": ["full"],
   "options": ["reltol=1e-5", "abstol=1e-15", "vntol=1e-9"],
+  "batch_measurement_step": "sample",
   "analyses": [
     "tran 5u 15m",
     "meas tran vpor_rise find v(vdd) when v(por_raw)=1.5 rise=1",

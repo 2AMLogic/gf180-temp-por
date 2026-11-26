@@ -482,6 +482,12 @@ field names the batch backend and klt version instead of a local ngspice.
   as `par('...')`). Anything else in a `.control` block (`write`, `wrdata`,
   `alter`, ...), an include that does not resolve on the host, or a foreign
   `.lib` is rejected before submission.
+* For a single solve whose printed outputs are arithmetic over `.meas`
+  results, set `"batch_measurement_step": "sample"` in `tb.json`. The batch
+  request puts the cards in that step and qualifies their names in each
+  output expression. For example, the POR threshold bench computes
+  hysteresis as `(sample.vpor_rise-sample.vpor_fall)*1e3` from one
+  transient and one mismatch draw.
 * `klt sim` runs the analysis as a `.control` command, where ngspice does not
   expand `.param` braces (`tran 2e-06 {stop_s}` is a TSTOP of zero there). A
   `{name}` in the analysis line is therefore replaced with the deck's own

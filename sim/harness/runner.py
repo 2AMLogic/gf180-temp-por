@@ -981,6 +981,7 @@ def _batch_units(
             unit = klt_batch.translate_deck(
                 text, key=point.corner_id, log_path=log_path, pdk=pdk, deck_dir=workdir,
                 lift_params=lift_params, extra_init=init, timeout_s=timeout_s, specs=specs,
+                measurement_step=tb.batch_measurement_step,
             )
         except klt_batch.BatchIncompatible as exc:
             if strict:
