@@ -2,6 +2,7 @@
 
 import hashlib
 import json
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -35,6 +36,8 @@ class CheckArtifactManifests(unittest.TestCase):
         for name, data in (extra or {}).items():
             (root / name).parent.mkdir(parents=True, exist_ok=True)
             (root / name).write_bytes(data)
+        subprocess.run(["git", "init", "-q"], cwd=root, check=True)
+        subprocess.run(["git", "add", "."], cwd=root, check=True)
         return root
 
     def test_clean_manifest_passes(self):
@@ -69,6 +72,17 @@ class CheckArtifactManifests(unittest.TestCase):
             errors = chk.check(root)
             self.assertEqual(len(errors), 1)
             self.assertIn("sim/x/corners/r/tt.log", errors[0])
+
+    def test_bad_entry_and_committed_bytes_reported_together(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = self.repo(
+                tmp, [entry(), entry(uri="artifact://x")], {"sim/x.log": BODY}
+            )
+            (root / "untracked.log").write_bytes(BODY)
+            errors = chk.check(root)
+            self.assertEqual(len(errors), 2)
+            self.assertIn("bench-run.manifest.json: entries[1]: uri", errors[0])
+            self.assertIn("sim/x.log: bytes of a stored object", errors[1])
 
     def test_same_size_different_bytes_is_fine(self):
         with tempfile.TemporaryDirectory() as tmp:

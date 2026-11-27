@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 import subprocess
 from pathlib import Path
@@ -44,6 +45,8 @@ STAGE_CORNERS = "corners"
 STAGE_SNAPSHOTS = "netlist-snapshots"
 
 URI_PREFIX = "artifact:"
+SHA256_RE = re.compile(r"[0-9a-f]{64}")
+FORBIDDEN_RE = re.compile(r"s3://|arn:aws:")
 
 
 class EvidenceStoreError(RuntimeError):
@@ -57,6 +60,53 @@ def stage_dir_for(work_dir: Path, experiment: str, record_id: str) -> Path:
 
 def manifest_relpath(experiment: str, record_id: str) -> Path:
     return MANIFEST_DIR / f"{experiment}-{record_id}.manifest.json"
+
+
+def validate_manifest(
+    text: str, rel: str = "<manifest>"
+) -> tuple[list[dict], list[str]]:
+    """Return valid entries and all DR-030 manifest errors, labeled with ``rel``."""
+    errors: list[str] = []
+    if FORBIDDEN_RE.search(text):
+        errors.append(f"{rel}: names a storage location (s3:// or arn:aws:)")
+    try:
+        doc = json.loads(text)
+    except ValueError as exc:
+        errors.append(f"{rel}: not valid JSON ({exc})")
+        return [], errors
+    version = doc.get("schema_version") if isinstance(doc, dict) else None
+    if version != 1 or isinstance(version, bool):
+        errors.append(f"{rel}: schema_version must be 1")
+        return [], errors
+    entries = doc.get("entries")
+    if not isinstance(entries, list) or not entries:
+        errors.append(f"{rel}: entries must be a non-empty list")
+        return [], errors
+
+    good = []
+    for i, entry in enumerate(entries):
+        where = f"{rel}: entries[{i}]"
+        if not isinstance(entry, dict):
+            errors.append(f"{where}: not an object")
+            continue
+        errors_before_entry = len(errors)
+        sha256 = entry.get("sha256")
+        if not isinstance(sha256, str) or not SHA256_RE.fullmatch(sha256):
+            errors.append(f"{where}: sha256 must be 64 lowercase hex characters")
+        size = entry.get("size")
+        if not isinstance(size, int) or isinstance(size, bool) or size < 0:
+            errors.append(f"{where}: size must be an integer >= 0")
+        name = entry.get("name")
+        if not isinstance(name, str) or not name:
+            errors.append(f"{where}: name must be a non-empty string")
+        uri = entry.get("uri")
+        if not isinstance(uri, str) or not uri.startswith(URI_PREFIX) or "://" in uri:
+            errors.append(
+                f"{where}: uri must start with {URI_PREFIX!r} and contain no '://'"
+            )
+        if len(errors) == errors_before_entry:
+            good.append(entry)
+    return good, errors
 
 
 def preflight(
@@ -99,8 +149,7 @@ def publish(
     """Put every staged file and install the manifest; return its path.
 
     Raises ``EvidenceStoreError`` (installing nothing under ``manifests/``) if
-    there is nothing staged, any put fails, or the manifest is not made purely
-    of ``artifact:`` URIs.
+    there is nothing staged, any put fails, or the manifest fails validation.
     """
     files = staged_files(stage_dir)
     if not files:
@@ -130,14 +179,11 @@ def publish(
 
     try:
         text = tmp.read_text()
-        manifest = json.loads(text)
-    except (OSError, ValueError) as exc:
+    except (OSError, UnicodeError) as exc:
         raise EvidenceStoreError(f"klt wrote no usable manifest: {exc}") from None
-    entries = manifest.get("entries") or []
-    if not entries or not all(
-        isinstance(e.get("uri"), str) and e["uri"].startswith(URI_PREFIX) for e in entries
-    ):
-        raise EvidenceStoreError("manifest has no entries or a non-`artifact:` uri; not installed")
+    _, errors = validate_manifest(text, dest.name)
+    if errors:
+        raise EvidenceStoreError("\n".join(errors))
 
     dest.parent.mkdir(parents=True, exist_ok=True)
     try:

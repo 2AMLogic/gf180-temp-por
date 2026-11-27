@@ -82,16 +82,39 @@ class PublishTests(unittest.TestCase):
                 es.publish(stage, root, "exp", "rid", run=fake_put(fail_on="tt.log"))
             self.assertFalse((root / "manifests").exists())
 
-    def test_non_artifact_uri_from_klt_is_not_installed(self):
+    def test_invalid_manifest_from_klt_is_not_installed(self):
+        def with_entries(*entries):
+            return {"schema_version": 1, "entries": list(entries)}
+
+        entry = {"sha256": "ab" * 32, "size": 1, "name": "x.log", "uri": URI}
+        manifest = with_entries(entry)
+        cases = [
+            (dict(manifest, schema_version=2), "schema_version"),
+            (dict(manifest, schema_version=True), "schema_version"),
+            ([], "schema_version"),
+            (with_entries(), "entries"),
+            (with_entries(entry, None), "not an object"),
+            (dict(manifest, source="s3://bucket/key"), "storage location"),
+            (dict(manifest, source="arn:aws:s3:::bucket"), "storage location"),
+            (with_entries(dict(entry, uri="https://x/y")), "uri"),
+            (with_entries(dict(entry, uri="artifact://x/y")), "uri"),
+            (with_entries(dict(entry, sha256="ab" * 32 + "\n")), "sha256"),
+            (with_entries(dict(entry, size=True)), "size"),
+            (with_entries(dict(entry, size=-1)), "size"),
+            (with_entries(dict(entry, name="")), "name"),
+        ]
+        for doc, problem in cases:
+            with self.subTest(doc=doc):
+                self.assert_manifest_rejected(doc, problem)
+
+    def assert_manifest_rejected(self, doc, problem):
         def run(cmd, **kw):
-            Path(cmd[cmd.index("--manifest") + 1]).write_text(
-                json.dumps({"schema_version": 1, "entries": [{"uri": "https://x/y"}]})
-            )
+            Path(cmd[cmd.index("--manifest") + 1]).write_text(json.dumps(doc))
             return subprocess.CompletedProcess(cmd, 0, "", "")
 
         with tempfile.TemporaryDirectory() as tmp:
             root, stage = self.stage(tmp)
-            with self.assertRaises(es.EvidenceStoreError):
+            with self.assertRaisesRegex(es.EvidenceStoreError, problem):
                 es.publish(stage, root, "exp", "rid", run=run)
             self.assertFalse((root / "manifests").exists())
 
