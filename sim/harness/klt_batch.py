@@ -40,7 +40,14 @@ Invariants (all covered by ``sim/tests/test_klt_batch.py``):
 * A report from a fleet runner whose ``klt`` is not the client's build
   (``environment.remote.runner_compatibility`` other than ``match``) is
   rejected, and the rest of that run is refused without being submitted.
-* So is a report whose fleet runner read a different PDK model library than
+* With ``cfg.stage_model_inputs`` (the default; ``$GF180_STAGE_MODEL_INPUTS=0`` turns it off) the request opts in to
+  ``options.stage_model_inputs`` and the runner executes this repo's pinned
+  models, so the image digest is not compared. Instead a report is refused
+  unless every fleet job says ``worker_environment.pdk.models_staged`` and
+  its ``runner_model_inputs`` carry the sha256 of every file in the client's
+  ``environment.staged_model_inputs``, and the staged ``models.lib`` was
+  sourced from this host's ``pdk.model_lib`` (:func:`_staged_rows`).
+* On the image path (``stage_model_inputs=False``), a report whose fleet runner read a different PDK model library than
   the one this host resolved (``environment.remote.runner_models_lib_sha256``
   against the SHA-256 of ``cfg.pdk.model_lib``, or klt's own
   ``models_lib_comparison: mismatch``): on batch the models come from the
@@ -96,6 +103,14 @@ KLT = "klt"
 BACKEND_LOCAL = "local"
 BACKEND_BATCH = "batch"
 ENV_BACKEND = "KLT_SIM_BACKEND"
+ENV_STAGE_MODEL_INPUTS = "GF180_STAGE_MODEL_INPUTS"
+
+
+def stage_model_inputs_default(environ=None) -> bool:
+    """Staging is on unless ``$GF180_STAGE_MODEL_INPUTS`` is a false word."""
+    environ = os.environ if environ is None else environ
+    value = (environ.get(ENV_STAGE_MODEL_INPUTS) or "").strip().lower()
+    return value not in ("0", "false", "no", "off")
 DEFAULT_TIMEOUT_S = 1800
 #: Slack added to the fleet poll timeout when bounding the local ``klt``
 #: process (Spot acquisition + boot + artifact download).
@@ -784,6 +799,17 @@ class BatchConfig:
     #: the poll timeout.
     wait_for_capacity_s: int = 600
     capacity_retries: int = 3
+    #: Ship this repo's pinned model closure with the job
+    #: (``options.stage_model_inputs``, klt 0.7.0) so the runner executes the
+    #: models this host resolved, not whatever PDK build its image happens to
+    #: bake. The acceptance check then compares the staged-file digests the
+    #: client sent with the ones the runner reports receiving, instead of the
+    #: image's ``models.lib`` digest, which staging makes meaningless.
+    #: ``$GF180_STAGE_MODEL_INPUTS=0`` (or ``false``/``no``/``off``) selects
+    #: the image path for every caller that builds a config (corner grids,
+    #: Monte Carlo, PEX, the sweeps) without a code edit; the acceptance check
+    #: then compares the runner's ``models.lib`` digest as before.
+    stage_model_inputs: bool = field(default_factory=lambda: stage_model_inputs_default())
     #: Set once a run-wide fatal condition (runner/client ``klt`` mismatch, a
     #: runner PDK that is not the local one) is seen; every later request in
     #: the same run is then refused without being submitted, so a grid does
@@ -927,6 +953,8 @@ def _build_request(units: list[BatchUnit], pdk: Pdk, cfg: BatchConfig) -> dict:
         ]
     else:
         request["analysis"] = {"kind": first.analysis[0], "args": first.analysis[1]}
+    if process_names and cfg.stage_model_inputs:
+        request["options"]["stage_model_inputs"] = True
     if process_names:
         # No `models.pdk_root` here, deliberately (#464). Pinning the root the
         # harness resolved is what klt's own multiple-installs warning asks
@@ -1226,7 +1254,106 @@ def _klt_comparison(value) -> tuple[str | None, str]:
     return (status if isinstance(status, str) else None), str(reason)[:300]
 
 
-def _models_lib_rows(remote: dict, job_id: str, cfg: BatchConfig) -> list[dict]:
+def _digest_map(rows, key: str = "name") -> dict[str, str] | None:
+    """``[{name, sha256}, ...]`` -> ``{name: sha256}``; ``None`` unless every
+    row is a well-formed entry (a malformed list is never read as a match)."""
+    if not isinstance(rows, list):
+        return None
+    out: dict[str, str] = {}
+    for row in rows:
+        if not isinstance(row, dict) or not isinstance(row.get(key), str):
+            return None
+        digest = _hex64(row.get("sha256"))
+        if digest is None:
+            return None
+        out[row[key]] = digest
+    return out
+
+
+def _staged_rows(
+    remote: dict, job_id: str, cfg: BatchConfig, staged_inputs
+) -> list[dict]:
+    """Gate a report on the *staged* model inputs, one provenance row per job.
+
+    Under ``options.stage_model_inputs`` the runner executes the files the
+    client shipped, so the image's own ``models.lib`` digest says nothing. What
+    must hold instead, for every fleet job: the job reports
+    ``worker_environment.pdk.models_staged`` true; the client's own record of
+    what it staged (``environment.staged_model_inputs``) is present and
+    non-empty; every staged file appears in ``runner_model_inputs`` with the
+    same name and sha256; and the staged ``models.lib`` library is, byte for
+    byte at its source, this host's pinned ``pdk.model_lib``. Anything absent
+    is a refusal, never a pass: a record must not name a model set the
+    simulation did not read.
+    """
+    local = cfg.local_model_lib_sha256()
+    client = _digest_map(staged_inputs)
+    if not client:
+        raise BatchPdkMismatch(
+            "the report carries no usable environment.staged_model_inputs although "
+            "options.stage_model_inputs was requested; its result is not accepted, "
+            "because nothing proves which model files the fleet executed"
+        )
+    lib_name = cfg.pdk.model_lib.name
+    lib_sources = {
+        str(r.get("source_sha256")).lower()
+        for r in staged_inputs
+        if isinstance(r, dict) and r.get("kind") == "library"
+        and Path(str(r.get("name", ""))).name.endswith(lib_name)
+    }
+    # The staged check compares only the names the client staged; extra runner-side
+    # inputs are deliberately tolerated.
+    if local is not None and local not in lib_sources:
+        raise BatchPdkMismatch(
+            f"the staged {lib_name} was sourced from sha256 {sorted(lib_sources)}, but "
+            f"this host's pinned model library is {local} ({cfg.pdk.model_lib}); its "
+            "result is not accepted, because a record of it would name a PDK build the "
+            "simulation never read"
+        )
+    rows: list[dict] = []
+    for job_rec in _remote_jobs(remote):
+        job = str(job_rec.get("job_id") or job_id)
+        env = job_rec.get("worker_environment")
+        pdk = env.get("pdk") if isinstance(env, dict) else None
+        if not (isinstance(pdk, dict) and pdk.get("models_staged") is True):
+            raise BatchPdkMismatch(
+                f"fleet job {job}: worker_environment.pdk.models_staged is not true -- "
+                "the runner did not execute the staged models; its result is not "
+                "accepted"
+            )
+        runner = _digest_map(job_rec.get("runner_model_inputs"))
+        if runner is None:
+            raise BatchPdkMismatch(
+                f"fleet job {job}: the runner reported no usable runner_model_inputs, "
+                "so the staged files it executed cannot be verified; its result is "
+                "not accepted"
+            )
+        differing = sorted(n for n, h in client.items() if runner.get(n) != h)
+        if differing:
+            raise BatchPdkMismatch(
+                f"fleet job {job}: staged model file(s) {differing} are missing from the "
+                "runner's received inputs or differ in sha256; its result is not accepted"
+            )
+        # No local digest -> the library-source test above was skipped; record
+        # that honestly rather than a `match` nothing compared.
+        comparison = (
+            {"status": "match", "basis": "staged_model_inputs"} if local is not None
+            else {"status": "not_comparable", "reason": "client_hash_unavailable",
+                  "basis": "staged_model_inputs"}
+        )
+        rows.append({
+            "job_id": job,
+            "runner_models_lib_sha256": None,
+            "models_lib_sha256": local,
+            "comparison": comparison,
+            "klt_models_lib_comparison": None,
+            "models_staged": True,
+            "staged_model_inputs": [{"name": n, "sha256": h} for n, h in sorted(client.items())],
+        })
+    return rows
+
+
+def _models_lib_rows(remote: dict, job_id: str, cfg: BatchConfig, staged_inputs=None) -> list[dict]:
     """Gate a report's fleet jobs on the PDK the runner actually read, and
     return one provenance row per job.
 
@@ -1237,6 +1364,8 @@ def _models_lib_rows(remote: dict, job_id: str, cfg: BatchConfig) -> list[dict]:
     usable runner digest -- an older runner, staged models, a model library
     this host cannot read -- is accepted and recorded as not comparable.
     """
+    if cfg.stage_model_inputs:
+        return _staged_rows(remote, job_id, cfg, staged_inputs)
     local = cfg.local_model_lib_sha256()
     why = "a record of it would name a PDK build the simulation never read"
     fix = (
@@ -1356,7 +1485,9 @@ def _collect_group(
     # What the runner's PDK image actually provided, before any corner is
     # judged: an accepted result must have been simulated against the model
     # library the record is about to name (#468).
-    provenance = _models_lib_rows(remote, job_id, cfg)
+    provenance = _models_lib_rows(
+        remote, job_id, cfg, (report.get("environment") or {}).get("staged_model_inputs")
+    )
     corners = report.get("corners")
     if not isinstance(corners, list):
         raise BatchResultError("report 'corners' is not a list")

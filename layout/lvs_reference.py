@@ -1666,6 +1666,75 @@ def require_declared_nets(
         )
 
 
+def manifest_devices(spec: dict) -> set[str]:
+    """Device names one manifest entry itself lists as drawn.
+
+    The four keys :func:`build_cards` walks, flattened: ``devices``,
+    ``caps``, ``resistors``, ``bipolars`` (a dict-valued key contributes its
+    keys). The manifest side of :func:`undrawn_devices`.
+    """
+    names: set[str] = set()
+    for key in ("devices", "caps", "resistors", "bipolars"):
+        value = spec.get(key, [])
+        names |= set(value if not isinstance(value, dict) else value)
+    return names
+
+
+def schematic_devices(cell: str) -> set[str]:
+    """Device names the cell's own golden netlist instantiates.
+
+    The schematic side of :func:`undrawn_devices` -- subckt body only, so an
+    assembly contributes whatever it instantiates *inline*, never its
+    sub-cells' primitives (those come in through the :func:`undrawn_devices`
+    recursion).
+    """
+    spec = CELLS[cell]
+    body = subckt_body((NETLIST_DIR / spec["source"]).read_text(), spec["subckt"])
+    return (
+        set(parse_devices(body))
+        | set(parse_capacitors(body))
+        | set(parse_passives(body))
+    )
+
+
+def _owns_subckt(cell: str) -> bool:
+    """True when no other manifest entry builds from the same golden subckt.
+
+    The flow's proof cell is a fragment of ``por_comparator``: same source
+    file, same subckt, a manifest that deliberately lists only the devices
+    the fragment draws. A body-vs-manifest gap there is the fragment's
+    shape, not a layout lag, so completeness is judged only where a cell
+    owns its subckt (a fragment's committed reference still builds, and
+    ``require_declared_nets`` still guards whatever it does build).
+    """
+    spec = CELLS[cell]
+    key = (spec["source"], spec["subckt"])
+    return not any(
+        other != cell and (CELLS[other]["source"], CELLS[other]["subckt"]) == key
+        for other in CELLS
+    )
+
+
+def undrawn_devices(cell: str) -> set[str]:
+    """Golden devices the manifest does not list, sub-cells included.
+
+    Non-empty exactly when the schematic has moved ahead of its layout and
+    manifest (the DR-031 / #458 case) -- the one set every reference
+    consumer gates its build on, instead of each re-deriving its own
+    mismatch test. An assembly inherits its sub-cells' sets, so a stale leaf
+    gates the assembly built on top of it. Empties by itself once the
+    manifest catches up; nothing here carries a cell list to forget.
+    """
+    spec = CELLS[cell]
+    out: set[str] = set()
+    if _owns_subckt(cell):
+        out |= schematic_devices(cell) - manifest_devices(spec)
+    if "assembly" in spec:
+        for _inst, sub_cell, _rename in instance_renames(cell):
+            out |= undrawn_devices(sub_cell)
+    return out
+
+
 def cap_units(cap: dict) -> int:
     """How many drawn devices one golden MiM card's ``m=`` multiplier is.
 
@@ -2203,6 +2272,27 @@ def run(check: bool, only: str | None, corrupt: str | None, out: str | None) -> 
     failures = []
     for name in names:
         path = CELLS_DIR / f"{name}.reference.spice"
+        undrawn = sorted(undrawn_devices(name))
+        if undrawn:
+            # Schematic ahead of the manifest (DR-031 / #458): no reference
+            # build can pass the declared-net guard until the manifest
+            # catches up, so the committed reference is carried forward --
+            # the script path of the same conditional gate the layout tests
+            # take (layout/tests/layout_staleness.py); lifts by itself.
+            if path.exists():
+                print(
+                    f"deferred {_display_path(path)}: schematic ahead of its "
+                    f"manifest ({len(undrawn)} undrawn device(s), e.g. "
+                    f"{', '.join(undrawn[:3])}) -- committed reference "
+                    "carried forward (#458)"
+                )
+            else:
+                failures.append(
+                    f"{name}: its reference build is deferred ({len(undrawn)} "
+                    f"undrawn device(s), e.g. {', '.join(undrawn[:3])}) and "
+                    "nothing is committed to carry forward"
+                )
+            continue
         text = build(name)
         if check:
             if not path.exists():

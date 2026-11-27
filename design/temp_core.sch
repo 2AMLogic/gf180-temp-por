@@ -172,9 +172,9 @@ m=1
 model=pfet_03v3
 spiceprefix=X}
 N -740 290 -740 330 {}
-C {devices/lab_pin.sym} -740 330 0 0 {name=l45 lab=N1}
+C {devices/lab_pin.sym} -740 330 0 0 {name=l45 lab=D1}
 N -780 260 -840 260 {}
-C {devices/lab_pin.sym} -840 260 0 0 {name=l46 lab=NA}
+C {devices/lab_pin.sym} -840 260 0 0 {name=l46 lab=GA}
 N -740 230 -740 190 {}
 C {devices/lab_pin.sym} -740 190 0 0 {name=l47 lab=NT}
 N -740 260 -690 260 {}
@@ -187,9 +187,9 @@ m=1
 model=pfet_03v3
 spiceprefix=X}
 N -500 290 -500 330 {}
-C {devices/lab_pin.sym} -500 330 0 0 {name=l49 lab=N2}
+C {devices/lab_pin.sym} -500 330 0 0 {name=l49 lab=D2}
 N -540 260 -600 260 {}
-C {devices/lab_pin.sym} -600 260 0 0 {name=l50 lab=NB}
+C {devices/lab_pin.sym} -600 260 0 0 {name=l50 lab=GB}
 N -500 230 -500 190 {}
 C {devices/lab_pin.sym} -500 190 0 0 {name=l51 lab=NT}
 N -500 260 -450 260 {}
@@ -293,8 +293,8 @@ C {devices/lab_pin.sym} -980 450 0 0 {name=l76 lab=VDD}
 N -980 520 -930 520 {}
 C {devices/lab_pin.sym} -930 520 0 0 {name=l77 lab=VDD}
 C {symbols/pfet_03v3.sym} -1000 520 0 0 {name=MP1
-L=4u
-W=8u
+L=8u
+W=16u
 nf=1
 m=1
 model=pfet_03v3
@@ -323,8 +323,8 @@ C {devices/lab_pin.sym} -500 450 0 0 {name=l84 lab=VDD}
 N -500 520 -450 520 {}
 C {devices/lab_pin.sym} -450 520 0 0 {name=l85 lab=VDD}
 C {symbols/pfet_03v3.sym} -520 520 0 0 {name=MP2
-L=4u
-W=8u
+L=8u
+W=16u
 nf=1
 m=1
 model=pfet_03v3
@@ -353,8 +353,8 @@ C {devices/lab_pin.sym} -20 450 0 0 {name=l92 lab=VDD}
 N -20 520 30 520 {}
 C {devices/lab_pin.sym} 30 520 0 0 {name=l93 lab=VDD}
 C {symbols/pfet_03v3.sym} -40 520 0 0 {name=MP3
-L=4u
-W=8u
+L=8u
+W=16u
 nf=1
 m=1
 model=pfet_03v3
@@ -639,8 +639,8 @@ C {devices/lab_pin.sym} 1160 970 0 0 {name=l154 lab=NC}
 N 1140 1040 1080 1040 {}
 C {devices/lab_pin.sym} 1080 1040 0 0 {name=l155 lab=VSS}
 C {symbols/ppolyf_u.sym} 1160 1040 0 0 {name=R1
-W=2u
-L=119.47u
+W=4u
+L=242.41u
 model=ppolyf_u
 spiceprefix=X
 m=1}
@@ -652,8 +652,8 @@ C {devices/lab_pin.sym} -1000 1230 0 0 {name=l157 lab=T5}
 N -1020 1300 -1080 1300 {}
 C {devices/lab_pin.sym} -1080 1300 0 0 {name=l158 lab=VSS}
 C {symbols/ppolyf_u.sym} -1000 1300 0 0 {name=R2F
-W=2u
-L=2652.6u
+W=4u
+L=5600.45u
 model=ppolyf_u
 spiceprefix=X
 m=1}
@@ -664,8 +664,8 @@ C {devices/lab_pin.sym} -760 1230 0 0 {name=l160 lab=T4}
 N -780 1300 -840 1300 {}
 C {devices/lab_pin.sym} -840 1300 0 0 {name=l161 lab=VSS}
 C {symbols/ppolyf_u.sym} -760 1300 0 0 {name=R2T5
-W=2u
-L=229.71u
+W=4u
+L=232.71u
 model=ppolyf_u
 spiceprefix=X
 m=1}
@@ -676,8 +676,8 @@ C {devices/lab_pin.sym} -520 1230 0 0 {name=l163 lab=T3}
 N -540 1300 -600 1300 {}
 C {devices/lab_pin.sym} -600 1300 0 0 {name=l164 lab=VSS}
 C {symbols/ppolyf_u.sym} -520 1300 0 0 {name=R2T4
-W=2u
-L=114.69u
+W=4u
+L=116.19u
 model=ppolyf_u
 spiceprefix=X
 m=1}
@@ -688,8 +688,8 @@ C {devices/lab_pin.sym} -280 1230 0 0 {name=l166 lab=T2}
 N -300 1300 -360 1300 {}
 C {devices/lab_pin.sym} -360 1300 0 0 {name=l167 lab=VSS}
 C {symbols/ppolyf_u.sym} -280 1300 0 0 {name=R2T3
-W=2u
-L=57.18u
+W=4u
+L=57.93u
 model=ppolyf_u
 spiceprefix=X
 m=1}
@@ -700,8 +700,8 @@ C {devices/lab_pin.sym} -40 1230 0 0 {name=l169 lab=T1}
 N -60 1300 -120 1300 {}
 C {devices/lab_pin.sym} -120 1300 0 0 {name=l170 lab=VSS}
 C {symbols/ppolyf_u.sym} -40 1300 0 0 {name=R2T2
-W=2u
-L=28.42u
+W=4u
+L=28.80u
 model=ppolyf_u
 spiceprefix=X
 m=1}
@@ -712,8 +712,8 @@ C {devices/lab_pin.sym} 200 1230 0 0 {name=l172 lab=T0}
 N 180 1300 120 1300 {}
 C {devices/lab_pin.sym} 120 1300 0 0 {name=l173 lab=VSS}
 C {symbols/ppolyf_u.sym} 200 1300 0 0 {name=R2T1
-W=2u
-L=14.03u
+W=4u
+L=14.22u
 model=ppolyf_u
 spiceprefix=X
 m=1}
@@ -724,8 +724,8 @@ C {devices/lab_pin.sym} 440 1230 0 0 {name=l175 lab=VSS}
 N 420 1300 360 1300 {}
 C {devices/lab_pin.sym} 360 1300 0 0 {name=l176 lab=VSS}
 C {symbols/ppolyf_u.sym} 440 1300 0 0 {name=R2T0
-W=2u
-L=6.85u
+W=4u
+L=6.95u
 model=ppolyf_u
 spiceprefix=X
 m=1}
@@ -833,3 +833,721 @@ m=1
 model=nfet_03v3
 spiceprefix=X}
 T {TRIM<5>=1 (strapped to VDD)          TRIM<4:0>=0 (strapped to VSS)} -800 1680 0 0 0.4 0.4 {}
+T {CHOPPER (DR-031 s1) -- continuous-time chopping of the error amplifier.\nInput commutator CI1..CI4 swaps NA/NB onto the pair gates GA/GB; output commutator\nCO1..CO4 swaps the pair drains D1/D2 onto the mirror load N1/N2. P1/P2 are the\nnon-overlapping clock phases. Switches are small NMOS (0.5u L) with VSS bulk.} 1800 -300 0 0 0.4 0.4 {}
+N 1920 -30 1920 -70 {}
+C {devices/lab_pin.sym} 1920 -70 0 0 {name=lc1 lab=NA}
+N 1920 30 1920 70 {}
+C {devices/lab_pin.sym} 1920 70 0 0 {name=lc2 lab=GA}
+N 1880 0 1820 0 {}
+C {devices/lab_pin.sym} 1820 0 0 0 {name=lc3 lab=P1}
+N 1920 0 1970 0 {}
+C {devices/lab_pin.sym} 1970 0 0 0 {name=lc4 lab=VSS}
+C {symbols/nfet_03v3.sym} 1900 0 0 0 {name=CI1
+L=0.5u
+W=0.5u
+nf=1
+m=1
+model=nfet_03v3
+spiceprefix=X}
+N 2120 -30 2120 -70 {}
+C {devices/lab_pin.sym} 2120 -70 0 0 {name=lc5 lab=NB}
+N 2120 30 2120 70 {}
+C {devices/lab_pin.sym} 2120 70 0 0 {name=lc6 lab=GB}
+N 2080 0 2020 0 {}
+C {devices/lab_pin.sym} 2020 0 0 0 {name=lc7 lab=P1}
+N 2120 0 2170 0 {}
+C {devices/lab_pin.sym} 2170 0 0 0 {name=lc8 lab=VSS}
+C {symbols/nfet_03v3.sym} 2100 0 0 0 {name=CI2
+L=0.5u
+W=0.5u
+nf=1
+m=1
+model=nfet_03v3
+spiceprefix=X}
+N 2320 -30 2320 -70 {}
+C {devices/lab_pin.sym} 2320 -70 0 0 {name=lc9 lab=NA}
+N 2320 30 2320 70 {}
+C {devices/lab_pin.sym} 2320 70 0 0 {name=lc10 lab=GB}
+N 2280 0 2220 0 {}
+C {devices/lab_pin.sym} 2220 0 0 0 {name=lc11 lab=P2}
+N 2320 0 2370 0 {}
+C {devices/lab_pin.sym} 2370 0 0 0 {name=lc12 lab=VSS}
+C {symbols/nfet_03v3.sym} 2300 0 0 0 {name=CI3
+L=0.5u
+W=0.5u
+nf=1
+m=1
+model=nfet_03v3
+spiceprefix=X}
+N 2520 -30 2520 -70 {}
+C {devices/lab_pin.sym} 2520 -70 0 0 {name=lc13 lab=NB}
+N 2520 30 2520 70 {}
+C {devices/lab_pin.sym} 2520 70 0 0 {name=lc14 lab=GA}
+N 2480 0 2420 0 {}
+C {devices/lab_pin.sym} 2420 0 0 0 {name=lc15 lab=P2}
+N 2520 0 2570 0 {}
+C {devices/lab_pin.sym} 2570 0 0 0 {name=lc16 lab=VSS}
+C {symbols/nfet_03v3.sym} 2500 0 0 0 {name=CI4
+L=0.5u
+W=0.5u
+nf=1
+m=1
+model=nfet_03v3
+spiceprefix=X}
+N 2720 -30 2720 -70 {}
+C {devices/lab_pin.sym} 2720 -70 0 0 {name=lc17 lab=D1}
+N 2720 30 2720 70 {}
+C {devices/lab_pin.sym} 2720 70 0 0 {name=lc18 lab=N1}
+N 2680 0 2620 0 {}
+C {devices/lab_pin.sym} 2620 0 0 0 {name=lc19 lab=P1}
+N 2720 0 2770 0 {}
+C {devices/lab_pin.sym} 2770 0 0 0 {name=lc20 lab=VSS}
+C {symbols/nfet_03v3.sym} 2700 0 0 0 {name=CO1
+L=0.5u
+W=0.5u
+nf=1
+m=1
+model=nfet_03v3
+spiceprefix=X}
+N 2920 -30 2920 -70 {}
+C {devices/lab_pin.sym} 2920 -70 0 0 {name=lc21 lab=D2}
+N 2920 30 2920 70 {}
+C {devices/lab_pin.sym} 2920 70 0 0 {name=lc22 lab=N2}
+N 2880 0 2820 0 {}
+C {devices/lab_pin.sym} 2820 0 0 0 {name=lc23 lab=P1}
+N 2920 0 2970 0 {}
+C {devices/lab_pin.sym} 2970 0 0 0 {name=lc24 lab=VSS}
+C {symbols/nfet_03v3.sym} 2900 0 0 0 {name=CO2
+L=0.5u
+W=0.5u
+nf=1
+m=1
+model=nfet_03v3
+spiceprefix=X}
+N 3120 -30 3120 -70 {}
+C {devices/lab_pin.sym} 3120 -70 0 0 {name=lc25 lab=D1}
+N 3120 30 3120 70 {}
+C {devices/lab_pin.sym} 3120 70 0 0 {name=lc26 lab=N2}
+N 3080 0 3020 0 {}
+C {devices/lab_pin.sym} 3020 0 0 0 {name=lc27 lab=P2}
+N 3120 0 3170 0 {}
+C {devices/lab_pin.sym} 3170 0 0 0 {name=lc28 lab=VSS}
+C {symbols/nfet_03v3.sym} 3100 0 0 0 {name=CO3
+L=0.5u
+W=0.5u
+nf=1
+m=1
+model=nfet_03v3
+spiceprefix=X}
+N 3320 -30 3320 -70 {}
+C {devices/lab_pin.sym} 3320 -70 0 0 {name=lc29 lab=D2}
+N 3320 30 3320 70 {}
+C {devices/lab_pin.sym} 3320 70 0 0 {name=lc30 lab=N1}
+N 3280 0 3220 0 {}
+C {devices/lab_pin.sym} 3220 0 0 0 {name=lc31 lab=P2}
+N 3320 0 3370 0 {}
+C {devices/lab_pin.sym} 3370 0 0 0 {name=lc32 lab=VSS}
+C {symbols/nfet_03v3.sym} 3300 0 0 0 {name=CO4
+L=0.5u
+W=0.5u
+nf=1
+m=1
+model=nfet_03v3
+spiceprefix=X}
+T {CLOCK -- current-starved 3-stage ring (~100 kHz), biased by MOSC, a local 1:8 replica of\nthe XMT tail (gate PB), mirrored into NOB. Every stage is starved on both rails so no gate\ncan draw more than its bias current, whatever the input slope. EN low: NOB and P1/P2 are\npulled to VSS (ENB), every starve device is off, no DC path (DR-010 / por-iq).} 1800 200 0 0 0.4 0.4 {}
+N 1920 370 1920 330 {}
+C {devices/lab_pin.sym} 1920 330 0 0 {name=lc33 lab=VDD}
+N 1920 430 1920 470 {}
+C {devices/lab_pin.sym} 1920 470 0 0 {name=lc34 lab=NOB}
+N 1880 400 1820 400 {}
+C {devices/lab_pin.sym} 1820 400 0 0 {name=lc35 lab=PB}
+N 1920 400 1970 400 {}
+C {devices/lab_pin.sym} 1970 400 0 0 {name=lc36 lab=VDD}
+C {symbols/pfet_03v3.sym} 1900 400 0 0 {name=MOSC
+L=4u
+W=2.5u
+nf=1
+m=1
+model=pfet_03v3
+spiceprefix=X}
+N 2120 370 2120 330 {}
+C {devices/lab_pin.sym} 2120 330 0 0 {name=lc37 lab=NOB}
+N 2120 430 2120 470 {}
+C {devices/lab_pin.sym} 2120 470 0 0 {name=lc38 lab=VSS}
+N 2080 400 2020 400 {}
+C {devices/lab_pin.sym} 2020 400 0 0 {name=lc39 lab=NOB}
+N 2120 400 2170 400 {}
+C {devices/lab_pin.sym} 2170 400 0 0 {name=lc40 lab=VSS}
+C {symbols/nfet_03v3.sym} 2100 400 0 0 {name=MON
+L=2u
+W=2u
+nf=1
+m=1
+model=nfet_03v3
+spiceprefix=X}
+N 2320 370 2320 330 {}
+C {devices/lab_pin.sym} 2320 330 0 0 {name=lc41 lab=NOB}
+N 2320 430 2320 470 {}
+C {devices/lab_pin.sym} 2320 470 0 0 {name=lc42 lab=VSS}
+N 2280 400 2220 400 {}
+C {devices/lab_pin.sym} 2220 400 0 0 {name=lc43 lab=ENB}
+N 2320 400 2370 400 {}
+C {devices/lab_pin.sym} 2370 400 0 0 {name=lc44 lab=VSS}
+C {symbols/nfet_03v3.sym} 2300 400 0 0 {name=MDNOB
+L=1u
+W=1u
+nf=1
+m=1
+model=nfet_03v3
+spiceprefix=X}
+N 2720 370 2720 330 {}
+C {devices/lab_pin.sym} 2720 330 0 0 {name=lc45 lab=VDD}
+N 2720 430 2720 470 {}
+C {devices/lab_pin.sym} 2720 470 0 0 {name=lc46 lab=psR1}
+N 2680 400 2620 400 {}
+C {devices/lab_pin.sym} 2620 400 0 0 {name=lc47 lab=PB}
+N 2720 400 2770 400 {}
+C {devices/lab_pin.sym} 2770 400 0 0 {name=lc48 lab=VDD}
+C {symbols/pfet_03v3.sym} 2700 400 0 0 {name=SPR1
+L=4u
+W=2.5u
+nf=1
+m=1
+model=pfet_03v3
+spiceprefix=X}
+N 2920 370 2920 330 {}
+C {devices/lab_pin.sym} 2920 330 0 0 {name=lc49 lab=psR1}
+N 2920 430 2920 470 {}
+C {devices/lab_pin.sym} 2920 470 0 0 {name=lc50 lab=R0}
+N 2880 400 2820 400 {}
+C {devices/lab_pin.sym} 2820 400 0 0 {name=lc51 lab=R2}
+N 2920 400 2970 400 {}
+C {devices/lab_pin.sym} 2970 400 0 0 {name=lc52 lab=VDD}
+C {symbols/pfet_03v3.sym} 2900 400 0 0 {name=IPR1
+L=0.5u
+W=1u
+nf=1
+m=1
+model=pfet_03v3
+spiceprefix=X}
+N 3120 370 3120 330 {}
+C {devices/lab_pin.sym} 3120 330 0 0 {name=lc53 lab=R0}
+N 3120 430 3120 470 {}
+C {devices/lab_pin.sym} 3120 470 0 0 {name=lc54 lab=snR1}
+N 3080 400 3020 400 {}
+C {devices/lab_pin.sym} 3020 400 0 0 {name=lc55 lab=R2}
+N 3120 400 3170 400 {}
+C {devices/lab_pin.sym} 3170 400 0 0 {name=lc56 lab=VSS}
+C {symbols/nfet_03v3.sym} 3100 400 0 0 {name=INR1
+L=0.5u
+W=0.5u
+nf=1
+m=1
+model=nfet_03v3
+spiceprefix=X}
+N 3320 370 3320 330 {}
+C {devices/lab_pin.sym} 3320 330 0 0 {name=lc57 lab=snR1}
+N 3320 430 3320 470 {}
+C {devices/lab_pin.sym} 3320 470 0 0 {name=lc58 lab=VSS}
+N 3280 400 3220 400 {}
+C {devices/lab_pin.sym} 3220 400 0 0 {name=lc59 lab=NOB}
+N 3320 400 3370 400 {}
+C {devices/lab_pin.sym} 3370 400 0 0 {name=lc60 lab=VSS}
+C {symbols/nfet_03v3.sym} 3300 400 0 0 {name=SNR1
+L=2u
+W=2u
+nf=1
+m=1
+model=nfet_03v3
+spiceprefix=X}
+N 3520 370 3520 330 {}
+C {devices/lab_pin.sym} 3520 330 0 0 {name=lc61 lab=VDD}
+N 3520 430 3520 470 {}
+C {devices/lab_pin.sym} 3520 470 0 0 {name=lc62 lab=psR2}
+N 3480 400 3420 400 {}
+C {devices/lab_pin.sym} 3420 400 0 0 {name=lc63 lab=PB}
+N 3520 400 3570 400 {}
+C {devices/lab_pin.sym} 3570 400 0 0 {name=lc64 lab=VDD}
+C {symbols/pfet_03v3.sym} 3500 400 0 0 {name=SPR2
+L=4u
+W=2.5u
+nf=1
+m=1
+model=pfet_03v3
+spiceprefix=X}
+N 3720 370 3720 330 {}
+C {devices/lab_pin.sym} 3720 330 0 0 {name=lc65 lab=psR2}
+N 3720 430 3720 470 {}
+C {devices/lab_pin.sym} 3720 470 0 0 {name=lc66 lab=R1}
+N 3680 400 3620 400 {}
+C {devices/lab_pin.sym} 3620 400 0 0 {name=lc67 lab=R0}
+N 3720 400 3770 400 {}
+C {devices/lab_pin.sym} 3770 400 0 0 {name=lc68 lab=VDD}
+C {symbols/pfet_03v3.sym} 3700 400 0 0 {name=IPR2
+L=0.5u
+W=1u
+nf=1
+m=1
+model=pfet_03v3
+spiceprefix=X}
+N 3920 370 3920 330 {}
+C {devices/lab_pin.sym} 3920 330 0 0 {name=lc69 lab=R1}
+N 3920 430 3920 470 {}
+C {devices/lab_pin.sym} 3920 470 0 0 {name=lc70 lab=snR2}
+N 3880 400 3820 400 {}
+C {devices/lab_pin.sym} 3820 400 0 0 {name=lc71 lab=R0}
+N 3920 400 3970 400 {}
+C {devices/lab_pin.sym} 3970 400 0 0 {name=lc72 lab=VSS}
+C {symbols/nfet_03v3.sym} 3900 400 0 0 {name=INR2
+L=0.5u
+W=0.5u
+nf=1
+m=1
+model=nfet_03v3
+spiceprefix=X}
+N 4120 370 4120 330 {}
+C {devices/lab_pin.sym} 4120 330 0 0 {name=lc73 lab=snR2}
+N 4120 430 4120 470 {}
+C {devices/lab_pin.sym} 4120 470 0 0 {name=lc74 lab=VSS}
+N 4080 400 4020 400 {}
+C {devices/lab_pin.sym} 4020 400 0 0 {name=lc75 lab=NOB}
+N 4120 400 4170 400 {}
+C {devices/lab_pin.sym} 4170 400 0 0 {name=lc76 lab=VSS}
+C {symbols/nfet_03v3.sym} 4100 400 0 0 {name=SNR2
+L=2u
+W=2u
+nf=1
+m=1
+model=nfet_03v3
+spiceprefix=X}
+N 4320 370 4320 330 {}
+C {devices/lab_pin.sym} 4320 330 0 0 {name=lc77 lab=VDD}
+N 4320 430 4320 470 {}
+C {devices/lab_pin.sym} 4320 470 0 0 {name=lc78 lab=psR3}
+N 4280 400 4220 400 {}
+C {devices/lab_pin.sym} 4220 400 0 0 {name=lc79 lab=PB}
+N 4320 400 4370 400 {}
+C {devices/lab_pin.sym} 4370 400 0 0 {name=lc80 lab=VDD}
+C {symbols/pfet_03v3.sym} 4300 400 0 0 {name=SPR3
+L=4u
+W=2.5u
+nf=1
+m=1
+model=pfet_03v3
+spiceprefix=X}
+N 4520 370 4520 330 {}
+C {devices/lab_pin.sym} 4520 330 0 0 {name=lc81 lab=psR3}
+N 4520 430 4520 470 {}
+C {devices/lab_pin.sym} 4520 470 0 0 {name=lc82 lab=R2}
+N 4480 400 4420 400 {}
+C {devices/lab_pin.sym} 4420 400 0 0 {name=lc83 lab=R1}
+N 4520 400 4570 400 {}
+C {devices/lab_pin.sym} 4570 400 0 0 {name=lc84 lab=VDD}
+C {symbols/pfet_03v3.sym} 4500 400 0 0 {name=IPR3
+L=0.5u
+W=1u
+nf=1
+m=1
+model=pfet_03v3
+spiceprefix=X}
+N 4720 370 4720 330 {}
+C {devices/lab_pin.sym} 4720 330 0 0 {name=lc85 lab=R2}
+N 4720 430 4720 470 {}
+C {devices/lab_pin.sym} 4720 470 0 0 {name=lc86 lab=snR3}
+N 4680 400 4620 400 {}
+C {devices/lab_pin.sym} 4620 400 0 0 {name=lc87 lab=R1}
+N 4720 400 4770 400 {}
+C {devices/lab_pin.sym} 4770 400 0 0 {name=lc88 lab=VSS}
+C {symbols/nfet_03v3.sym} 4700 400 0 0 {name=INR3
+L=0.5u
+W=0.5u
+nf=1
+m=1
+model=nfet_03v3
+spiceprefix=X}
+N 4920 370 4920 330 {}
+C {devices/lab_pin.sym} 4920 330 0 0 {name=lc89 lab=snR3}
+N 4920 430 4920 470 {}
+C {devices/lab_pin.sym} 4920 470 0 0 {name=lc90 lab=VSS}
+N 4880 400 4820 400 {}
+C {devices/lab_pin.sym} 4820 400 0 0 {name=lc91 lab=NOB}
+N 4920 400 4970 400 {}
+C {devices/lab_pin.sym} 4970 400 0 0 {name=lc92 lab=VSS}
+C {symbols/nfet_03v3.sym} 4900 400 0 0 {name=SNR3
+L=2u
+W=2u
+nf=1
+m=1
+model=nfet_03v3
+spiceprefix=X}
+N 5100 370 5100 330 {}
+C {devices/lab_pin.sym} 5100 330 0 0 {name=lc93 lab=R0}
+N 5100 430 5100 470 {}
+C {devices/lab_pin.sym} 5100 470 0 0 {name=lc94 lab=VSS}
+C {symbols/cap_mim_analog.sym} 5100 400 0 0 {name=CR0
+W=6u
+L=6u
+model=cap_mim_2f0_m3m4_noshield
+spiceprefix=X
+m=1}
+N 5300 370 5300 330 {}
+C {devices/lab_pin.sym} 5300 330 0 0 {name=lc95 lab=R1}
+N 5300 430 5300 470 {}
+C {devices/lab_pin.sym} 5300 470 0 0 {name=lc96 lab=VSS}
+C {symbols/cap_mim_analog.sym} 5300 400 0 0 {name=CR1
+W=6u
+L=6u
+model=cap_mim_2f0_m3m4_noshield
+spiceprefix=X
+m=1}
+N 5500 370 5500 330 {}
+C {devices/lab_pin.sym} 5500 330 0 0 {name=lc97 lab=R2}
+N 5500 430 5500 470 {}
+C {devices/lab_pin.sym} 5500 470 0 0 {name=lc98 lab=VSS}
+C {symbols/cap_mim_analog.sym} 5500 400 0 0 {name=CR2
+W=6u
+L=6u
+model=cap_mim_2f0_m3m4_noshield
+spiceprefix=X
+m=1}
+N 2720 770 2720 730 {}
+C {devices/lab_pin.sym} 2720 730 0 0 {name=lc99 lab=VDD}
+N 2720 830 2720 870 {}
+C {devices/lab_pin.sym} 2720 870 0 0 {name=lc100 lab=psB1}
+N 2680 800 2620 800 {}
+C {devices/lab_pin.sym} 2620 800 0 0 {name=lc101 lab=PB}
+N 2720 800 2770 800 {}
+C {devices/lab_pin.sym} 2770 800 0 0 {name=lc102 lab=VDD}
+C {symbols/pfet_03v3.sym} 2700 800 0 0 {name=SPB1
+L=4u
+W=2.5u
+nf=1
+m=1
+model=pfet_03v3
+spiceprefix=X}
+N 2920 770 2920 730 {}
+C {devices/lab_pin.sym} 2920 730 0 0 {name=lc103 lab=psB1}
+N 2920 830 2920 870 {}
+C {devices/lab_pin.sym} 2920 870 0 0 {name=lc104 lab=CKB}
+N 2880 800 2820 800 {}
+C {devices/lab_pin.sym} 2820 800 0 0 {name=lc105 lab=R0}
+N 2920 800 2970 800 {}
+C {devices/lab_pin.sym} 2970 800 0 0 {name=lc106 lab=VDD}
+C {symbols/pfet_03v3.sym} 2900 800 0 0 {name=IPB1
+L=0.5u
+W=1u
+nf=1
+m=1
+model=pfet_03v3
+spiceprefix=X}
+N 3120 770 3120 730 {}
+C {devices/lab_pin.sym} 3120 730 0 0 {name=lc107 lab=CKB}
+N 3120 830 3120 870 {}
+C {devices/lab_pin.sym} 3120 870 0 0 {name=lc108 lab=snB1}
+N 3080 800 3020 800 {}
+C {devices/lab_pin.sym} 3020 800 0 0 {name=lc109 lab=R0}
+N 3120 800 3170 800 {}
+C {devices/lab_pin.sym} 3170 800 0 0 {name=lc110 lab=VSS}
+C {symbols/nfet_03v3.sym} 3100 800 0 0 {name=INB1
+L=0.5u
+W=0.5u
+nf=1
+m=1
+model=nfet_03v3
+spiceprefix=X}
+N 3320 770 3320 730 {}
+C {devices/lab_pin.sym} 3320 730 0 0 {name=lc111 lab=snB1}
+N 3320 830 3320 870 {}
+C {devices/lab_pin.sym} 3320 870 0 0 {name=lc112 lab=VSS}
+N 3280 800 3220 800 {}
+C {devices/lab_pin.sym} 3220 800 0 0 {name=lc113 lab=NOB}
+N 3320 800 3370 800 {}
+C {devices/lab_pin.sym} 3370 800 0 0 {name=lc114 lab=VSS}
+C {symbols/nfet_03v3.sym} 3300 800 0 0 {name=SNB1
+L=2u
+W=2u
+nf=1
+m=1
+model=nfet_03v3
+spiceprefix=X}
+N 3520 770 3520 730 {}
+C {devices/lab_pin.sym} 3520 730 0 0 {name=lc115 lab=VDD}
+N 3520 830 3520 870 {}
+C {devices/lab_pin.sym} 3520 870 0 0 {name=lc116 lab=psB2}
+N 3480 800 3420 800 {}
+C {devices/lab_pin.sym} 3420 800 0 0 {name=lc117 lab=PB}
+N 3520 800 3570 800 {}
+C {devices/lab_pin.sym} 3570 800 0 0 {name=lc118 lab=VDD}
+C {symbols/pfet_03v3.sym} 3500 800 0 0 {name=SPB2
+L=4u
+W=2.5u
+nf=1
+m=1
+model=pfet_03v3
+spiceprefix=X}
+N 3720 770 3720 730 {}
+C {devices/lab_pin.sym} 3720 730 0 0 {name=lc119 lab=psB2}
+N 3720 830 3720 870 {}
+C {devices/lab_pin.sym} 3720 870 0 0 {name=lc120 lab=CK}
+N 3680 800 3620 800 {}
+C {devices/lab_pin.sym} 3620 800 0 0 {name=lc121 lab=CKB}
+N 3720 800 3770 800 {}
+C {devices/lab_pin.sym} 3770 800 0 0 {name=lc122 lab=VDD}
+C {symbols/pfet_03v3.sym} 3700 800 0 0 {name=IPB2
+L=0.5u
+W=1u
+nf=1
+m=1
+model=pfet_03v3
+spiceprefix=X}
+N 3920 770 3920 730 {}
+C {devices/lab_pin.sym} 3920 730 0 0 {name=lc123 lab=CK}
+N 3920 830 3920 870 {}
+C {devices/lab_pin.sym} 3920 870 0 0 {name=lc124 lab=snB2}
+N 3880 800 3820 800 {}
+C {devices/lab_pin.sym} 3820 800 0 0 {name=lc125 lab=CKB}
+N 3920 800 3970 800 {}
+C {devices/lab_pin.sym} 3970 800 0 0 {name=lc126 lab=VSS}
+C {symbols/nfet_03v3.sym} 3900 800 0 0 {name=INB2
+L=0.5u
+W=0.5u
+nf=1
+m=1
+model=nfet_03v3
+spiceprefix=X}
+N 4120 770 4120 730 {}
+C {devices/lab_pin.sym} 4120 730 0 0 {name=lc127 lab=snB2}
+N 4120 830 4120 870 {}
+C {devices/lab_pin.sym} 4120 870 0 0 {name=lc128 lab=VSS}
+N 4080 800 4020 800 {}
+C {devices/lab_pin.sym} 4020 800 0 0 {name=lc129 lab=NOB}
+N 4120 800 4170 800 {}
+C {devices/lab_pin.sym} 4170 800 0 0 {name=lc130 lab=VSS}
+C {symbols/nfet_03v3.sym} 4100 800 0 0 {name=SNB2
+L=2u
+W=2u
+nf=1
+m=1
+model=nfet_03v3
+spiceprefix=X}
+N 2720 1170 2720 1130 {}
+C {devices/lab_pin.sym} 2720 1130 0 0 {name=lc131 lab=VDD}
+N 2720 1230 2720 1270 {}
+C {devices/lab_pin.sym} 2720 1270 0 0 {name=lc132 lab=psG1}
+N 2680 1200 2620 1200 {}
+C {devices/lab_pin.sym} 2620 1200 0 0 {name=lc133 lab=PB}
+N 2720 1200 2770 1200 {}
+C {devices/lab_pin.sym} 2770 1200 0 0 {name=lc134 lab=VDD}
+C {symbols/pfet_03v3.sym} 2700 1200 0 0 {name=SPG1
+L=4u
+W=10u
+nf=1
+m=1
+model=pfet_03v3
+spiceprefix=X}
+N 2920 1170 2920 1130 {}
+C {devices/lab_pin.sym} 2920 1130 0 0 {name=lc135 lab=psG1}
+N 2920 1230 2920 1270 {}
+C {devices/lab_pin.sym} 2920 1270 0 0 {name=lc136 lab=pmG1}
+N 2880 1200 2820 1200 {}
+C {devices/lab_pin.sym} 2820 1200 0 0 {name=lc137 lab=CKB}
+N 2920 1200 2970 1200 {}
+C {devices/lab_pin.sym} 2970 1200 0 0 {name=lc138 lab=VDD}
+C {symbols/pfet_03v3.sym} 2900 1200 0 0 {name=PAG1
+L=0.5u
+W=2u
+nf=1
+m=1
+model=pfet_03v3
+spiceprefix=X}
+N 3120 1170 3120 1130 {}
+C {devices/lab_pin.sym} 3120 1130 0 0 {name=lc139 lab=pmG1}
+N 3120 1230 3120 1270 {}
+C {devices/lab_pin.sym} 3120 1270 0 0 {name=lc140 lab=P1}
+N 3080 1200 3020 1200 {}
+C {devices/lab_pin.sym} 3020 1200 0 0 {name=lc141 lab=P2}
+N 3120 1200 3170 1200 {}
+C {devices/lab_pin.sym} 3170 1200 0 0 {name=lc142 lab=VDD}
+C {symbols/pfet_03v3.sym} 3100 1200 0 0 {name=PBG1
+L=0.5u
+W=2u
+nf=1
+m=1
+model=pfet_03v3
+spiceprefix=X}
+N 3320 1170 3320 1130 {}
+C {devices/lab_pin.sym} 3320 1130 0 0 {name=lc143 lab=P1}
+N 3320 1230 3320 1270 {}
+C {devices/lab_pin.sym} 3320 1270 0 0 {name=lc144 lab=snG1}
+N 3280 1200 3220 1200 {}
+C {devices/lab_pin.sym} 3220 1200 0 0 {name=lc145 lab=CKB}
+N 3320 1200 3370 1200 {}
+C {devices/lab_pin.sym} 3370 1200 0 0 {name=lc146 lab=VSS}
+C {symbols/nfet_03v3.sym} 3300 1200 0 0 {name=NAG1
+L=0.5u
+W=0.5u
+nf=1
+m=1
+model=nfet_03v3
+spiceprefix=X}
+N 3520 1170 3520 1130 {}
+C {devices/lab_pin.sym} 3520 1130 0 0 {name=lc147 lab=P1}
+N 3520 1230 3520 1270 {}
+C {devices/lab_pin.sym} 3520 1270 0 0 {name=lc148 lab=snG1}
+N 3480 1200 3420 1200 {}
+C {devices/lab_pin.sym} 3420 1200 0 0 {name=lc149 lab=P2}
+N 3520 1200 3570 1200 {}
+C {devices/lab_pin.sym} 3570 1200 0 0 {name=lc150 lab=VSS}
+C {symbols/nfet_03v3.sym} 3500 1200 0 0 {name=NBG1
+L=0.5u
+W=0.5u
+nf=1
+m=1
+model=nfet_03v3
+spiceprefix=X}
+N 3720 1170 3720 1130 {}
+C {devices/lab_pin.sym} 3720 1130 0 0 {name=lc151 lab=snG1}
+N 3720 1230 3720 1270 {}
+C {devices/lab_pin.sym} 3720 1270 0 0 {name=lc152 lab=VSS}
+N 3680 1200 3620 1200 {}
+C {devices/lab_pin.sym} 3620 1200 0 0 {name=lc153 lab=NOB}
+N 3720 1200 3770 1200 {}
+C {devices/lab_pin.sym} 3770 1200 0 0 {name=lc154 lab=VSS}
+C {symbols/nfet_03v3.sym} 3700 1200 0 0 {name=SNG1
+L=2u
+W=8u
+nf=1
+m=1
+model=nfet_03v3
+spiceprefix=X}
+N 3920 1570 3920 1530 {}
+C {devices/lab_pin.sym} 3920 1530 0 0 {name=lc155 lab=VDD}
+N 3920 1630 3920 1670 {}
+C {devices/lab_pin.sym} 3920 1670 0 0 {name=lc156 lab=psG2}
+N 3880 1600 3820 1600 {}
+C {devices/lab_pin.sym} 3820 1600 0 0 {name=lc157 lab=PB}
+N 3920 1600 3970 1600 {}
+C {devices/lab_pin.sym} 3970 1600 0 0 {name=lc158 lab=VDD}
+C {symbols/pfet_03v3.sym} 3900 1600 0 0 {name=SPG2
+L=4u
+W=10u
+nf=1
+m=1
+model=pfet_03v3
+spiceprefix=X}
+N 4120 1570 4120 1530 {}
+C {devices/lab_pin.sym} 4120 1530 0 0 {name=lc159 lab=psG2}
+N 4120 1630 4120 1670 {}
+C {devices/lab_pin.sym} 4120 1670 0 0 {name=lc160 lab=pmG2}
+N 4080 1600 4020 1600 {}
+C {devices/lab_pin.sym} 4020 1600 0 0 {name=lc161 lab=CK}
+N 4120 1600 4170 1600 {}
+C {devices/lab_pin.sym} 4170 1600 0 0 {name=lc162 lab=VDD}
+C {symbols/pfet_03v3.sym} 4100 1600 0 0 {name=PAG2
+L=0.5u
+W=2u
+nf=1
+m=1
+model=pfet_03v3
+spiceprefix=X}
+N 4320 1570 4320 1530 {}
+C {devices/lab_pin.sym} 4320 1530 0 0 {name=lc163 lab=pmG2}
+N 4320 1630 4320 1670 {}
+C {devices/lab_pin.sym} 4320 1670 0 0 {name=lc164 lab=P2}
+N 4280 1600 4220 1600 {}
+C {devices/lab_pin.sym} 4220 1600 0 0 {name=lc165 lab=P1}
+N 4320 1600 4370 1600 {}
+C {devices/lab_pin.sym} 4370 1600 0 0 {name=lc166 lab=VDD}
+C {symbols/pfet_03v3.sym} 4300 1600 0 0 {name=PBG2
+L=0.5u
+W=2u
+nf=1
+m=1
+model=pfet_03v3
+spiceprefix=X}
+N 4520 1570 4520 1530 {}
+C {devices/lab_pin.sym} 4520 1530 0 0 {name=lc167 lab=P2}
+N 4520 1630 4520 1670 {}
+C {devices/lab_pin.sym} 4520 1670 0 0 {name=lc168 lab=snG2}
+N 4480 1600 4420 1600 {}
+C {devices/lab_pin.sym} 4420 1600 0 0 {name=lc169 lab=CK}
+N 4520 1600 4570 1600 {}
+C {devices/lab_pin.sym} 4570 1600 0 0 {name=lc170 lab=VSS}
+C {symbols/nfet_03v3.sym} 4500 1600 0 0 {name=NAG2
+L=0.5u
+W=0.5u
+nf=1
+m=1
+model=nfet_03v3
+spiceprefix=X}
+N 4720 1570 4720 1530 {}
+C {devices/lab_pin.sym} 4720 1530 0 0 {name=lc171 lab=P2}
+N 4720 1630 4720 1670 {}
+C {devices/lab_pin.sym} 4720 1670 0 0 {name=lc172 lab=snG2}
+N 4680 1600 4620 1600 {}
+C {devices/lab_pin.sym} 4620 1600 0 0 {name=lc173 lab=P1}
+N 4720 1600 4770 1600 {}
+C {devices/lab_pin.sym} 4770 1600 0 0 {name=lc174 lab=VSS}
+C {symbols/nfet_03v3.sym} 4700 1600 0 0 {name=NBG2
+L=0.5u
+W=0.5u
+nf=1
+m=1
+model=nfet_03v3
+spiceprefix=X}
+N 4920 1570 4920 1530 {}
+C {devices/lab_pin.sym} 4920 1530 0 0 {name=lc175 lab=snG2}
+N 4920 1630 4920 1670 {}
+C {devices/lab_pin.sym} 4920 1670 0 0 {name=lc176 lab=VSS}
+N 4880 1600 4820 1600 {}
+C {devices/lab_pin.sym} 4820 1600 0 0 {name=lc177 lab=NOB}
+N 4920 1600 4970 1600 {}
+C {devices/lab_pin.sym} 4970 1600 0 0 {name=lc178 lab=VSS}
+C {symbols/nfet_03v3.sym} 4900 1600 0 0 {name=SNG2
+L=2u
+W=8u
+nf=1
+m=1
+model=nfet_03v3
+spiceprefix=X}
+N 1920 1970 1920 1930 {}
+C {devices/lab_pin.sym} 1920 1930 0 0 {name=lc179 lab=P1}
+N 1920 2030 1920 2070 {}
+C {devices/lab_pin.sym} 1920 2070 0 0 {name=lc180 lab=VSS}
+N 1880 2000 1820 2000 {}
+C {devices/lab_pin.sym} 1820 2000 0 0 {name=lc181 lab=ENB}
+N 1920 2000 1970 2000 {}
+C {devices/lab_pin.sym} 1970 2000 0 0 {name=lc182 lab=VSS}
+C {symbols/nfet_03v3.sym} 1900 2000 0 0 {name=MDP1
+L=1u
+W=1u
+nf=1
+m=1
+model=nfet_03v3
+spiceprefix=X}
+N 2120 1970 2120 1930 {}
+C {devices/lab_pin.sym} 2120 1930 0 0 {name=lc183 lab=P2}
+N 2120 2030 2120 2070 {}
+C {devices/lab_pin.sym} 2120 2070 0 0 {name=lc184 lab=VSS}
+N 2080 2000 2020 2000 {}
+C {devices/lab_pin.sym} 2020 2000 0 0 {name=lc185 lab=ENB}
+N 2120 2000 2170 2000 {}
+C {devices/lab_pin.sym} 2170 2000 0 0 {name=lc186 lab=VSS}
+C {symbols/nfet_03v3.sym} 2100 2000 0 0 {name=MDP2
+L=1u
+W=1u
+nf=1
+m=1
+model=nfet_03v3
+spiceprefix=X}
+T {OUTPUT POST-FILTER -- CF on the PTAT pad node. PTAT is driven through R2 (~516 kohm), so\nCF is an RC low-pass on the pad against the chop ripple. It sits outside the NA/NB feedback\nloop, so it does not move the loop's phase margin.} 1800 2150 0 0 0.4 0.4 {}
+N 2100 2420 2100 2380 {}
+C {devices/lab_pin.sym} 2100 2380 0 0 {name=lc187 lab=PTAT}
+N 2100 2480 2100 2520 {}
+C {devices/lab_pin.sym} 2100 2520 0 0 {name=lc188 lab=VSS}
+C {symbols/cap_mim_analog.sym} 2100 2450 0 0 {name=CF
+W=100u
+L=100u
+model=cap_mim_2f0_m3m4_noshield
+spiceprefix=X
+m=1}

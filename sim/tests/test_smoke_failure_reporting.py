@@ -212,7 +212,8 @@ class BatchMappingYieldsSpreadTests(unittest.TestCase):
         workdir = self.root / "work"
         workdir.mkdir(parents=True)
         cfg = klt_batch.BatchConfig(pdk=self.pdk, stage_root=self.root / "stage",
-                                    sleep=lambda s: None, log=lambda m: None)
+                                    sleep=lambda s: None, log=lambda m: None,
+                                    stage_model_inputs=False)
         # The same staging run_grid's batch path does (compose + lift).
         units, _, _ = runner._batch_units(
             self.tb, self.pdk, points, workdir, runner.compose_deck,

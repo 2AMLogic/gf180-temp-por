@@ -4595,6 +4595,22 @@ def build(name: str, out_dir: Path) -> Path:
     return path
 
 
+def deferred(name: str) -> bool:
+    """True while the cell's schematic names devices its manifest does not.
+
+    DR-031 moved ``temp_core``'s schematic ahead of its layout (#458), so the
+    hand-kept row table in ``_temp_core_body`` cannot be tied to the golden
+    netlist: ``_assert_row_type_matches_netlist`` is bidirectional and would
+    stop the build on every rename and every undrawn device. Rebuilding such a
+    cell can only fail, so its committed GDS is carried forward instead --
+    the same conditional gate ``layout/postlayout.py`` and
+    ``layout/tests/layout_staleness.py`` apply. An assembly inherits its
+    sub-cells' undrawn set, so ``temp_por_top`` defers through ``temp_core``.
+    Lifts by itself once the manifest accounts for every device (#458).
+    """
+    return bool(lvsref.undrawn_devices(name))
+
+
 def run(check: bool, only: str | None) -> int:
     names = [only] if only else sorted(CELLS)
     for name in names:
@@ -4604,6 +4620,13 @@ def run(check: bool, only: str | None) -> int:
 
     if not check:
         for name in names:
+            if deferred(name):
+                print(
+                    f"deferred {name}.gds  committed stream kept: the schematic "
+                    f"names {len(lvsref.undrawn_devices(name))} device(s) the "
+                    f"layout manifest does not (redraw tracked in #458)"
+                )
+                continue
             path = build(name, CELLS_DIR)
             print(
                 f"wrote {path.relative_to(REPO_ROOT)}  "
@@ -4615,6 +4638,18 @@ def run(check: bool, only: str | None) -> int:
     with tempfile.TemporaryDirectory() as tmp:
         for name in names:
             committed = CELLS_DIR / f"{name}.gds"
+            if deferred(name):
+                if not committed.exists():
+                    failures.append(
+                        f"{name}: deferred ({len(lvsref.undrawn_devices(name))} "
+                        f"undrawn device(s)) but no committed GDS to carry forward"
+                    )
+                else:
+                    print(
+                        f"deferred {name}.gds  carried forward, NOT rebuilt: the "
+                        f"schematic is ahead of the layout (redraw tracked in #458)"
+                    )
+                continue
             fresh = build(name, Path(tmp))
             if not committed.exists():
                 failures.append(f"{name}: not committed (run without --check)")

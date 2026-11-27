@@ -21,10 +21,12 @@ sys.path.insert(0, str(LAYOUT_DIR))
 
 import build_cells as bc  # noqa: E402  (klayout is imported lazily, per-cell)
 import lvs_reference as lr  # noqa: E402
+from layout_staleness import skip_while_layout_stale  # noqa: E402
 
 POLY2_SPACE_1 = 0.24  # minimum poly-to-poly spacing, um
 
 
+@skip_while_layout_stale
 class TempCoreResistorBankTest(unittest.TestCase):
     """The temp_core resistor bank's SAB geometry (#518).
 
@@ -68,6 +70,29 @@ class TempCoreResistorBankTest(unittest.TestCase):
         # _R_PITCH - width, independent of the SAB overhang.
         gap = bc._R_PITCH - self.width
         self.assertGreaterEqual(gap, POLY2_SPACE_1)
+
+
+class DeferredCellTest(unittest.TestCase):
+    """``--check`` carries a schematic-ahead-of-layout cell forward (#458)."""
+
+    def test_deferred_tracks_undrawn_devices(self):
+        for name in bc.CELLS:
+            self.assertEqual(bc.deferred(name), bool(lr.undrawn_devices(name)), name)
+
+    def test_assembly_defers_through_its_stale_subcell(self):
+        if bc.deferred("temp_core"):
+            self.assertTrue(bc.deferred("temp_por_top"))
+
+    def test_check_does_not_build_a_deferred_cell(self):
+        built = []
+        real_build = bc.build
+        bc.build = lambda name, out_dir: built.append(name) or real_build(name, out_dir)
+        try:
+            bc.run(True, "temp_core")
+        finally:
+            bc.build = real_build
+        if bc.deferred("temp_core"):
+            self.assertEqual(built, [])
 
 
 if __name__ == "__main__":

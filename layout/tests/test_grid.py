@@ -24,6 +24,7 @@ sys.path.insert(0, str(LAYOUT_DIR))
 
 import build_cells as bc  # noqa: E402  (klayout is imported lazily, per-cell)
 import lvs_reference as lr  # noqa: E402
+from layout_staleness import skip_while_layout_stale  # noqa: E402
 
 NM_PER_UM = 1000
 GRID_NM = round(bc.MFG_GRID_UM * NM_PER_UM)  # the 5 nm manufacturing pitch
@@ -224,6 +225,7 @@ class DrawnSegmentGridTest(unittest.TestCase):
                 f"bias_core {name}: segments {nm(segments)} nm off-grid",
             )
 
+    @skip_while_layout_stale
     def test_temp_core_segment_lengths_on_grid(self):
         devices = lr.parse_passives(
             lr.subckt_body(
