@@ -3,13 +3,14 @@
 Current workflow state, maintained by Guide.
 
 <!-- guide:plan-body:start -->
-_Generated: 2026-11-27T19:36:58Z (snapshot; compare against live labels)_
+_Generated: 2026-11-28T06:46:38Z (snapshot; compare against live labels)_
 ## Operator Attention: Merge-Risk-Hold Pileup
 
 Judge-approved PRs under a hold (`loom:blocked` or `loom:operator`) — a human merge decision, or the prerequisite shown, is missing.
 
-- **#615**: layout: draw the missing substrate and well taps DF.13/DF.14 need *(held: champion ratification hold)*
 - **#560**: fix: correct drifted LVS prose counts and police them against committed reports *(held: champion ratification hold)*
+- **#615**: layout: draw the missing substrate and well taps DF.13/DF.14 need *(held: champion ratification hold)*
+- **#701**: chore: resync installed Loom surfaces *(held: champion merge-risk hold)*
 
 ## Very Important
 
@@ -45,19 +46,23 @@ Issues currently being built (`loom:building`).
 - **#416**: POR threshold rows: N=500 cannot demonstrate the 99.73 % [3σ] yield; need a larger campaign
 - **#532**: temp_core and por_comparator_bias_okb_inv have no substrate or well tap within 20 um of their MOS rows (DF.13_LV / DF.14_LV)
 - **#696**: Consolidate duplicate DR-030 artifact-manifest validation onto sim/harness/evidence_store.py
+- **#699**: Consolidate duplicated batch toolchain resolution into sim/harness/cliutil.py
 
 ## PRs Awaiting Review
 
 PRs waiting on Judge (`loom:review-requested`).
 
-- **#697**: fix: validate artifact manifests before append-only installation
+_None._
 
 ## Approved (Awaiting Merge)
 
 PRs that passed review (`loom:pr`); unmarked PRs are queued for Champion auto-merge, PRs marked `*(held …)*` are not (the hold decides).
 
-- **#615**: layout: draw the missing substrate and well taps DF.13/DF.14 need — closes #532 *(held: champion ratification hold)*
 - **#560**: fix: correct drifted LVS prose counts and police them against committed reports — closes #510 *(held: champion ratification hold)*
+- **#615**: layout: draw the missing substrate and well taps DF.13/DF.14 need — closes #532 *(held: champion ratification hold)*
+- **#697**: fix: validate artifact manifests before append-only installation — closes #696
+- **#700**: refactor: share the batch-aware toolchain preamble across the four --backend entry points — closes #699
+- **#701**: chore: resync installed Loom surfaces *(held: champion merge-risk hold)*
 
 ## Proposed
 
@@ -91,14 +96,14 @@ _None._
 
 | Bucket | Count |
 |------|-------|
-| Operator merge-risk holds | 2 |
+| Operator merge-risk holds | 3 |
 | Very important | 1 |
 | Important | 4 |
 | Ready (`loom:issue`, net of holds/building/open-linked-PRs) | 0 |
-| In Progress (`loom:building`) | 3 |
+| In Progress (`loom:building`) | 4 |
 | Held, no other bucket | 10 |
-| PRs awaiting review | 1 |
-| Approved PRs awaiting merge | 2 |
+| PRs awaiting review | 0 |
+| Approved PRs awaiting merge | 5 |
 | Curated | 14 |
 | Architect / Hermit proposals | 2 |
 | Active epics | 0 |
