@@ -20,13 +20,16 @@ opened.
 
 from __future__ import annotations
 
+import contextlib
 import importlib.util
+import io
 import re
 import sys
 import tempfile
 import unittest
 from collections import Counter
 from pathlib import Path
+from unittest import mock
 
 SIM_DIR = Path(__file__).resolve().parents[1]
 REPO_ROOT = SIM_DIR.parent
@@ -50,6 +53,10 @@ def _load_control():
 
 
 rna = _load_control()
+
+from harness import cliutil, klt_batch, runner  # noqa: E402
+from harness.pdk import PdkNotFound  # noqa: E402
+from testutil import fake_pdk  # noqa: E402
 
 
 # --------------------------------------------------------------------------
@@ -262,6 +269,31 @@ class ShortNetsAgainstTheCommittedExtractionTests(unittest.TestCase):
         self.assertEqual(singletons, [], "these nodes lost their other connection")
         self.assertEqual(len(text.splitlines()),
                          len(EXTRACTED.read_text().splitlines()))
+
+
+class NetAttributionToolchainTests(unittest.TestCase):
+    """``main()`` resolves ``--backend`` and the PDK through
+    ``cliutil.locate_backend_toolchain(need_ngspice=False)`` (#699): this
+    control records no engine string, so neither ngspice nor klt is probed
+    for a version, and a missing PDK is an environment error."""
+
+    def test_missing_pdk_is_an_environment_error(self):
+        err = io.StringIO()
+        with mock.patch.object(cliutil, "find_pdk", side_effect=PdkNotFound("no pdk")), \
+                mock.patch.object(sys, "stderr", err):
+            self.assertEqual(rna.main(["--backend", "batch"]), cliutil.EXIT_ENVIRONMENT)
+        self.assertEqual(err.getvalue(), "no pdk\n")
+
+    def test_report_only_resolves_the_toolchain_without_probing_an_engine(self):
+        with tempfile.TemporaryDirectory() as tmp, \
+                mock.patch.object(cliutil, "find_pdk", return_value=fake_pdk(Path(tmp))), \
+                mock.patch.object(runner, "ngspice_version", side_effect=AssertionError("probed")), \
+                mock.patch.object(klt_batch, "klt_version", side_effect=AssertionError("probed")), \
+                mock.patch.object(rna, "CONTROL_DIR", Path(tmp)), \
+                contextlib.redirect_stderr(io.StringIO()) as err:
+            # no na-*.log on disk: the control stops before composing a deck
+            self.assertEqual(rna.main(["--backend", "batch", "--report-only"]), 1)
+        self.assertIn("no na-* logs to report from", err.getvalue())
 
 
 if __name__ == "__main__":

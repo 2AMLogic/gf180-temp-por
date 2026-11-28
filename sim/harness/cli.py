@@ -340,18 +340,10 @@ def run(args: argparse.Namespace) -> int:
     tb_path = cliutil.resolve_tb_path(args.testbench, SIM_DIR)
     tb = tb_mod.load(tb_path)
 
-    try:
-        backend = klt_batch.resolve_backend(args.backend)
-        pdk = find_pdk()
-        if backend == klt_batch.BACKEND_BATCH:
-            # Batch mode never touches a local ngspice: the engine runs on the
-            # fleet, so the record names klt (the only thing this host runs).
-            ngspice = f"batch via klt sim ({klt_batch.klt_version(args.klt)}); ngspice runs on the fleet"
-        else:
-            ngspice = runner.ngspice_version()
-    except (PdkNotFound, NgspiceMissing, klt_batch.BatchError) as exc:
-        print(f"error: {exc}", file=sys.stderr)
+    toolchain = cliutil.locate_backend_toolchain(args.backend, args.klt, error_prefix="error: ")
+    if toolchain is None:
         return EXIT_ENVIRONMENT
+    backend, pdk, ngspice = toolchain
 
     grid = resolve_grid(tb, args)
     points = grid.points

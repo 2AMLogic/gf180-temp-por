@@ -80,9 +80,7 @@ Stdlib only, no virtualenv required.
 from __future__ import annotations
 
 import argparse
-import json
 import math
-import os
 import sys
 from pathlib import Path
 
@@ -93,7 +91,6 @@ REPO_ROOT = CONTROL_DIR.parents[2]
 sys.path.insert(0, str(REPO_ROOT / "sim"))
 
 from harness import HARNESS_VERSION, cliutil, corners as corners_mod, klt_batch, runner  # noqa: E402
-from harness.pdk import PdkNotFound, find_pdk  # noqa: E402
 
 FRAGMENT = CONTROL_DIR / "dwell_sweep.spice"
 SCHEMATIC_NETLIST = REPO_ROOT / "design" / "netlist" / "por_output_chain.spice"
@@ -225,7 +222,7 @@ def run_all(
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "-j", "--jobs", type=int, default=max(1, (os.cpu_count() or 2) // 2),
+        "-j", "--jobs", type=int, default=cliutil.default_jobs(),
         help="parallel ngspice runs, or concurrent klt submissions in batch mode (default: half the host's logical cores)",
     )
     parser.add_argument(
@@ -236,18 +233,10 @@ def main() -> int:
     klt_batch.add_backend_argument(parser)
     args = parser.parse_args()
 
-    try:
-        backend = klt_batch.resolve_backend(args.backend)
-        pdk = find_pdk()
-        if backend == klt_batch.BACKEND_BATCH:
-            ngspice_version = (
-                f"batch via klt sim ({klt_batch.klt_version(args.klt)}); ngspice runs on the fleet"
-            )
-        else:
-            ngspice_version = runner.ngspice_version()
-    except (PdkNotFound, runner.NgspiceMissing, klt_batch.BatchError) as exc:
-        print(exc, file=sys.stderr)
+    toolchain = cliutil.locate_backend_toolchain(args.backend, args.klt)
+    if toolchain is None:
         return cliutil.EXIT_ENVIRONMENT
+    backend, pdk, ngspice_version = toolchain
     batch = (
         klt_batch.BatchConfig(pdk=pdk, stage_root=CONTROL_DIR / "batch", klt=args.klt)
         if backend == klt_batch.BACKEND_BATCH else None
@@ -255,13 +244,9 @@ def main() -> int:
 
     assert T_DIP_S - 300.1e-6 >= SETTLE_MIN_S, "dip starts before the filter can settle"
 
-    manifest = json.loads(MANIFEST.read_text())
+    manifest = cliutil.load_manifest(MANIFEST)
     options = list(manifest.get("options", []))
-    nominal = float(manifest["nominal_supply_v"])
-    tol = float(manifest["supply_tolerance"])
-    supplies = [
-        round(nominal * (1 - tol), 2), round(nominal, 2), round(nominal * (1 + tol), 2)
-    ]
+    supplies = corners_mod.supply_points(manifest["nominal_supply_v"], manifest["supply_tolerance"])
     points = grid_points(manifest["temperatures_c"], supplies)
 
     variants = VARIANTS

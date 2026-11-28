@@ -165,7 +165,6 @@ REPO_ROOT = CONTROL_DIR.parents[2]
 sys.path.insert(0, str(REPO_ROOT / "sim"))
 
 from harness import HARNESS_VERSION, cliutil, klt_batch, runner  # noqa: E402
-from harness.pdk import PdkNotFound, find_pdk  # noqa: E402
 
 # The extracted-netlist parser, imported rather than re-derived:
 # `parasitic_cards` knows `layout/postlayout.py`'s own emission format, and a
@@ -498,12 +497,10 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     report_only = args.report_only
 
-    try:
-        backend = klt_batch.resolve_backend(args.backend)
-        pdk = find_pdk()
-    except (PdkNotFound, klt_batch.BatchError) as exc:
-        print(exc, file=sys.stderr)
+    toolchain = cliutil.locate_backend_toolchain(args.backend, args.klt, need_ngspice=False)
+    if toolchain is None:
         return cliutil.EXIT_ENVIRONMENT
+    backend, pdk, _ = toolchain
     batch = (
         klt_batch.BatchConfig(pdk=pdk, stage_root=CONTROL_DIR / "batch", klt=args.klt)
         if backend == klt_batch.BACKEND_BATCH and not report_only else None
