@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Tests for signoff/check.py's gates: supply ERC and anchored-item freshness,
-and the prose-count guard that keeps the T1 verdict out of hand-written prose.
+the prose-count guard that keeps the T1 verdict out of hand-written prose,
+and quoted LVS counts policed against the committed reports.
 
 No klt/PDK needed.
 
@@ -691,6 +692,100 @@ class ProseCountTest(unittest.TestCase):
         for rel in ("README.md", "signoff/README.md"):
             self.assertIn(rel, out.getvalue())
         self.assertTrue(ok)
+
+
+LVS_CELLS = [
+    "temp_por_top",
+    "bias_core",
+    "por_output_chain",
+    "temp_core",
+    "por_comparator",
+    "por_comparator_bias_okb_inv",
+]
+
+
+class LvsProseCountsTest(unittest.TestCase):
+    """Quoted `N devices|nets|pins` counts are policed against lvs.json."""
+
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, self.tmp, True)
+        for rel in check.LVS_PROSE_DOCS:
+            dst = self.tmp / rel
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy(REPO_ROOT / rel, dst)
+        for cell in LVS_CELLS:
+            rel = f"layout/reports/{cell}/lvs.json"
+            dst = self.tmp / rel
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy(REPO_ROOT / rel, dst)
+
+    def run_check(self) -> tuple[bool, str]:
+        out, err = io.StringIO(), io.StringIO()
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            ok = check.check_lvs_prose_counts(self.tmp)
+        return ok, err.getvalue()
+
+    def assert_fails(self, *needles):
+        ok, err = self.run_check()
+        self.assertFalse(ok, err)
+        for needle in needles:
+            self.assertIn(needle, err)
+
+    def edit_doc(self, rel, old, new):
+        path = self.tmp / rel
+        path.write_text(path.read_text().replace(old, new, 1))
+
+    def test_committed_tree_passes(self):
+        self.assertTrue(check.check_lvs_prose_counts())
+
+    def test_copy_passes(self):
+        ok, err = self.run_check()
+        self.assertTrue(ok, err)
+
+    def test_drifted_count_fails(self):
+        self.edit_doc(
+            "layout/README.md",
+            "), 139 nets, 5 pins |",
+            "), 145 nets, 6 pins |",
+        )
+        self.assert_fails(
+            "layout/README.md:",
+            "temp_por_top",
+            "'145 nets'",
+            "139 nets",
+            "'6 pins'",
+            "5 pins",
+        )
+
+    def test_ratio_second_number_mismatch_fails(self):
+        self.edit_doc("layout/README.md", "139/139 nets", "139/145 nets")
+        self.assert_fails("'139/145 nets'", "139 nets")
+
+    def test_unbindable_count_fails_closed(self):
+        path = self.tmp / "layout/README.md"
+        path.write_text("scratch: 7 pins quoted before any report citation.\n" + path.read_text())
+        self.assert_fails("'7 pins'", "no preceding layout/reports/")
+
+    def test_unallowlisted_historical_count_fails(self):
+        self.edit_doc(
+            "layout/README.md",
+            "**50 devices** — all of them",
+            "50 devices, every one of them",
+        )
+        self.assert_fails(
+            "'50 devices'",
+            "no preceding layout/reports/",
+            "no longer appears",
+        )
+
+    def test_allowlist_anchor_shielding_nothing_fails(self):
+        saved = check.LVS_HISTORICAL_ALLOWLIST
+        check.LVS_HISTORICAL_ALLOWLIST = saved + [
+            ("layout/README.md", "Recorded result", "synthetic anchor")
+        ]
+        self.addCleanup(setattr, check, "LVS_HISTORICAL_ALLOWLIST", saved)
+        self.assert_fails("shields", "no quoted count")
 
 
 if __name__ == "__main__":

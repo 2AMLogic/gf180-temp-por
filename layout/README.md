@@ -1204,8 +1204,8 @@ Recorded result (`layout/reports/temp_core/`):
 | Check | Result |
 | ----- | ------ |
 | `klt drc --deck gf180mcu` | clean — 0 violations |
-| `klt extract --deck gf180mcu` | 115 devices (27 nfet, 28 pfet, 50 `ppolyf_u`, 9 `bjt`, 1 `cap_mim_2f0_m4m5_noshield`), 73 nets, 30 pins |
-| `klt lvs` | **match** — 115/115 devices, 73/73 nets, 30/30 pins, 0 errors (1 `device.body_unverified` warning). 114 devices and the same 73 nets before #259 drew `XCC`: the cap landed on `PG`/`NZ`, two nets the compare already had, so it added a device and no net. |
+| `klt extract --deck gf180mcu` | 115 devices (27 nfet, 28 pfet, 50 `ppolyf_u`, 9 `bjt`, 1 `cap_mim_2f0_m4m5_noshield`), 71 nets, 29 pins |
+| `klt lvs` | **match** — 115/115 devices, 71/71 nets, 29/29 pins, 0 errors (1 `device.body_unverified` warning). Before #259 drew `XCC`, the comparison had 114 devices and the same net count (73) as after the draw. The capacitor connected the existing `PG` and `NZ` nets. |
 | negative control `topology` | detected (exit 3; `device.unmatched` 1, `topology` 1) |
 | negative control `device-param` | detected (exit 3; `device.property` 5, `topology` 1) |
 | negative control `passive-param` | detected (exit 3; `device.property` 11, `topology` 3) |
@@ -1347,8 +1347,8 @@ Recorded result (`layout/reports/temp_por_top/`):
 | Check | Result |
 | ----- | ------ |
 | `klt drc --deck gf180mcu` | **clean** — 0 violations (was 92 before the floorplan re-derivation, then 2 inherited from #102/#103 until #105 fixed `por_comparator` at the source) |
-| `klt extract --deck gf180mcu --top-cell-pins` | 239 devices (71 nfet, 64 pfet, 50 `ppolyf_u`, 27 `ppolyf_u_1k`, 19 `bjt`, 8 `cap_mim_2f0_m4m5_noshield`), 139 nets, 6 pins |
-| `klt lvs` | **match** — 239/239 devices, 139/139 nets, 6/6 pins, 0 errors (1 warning: `device.body_unverified` — `temp_core`'s two untied wells and the instanced inverter's). Net count dropped from 159 to 145 when #264 routed the 7 already-drawn MiM caps' 14 plates onto their schematic nets instead of 14 synthesized isolated ones; #259's 8th cap (`temp_core`'s `XCC`) added a device but no net, landing on `PG`/`NZ`, which the compare already had; #516 dissolved four more — the tied sub-cells' well nets and `bias_core`'s `NWQ` base net — onto their real `VDD`/`VSS`. |
+| `klt extract --deck gf180mcu --top-cell-pins` | 239 devices (71 nfet, 64 pfet, 50 `ppolyf_u`, 27 `ppolyf_u_1k`, 19 `bjt`, 8 `cap_mim_2f0_m4m5_noshield`), 139 nets, 5 pins |
+| `klt lvs` | **match** — 239/239 devices, 139/139 nets, 5/5 pins, 0 errors (1 warning: `device.body_unverified` — `temp_core`'s two untied wells and the instanced inverter's). Net count dropped from 159 to 145 when #264 routed the 7 already-drawn MiM caps' 14 plates onto their schematic nets instead of 14 synthesized isolated ones; #259's 8th cap (`temp_core`'s `XCC`) added a device but no net, landing on `PG`/`NZ`, which the compare already had; #516 dissolved four more — the tied sub-cells' well nets and `bias_core`'s `NWQ` base net — onto their real `VDD`/`VSS`. |
 | negative control `topology` | detected (exit 3; `device.body_unverified` 2, `device.unmatched` 1, `topology` 2) |
 | negative control `device-param` | detected (exit 3; `device.body_unverified` 2, `device.property` 5, `topology` 2) |
 | negative control `passive-param` | detected (exit 3; `device.body_unverified` 2, `device.property` 11, `topology` 5) |
@@ -1357,7 +1357,10 @@ Recorded result (`layout/reports/temp_por_top/`):
 exits 0 — DRC clean, extraction recorded, LVS match, every applicable
 negative control detected.
 
-The 6 pins are the ratified 5 pads plus the deck's `vsubs` global. That set is
+The 5 pins are the ratified 5 pads alone. Until `e6768f06` the compare also
+carried the deck's `vsubs` global as a 6th pin; the klt 0.6.0 deck
+re-transcription dropped it, which is when the committed reports moved to
+5 pins. That set is
 exactly what `layout.top_cell_pins` produces: the five Metal2 labels this cell
 draws itself are its only labels, and every sub-circuit's own labels stay below
 the top cell and stay internal. `lvs_reference.py` asserts the reference's own
@@ -2190,7 +2193,7 @@ which use `klt erc` — agree that `VDD` and `VSS` are genuinely separate
 here, so the cleared run is reporting the truth rather than hiding a defect:
 
 - **`klt lvs`** (`layout/reports/temp_por_top/lvs.json`) reports `status:
-  match` over 145/145 nets with device recognition switched on — `VDD` and
+  match` over 139/139 nets with device recognition switched on — `VDD` and
   `VSS` both appear in `net_correspondence` as distinct, correctly matched
   nets, paired against the SPICE reference's own `VDD`/`VSS` (which is also
   what item 11's analog column asks for: a supply appearing in an LVS

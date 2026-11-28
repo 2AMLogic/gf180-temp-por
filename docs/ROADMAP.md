@@ -18,7 +18,7 @@ Position on the klayout-tools T1 ("sim-validated") checklist, read from
 | 1 | Design sources | met | 5 schematics + 5 netlists, hash-bound (`signoff/evidence/`) |
 | 2 | Layout | met | `layout/cells/temp_por_top.gds`, 5 sub-cells + top |
 | 3 | DRC clean | met | `layout/reports/temp_por_top/drc.json`; skipped rules disclosed in `signoff/README.md` |
-| 4 | LVS clean | met | 239/239 devices, 143/143 nets; body terminals not independently verified |
+| 4 | LVS clean | met | 239/239 devices, 139/139 nets; body terminals not independently verified |
 | 5 | Corner verification | unmet, `partial_coverage` | 81-point records exist as Markdown only; no `klt sim` envelope (#383, #388, #389) |
 | 6 | Monte Carlo | unmet, `check_failed` | temperature rows fail yield (#415); POR rows under-sampled at N=500 (#416); no negative control (#417) |
 | 7 | Post-layout | unmet, `check_failed` | `klt pex` report has 48 errored `por-brownout` rows at 8 corners; cause measured in `sim/por-brownout/control/schematic-nonreassert.md` (#405, closed) |

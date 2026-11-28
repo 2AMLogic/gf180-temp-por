@@ -14,7 +14,7 @@ no longer exists.
 
 This script is what stops that. It re-runs the grader and refuses to pass on
 any drift between what is committed and what the current tree actually
-grades to. Seven distinct checks, because `klt signoff` alone cannot cover
+grades to. Eight distinct checks, because `klt signoff` alone cannot cover
 all of them (see signoff/README.md, "What the grader cannot check"):
 
 1. **Hand-rolled evidence is self-consistent.** A generic evidence envelope
@@ -51,8 +51,15 @@ all of them (see signoff/README.md, "What the grader cannot check"):
    `signoff/inventories.py` rebuilds each inventory from the live tree and
    `check_anchored_evidence` fails on any changed, missing or newly added
    member, and on a manifest/envelope/artifact disagreement.
+7. **Quoted LVS counts in the prose match the committed reports.**
+   Hand-copied `N devices|nets|pins` aggregates in the live-evidence
+   documents drift silently whenever a report is regenerated with new
+   counts. `check_lvs_prose_counts` binds each quotation to the nearest
+   preceding `layout/reports/<cell>/` citation and requires it to equal
+   that cell's committed `lvs.json`, failing closed on anything it cannot
+   bind unless it is an allowlisted historical quotation.
 
-7. **No document restates the verdict as a hand-written count.** The grader
+8. **No document restates the verdict as a hand-written count.** The grader
    never reads prose, so a sentence saying "9 of 11 items met" rots silently
    while the report beside it says 8. `check_prose_counts` forbids the
    aggregate outright rather than policing its value: `tier-report.json` is
@@ -309,6 +316,183 @@ def check_erc_supply_freshness(
                 ok = False
                 continue
             print(f"ok   {rel}: {field} matches {name}")
+    return ok
+
+
+# Documents whose quoted `N devices|nets|pins` counts are policed against the
+# committed reports. `spec/decision-records/` states what was true at its
+# decision and `design/*.md` makes deliberately scoped (e.g. MOS-only)
+# claims, so neither belongs here; `docs/ROADMAP.md` carries a live item-4
+# row and is policed.
+LVS_PROSE_DOCS = [
+    "layout/README.md",
+    "signoff/README.md",
+    "docs/ROADMAP.md",
+]
+
+# Quoted counts that are deliberately NOT live evidence -- history, ablation
+# deltas, schematic-side or threshold claims -- and so must never be
+# renumbered to match a report. Each entry is (doc, anchor, reason): the
+# anchor is a substring of the doc that must still exist and must still
+# contain the quotation it shields, so the allowlist itself cannot rot.
+LVS_HISTORICAL_ALLOWLIST = [
+    (
+        "layout/README.md",
+        "**50 devices** — all of them",
+        "schematic-side count of design/bias_core.sch, not the LVS aggregate",
+    ),
+    (
+        "layout/README.md",
+        "54 nets collapse to 30",
+        "#90 negative-control ablation: bias_core's old 54-net baseline",
+    ),
+    (
+        "layout/README.md",
+        "(54 → 53 nets)",
+        "#90 negative-control ablation: bias_core's old 54-net baseline",
+    ),
+    (
+        "layout/README.md",
+        "21 devices, drawn from",
+        "schematic-side count of design/por_comparator.sch",
+    ),
+    (
+        "layout/README.md",
+        "All 21 devices are now drawn",
+        "schematic-side count of design/por_comparator.sch",
+    ),
+    (
+        "layout/README.md",
+        "from 238 to 239 devices",
+        "historical delta naming when the XCC cap landed",
+    ),
+    (
+        "layout/README.md",
+        "drawing its 16 devices",
+        "drawing-history claim about the #68-era MOS subset",
+    ),
+    (
+        "layout/README.md",
+        "collapses **54 nets to 30**",
+        "#90 negative-control ablation: bias_core's old 54-net baseline",
+    ),
+    (
+        "layout/README.md",
+        "114 devices and the same",
+        "pre-#259 delta inside the live row: XCC added a device and no net",
+    ),
+    (
+        "layout/README.md",
+        "below 18 devices",
+        "device-count cross-over threshold, not a report quotation",
+    ),
+]
+
+_COUNT_QUOTE_RE = re.compile(r"(\d+)(?:/(\d+))?\s+(devices|nets|pins)\b")
+_REPORT_CITE_RE = re.compile(r"layout/reports/([A-Za-z0-9_]+)/")
+
+
+def check_lvs_prose_counts(root: Path = REPO_ROOT) -> bool:
+    """Quoted `N devices|nets|pins` counts match the committed reports.
+
+    Every count quoted in `LVS_PROSE_DOCS` is bound to the nearest
+    preceding `layout/reports/<cell>/` citation and compared against that
+    cell's committed `lvs.json` `counts.<noun>.layout` (identical to
+    `extract.json`'s `<noun>_count`). A quotation that cannot be bound
+    fails closed unless an `LVS_HISTORICAL_ALLOWLIST` anchor shields it;
+    an anchor that no longer exists or shields nothing also fails, so the
+    allowlist cannot outlive the prose it describes. Pure stdlib.
+    """
+    ok = True
+    report_cache: dict[str, dict | None] = {}
+    for doc_rel in LVS_PROSE_DOCS:
+        doc_path = root / doc_rel
+        try:
+            text = doc_path.read_text()
+        except OSError as exc:
+            fail(f"{doc_rel}: unreadable ({exc})")
+            ok = False
+            continue
+        anchors = [
+            (anchor, reason, [m.span() for m in re.finditer(re.escape(anchor), text)])
+            for doc, anchor, reason in LVS_HISTORICAL_ALLOWLIST
+            if doc == doc_rel
+        ]
+        for anchor, reason, spans in anchors:
+            if not spans:
+                fail(
+                    f"{doc_rel}: allowlist anchor {anchor!r} ({reason}) no "
+                    "longer appears -- the prose moved; prune or update the entry"
+                )
+                ok = False
+        quotes = shielded = 0
+        doc_ok = True
+        for match in _COUNT_QUOTE_RE.finditer(text):
+            if any(
+                s <= match.start() and match.end() <= e
+                for _, _, spans in anchors
+                for s, e in spans
+            ):
+                shielded += 1
+                continue
+            quotes += 1
+            line_no = text.count("\n", 0, match.start()) + 1
+            cite = None
+            for c in _REPORT_CITE_RE.finditer(text, 0, match.start()):
+                cite = c.group(1)
+            if cite is None:
+                fail(
+                    f"{doc_rel}:{line_no}: quotes {match.group(0)!r} but no "
+                    "preceding layout/reports/<cell>/ citation binds it to a "
+                    "cell. If it is deliberate history, add it to "
+                    "LVS_HISTORICAL_ALLOWLIST with a reason"
+                )
+                doc_ok = ok = False
+                continue
+            if cite not in report_cache:
+                try:
+                    report = json.loads(
+                        (root / "layout" / "reports" / cite / "lvs.json").read_text()
+                    )
+                    counts = {
+                        noun: int(vals["layout"])
+                        for noun, vals in report["counts"].items()
+                    }
+                except (OSError, ValueError, KeyError, TypeError) as exc:
+                    fail(f"layout/reports/{cite}/lvs.json: unreadable counts ({exc})")
+                    counts = None
+                report_cache[cite] = counts
+            counts = report_cache[cite]
+            if counts is None:
+                doc_ok = ok = False
+                continue
+            noun = match.group(3)
+            expected = counts.get(noun)
+            got = [int(match.group(1))]
+            if match.group(2) is not None:
+                got.append(int(match.group(2)))
+            if any(v != expected for v in got):
+                fail(
+                    f"{doc_rel}:{line_no}: quotes {match.group(0)!r} but "
+                    f"layout/reports/{cite}/lvs.json says {expected} {noun}"
+                )
+                doc_ok = ok = False
+        for anchor, reason, spans in anchors:
+            if spans and not any(
+                s <= q.start() and q.end() <= e
+                for q in _COUNT_QUOTE_RE.finditer(text)
+                for s, e in spans
+            ):
+                fail(
+                    f"{doc_rel}: allowlist anchor {anchor!r} ({reason}) shields "
+                    "no quoted count -- the prose moved; prune or update the entry"
+                )
+                doc_ok = ok = False
+        if doc_ok:
+            print(
+                f"ok   {doc_rel}: {quotes} quoted LVS counts match their bound "
+                f"reports ({shielded} allowlisted historical)"
+            )
     return ok
 
 
@@ -731,6 +915,7 @@ def main(argv: list[str] | None = None) -> int:
     ok = check_anchored_evidence() and ok
     ok = check_committed_report_hashes() and ok
     ok = check_erc_supply_freshness() and ok
+    ok = check_lvs_prose_counts() and ok
     ok = check_prose_counts() and ok
 
     report, ran = run_grader(klt)
