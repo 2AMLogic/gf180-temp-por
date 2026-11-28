@@ -323,9 +323,6 @@ def main(argv: list[str] | None = None) -> int:
     options = manifest["options"]
     corner = corners_mod.CORNERS[CORNER]
 
-    (CONTROL_DIR / "decks").mkdir(exist_ok=True)
-    (CONTROL_DIR / "logs").mkdir(exist_ok=True)
-
     points = _points()
     jobs = args.jobs or min(cliutil.default_jobs(), len(points))
     print(f"running {len(points)} points at -j {jobs} ...")

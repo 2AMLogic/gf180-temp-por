@@ -350,8 +350,9 @@ def main(argv: list[str] | None = None) -> int:
     supplies = corners_mod.supply_points(manifest["nominal_supply_v"], manifest["supply_tolerance"])
     grid = corners_mod.build_grid(corners, manifest["temperatures_c"], supplies)
 
+    # decks/ must exist before the .spiceinit below is written into it;
+    # run_deck() would create it, but only after that write.
     (CONTROL_DIR / "decks").mkdir(exist_ok=True)
-    (CONTROL_DIR / "logs").mkdir(exist_ok=True)
     # #216: force single-threaded ngspice. run_deck() (unlike run_point())
     # does not do this on its own -- a nested per-process OpenMP team sized
     # to the host's core count fights this script's own -j process-level

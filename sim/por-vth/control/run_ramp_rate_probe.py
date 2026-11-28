@@ -215,7 +215,7 @@ MEASURES = {
 
 
 def compose(pdk, corner, dut: str, vdd: float, tramp: float) -> str:
-    options = json.loads(MANIFEST.read_text())["options"]
+    options = cliutil.load_manifest(MANIFEST)["options"]
     netlist, sns = DUTS[dut]
     t_down = 1.0e-3 + tramp + 6.0e-3
     t_settled = t_down - 0.1e-3
@@ -248,8 +248,6 @@ def compose(pdk, corner, dut: str, vdd: float, tramp: float) -> str:
 def run_one(pdk, corner, point) -> dict:
     run_id, arm, dut, vdd, tramp = point
     deck = compose(pdk, corner, dut, vdd, tramp)
-    CONTROL_DIR.joinpath("decks").mkdir(parents=True, exist_ok=True)
-    CONTROL_DIR.joinpath("logs").mkdir(parents=True, exist_ok=True)
     started = time.time()
     output = runner.run_deck_raw(run_id, deck, CONTROL_DIR, timeout_s=14400)
     meas = runner.parse_measurements(output)
@@ -307,7 +305,7 @@ def render(results: list[dict], pdk) -> str:
     for row in results:
         by_arm.setdefault(row["arm"], []).append(row)
 
-    options = json.loads(MANIFEST.read_text())["options"]
+    options = cliutil.load_manifest(MANIFEST)["options"]
     out: list[str] = [
         "# `por-vth` hysteresis ramp-rate control \u2014 results",
         "",

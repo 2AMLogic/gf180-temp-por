@@ -49,7 +49,6 @@ Stdlib only, no virtualenv required.
 from __future__ import annotations
 
 import argparse
-import json
 import re
 import sys
 from concurrent.futures import ThreadPoolExecutor
@@ -376,11 +375,8 @@ def main(argv: list[str] | None = None) -> int:
             return cliutil.EXIT_ENVIRONMENT
         pdk, ngspice_version = toolchain
 
-        options = list(json.loads(MANIFEST.read_text()).get("options", []))
-        deck_dir = CONTROL_DIR / "decks"
+        options = list(cliutil.load_manifest(MANIFEST).get("options", []))
         log_dir = CONTROL_DIR / "logs"
-        deck_dir.mkdir(exist_ok=True)
-        log_dir.mkdir(exist_ok=True)
 
         jobs = [
             (pdk, options, net_name, netlist, corner_name, temp_c)
