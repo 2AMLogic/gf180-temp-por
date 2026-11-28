@@ -698,10 +698,13 @@ SHARED_CLIUTIL_FORMS = {
 }
 
 #: Control scripts that still spell an inline form because a separate open PR
-#: is removing it: #699 / PR #700 migrates ``run_dwell_sweep.py``. A ratchet
-#: in the manner of ``test_control_git_provenance.GRANDFATHERED`` -- entries
-#: come out as those PRs land, never go in, and the stale-entry test below
-#: fails the moment one no longer exempts anything.
+#: is removing it: #699 / PR #700 migrates ``run_dwell_sweep.py``. Entries
+#: only ever come out as those PRs land, never go in. The stale-entry test
+#: below fails only when a listed script has left the tree; a script that has
+#: *already migrated* is tolerated, because the migrating PR and this one can
+#: land in either order and neither's CI re-runs when the other merges.
+#: Delete an entry once its script is migrated (a harmless, no-longer-needed
+#: exemption).
 PENDING_MIGRATION = {"run_dwell_sweep.py"}
 
 
@@ -754,19 +757,16 @@ class ControlCliutilGuardTests(unittest.TestCase):
                     )
 
     def test_the_pending_migration_list_has_no_stale_entries(self):
-        """Also the guard's live positive control while the list is non-empty:
-        a detector that matches nothing makes ``run_dwell_sweep.py`` stale."""
-        scripts = {script.name: script for script in _control_scripts()}
-        stale = [
-            name
-            for name in sorted(PENDING_MIGRATION)
-            if name not in scripts
-            or not any(_inline_shared_cliutil_sites(scripts[name].read_text()).values())
-        ]
+        """A listed script must still exist. Having already migrated is fine:
+        the migrating PR may land before this guard, and that merge order must
+        not turn ``main`` red. The detector's positive control is the boundary
+        test below."""
+        names = {script.name for script in _control_scripts()}
+        stale = sorted(PENDING_MIGRATION - names)
         self.assertEqual(
             stale, [],
-            "PENDING_MIGRATION lists script(s) that no longer spell an inline "
-            f"form: {stale}. Remove them -- the ratchet only tightens.",
+            "PENDING_MIGRATION lists script(s) that are not in the tree: "
+            f"{stale}. Remove them -- the ratchet only tightens.",
         )
 
     def test_the_detector_matches_the_inline_forms_and_nothing_else(self):
