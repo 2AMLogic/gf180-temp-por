@@ -74,6 +74,9 @@ class Testbench:
     #: devices -- see layout/postlayout/AUDIT.md). Appended verbatim after
     #: the provenance sentence. Empty for schematic-provenance testbenches.
     netlist_provenance_note: str = ""
+    #: For a single solve whose printed outputs are expressions over .meas
+    #: scalars, put the cards in this named klt analysis step on batch.
+    batch_measurement_step: str | None = None
 
     @property
     def experiment(self) -> str:
@@ -170,6 +173,7 @@ def load(directory: str | Path) -> Testbench:
         mc=dict(manifest.get("mc", {})),
         netlist_provenance=manifest.get("netlist_provenance", "schematic"),
         netlist_provenance_note=manifest.get("netlist_provenance_note", ""),
+        batch_measurement_step=manifest.get("batch_measurement_step"),
     )
     if tb.netlist_provenance not in ("schematic", "extracted"):
         raise ValueError(

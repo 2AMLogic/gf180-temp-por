@@ -405,7 +405,7 @@ class BatchUnit:
     measurements: tuple[tuple[str, str, str], ...]  # (name, "spice"|"expr", text)
     init: tuple[str, ...]          # .spiceinit lines
     timeout_s: int = DEFAULT_TIMEOUT_S
-    #: Several solves of one corner (route (a), #440): ordered
+    #: Named solves of one corner: ordered
     #: ``(step name, (kind, args), step measurements)`` rows sent as klt's
     #: ``analysis_steps[]``. Empty for the ordinary single-analysis unit. In a
     #: stepped unit ``measurements`` are the *derived* top-level entries
@@ -443,13 +443,16 @@ def _logical_lines(text: str) -> list[str]:
     return out
 
 
-def _inline(expr: str, lets: dict[str, str], wrap: Callable[[str], str]) -> str:
-    """Replace every ``let`` vector name in ``expr`` with its expansion."""
+def _inline(
+    expr: str, lets: dict[str, str], wrap: Callable[[str], str], *, flags: int = 0,
+) -> str:
+    """Replace bare vector names in ``expr`` with their expansions."""
     for name, expansion in lets.items():
         expr = re.sub(
             rf"(?<![\w.]){re.escape(name)}(?![\w.(])",
             lambda _m, e=expansion: wrap(e),
             expr,
+            flags=flags,
         )
     return expr
 
@@ -504,6 +507,7 @@ def translate_deck(
     extra_init: tuple[str, ...] = (),
     timeout_s: int = DEFAULT_TIMEOUT_S,
     specs: tuple[MeasurementSpec, ...] = (),
+    measurement_step: str | None = None,
 ) -> BatchUnit:
     """Take a harness-composed deck apart into a :class:`BatchUnit`.
 
@@ -691,7 +695,21 @@ def translate_deck(
     if temp_c is None:
         raise BatchIncompatible(f"{key}: no .temp card; the temperature axis would be undefined")
     steps: list = []
-    if extra_analyses:
+    if measurement_step is not None:
+        if extra_analyses or not meas or not printed:
+            raise BatchIncompatible(
+                f"{key}: a named measurement step needs one solve with .meas cards "
+                "and printed expressions over their results"
+            )
+        # File-scope .meas results are absent from the plot where klt runs
+        # ordinary expr measurements. A step runs the cards in the same
+        # plot, then exposes their scalars as <step>.<measurement>.
+        steps.append((measurement_step, analysis, tuple(meas)))
+        qualified = {name: f"{measurement_step}.{name}" for name, _, _ in meas}
+        meas = []
+        for name, _ in printed:
+            add_meas(name, "expr", _inline(lets[name], qualified, str, flags=re.IGNORECASE))
+    elif extra_analyses:
         if meas:
             raise BatchIncompatible(
                 f"{key}: `.meas` cards in a deck with more than one solve are not "
