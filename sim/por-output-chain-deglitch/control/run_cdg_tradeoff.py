@@ -39,7 +39,6 @@ Stdlib only, no virtualenv required.
 
 from __future__ import annotations
 
-import json
 import re
 import sys
 from pathlib import Path
@@ -184,11 +183,9 @@ def main(argv: list[str] | None = None) -> int:
         return cliutil.EXIT_ENVIRONMENT
     pdk, ngspice_version = toolchain
 
-    options = list(json.loads(MANIFEST.read_text()).get("options", []))
+    options = list(cliutil.load_manifest(MANIFEST).get("options", []))
     deck_dir = CONTROL_DIR / "decks"
-    log_dir = CONTROL_DIR / "logs"
-    for d in (deck_dir, log_dir):
-        d.mkdir(exist_ok=True)
+    deck_dir.mkdir(exist_ok=True)
 
     for size_um in SIZES_UM:
         (deck_dir / f"dut_cdg_{size_slug(size_um)}.spice").write_text(dut_netlist(size_um))

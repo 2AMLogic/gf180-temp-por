@@ -34,8 +34,6 @@ Stdlib only, no virtualenv required.
 from __future__ import annotations
 
 import concurrent.futures
-import json
-import os
 import sys
 import textwrap
 from pathlib import Path
@@ -213,7 +211,7 @@ def main(argv: list[str] | None = None) -> int:
         return cliutil.EXIT_ENVIRONMENT
     pdk, ngspice_version = toolchain
 
-    options = list(json.loads(MANIFEST.read_text()).get("options", []))
+    options = list(cliutil.load_manifest(MANIFEST).get("options", []))
     deck_dir = CONTROL_DIR / "decks"
     log_dir = CONTROL_DIR / "logs"
     trace_dir = CONTROL_DIR / "traces"
@@ -240,7 +238,7 @@ def main(argv: list[str] | None = None) -> int:
                              temp_c, vdd, 0.2, hold, arm, dut_path.name))
 
     results: dict[str, dict] = {}
-    workers = min(6, max(1, (os.cpu_count() or 4) // 2))
+    workers = min(6, cliutil.default_jobs())
     with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as pool:
         for run_id, summary in pool.map(run_one, jobs):
             results[run_id] = summary

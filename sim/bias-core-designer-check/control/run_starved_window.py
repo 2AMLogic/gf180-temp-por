@@ -60,7 +60,6 @@ Stdlib only, no virtualenv required.
 
 from __future__ import annotations
 
-import json
 import sys
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -187,7 +186,7 @@ def main(argv: list[str] | None = None) -> int:
         return cliutil.EXIT_ENVIRONMENT
     pdk, ngspice_version = toolchain
 
-    options = list(json.loads(MANIFEST.read_text()).get("options", []))
+    options = list(cliutil.load_manifest(MANIFEST).get("options", []))
     log_dir = CONTROL_DIR / "logs"
     trace_dir = CONTROL_DIR / "traces"
     trace_dir.mkdir(exist_ok=True)

@@ -670,6 +670,130 @@ class ControlSettingsGuardTests(unittest.TestCase):
 
 
 # --------------------------------------------------------------------------
+# Manifest loading and the worker default (#704).
+#
+# ``cliutil.load_manifest()`` (#158) and ``cliutil.default_jobs()`` (#184)
+# are the one home for two expressions the control scripts used to copy: before
+# #704 twelve sites in eleven scripts spelled ``json.loads(MANIFEST.read_text())``
+# inline (ten of them importing ``json`` for that line alone) and
+# ``run_depth_sweep.py`` hand-rolled ``(os.cpu_count() or 4) // 2``. Nothing
+# held the migrated scripts to the shared helpers, so a script copied from an
+# un-migrated one brought the inline form back. The guard below closes that
+# gap the way ``ControlSettingsGuardTests`` does for the control-block
+# settings. It matches call nodes, not source text, so a comment that merely
+# mentions either form is not an inline copy.
+# --------------------------------------------------------------------------
+
+#: Inline form -> (what a control script spelling it is doing itself, the one
+#: shared home for it). The keys are how the failure message spells the form.
+SHARED_CLIUTIL_FORMS = {
+    "MANIFEST.read_text()": (
+        "reads the manifest itself",
+        "sim/harness/cliutil.py's load_manifest() (#158)",
+    ),
+    "cpu_count()": (
+        "counts cores itself",
+        "sim/harness/cliutil.py's default_jobs() (#184)",
+    ),
+}
+
+#: Control scripts that still spell an inline form because a separate open PR
+#: is removing it: #699 / PR #700 migrates ``run_dwell_sweep.py``. Entries
+#: only ever come out as those PRs land, never go in. The stale-entry test
+#: below fails only when a listed script has left the tree; a script that has
+#: *already migrated* is tolerated, because the migrating PR and this one can
+#: land in either order and neither's CI re-runs when the other merges.
+#: Delete an entry once its script is migrated (a harmless, no-longer-needed
+#: exemption).
+PENDING_MIGRATION = {"run_dwell_sweep.py"}
+
+
+def _last_name(node: ast.expr) -> str | None:
+    """``MANIFEST`` for ``MANIFEST`` / ``band.MANIFEST``, ``cpu_count`` for
+    ``os.cpu_count`` / ``cpu_count``; ``None`` for anything else."""
+    if isinstance(node, ast.Name):
+        return node.id
+    if isinstance(node, ast.Attribute):
+        return node.attr
+    return None
+
+
+def _inline_shared_cliutil_sites(source: str) -> dict[str, list[int]]:
+    """``form -> line numbers`` of every inline copy in ``source``.
+
+    A ``read_text()`` call on anything named ``MANIFEST`` and any
+    ``cpu_count()`` call, wherever they sit (inside ``json.loads(...)`` or not).
+    """
+    sites: dict[str, list[int]] = {form: [] for form in SHARED_CLIUTIL_FORMS}
+    for node in ast.walk(ast.parse(source)):
+        if not isinstance(node, ast.Call):
+            continue
+        if _last_name(node.func) == "cpu_count":
+            sites["cpu_count()"].append(node.lineno)
+        elif (
+            isinstance(node.func, ast.Attribute)
+            and node.func.attr == "read_text"
+            and _last_name(node.func.value) == "MANIFEST"
+        ):
+            sites["MANIFEST.read_text()"].append(node.lineno)
+    return sites
+
+
+class ControlCliutilGuardTests(unittest.TestCase):
+    """``load_manifest`` and ``default_jobs`` have exactly one home: harness.cliutil."""
+
+    def test_no_control_script_loads_the_manifest_or_counts_cores_itself(self):
+        for script in _control_scripts():
+            if script.name in PENDING_MIGRATION:
+                continue
+            with self.subTest(script=script.relative_to(SIM_DIR)):
+                sites = _inline_shared_cliutil_sites(script.read_text())
+                for form, (doing, home) in SHARED_CLIUTIL_FORMS.items():
+                    self.assertEqual(
+                        sites[form], [],
+                        f"{script.relative_to(SIM_DIR)} {doing} on line(s) "
+                        f"{sites[form]} -- {home} is its one home, so an "
+                        "inline copy is drift waiting to happen",
+                    )
+
+    def test_the_pending_migration_list_has_no_stale_entries(self):
+        """A listed script must still exist. Having already migrated is fine:
+        the migrating PR may land before this guard, and that merge order must
+        not turn ``main`` red. The detector's positive control is the boundary
+        test below."""
+        names = {script.name for script in _control_scripts()}
+        stale = sorted(PENDING_MIGRATION - names)
+        self.assertEqual(
+            stale, [],
+            "PENDING_MIGRATION lists script(s) that are not in the tree: "
+            f"{stale}. Remove them -- the ratchet only tightens.",
+        )
+
+    def test_the_detector_matches_the_inline_forms_and_nothing_else(self):
+        """Pins the boundary, so a refactor cannot silently neuter the guard."""
+        inline = {
+            "options = json.loads(MANIFEST.read_text())['options']": "MANIFEST.read_text()",
+            "manifest = json.loads(band.MANIFEST.read_text())": "MANIFEST.read_text()",
+            "workers = min(6, max(1, (os.cpu_count() or 4) // 2))": "cpu_count()",
+            "jobs = cpu_count()": "cpu_count()",
+        }
+        for source in (
+            *inline,
+            "manifest = cliutil.load_manifest(band.MANIFEST)",
+            "jobs = cliutil.default_jobs()",
+            "rows = json.loads(path.read_text())",
+            "# the default used to be os.cpu_count() // 2",
+            '"""Every deck is composed from MANIFEST.read_text() ..."""',
+        ):
+            with self.subTest(source=source):
+                sites = _inline_shared_cliutil_sites(source)
+                self.assertEqual(
+                    {form for form, lines in sites.items() if lines},
+                    {inline[source]} if source in inline else set(),
+                )
+
+
+# --------------------------------------------------------------------------
 # Control-script argv contract (#512).
 #
 # Every ``sim/*/control/run_*.py`` entry point used to fall into one of two
