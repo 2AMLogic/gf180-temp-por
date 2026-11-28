@@ -20,7 +20,7 @@ sys.path.insert(0, str(SIM_DIR))
 sys.path.insert(0, str(SIM_DIR.parent / "sim"))
 
 import run_mc  # noqa: E402
-from harness import klt_batch, montecarlo, testbench  # noqa: E402
+from harness import cliutil, klt_batch, montecarlo, testbench  # noqa: E402
 from test_klt_batch import BatchTestCase  # noqa: E402
 
 
@@ -186,7 +186,7 @@ class McBatchCliTests(McBatchFixture):
             [str(self.root / "mc-exp"), "--n", "2", "--no-write", "--quiet", *extra])
 
     def _run(self, *extra):
-        with mock.patch.object(run_mc, "find_pdk", return_value=self.pdk), \
+        with mock.patch.object(cliutil, "find_pdk", return_value=self.pdk), \
                 mock.patch.object(run_mc, "WORK_DIR", self.root / "workdir"):
             return run_mc.run(self._args(*extra))
 

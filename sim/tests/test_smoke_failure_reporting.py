@@ -287,7 +287,7 @@ class FooterLoudFailureTests(unittest.TestCase):
         self.parser = cli.build_parser()
         for obj, name, value in (
             (cli, "WORK_DIR", root / ".work"),
-            (cli, "find_pdk", lambda: self.pdk),
+            (cliutil, "find_pdk", lambda: self.pdk),
             (cli.runner, "ngspice_version", lambda: "ngspice-test"),
             (cliutil.evidence_store, "preflight", lambda *a, **k: None),
             (cliutil.evidence_store, "publish", lambda *a, **k: root / "manifest"),

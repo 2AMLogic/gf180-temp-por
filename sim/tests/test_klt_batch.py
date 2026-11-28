@@ -25,7 +25,7 @@ from unittest import mock
 SIM_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(SIM_DIR))
 
-from harness import cli, corners, klt_batch, runner, testbench  # noqa: E402
+from harness import cli, cliutil, corners, klt_batch, runner, testbench  # noqa: E402
 from harness.klt_batch import BatchConfig, BatchError  # noqa: E402
 from testutil import fake_pdk  # noqa: E402
 
@@ -755,7 +755,7 @@ class CliTests(TbFixture):
 
     def test_batch_cli_run_never_needs_local_ngspice(self):
         os.remove(self.bin / "ngspice")                       # not even installed
-        with mock.patch.object(cli, "find_pdk", return_value=self.pdk), \
+        with mock.patch.object(cliutil, "find_pdk", return_value=self.pdk), \
                 mock.patch.object(cli, "WORK_DIR", self.root / "work"):
             code = cli.run(self._args("--backend", "batch"))
         self.assertEqual(code, cli.EXIT_OK)
@@ -766,7 +766,7 @@ class CliTests(TbFixture):
     def test_env_selected_batch_failure_is_a_nonzero_exit_not_a_local_run(self):
         self.mode("refuse")
         with mock.patch.dict(os.environ, {klt_batch.ENV_BACKEND: "batch"}), \
-                mock.patch.object(cli, "find_pdk", return_value=self.pdk), \
+                mock.patch.object(cliutil, "find_pdk", return_value=self.pdk), \
                 mock.patch.object(cli, "WORK_DIR", self.root / "work"):
             code = cli.run(self._args())
         self.assertNotEqual(code, cli.EXIT_OK)
@@ -775,7 +775,7 @@ class CliTests(TbFixture):
     def test_missing_klt_is_an_environment_error(self):
         (self.bin / "klt").unlink()
         with mock.patch.dict(os.environ, {"PATH": str(self.bin)}), \
-                mock.patch.object(cli, "find_pdk", return_value=self.pdk):
+                mock.patch.object(cliutil, "find_pdk", return_value=self.pdk):
             code = cli.run(self._args("--backend", "batch"))
         self.assertEqual(code, cli.EXIT_ENVIRONMENT)
         self.assertNoLocalNgspice()
@@ -1673,6 +1673,72 @@ class ControlScriptWiringTests(BatchTestCase):
             out = mod.run_all([("d_a", "* x\n.end\n")], 1)
         self.assertEqual(out["d_a"]["t_trip"], 1e-06)
         self.assertEqual(run.call_args[0][0][:2], [runner.NGSPICE, "-b"])
+
+    def _run_dwell_sweep_main(self, backend, ngspice_version):
+        """``run_dwell_sweep.main()`` over the full grid with the simulation
+        faked out: ``run_all`` reports no crossings and ``write_results`` is
+        captured. Returns both mocks."""
+        import importlib.util
+
+        path = SIM_DIR / "por-output-chain-deglitch" / "control" / "run_dwell_sweep.py"
+        spec = importlib.util.spec_from_file_location("run_dwell_sweep_main", path)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        mod.CONTROL_DIR = self.control
+        mod.REPO_ROOT = self.root
+        with mock.patch.object(cliutil, "find_pdk", return_value=self.pdk), \
+                mock.patch.object(runner, "ngspice_version", ngspice_version), \
+                mock.patch.object(mod, "run_all", return_value={}) as run_all, \
+                mock.patch.object(mod, "write_results") as write_results, \
+                mock.patch("sys.argv", ["run_dwell_sweep.py", "--backend", backend]), \
+                contextlib.redirect_stdout(io.StringIO()), \
+                contextlib.redirect_stderr(io.StringIO()):
+            self.assertEqual(mod.main(), 0)
+        self.assertNoLocalNgspice()
+        return run_all, write_results
+
+    def test_dwell_sweep_main_batch_backend_cites_klt_and_never_probes_local_ngspice(self):
+        """#699: ``main()`` takes its backend, PDK and engine string from
+        ``cliutil.locate_backend_toolchain``. Under the batch backend the
+        report's ngspice line is the fleet provenance string, the submission
+        config carries ``--klt``, and no local ngspice is probed."""
+        ngspice_version = mock.Mock(side_effect=AssertionError("probed"))
+        run_all, write_results = self._run_dwell_sweep_main("batch", ngspice_version)
+        ngspice_version.assert_not_called()
+        self.assertEqual(
+            write_results.call_args.args[1],
+            "batch via klt sim (klt 0.0.0+fake); ngspice runs on the fleet",
+        )
+        self.assertEqual(run_all.call_args_list[0].args[2:], ("batch", mock.ANY))
+        self.assertEqual(run_all.call_args_list[0].args[3].klt, "klt")
+
+    def test_dwell_sweep_main_local_backend_cites_the_local_ngspice(self):
+        ngspice_version = mock.Mock(return_value="ngspice-45")
+        run_all, write_results = self._run_dwell_sweep_main("local", ngspice_version)
+        ngspice_version.assert_called_once_with()
+        self.assertEqual(write_results.call_args.args[1], "ngspice-45")
+        self.assertEqual(run_all.call_args_list[0].args[2:], ("local", None))
+
+    def test_dwell_sweep_main_keeps_the_parent_testbench_grid_and_default_jobs(self):
+        """#699: the supply axis now comes from ``corners.supply_points`` and
+        the ``-j`` default from ``cliutil.default_jobs()``. The grid must
+        still be exactly the parent testbench's mandated 81 points, in its
+        corner order, and Part A still every (point, netlist, bias) deck."""
+        run_all, write_results = self._run_dwell_sweep_main(
+            "local", mock.Mock(return_value="ngspice-45")
+        )
+        parent = [
+            point.corner_id for point in corners.build_grid(
+                corners.resolve_corners(corners.CORNER_SETS[corners.DEFAULT_CORNER_SET]),
+                corners.DEFAULT_TEMPERATURES_C, corners.supply_points(),
+            )
+        ]
+        self.assertEqual([p[0] for p in write_results.call_args.args[3]], parent)
+        self.assertEqual(len(parent), 81)
+        part_a, part_b = run_all.call_args_list
+        self.assertEqual(len(part_a.args[0]), 81 * 2 * 2)   # x 2 netlists x 2 bias arms
+        self.assertEqual(part_a.args[1], cliutil.default_jobs())
+        self.assertEqual(part_b.args[0], [])               # nothing tripped -> no ladder
 
 
 if __name__ == "__main__":

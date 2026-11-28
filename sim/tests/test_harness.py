@@ -1415,7 +1415,7 @@ class CliTotalFailureRefusalTests(unittest.TestCase):
 
         for obj, name, value in (
             (cli, "WORK_DIR", root / ".work"),
-            (cli, "find_pdk", lambda: self.pdk),
+            (cliutil, "find_pdk", lambda: self.pdk),
             (cli.runner, "ngspice_version", lambda: "ngspice-test"),
             # DR-030: never reach the real artifact store from a unit test.
             (cliutil.evidence_store, "preflight", lambda *a, **k: None),
@@ -1550,6 +1550,103 @@ class LocateToolchainTests(unittest.TestCase):
              mock.patch.object(sys, "stderr", err):
             self.assertIsNone(cliutil.locate_toolchain())
         self.assertIn("no ngspice", err.getvalue())
+
+
+class LocateBackendToolchainTests(unittest.TestCase):
+    """cliutil.locate_backend_toolchain (#699): the batch-aware preamble
+    shared by the four entry points that accept ``--backend`` -- ``cli.run()``,
+    ``run_mc.run()`` and the control grids that grew a ``klt_batch`` backend.
+    Same print-and-return-``None`` contract as ``locate_toolchain`` on a
+    missing tool, plus the resolved backend and the engine string a record
+    or report cites."""
+
+    PROVENANCE = "batch via klt sim (klt 0.9.3); ngspice runs on the fleet"
+
+    def setUp(self):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        self.pdk = fake_pdk(Path(tmp.name))
+
+    def test_local_backend_returns_pdk_and_ngspice_version(self):
+        with mock.patch.object(cliutil, "find_pdk", return_value=self.pdk), \
+                mock.patch.object(runner, "ngspice_version", return_value="ngspice-45"), \
+                mock.patch.object(klt_batch, "klt_version", side_effect=AssertionError("probed")):
+            self.assertEqual(
+                cliutil.locate_backend_toolchain("local", "klt"),
+                ("local", self.pdk, "ngspice-45"),
+            )
+
+    def test_batch_backend_names_klt_and_never_probes_a_local_ngspice(self):
+        with mock.patch.object(cliutil, "find_pdk", return_value=self.pdk), \
+                mock.patch.object(runner, "ngspice_version", side_effect=AssertionError("probed")), \
+                mock.patch.object(klt_batch, "klt_version", return_value="klt 0.9.3") as klt_version:
+            self.assertEqual(
+                cliutil.locate_backend_toolchain("batch", "/opt/klt-fleet"),
+                ("batch", self.pdk, self.PROVENANCE),
+            )
+        klt_version.assert_called_once_with("/opt/klt-fleet")
+
+    def test_need_ngspice_false_skips_both_version_probes(self):
+        with mock.patch.object(cliutil, "find_pdk", return_value=self.pdk), \
+                mock.patch.object(runner, "ngspice_version", side_effect=AssertionError("probed")), \
+                mock.patch.object(klt_batch, "klt_version", side_effect=AssertionError("probed")):
+            for backend in ("local", "batch"):
+                with self.subTest(backend=backend):
+                    self.assertEqual(
+                        cliutil.locate_backend_toolchain(backend, "klt", need_ngspice=False),
+                        (backend, self.pdk, None),
+                    )
+
+    def test_missing_pdk_prints_the_error_prefix_and_returns_none(self):
+        err = io.StringIO()
+        with mock.patch.object(cliutil, "find_pdk", side_effect=PdkNotFound("no pdk")), \
+                mock.patch.object(sys, "stderr", err):
+            self.assertIsNone(
+                cliutil.locate_backend_toolchain("local", "klt", error_prefix="error: ")
+            )
+        self.assertEqual(err.getvalue(), "error: no pdk\n")
+
+    def test_missing_ngspice_prints_bare_and_returns_none(self):
+        err = io.StringIO()
+        with mock.patch.object(cliutil, "find_pdk", return_value=self.pdk), \
+                mock.patch.object(
+                    runner, "ngspice_version", side_effect=runner.NgspiceMissing("no ngspice")), \
+                mock.patch.object(sys, "stderr", err):
+            self.assertIsNone(cliutil.locate_backend_toolchain("local", "klt"))
+        self.assertEqual(err.getvalue(), "no ngspice\n")
+
+    def test_unsupported_backend_is_reported_before_the_pdk_is_consulted(self):
+        err = io.StringIO()
+        with mock.patch.object(cliutil, "find_pdk", side_effect=AssertionError("looked")), \
+                mock.patch.object(sys, "stderr", err):
+            self.assertIsNone(cliutil.locate_backend_toolchain("grid", "klt"))
+        self.assertIn("unsupported sim backend 'grid'", err.getvalue())
+
+    def test_missing_klt_is_an_environment_error_not_a_local_fallback(self):
+        err = io.StringIO()
+        with mock.patch.object(cliutil, "find_pdk", return_value=self.pdk), \
+                mock.patch.object(runner, "ngspice_version", side_effect=AssertionError("fell back")), \
+                mock.patch.object(
+                    klt_batch, "klt_version",
+                    side_effect=klt_batch.KltMissing("'klt' not found on PATH")), \
+                mock.patch.object(sys, "stderr", err):
+            self.assertIsNone(
+                cliutil.locate_backend_toolchain("batch", "klt", error_prefix="error: ")
+            )
+        self.assertEqual(err.getvalue(), "error: 'klt' not found on PATH\n")
+
+    def test_the_batch_provenance_string_has_one_home(self):
+        """A record cites this string for a fleet run, so it must mean one
+        thing. Three verbatim copies is what #699 removed; a fourth must not
+        creep back into an entry point instead of a call to this helper."""
+        homes = []
+        for path in SIM_DIR.rglob("*.py"):
+            rel = path.relative_to(SIM_DIR).parts
+            if any(part.startswith(".") or part == "tests" for part in rel):
+                continue
+            if "batch via klt sim" in path.read_text(encoding="utf-8"):
+                homes.append("/".join(rel))
+        self.assertEqual(sorted(homes), ["harness/cliutil.py"])
 
 
 class DefaultJobsTests(unittest.TestCase):

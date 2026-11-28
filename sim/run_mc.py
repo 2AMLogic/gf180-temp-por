@@ -37,8 +37,7 @@ sys.path.insert(0, str(SIM_DIR))
 
 from harness import cliutil, klt_batch, mc_report, montecarlo, report, runner, testbench as tb_mod  # noqa: E402
 from harness.montecarlo import ManifestError  # noqa: E402
-from harness.pdk import PdkNotFound, find_pdk  # noqa: E402
-from harness.runner import NgspiceMissing, ngspice_version  # noqa: E402
+from harness.runner import NgspiceMissing  # noqa: E402
 
 EXIT_OK = cliutil.EXIT_OK
 EXIT_ENVIRONMENT = cliutil.EXIT_ENVIRONMENT
@@ -119,18 +118,10 @@ def run(args: argparse.Namespace) -> int:
         )
         return EXIT_ENVIRONMENT
 
-    try:
-        backend = klt_batch.resolve_backend(args.backend)
-        pdk = find_pdk()
-        if backend == klt_batch.BACKEND_BATCH:
-            # Batch mode never touches a local ngspice: the engine runs on the
-            # fleet, so the record names klt (the only thing this host runs).
-            ngspice = f"batch via klt sim ({klt_batch.klt_version(args.klt)}); ngspice runs on the fleet"
-        else:
-            ngspice = ngspice_version()
-    except (PdkNotFound, NgspiceMissing, klt_batch.BatchError) as exc:
-        print(f"error: {exc}", file=sys.stderr)
+    toolchain = cliutil.locate_backend_toolchain(args.backend, args.klt, error_prefix="error: ")
+    if toolchain is None:
         return EXIT_ENVIRONMENT
+    backend, pdk, ngspice = toolchain
 
     try:
         binding_points = montecarlo.load_binding_points(tb)

@@ -7,7 +7,9 @@ this is their one shared home, alongside the sha256/git_describe/
 measurement-parsing helpers already consolidated into
 ``sim/harness/runner.py`` (#130). The exit-code constants and the
 record-provisioning / status-to-exit-code helpers below closed the same gap
-for ``sim/run_mc.py`` vs. ``sim/harness/cli.py`` (#168).
+for ``sim/run_mc.py`` vs. ``sim/harness/cli.py`` (#168), and
+``locate_backend_toolchain`` the batch-aware toolchain preamble the four
+``--backend``-accepting entry points each carried their own copy of (#699).
 """
 
 from __future__ import annotations
@@ -51,6 +53,54 @@ def locate_toolchain(*, need_ngspice: bool = True) -> tuple[Pdk, str | None] | N
         print(exc, file=sys.stderr)
         return None
     return pdk, version
+
+
+def locate_backend_toolchain(
+    backend_arg: str | None,
+    klt: str,
+    *,
+    need_ngspice: bool = True,
+    error_prefix: str = "",
+) -> tuple[str, Pdk, str | None] | None:
+    """Resolve ``--backend`` and locate the PDK (and, if ``need_ngspice``, the
+    engine string) for the entry points that accept ``--backend``.
+
+    The batch-aware companion of :func:`locate_toolchain`, which the
+    local-only control scripts keep using unchanged. Returns
+    ``(backend, pdk, engine)``:
+
+    * ``backend`` is ``klt_batch.resolve_backend(backend_arg)``, so an
+      unsupported ``--backend`` or ``$KLT_SIM_BACKEND`` is refused here --
+      before the PDK is consulted.
+    * ``engine`` is what a record or report names as having run the decks.
+      Under the batch backend it is the fleet provenance string: that backend
+      never touches a local ngspice, so none is probed and the record names
+      ``klt`` (the only thing this host runs). Under the local backend it is
+      ``runner.ngspice_version()``. ``None`` when ``need_ngspice`` is false,
+      for an entry point that records no engine.
+
+    On a missing PDK, a missing local ngspice, an unsupported backend or a
+    missing ``klt``, prints ``error_prefix`` plus the error to stderr and
+    returns ``None``; the caller then returns ``EXIT_ENVIRONMENT``.
+    ``error_prefix`` is ``"error: "`` for the two CLIs and empty for the
+    control scripts, which print the bare message.
+    """
+    # Local imports, as in locate_toolchain above.
+    from . import klt_batch, runner
+
+    try:
+        backend = klt_batch.resolve_backend(backend_arg)
+        pdk = find_pdk()
+        if not need_ngspice:
+            engine = None
+        elif backend == klt_batch.BACKEND_BATCH:
+            engine = f"batch via klt sim ({klt_batch.klt_version(klt)}); ngspice runs on the fleet"
+        else:
+            engine = runner.ngspice_version()
+    except (PdkNotFound, runner.NgspiceMissing, klt_batch.BatchError) as exc:
+        print(f"{error_prefix}{exc}", file=sys.stderr)
+        return None
+    return backend, pdk, engine
 
 
 def parse_no_options(argv: list[str] | None, doc: str | None) -> None:
